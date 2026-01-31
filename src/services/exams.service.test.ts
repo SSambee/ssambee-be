@@ -8,6 +8,7 @@ import {
 } from '../test/mocks/repo.mock.js';
 import { createMockPermissionService } from '../test/mocks/services.mock.js';
 import { createMockPrisma } from '../test/mocks/prisma.mock.js';
+import { mockLectures, mockInstructor } from '../test/fixtures/index.js';
 import type {
   ExamsRepository,
   ExamWithQuestions,
@@ -17,7 +18,6 @@ import type { PermissionService } from './permission.service.js';
 import type {
   PrismaClient,
   Prisma,
-  Lecture,
   Question,
   Exam,
 } from '../generated/prisma/client.js';
@@ -26,7 +26,7 @@ import type {
   UpdateExamDto,
 } from '../validations/exams.validation.js';
 
-describe('ExamsService', () => {
+describe('ExamsService - @unit #critical', () => {
   let examsService: ExamsService;
   let mockExamsRepo: jest.Mocked<ExamsRepository>;
   let mockLecturesRepo: jest.Mocked<LecturesRepository>;
@@ -34,11 +34,13 @@ describe('ExamsService', () => {
   let mockPrisma: jest.Mocked<PrismaClient>;
 
   const mockUserType = UserType.INSTRUCTOR;
-  const mockProfileId = 'instructor-1';
-  const mockLectureId = 'lecture-1';
+  const mockProfileId = mockInstructor.id;
+  const mockLecture = mockLectures.basic;
+  const mockLectureId = mockLecture.id;
   const mockExamId = 'exam-1';
 
   beforeEach(() => {
+    jest.clearAllMocks();
     mockExamsRepo = createMockExamsRepository() as jest.Mocked<ExamsRepository>;
     mockLecturesRepo =
       createMockLecturesRepository() as jest.Mocked<LecturesRepository>;
@@ -46,7 +48,6 @@ describe('ExamsService', () => {
       createMockPermissionService() as jest.Mocked<PermissionService>;
     mockPrisma = createMockPrisma() as unknown as jest.Mocked<PrismaClient>;
 
-    // Transaction mock needs to handle the callback
     mockPrisma.$transaction.mockImplementation(
       <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> =>
         callback(mockPrisma as unknown as Prisma.TransactionClient),
@@ -60,12 +61,108 @@ describe('ExamsService', () => {
     );
   });
 
-  describe('createExam', () => {
-    it('should create exam with questions successfully', async () => {
-      const mockLecture = {
-        id: mockLectureId,
-        instructorId: mockProfileId,
-      } as Lecture;
+  describe('[조회] getExamsByLectureId', () => {
+    it('강의 권한이 있는 사용자가 조회를 요청할 때, 강의에 포함된 시험 목록이 반환된다', async () => {
+      // Arrange
+      const mockExams = [{ id: mockExamId, title: 'Exam 1' }] as Exam[];
+      mockLecturesRepo.findById.mockResolvedValue(mockLecture);
+      mockExamsRepo.findByLectureId.mockResolvedValue(mockExams);
+
+      // Act
+      const result = await examsService.getExamsByLectureId(
+        mockLectureId,
+        mockUserType,
+        mockProfileId,
+      );
+
+      // Assert
+      expect(mockLecturesRepo.findById).toHaveBeenCalledWith(mockLectureId);
+      expect(
+        mockPermissionService.validateInstructorAccess,
+      ).toHaveBeenCalledWith(
+        mockLecture.instructorId,
+        mockUserType,
+        mockProfileId,
+      );
+      expect(mockExamsRepo.findByLectureId).toHaveBeenCalledWith(mockLectureId);
+      expect(result).toEqual(mockExams);
+    });
+
+    it('존재하지 않는 강의의 시험 목록을 요청할 때, NotFoundException을 던진다', async () => {
+      mockLecturesRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        examsService.getExamsByLectureId(
+          'invalid-id',
+          mockUserType,
+          mockProfileId,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('[조회] getExamById', () => {
+    it('시험 권한이 있는 사용자가 상세 조회를 요청할 때, 문항을 포함한 시험 상세 정보가 반환된다', async () => {
+      const mockExamWithQuestions = {
+        id: mockExamId,
+        lectureId: mockLectureId,
+        questions: [],
+      } as unknown as ExamWithQuestions;
+
+      mockExamsRepo.findByIdWithQuestions.mockResolvedValue(
+        mockExamWithQuestions,
+      );
+      mockLecturesRepo.findById.mockResolvedValue(mockLecture);
+
+      const result = await examsService.getExamById(
+        mockExamId,
+        mockUserType,
+        mockProfileId,
+      );
+
+      expect(mockExamsRepo.findByIdWithQuestions).toHaveBeenCalledWith(
+        mockExamId,
+      );
+      expect(mockLecturesRepo.findById).toHaveBeenCalledWith(mockLectureId);
+      expect(
+        mockPermissionService.validateInstructorAccess,
+      ).toHaveBeenCalledWith(
+        mockLecture.instructorId,
+        mockUserType,
+        mockProfileId,
+      );
+      expect(result).toEqual(mockExamWithQuestions);
+    });
+
+    it('존재하지 않는 시험을 조회할 때, NotFoundException을 던진다', async () => {
+      mockExamsRepo.findByIdWithQuestions.mockResolvedValue(null);
+
+      await expect(
+        examsService.getExamById(mockExamId, mockUserType, mockProfileId),
+      ).rejects.toThrow(NotFoundException);
+      await expect(
+        examsService.getExamById(mockExamId, mockUserType, mockProfileId),
+      ).rejects.toThrow('시험을 찾을 수 없습니다.');
+    });
+
+    it('시험은 존재하나 관련 강의 정보가 없을 때, NotFoundException을 던진다', async () => {
+      const mockExam = { id: mockExamId, lectureId: 'none' } as Exam;
+      mockExamsRepo.findByIdWithQuestions.mockResolvedValue(
+        mockExam as ExamWithQuestions,
+      );
+      mockLecturesRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        examsService.getExamById(mockExamId, mockUserType, mockProfileId),
+      ).rejects.toThrow(NotFoundException);
+      await expect(
+        examsService.getExamById(mockExamId, mockUserType, mockProfileId),
+      ).rejects.toThrow('관련 강의를 찾을 수 없습니다.');
+    });
+  });
+
+  describe('[생성] createExam', () => {
+    it('강사가 올바른 정보로 시험 생성을 요청할 때, 문항을 포함한 시험이 성공적으로 생성된다', async () => {
       const createDto: CreateExamDto = {
         title: 'Midterm Exam',
         cutoffScore: 0,
@@ -107,7 +204,7 @@ describe('ExamsService', () => {
       expect(result).toBeDefined();
     });
 
-    it('should throw NotFoundException if lecture not found', async () => {
+    it('존재하지 않는 강의에 시험 생성을 시도할 때, NotFoundException을 던진다', async () => {
       mockLecturesRepo.findById.mockResolvedValue(null);
 
       await expect(
@@ -121,17 +218,14 @@ describe('ExamsService', () => {
     });
   });
 
-  describe('updateExam', () => {
-    it('should update exam and upsert questions', async () => {
+  describe('[수정] updateExam', () => {
+    it('강사가 올바른 정보로 시험 수정을 요청할 때, 시험 정보와 문항들이 성공적으로 수정 및 생성된다', async () => {
       const mockExam = {
         id: mockExamId,
         lectureId: mockLectureId,
         questions: [],
       } as unknown as ExamWithQuestions;
-      const mockLecture = {
-        id: mockLectureId,
-        instructorId: mockProfileId,
-      } as Lecture;
+
       const updateDto: UpdateExamDto = {
         title: 'Updated Title',
         cutoffScore: 0,
@@ -175,7 +269,6 @@ describe('ExamsService', () => {
         mockProfileId,
       );
 
-      // Verify Permission Check
       expect(
         mockPermissionService.validateInstructorAccess,
       ).toHaveBeenCalledWith(
@@ -184,33 +277,59 @@ describe('ExamsService', () => {
         mockProfileId,
       );
 
-      // Verify Update
       expect(mockExamsRepo.update).toHaveBeenCalledWith(
         mockExamId,
         updateDto,
         mockPrisma,
       );
 
-      // Verify Delete (q3)
+      // q3 삭제 확인
       expect(mockExamsRepo.deleteQuestions).toHaveBeenCalledWith(
         ['q3'],
         mockPrisma,
       );
 
-      // Verify Update (q1)
+      // q1 수정 확인
       expect(mockExamsRepo.updateQuestion).toHaveBeenCalledWith(
         'q1',
         expect.objectContaining({ content: 'Updated Q1' }),
         mockPrisma,
       );
 
-      // Verify Create (New Q2)
+      // 새 문항 생성 확인
       expect(mockExamsRepo.createQuestion).toHaveBeenCalledWith(
         mockExamId,
         mockLectureId,
         expect.objectContaining({ content: 'New Q2' }),
         mockPrisma,
       );
+    });
+
+    it('존재하지 않는 시험 수정을 시도할 때, NotFoundException을 던진다', async () => {
+      mockExamsRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        examsService.updateExam(
+          mockExamId,
+          {} as UpdateExamDto,
+          mockUserType,
+          mockProfileId,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('시험은 존재하나 관련 강의 정보가 없을 때, NotFoundException을 던진다', async () => {
+      mockExamsRepo.findById.mockResolvedValue({ id: mockExamId } as Exam);
+      mockLecturesRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        examsService.updateExam(
+          mockExamId,
+          {} as UpdateExamDto,
+          mockUserType,
+          mockProfileId,
+        ),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });
