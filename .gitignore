@@ -42,4 +42,5 @@ terraform.tfvars
 
 crash.log
 
+.secrets
 *.pem
