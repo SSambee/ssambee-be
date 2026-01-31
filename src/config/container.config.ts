@@ -93,6 +93,7 @@ const gradesService = new GradesService(
   gradesRepo,
   examsRepo,
   lecturesRepo,
+  enrollmentsRepo,
   permissionService,
   prisma,
 );
