@@ -5,3 +5,5 @@ export * from './profile.fixture.js';
 export * from './lectures.fixture.js';
 export * from './enrollments.fixture.js';
 export * from './attendances.fixture.js';
+export * from './exams.fixture.js';
+export * from './grades.fixture.js';
