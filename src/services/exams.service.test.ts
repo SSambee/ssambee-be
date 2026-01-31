@@ -64,7 +64,18 @@ describe('ExamsService - @unit #critical', () => {
   describe('[조회] getExamsByLectureId', () => {
     it('강의 권한이 있는 사용자가 조회를 요청할 때, 강의에 포함된 시험 목록이 반환된다', async () => {
       // Arrange
-      const mockExams = [{ id: mockExamId, title: 'Exam 1' }] as Exam[];
+      const mockExams = [
+        {
+          id: mockExamId,
+          title: 'Exam 1',
+          lectureId: mockLectureId,
+          cutoffScore: 0,
+          source: null,
+          gradingStatus: 'PENDING',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ] as Exam[];
       mockLecturesRepo.findById.mockResolvedValue(mockLecture);
       mockExamsRepo.findByLectureId.mockResolvedValue(mockExams);
 
@@ -106,6 +117,13 @@ describe('ExamsService - @unit #critical', () => {
       const mockExamWithQuestions = {
         id: mockExamId,
         lectureId: mockLectureId,
+        instructorId: mockProfileId,
+        title: 'Exam 1',
+        cutoffScore: 0,
+        source: null,
+        gradingStatus: 'PENDING',
+        createdAt: new Date(),
+        updatedAt: new Date(),
         questions: [],
       } as unknown as ExamWithQuestions;
 
@@ -173,6 +191,7 @@ describe('ExamsService - @unit #critical', () => {
             correctAnswer: 'A',
             score: 10,
             type: QuestionType.MULTIPLE,
+            choices: { '1': 'A', '2': 'B' },
           },
         ],
       };
@@ -182,7 +201,12 @@ describe('ExamsService - @unit #critical', () => {
         id: mockExamId,
         lectureId: mockLectureId,
         instructorId: mockProfileId,
+        source: null,
+        gradingStatus: 'PENDING',
+        createdAt: new Date(),
+        updatedAt: new Date(),
         ...createDto,
+        questions: [] as Question[],
       } as unknown as ExamWithQuestions);
 
       const result = await examsService.createExam(
@@ -223,6 +247,13 @@ describe('ExamsService - @unit #critical', () => {
       const mockExam = {
         id: mockExamId,
         lectureId: mockLectureId,
+        instructorId: mockProfileId,
+        title: 'Exam 1',
+        cutoffScore: 0,
+        source: null,
+        gradingStatus: 'PENDING',
+        createdAt: new Date(),
+        updatedAt: new Date(),
         questions: [],
       } as unknown as ExamWithQuestions;
 
@@ -319,7 +350,17 @@ describe('ExamsService - @unit #critical', () => {
     });
 
     it('시험은 존재하나 관련 강의 정보가 없을 때, NotFoundException을 던진다', async () => {
-      mockExamsRepo.findById.mockResolvedValue({ id: mockExamId } as Exam);
+      mockExamsRepo.findById.mockResolvedValue({
+        id: mockExamId,
+        lectureId: 'none',
+        instructorId: null,
+        title: 'Exam 1',
+        cutoffScore: 0,
+        source: null,
+        gradingStatus: 'PENDING',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as Exam);
       mockLecturesRepo.findById.mockResolvedValue(null);
 
       await expect(
