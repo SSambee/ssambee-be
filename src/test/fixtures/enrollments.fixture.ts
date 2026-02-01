@@ -21,8 +21,8 @@ export const mockStudents = {
       '서초고등학교',
     ]),
     schoolYear: '고1',
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-01'),
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
     deletedAt: null,
   } as AppStudent,
 
@@ -32,8 +32,8 @@ export const mockStudents = {
     phoneNumber: faker.phone.number({ style: 'national' }),
     school: '서울고등학교',
     schoolYear: '고2',
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-01'),
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
     deletedAt: null,
   } as AppStudent,
 
@@ -43,8 +43,8 @@ export const mockStudents = {
     phoneNumber: faker.phone.number({ style: 'national' }),
     school: '강남고등학교',
     schoolYear: '고1',
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-01'),
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
     deletedAt: null,
   } as AppStudent,
 };
@@ -55,8 +55,8 @@ export const mockParents = {
     id: faker.string.uuid(),
     userId: mockUsers.parent.id,
     phoneNumber: faker.phone.number({ style: 'national' }),
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-01'),
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
     deletedAt: null,
   } as AppParent,
 
@@ -64,8 +64,8 @@ export const mockParents = {
     id: faker.string.uuid(),
     userId: faker.string.uuid(),
     phoneNumber: faker.phone.number({ style: 'national' }),
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-01'),
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
     deletedAt: null,
   } as AppParent,
 };
@@ -77,15 +77,15 @@ export const mockParentLinks = {
     appParentId: mockParents.basic.id,
     phoneNumber: mockStudents.basic.phoneNumber,
     name: mockStudents.basic.schoolYear + ' ' + faker.person.fullName(),
-    createdAt: new Date('2024-01-01'),
+    createdAt: faker.date.past(),
     parent: {
-      id: 'parent-id-001',
-      userId: 'user-parent-id-001',
-      phoneNumber: '010-3333-4444',
-      createdAt: new Date('2024-01-01'),
-      updatedAt: new Date('2024-01-01'),
+      id: faker.string.uuid(),
+      userId: faker.string.uuid(),
+      phoneNumber: faker.phone.number({ style: 'national' }),
+      createdAt: faker.date.past(),
+      updatedAt: faker.date.recent(),
     },
-    updatedAt: new Date('2024-01-01'),
+    updatedAt: faker.date.recent(),
   },
 
   another: {
@@ -94,15 +94,15 @@ export const mockParentLinks = {
     phoneNumber: mockStudents.withParentLink.phoneNumber,
     name:
       mockStudents.withParentLink.schoolYear + ' ' + faker.person.fullName(),
-    createdAt: new Date('2024-01-01'),
+    createdAt: faker.date.past(),
     parent: {
-      id: 'parent-id-002',
-      userId: 'user-parent-id-002',
-      phoneNumber: '010-7777-8888',
-      createdAt: new Date('2024-01-01'),
-      updatedAt: new Date('2024-01-01'),
+      id: faker.string.uuid(),
+      userId: faker.string.uuid(),
+      phoneNumber: faker.phone.number({ style: 'national' }),
+      createdAt: faker.date.past(),
+      updatedAt: faker.date.recent(),
     },
-    updatedAt: new Date('2024-01-01'),
+    updatedAt: faker.date.recent(),
   },
 };
 
@@ -115,7 +115,7 @@ export const mockAssistants = {
     phoneNumber: faker.phone.number({ style: 'national' }),
     signupCode: null,
     contract: null,
-    createdAt: new Date('2024-01-01'),
+    createdAt: faker.date.past(),
   } as Assistant,
 
   otherInstructor: {
@@ -125,7 +125,7 @@ export const mockAssistants = {
     phoneNumber: faker.phone.number({ style: 'national' }),
     signupCode: null,
     contract: null,
-    createdAt: new Date('2024-01-01'),
+    createdAt: faker.date.past(),
   } as Assistant,
 };
 
@@ -143,7 +143,7 @@ export const mockEnrollments = {
     studentPhone: mockStudents.basic.phoneNumber,
     parentPhone: mockParents.basic.phoneNumber,
     status: EnrollmentStatus.ACTIVE,
-    registeredAt: new Date('2024-02-01'),
+    registeredAt: faker.date.past(),
     memo: null,
     deletedAt: null,
   } as Enrollment,
@@ -160,7 +160,7 @@ export const mockEnrollments = {
     studentPhone: mockStudents.withParentLink.phoneNumber,
     parentPhone: faker.phone.number({ style: 'national' }),
     status: EnrollmentStatus.ACTIVE,
-    registeredAt: new Date('2024-02-01'),
+    registeredAt: faker.date.past(),
     memo: null,
     deletedAt: null,
   } as Enrollment,
@@ -177,9 +177,9 @@ export const mockEnrollments = {
     studentPhone: mockStudents.another.phoneNumber,
     parentPhone: faker.phone.number({ style: 'national' }),
     status: EnrollmentStatus.ACTIVE,
-    registeredAt: new Date('2024-02-01'),
+    registeredAt: faker.date.past(),
     memo: null,
-    deletedAt: new Date('2024-03-01'),
+    deletedAt: faker.date.recent(),
   } as Enrollment,
 
   otherInstructor: {
@@ -194,7 +194,7 @@ export const mockEnrollments = {
     studentPhone: mockStudents.another.phoneNumber,
     parentPhone: faker.phone.number({ style: 'national' }),
     status: EnrollmentStatus.ACTIVE,
-    registeredAt: new Date('2024-02-01'),
+    registeredAt: faker.date.past(),
     memo: null,
     deletedAt: null,
   } as Enrollment,
@@ -206,12 +206,12 @@ export const mockEnrollments = {
     appStudentId: null,
     appParentLinkId: null,
     studentName: faker.person.fullName(),
-    school: '서울고등학교',
+    school: `${faker.location.city()}고등학교`,
     schoolYear: '고3',
     studentPhone: faker.phone.number({ style: 'national' }),
     parentPhone: faker.phone.number({ style: 'national' }),
     status: EnrollmentStatus.ACTIVE,
-    registeredAt: new Date('2024-02-01'),
+    registeredAt: faker.date.past(),
     memo: faker.lorem.sentence(),
     deletedAt: null,
   } as Enrollment,
@@ -221,7 +221,7 @@ export const mockEnrollments = {
 export const createEnrollmentRequests = {
   basic: {
     studentName: faker.person.fullName(),
-    school: '서울고등학교',
+    school: `${faker.location.city()}고등학교`,
     schoolYear: '고1',
     studentPhone: faker.phone.number({ style: 'national' }),
     parentPhone: faker.phone.number({ style: 'national' }),
@@ -229,7 +229,7 @@ export const createEnrollmentRequests = {
 
   withParentLink: {
     studentName: faker.person.fullName(),
-    school: '강남고등학교',
+    school: `${faker.location.city()}고등학교`,
     schoolYear: '고2',
     studentPhone: faker.phone.number({ style: 'national' }),
     parentPhone: faker.phone.number({ style: 'national' }),
@@ -238,7 +238,7 @@ export const createEnrollmentRequests = {
 
   withMemo: {
     studentName: faker.person.fullName(),
-    school: '서울고등학교',
+    school: `${faker.location.city()}고등학교`,
     schoolYear: '고3',
     studentPhone: faker.phone.number({ style: 'national' }),
     parentPhone: faker.phone.number({ style: 'national' }),
@@ -250,7 +250,7 @@ export const createEnrollmentRequests = {
 export const updateEnrollmentRequests = {
   full: {
     studentName: faker.person.fullName() + ' (수정)',
-    school: '강남고등학교',
+    school: `${faker.location.city()}고등학교`,
     schoolYear: '고2',
     studentPhone: faker.phone.number({ style: 'national' }),
     parentPhone: faker.phone.number({ style: 'national' }),

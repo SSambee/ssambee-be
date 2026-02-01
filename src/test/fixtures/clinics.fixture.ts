@@ -1,3 +1,4 @@
+import { fakerKO as faker } from '@faker-js/faker';
 import type { Clinic } from '../../generated/prisma/client.js';
 import { mockExams } from './exams.fixture.js';
 import { mockEnrollments } from './enrollments.fixture.js';
@@ -15,8 +16,8 @@ export const mockClinics = {
     status: 'PENDING',
     memo: '오답 정리 필수',
     instructorId: mockLectures.basic.instructorId,
-    createdAt: new Date('2024-03-01'),
-    updatedAt: new Date('2024-03-01'),
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
   } as Clinic,
 
   completed: {
@@ -29,8 +30,8 @@ export const mockClinics = {
     status: 'COMPLETED',
     memo: '완료됨',
     instructorId: mockLectures.basic.instructorId,
-    createdAt: new Date('2024-03-01'),
-    updatedAt: new Date('2024-03-01'),
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
   } as Clinic,
 };
 
@@ -49,15 +50,15 @@ export const mockClinicWithRelations = {
     title: mockExams.basic.title,
     cutoffScore: mockExams.basic.cutoffScore,
     schedule: {
-      startTime: new Date('2024-03-01T10:00:00Z'),
+      startTime: faker.date.soon(),
     },
   },
 };
 
 /** 클리닉 생성 요청 데이터 */
 export const createClinicDto = {
-  title: '기말고사 대비 클리닉',
-  deadline: '2024-12-31',
+  title: faker.word.words(2) + ' 클리닉',
+  deadline: faker.date.future().toISOString().split('T')[0],
   memo: '중요 문제 위주로 복습',
 };
 
@@ -66,7 +67,7 @@ export const updateClinicDto = {
   clinicIds: [mockClinics.pending.id],
   updates: {
     status: 'SENT',
-    deadline: '2025-01-15',
+    deadline: faker.date.future().toISOString().split('T')[0],
     memo: '학부모님께 발송 완료',
   },
 };

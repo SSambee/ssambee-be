@@ -1,3 +1,4 @@
+import { fakerKO as faker } from '@faker-js/faker';
 import { QuestionType } from '../../constants/exams.constant.js';
 import type { Exam, Question, Lecture } from '../../generated/prisma/client.js';
 import type {
@@ -12,24 +13,24 @@ export const mockExams = {
     id: 'exam-1',
     lectureId: mockLectures.basic.id,
     instructorId: mockLectures.basic.instructorId,
-    title: '중간고사',
+    title: faker.helpers.arrayElement(['중간고사', '기말고사', '단원평가']),
     cutoffScore: 60,
     source: null,
     gradingStatus: 'PENDING',
-    createdAt: new Date('2024-03-01'),
-    updatedAt: new Date('2024-03-01'),
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
   } as Exam,
 
   withQuestions: {
     id: 'exam-2',
     lectureId: mockLectures.withEnrollments.id,
     instructorId: mockLectures.withEnrollments.instructorId,
-    title: '기말고사',
+    title: faker.helpers.arrayElement(['중간고사', '기말고사', '단원평가']),
     cutoffScore: 70,
     source: null,
     gradingStatus: 'PENDING',
-    createdAt: new Date('2024-03-15'),
-    updatedAt: new Date('2024-03-15'),
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
   } as Exam,
 
   otherInstructor: {
@@ -40,8 +41,8 @@ export const mockExams = {
     cutoffScore: 60,
     source: null,
     gradingStatus: 'PENDING',
-    createdAt: new Date('2024-03-01'),
-    updatedAt: new Date('2024-03-01'),
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
   } as Exam,
 } as const;
 
@@ -52,14 +53,14 @@ export const mockQuestions = {
     examId: mockExams.basic.id,
     lectureId: mockExams.basic.lectureId,
     questionNumber: 1,
-    content: '다음 중 옳은 것은?',
+    content: faker.lorem.sentence() + '?',
     score: 10,
     type: QuestionType.MULTIPLE,
     correctAnswer: 'A',
     choices: { '1': 'A', '2': 'B', '3': 'C', '4': 'D' },
     source: null,
-    createdAt: new Date('2024-03-01'),
-    updatedAt: new Date('2024-03-01'),
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
   } as Question,
 
   shortAnswer: {
@@ -67,14 +68,14 @@ export const mockQuestions = {
     examId: mockExams.basic.id,
     lectureId: mockExams.basic.lectureId,
     questionNumber: 2,
-    content: '단답형 문제입니다.',
+    content: faker.lorem.sentence(),
     score: 15,
     type: QuestionType.MULTIPLE,
     correctAnswer: '정답입니다.',
     choices: null,
     source: null,
-    createdAt: new Date('2024-03-01'),
-    updatedAt: new Date('2024-03-01'),
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
   } as Question,
 
   essay: {
@@ -82,14 +83,14 @@ export const mockQuestions = {
     examId: mockExams.withQuestions.id,
     lectureId: mockExams.withQuestions.lectureId,
     questionNumber: 3,
-    content: '자세히 서술하시오.',
+    content: faker.lorem.paragraph(),
     score: 20,
     type: QuestionType.ESSAY,
     correctAnswer: '모범답안',
     choices: null,
     source: null,
-    createdAt: new Date('2024-03-15'),
-    updatedAt: new Date('2024-03-15'),
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
   } as Question,
 } as const;
 
@@ -112,12 +113,12 @@ export const mockExamWithQuestions = {
 /** 시험 생성 요청 DTO */
 export const createExamRequests = {
   basic: {
-    title: '신규 시험',
+    title: faker.word.words(2) + ' 시험',
     cutoffScore: 60,
     questions: [
       {
         questionNumber: 1,
-        content: '첫 번째 문제',
+        content: faker.lorem.sentence(),
         correctAnswer: 'A',
         score: 10,
         type: QuestionType.MULTIPLE,
@@ -127,12 +128,12 @@ export const createExamRequests = {
   } as CreateExamDto,
 
   multipleQuestions: {
-    title: '다중 문제 시험',
+    title: faker.word.words(2) + ' 시험',
     cutoffScore: 70,
     questions: [
       {
         questionNumber: 1,
-        content: '다중 선택 문제',
+        content: faker.lorem.sentence(),
         correctAnswer: 'A',
         score: 10,
         type: QuestionType.MULTIPLE,
@@ -140,7 +141,7 @@ export const createExamRequests = {
       },
       {
         questionNumber: 2,
-        content: '주관식 문제',
+        content: faker.lorem.sentence(),
         correctAnswer: '정답입니다',
         score: 15,
         type: QuestionType.MULTIPLE,
@@ -149,7 +150,7 @@ export const createExamRequests = {
   } as CreateExamDto,
 
   noQuestions: {
-    title: '문제 없는 시험',
+    title: faker.word.words(2) + ' 시험',
     cutoffScore: 50,
     questions: [],
   } as CreateExamDto,
@@ -158,7 +159,7 @@ export const createExamRequests = {
 /** 시험 수정 요청 DTO */
 export const updateExamRequests = {
   basic: {
-    title: '수정된 시험 제목',
+    title: faker.word.words(2) + ' (수정)',
     cutoffScore: 65,
   } as UpdateExamDto,
 
