@@ -1,3 +1,4 @@
+import { fakerKO as faker } from '@faker-js/faker';
 import type { QuestionStatistic } from '../../generated/prisma/client.js';
 import { mockExams, mockQuestions } from './exams.fixture.js';
 
@@ -27,11 +28,11 @@ export const mockQuestionStats = {
 
 /** Mock Exam Summary 데이터 */
 export const mockExamSummary = {
-  averageScore: 75.5,
+  averageScore: faker.number.float({ min: 0, max: 100, fractionDigits: 1 }),
   highestScore: 100,
   lowestScore: 40,
   totalExaminees: 2,
-  examDate: new Date('2024-03-01T10:00:00Z'),
+  examDate: faker.date.past(),
 };
 
 /** Mock Student Grades with Info */
@@ -41,8 +42,8 @@ export const mockStudentGrades = [
     score: 90,
     enrollment: {
       id: 'enroll-1',
-      studentName: '학생1',
-      school: 'A고등학교',
+      studentName: faker.person.fullName(),
+      school: `${faker.location.city()}고등학교`,
     },
   },
   {
@@ -50,8 +51,8 @@ export const mockStudentGrades = [
     score: 80,
     enrollment: {
       id: 'enroll-2',
-      studentName: '학생2',
-      school: 'B고등학교',
+      studentName: faker.person.fullName(),
+      school: `${faker.location.city()}고등학교`,
     },
   },
 ];

@@ -10,8 +10,8 @@ export const mockUsers = {
     name: faker.person.fullName(),
     image: null,
     userType: UserType.INSTRUCTOR,
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-01'),
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
   },
   assistant: {
     id: faker.string.uuid(),
@@ -20,8 +20,8 @@ export const mockUsers = {
     name: faker.person.fullName(),
     image: null,
     userType: UserType.ASSISTANT,
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-01'),
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
   },
   student: {
     id: faker.string.uuid(),
@@ -30,8 +30,8 @@ export const mockUsers = {
     name: faker.person.fullName(),
     image: null,
     userType: UserType.STUDENT,
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-01'),
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
   },
   parent: {
     id: faker.string.uuid(),
@@ -40,7 +40,7 @@ export const mockUsers = {
     name: faker.person.fullName(),
     image: null,
     userType: UserType.PARENT,
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-01'),
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
   },
 } as const;
