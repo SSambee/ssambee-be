@@ -5,10 +5,6 @@ import {
   createChildSchema,
   childIdParamSchema,
 } from '../../../validations/children.validation.js';
-import {
-  enrollmentIdParamSchema,
-  gradeIdParamSchema,
-} from '../../../validations/grades.validation.js';
 import { getSvcEnrollmentsQuerySchema } from '../../../validations/enrollments.validation.js';
 
 export const svcChildrenRouter = Router();
@@ -47,7 +43,6 @@ svcChildrenRouter.get(
 svcChildrenRouter.get(
   '/:id/enrollments/:enrollmentId/grades',
   validate(childIdParamSchema, 'params'),
-  validate(enrollmentIdParamSchema, 'params'),
   childrenController.getChildGradesByEnrollment,
 );
 
@@ -55,7 +50,6 @@ svcChildrenRouter.get(
 svcChildrenRouter.get(
   '/:id/grades/:gradeId',
   validate(childIdParamSchema, 'params'),
-  validate(gradeIdParamSchema, 'params'),
   childrenController.getChildGradeDetail,
 );
 
