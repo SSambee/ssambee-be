@@ -19,6 +19,7 @@ import {
   mockExams,
   mockEnrollments,
   mockQuestions,
+  mockGrades,
   submitGradingRequests,
 } from '../test/fixtures/index.js';
 import type { GradesRepository } from '../repos/grades.repo.js';
@@ -26,12 +27,7 @@ import type { ExamsRepository } from '../repos/exams.repo.js';
 import type { LecturesRepository } from '../repos/lectures.repo.js';
 import type { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import type { PermissionService } from './permission.service.js';
-import type {
-  PrismaClient,
-  Prisma,
-  Exam,
-  Grade,
-} from '../generated/prisma/client.js';
+import type { PrismaClient, Prisma } from '../generated/prisma/client.js';
 
 describe('GradesService - @unit #critical', () => {
   let gradesService: GradesService;
@@ -81,11 +77,19 @@ describe('GradesService - @unit #critical', () => {
         mockQuestions.shortAnswer,
       ];
 
-      mockExamsRepo.findById.mockResolvedValue(mockExam);
-      mockLecturesRepo.findById.mockResolvedValue(mockLecture);
-      mockEnrollmentsRepo.findById.mockResolvedValue(mockEnrollment);
+      mockExamsRepo.findById.mockResolvedValue(
+        mockExam as Awaited<ReturnType<typeof mockExamsRepo.findById>>,
+      );
+      mockLecturesRepo.findById.mockResolvedValue(
+        mockLecture as Awaited<ReturnType<typeof mockLecturesRepo.findById>>,
+      );
+      mockEnrollmentsRepo.findById.mockResolvedValue(
+        mockEnrollment as Awaited<
+          ReturnType<typeof mockEnrollmentsRepo.findById>
+        >,
+      );
       mockExamsRepo.findQuestionsByExamId.mockResolvedValue(mockQuestionsList);
-      mockGradesRepo.upsertGrade.mockResolvedValue({ id: 'grade-1' } as Grade);
+      mockGradesRepo.upsertGrade.mockResolvedValue(mockGrades.basic);
 
       // Act
       const result = await gradesService.submitGrading(
@@ -143,7 +147,7 @@ describe('GradesService - @unit #critical', () => {
       const completedExam = {
         ...mockExam,
         gradingStatus: GradingStatus.COMPLETED,
-      } as Exam;
+      } as Awaited<ReturnType<typeof mockExamsRepo.findById>>;
       mockExamsRepo.findById.mockResolvedValue(completedExam);
 
       await expect(
@@ -290,14 +294,6 @@ describe('GradesService - @unit #critical', () => {
           mockUserType,
           mockProfileId,
         ),
-      ).rejects.toThrow(BadRequestException);
-      await expect(
-        gradesService.submitGrading(
-          mockExam.id,
-          data,
-          mockUserType,
-          mockProfileId,
-        ),
       ).rejects.toThrow('정답 개수가 올바르지 않습니다');
     });
 
@@ -320,27 +316,16 @@ describe('GradesService - @unit #critical', () => {
 
   describe('[조회] getGradesByExam', () => {
     it('권한이 있는 사용자가 성적 조회를 요청할 때, 해당 시험의 성적 목록이 반환된다', async () => {
-      type GradeWithEnrollment = Prisma.GradeGetPayload<{
-        include: { enrollment: true };
-      }>;
-      const mockGradesList: Partial<GradeWithEnrollment>[] = [
-        {
-          id: 'grade-1',
-          score: 100,
-          enrollment: {
-            id: 'en-1',
-            studentName: '학생1',
-            studentPhone: '010-1234-5678',
-            school: 'S학교',
-            schoolYear: '1학년',
-          } as unknown as GradeWithEnrollment['enrollment'],
-        },
-      ];
-      mockExamsRepo.findById.mockResolvedValue(mockExam);
-      mockLecturesRepo.findById.mockResolvedValue(mockLecture);
-      mockGradesRepo.findGradesByExamId.mockResolvedValue(
-        mockGradesList as GradeWithEnrollment[],
+      const mockGradesList = [mockGrades.withEnrollment] as Awaited<
+        ReturnType<typeof mockGradesRepo.findGradesByExamId>
+      >;
+      mockExamsRepo.findById.mockResolvedValue(
+        mockExam as Awaited<ReturnType<typeof mockExamsRepo.findById>>,
       );
+      mockLecturesRepo.findById.mockResolvedValue(
+        mockLecture as Awaited<ReturnType<typeof mockLecturesRepo.findById>>,
+      );
+      mockGradesRepo.findGradesByExamId.mockResolvedValue(mockGradesList);
 
       const result = await gradesService.getGradesByExam(
         mockExam.id,
