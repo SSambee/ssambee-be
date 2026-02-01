@@ -88,7 +88,7 @@ export const submitGradingRequests = {
   } as SubmitGradingDto,
 
   withEssay: {
-    enrollmentId: mockEnrollments.active.id,
+    enrollmentId: mockEnrollments.withEssayLecture.id,
     totalScore: 20,
     correctCount: 1,
     answers: [
