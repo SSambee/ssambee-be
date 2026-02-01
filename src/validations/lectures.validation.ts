@@ -173,6 +173,8 @@ export const updateLectureSchema = z.object({
     .nullable(),
 
   status: z.nativeEnum(LectureStatus).optional(),
+
+  lectureTimes: z.array(lectureTimeItemSchema).optional(),
 });
 
 export type UpdateLectureDto = z.infer<typeof updateLectureSchema>;

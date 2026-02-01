@@ -161,6 +161,7 @@ export class LecturesRepository {
   /** 강의 수정 */
   async update(
     id: string,
+    instructorId: string,
     data: Partial<{
       title: string;
       subject: string;
@@ -169,13 +170,61 @@ export class LecturesRepository {
       endAt: Date | null;
       status: string;
     }>,
+    lectureTimes?: { day: string; startTime: string; endTime: string }[],
     tx?: Prisma.TransactionClient,
-  ): Promise<Lecture> {
+  ): Promise<LectureWithTimes> {
     const client = tx ?? this.prisma;
-    return await client.lecture.update({
-      where: { id, deletedAt: null },
-      data,
-    });
+
+    if (lectureTimes !== undefined) {
+      const updateWithTimes = async (innerTx: Prisma.TransactionClient) => {
+        // 1. 기존 lectureTimes 삭제
+        await innerTx.lectureTime.deleteMany({
+          where: { lectureId: id },
+        });
+
+        // 2. 새로운 lectureTimes 생성 (배열이 비어있지 않은 경우에만)
+        if (lectureTimes.length > 0) {
+          await innerTx.lectureTime.createMany({
+            data: lectureTimes.map((time) => ({
+              lectureId: id,
+              instructorId, // instructorId 필요함 (매개변수로 받아야 함)
+              day: time.day,
+              startTime: time.startTime,
+              endTime: time.endTime,
+            })),
+          });
+        }
+
+        // 3. Lecture 업데이트
+        await innerTx.lecture.update({
+          where: { id, deletedAt: null },
+          data,
+        });
+
+        // 4. lectureTimes 포함하여 반환
+        return await innerTx.lecture.findUniqueOrThrow({
+          where: { id },
+          include: { lectureTimes: true },
+        });
+      };
+
+      if (tx) {
+        return await updateWithTimes(tx);
+      } else {
+        return await this.prisma.$transaction(updateWithTimes);
+      }
+    } else {
+      // lectureTimes 업데이트 없이 기존 로직
+      await client.lecture.update({
+        where: { id, deletedAt: null },
+        data,
+      });
+
+      return await client.lecture.findUniqueOrThrow({
+        where: { id },
+        include: { lectureTimes: true },
+      });
+    }
   }
 
   /** 강의 soft delete */

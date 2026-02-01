@@ -1,7 +1,10 @@
 import { PrismaClient } from '../generated/prisma/client.js';
 import { EnrollmentStatus } from '../constants/enrollments.constant.js';
 import { NotFoundException } from '../err/http.exception.js';
-import { LecturesRepository } from '../repos/lectures.repo.js';
+import {
+  LecturesRepository,
+  LectureWithTimes,
+} from '../repos/lectures.repo.js';
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import { StudentRepository } from '../repos/student.repo.js';
 import { InstructorRepository } from '../repos/instructor.repo.js';
@@ -155,7 +158,7 @@ export class LecturesService {
     userType: UserType,
     id: string,
     data: UpdateLectureDto,
-  ): Promise<Lecture> {
+  ): Promise<LectureWithTimes> {
     const lecture = await this.lecturesRepository.findById(id);
 
     if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
@@ -166,12 +169,20 @@ export class LecturesService {
       profileId,
     );
 
+    // lectureTimes 필드 분리
+    const { lectureTimes, ...lectureData } = data;
+
     // undefined를 제외한 필드만 추출
     const updatePayload = Object.fromEntries(
-      Object.entries(data).filter(([_, value]) => value !== undefined),
+      Object.entries(lectureData).filter(([_, value]) => value !== undefined),
     );
 
-    return await this.lecturesRepository.update(id, updatePayload);
+    return await this.lecturesRepository.update(
+      id,
+      lecture.instructorId,
+      updatePayload,
+      lectureTimes,
+    );
   }
 
   /** 강의 삭제 (Soft Delete) */
