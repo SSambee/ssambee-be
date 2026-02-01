@@ -42,6 +42,29 @@ export const mockGrades = {
     createdAt: faker.date.past(),
     updatedAt: faker.date.recent(),
   } as Grade,
+
+  basic: {
+    id: faker.string.uuid(),
+    lectureId: mockExams.basic.lectureId,
+    examId: mockExams.basic.id,
+    enrollmentId: mockEnrollments.active.id,
+    score: 25,
+    isPass: true,
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
+  } as Grade,
+
+  withEnrollment: {
+    id: faker.string.uuid(),
+    lectureId: mockExams.basic.lectureId,
+    examId: mockExams.basic.id,
+    enrollmentId: mockEnrollments.active.id,
+    score: 100,
+    isPass: true,
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
+    enrollment: mockEnrollments.active,
+  } as Grade & { enrollment: typeof mockEnrollments.active },
 };
 
 /** 채점 제출 요청 DTO */
