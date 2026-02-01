@@ -1,3 +1,4 @@
+import { fakerKO as faker } from '@faker-js/faker';
 import type { Grade, StudentAnswer } from '../../generated/prisma/client.js';
 import type { SubmitGradingDto } from '../../validations/grades.validation.js';
 import { mockExams, mockQuestions } from './exams.fixture.js';
@@ -13,8 +14,8 @@ export const mockStudentAnswers = {
       questionId: mockQuestions.multipleChoice.id,
       submittedAnswer: 'A',
       isCorrect: true,
-      createdAt: new Date('2024-03-01'),
-      updatedAt: new Date('2024-03-01'),
+      createdAt: faker.date.past(),
+      updatedAt: faker.date.recent(),
     },
     {
       id: 'sa-2',
@@ -23,8 +24,8 @@ export const mockStudentAnswers = {
       questionId: mockQuestions.shortAnswer.id,
       submittedAnswer: '정답입니다.',
       isCorrect: true,
-      createdAt: new Date('2024-03-01'),
-      updatedAt: new Date('2024-03-01'),
+      createdAt: faker.date.past(),
+      updatedAt: faker.date.recent(),
     },
   ] as StudentAnswer[],
 };
@@ -38,8 +39,8 @@ export const mockGrades = {
     enrollmentId: mockEnrollments.active.id,
     score: 25,
     isPass: true,
-    createdAt: new Date('2024-03-01'),
-    updatedAt: new Date('2024-03-01'),
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
   } as Grade,
 };
 
