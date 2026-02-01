@@ -31,7 +31,7 @@ export class LecturesController {
   /** 강의 리스트 조회 핸들러 */
   getLectures = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { page, limit, search } = req.query;
+      const { page, limit, search, day } = req.query;
       const instructorId = getProfileIdOrThrow(req);
 
       //  타입변환
@@ -39,6 +39,7 @@ export class LecturesController {
         page: Number(page) || 1,
         limit: Number(limit) || 4,
         search: search ? String(search) : undefined,
+        day: day !== undefined ? Number(day) : undefined,
       });
 
       return successResponse(res, {

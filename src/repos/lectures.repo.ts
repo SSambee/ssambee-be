@@ -2,12 +2,43 @@ import { PrismaClient } from '../generated/prisma/client.js';
 import type {
   Lecture,
   LectureTime,
+  Enrollment,
+  Exam,
   Prisma,
 } from '../generated/prisma/client.js';
 import { QueryMode } from '../generated/prisma/internal/prismaNamespace.js';
 import { CreateLectureWithInstructorIdDto } from '../validations/lectures.validation.js';
 
-type LectureWithTimes = Lecture & { lectureTimes: LectureTime[] };
+export type LectureWithTimes = Lecture & { lectureTimes: LectureTime[] };
+
+export type LectureListItem = Lecture & {
+  instructor: {
+    user: {
+      name: string;
+    };
+  };
+  lectureTimes: LectureTime[];
+  _count: {
+    enrollments: number;
+  };
+};
+
+export type LectureDetail = LectureListItem & {
+  enrollments: (Enrollment & {
+    studentAnswers: {
+      id: string;
+      isCorrect: boolean;
+      question: {
+        score: number;
+      };
+    }[];
+  })[];
+  exams: (Exam & {
+    _count: {
+      questions: number;
+    };
+  })[];
+};
 
 export class LecturesRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -56,10 +87,54 @@ export class LecturesRepository {
   async findById(
     id: string,
     tx?: Prisma.TransactionClient,
-  ): Promise<Lecture | null> {
+  ): Promise<LectureDetail | null> {
     const client = tx ?? this.prisma;
     return await client.lecture.findUnique({
       where: { id, deletedAt: null },
+      include: {
+        lectureTimes: true,
+        instructor: {
+          select: {
+            user: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+        enrollments: {
+          include: {
+            studentAnswers: {
+              select: {
+                id: true,
+                isCorrect: true,
+                question: {
+                  select: {
+                    score: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        exams: {
+          include: {
+            _count: {
+              select: {
+                questions: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
+        _count: {
+          select: {
+            enrollments: true,
+          },
+        },
+      },
     });
   }
 
@@ -70,11 +145,23 @@ export class LecturesRepository {
       limit: number;
       instructorId?: string;
       search?: string;
+      day?: number;
     },
     tx?: Prisma.TransactionClient,
-  ): Promise<{ lectures: Lecture[]; totalCount: number }> {
+  ): Promise<{ lectures: LectureListItem[]; totalCount: number }> {
     const client = tx ?? this.prisma;
-    const { page, limit, instructorId, search } = options;
+    const { page, limit, instructorId, search, day } = options;
+
+    // 숫자를 한글 요일로 매핑
+    const DAY_MAP: Record<number, string> = {
+      0: '일',
+      1: '월',
+      2: '화',
+      3: '수',
+      4: '목',
+      5: '금',
+      6: '토',
+    };
 
     const where: Prisma.LectureWhereInput = {
       deletedAt: null,
@@ -85,11 +172,41 @@ export class LecturesRepository {
             { subject: { contains: search, mode: QueryMode.insensitive } },
           ]
         : undefined,
+      // day 필터링: lectureTimes에 해당 요일이 있는 강의만 조회
+      ...(day !== undefined && {
+        lectureTimes: {
+          some: {
+            day: DAY_MAP[day],
+          },
+        },
+      }),
     };
 
     const [lectures, totalCount] = await Promise.all([
       client.lecture.findMany({
         where,
+        include: {
+          instructor: {
+            select: {
+              user: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+          lectureTimes:
+            day !== undefined
+              ? {
+                  where: { day: DAY_MAP[day] },
+                }
+              : true,
+          _count: {
+            select: {
+              enrollments: true,
+            },
+          },
+        },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
@@ -97,12 +214,16 @@ export class LecturesRepository {
       client.lecture.count({ where }),
     ]);
 
-    return { lectures, totalCount };
+    return {
+      lectures: lectures as unknown as LectureListItem[],
+      totalCount,
+    };
   }
 
   /** 강의 수정 */
   async update(
     id: string,
+    instructorId: string,
     data: Partial<{
       title: string;
       subject: string;
@@ -111,13 +232,61 @@ export class LecturesRepository {
       endAt: Date | null;
       status: string;
     }>,
+    lectureTimes?: { day: string; startTime: string; endTime: string }[],
     tx?: Prisma.TransactionClient,
-  ): Promise<Lecture> {
+  ): Promise<LectureWithTimes> {
     const client = tx ?? this.prisma;
-    return await client.lecture.update({
-      where: { id, deletedAt: null },
-      data,
-    });
+
+    if (lectureTimes !== undefined) {
+      const updateWithTimes = async (innerTx: Prisma.TransactionClient) => {
+        // 1. 기존 lectureTimes 삭제
+        await innerTx.lectureTime.deleteMany({
+          where: { lectureId: id },
+        });
+
+        // 2. 새로운 lectureTimes 생성 (배열이 비어있지 않은 경우에만)
+        if (lectureTimes.length > 0) {
+          await innerTx.lectureTime.createMany({
+            data: lectureTimes.map((time) => ({
+              lectureId: id,
+              instructorId, // instructorId 필요함 (매개변수로 받아야 함)
+              day: time.day,
+              startTime: time.startTime,
+              endTime: time.endTime,
+            })),
+          });
+        }
+
+        // 3. Lecture 업데이트
+        await innerTx.lecture.update({
+          where: { id, deletedAt: null },
+          data,
+        });
+
+        // 4. lectureTimes 포함하여 반환
+        return await innerTx.lecture.findUniqueOrThrow({
+          where: { id },
+          include: { lectureTimes: true },
+        });
+      };
+
+      if (tx) {
+        return await updateWithTimes(tx);
+      } else {
+        return await this.prisma.$transaction(updateWithTimes);
+      }
+    } else {
+      // lectureTimes 업데이트 없이 기존 로직
+      await client.lecture.update({
+        where: { id, deletedAt: null },
+        data,
+      });
+
+      return await client.lecture.findUniqueOrThrow({
+        where: { id },
+        include: { lectureTimes: true },
+      });
+    }
   }
 
   /** 강의 soft delete */

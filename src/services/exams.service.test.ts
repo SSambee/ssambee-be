@@ -13,7 +13,10 @@ import type {
   ExamsRepository,
   ExamWithQuestions,
 } from '../repos/exams.repo.js';
-import type { LecturesRepository } from '../repos/lectures.repo.js';
+import type {
+  LecturesRepository,
+  LectureDetail,
+} from '../repos/lectures.repo.js';
 import type { PermissionService } from './permission.service.js';
 import type {
   PrismaClient,
@@ -256,7 +259,15 @@ describe('ExamsService - @unit #critical', () => {
         updatedAt: new Date(),
         questions: [],
       } as unknown as ExamWithQuestions;
-
+      const mockLecture = {
+        id: mockLectureId,
+        instructorId: mockProfileId,
+        lectureTimes: [],
+        instructor: { user: { name: 'Test Instructor' } },
+        enrollments: [],
+        exams: [],
+        _count: { enrollments: 0 },
+      } as unknown as LectureDetail;
       const updateDto: UpdateExamDto = {
         title: 'Updated Title',
         cutoffScore: 0,

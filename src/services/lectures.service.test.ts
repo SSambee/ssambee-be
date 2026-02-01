@@ -19,6 +19,7 @@ import {
   updateLectureRequests,
   mockEnrollments,
 } from '../test/fixtures/index.js';
+import { mockUsers } from '../test/fixtures/user.fixture.js';
 
 // Aliases for backward compatibility
 
@@ -193,10 +194,12 @@ describe('LecturesService - @unit #critical', () => {
         );
         expect(mockLecturesRepo.update).toHaveBeenCalledWith(
           mockLectures.basic.id,
+          mockLectures.basic.instructorId,
           expect.objectContaining({
             title: updateLectureRequests.full.title,
             subject: updateLectureRequests.full.subject,
           }),
+          undefined,
         );
       });
 
@@ -217,9 +220,11 @@ describe('LecturesService - @unit #critical', () => {
         expect(result).toBeDefined();
         expect(mockLecturesRepo.update).toHaveBeenCalledWith(
           mockLectures.basic.id,
+          mockLectures.basic.instructorId,
           expect.objectContaining({
             title: updateLectureRequests.partial.title,
           }),
+          undefined,
         );
         // undefined였던 description은 update payload에 포함되지 않아야 함
         const updateCall = mockLecturesRepo.update.mock.calls[0][1];
@@ -369,7 +374,12 @@ describe('LecturesService - @unit #critical', () => {
 
         expect(result).toBeDefined();
         expect(result.id).toBe(mockLectures.basic.id);
-        expect(result.instructorId).toBe(mockInstructor.id);
+        expect(result.instructorName).toBe(mockUsers.instructor.name);
+        expect(result.enrollmentsCount).toBe(
+          mockLectures.basic._count.enrollments,
+        );
+        expect(result.students).toEqual([]);
+        expect(result.exams).toEqual([]);
         expect(mockLecturesRepo.findById).toHaveBeenCalledWith(
           mockLectures.basic.id,
         );
@@ -436,6 +446,15 @@ describe('LecturesService - @unit #critical', () => {
 
         expect(result).toBeDefined();
         expect(result.lectures).toHaveLength(2);
+
+        // Mapped fields assertions
+        expect(result.lectures[0]).toMatchObject({
+          id: mockLectures.basic.id,
+          instructorName: mockUsers.instructor.name,
+          enrollmentsCount: 10,
+          lectureTimes: [],
+        });
+
         expect(result.pagination).toMatchObject({
           totalCount: 2,
           totalPage: 1,
@@ -444,6 +463,7 @@ describe('LecturesService - @unit #critical', () => {
           hasNextPage: false,
           hasPrevPage: false,
         });
+
         expect(mockLecturesRepo.findMany).toHaveBeenCalledWith({
           page: 1,
           limit: 4,
@@ -454,7 +474,7 @@ describe('LecturesService - @unit #critical', () => {
 
       it('강사가 검색어와 함께 강의 목록 조회를 요청할 때, 제목이 필터링된 결과가 반환된다', async () => {
         mockLecturesRepo.findMany.mockResolvedValue({
-          lectures: [mockLectures.basic],
+          lectures: [mockLecturesListResponse.lectures[0]],
           totalCount: 1,
         });
 
@@ -465,6 +485,11 @@ describe('LecturesService - @unit #critical', () => {
         });
 
         expect(result.lectures).toHaveLength(1);
+        expect(result.lectures[0].title).toBe(mockLectures.basic.title);
+        expect(result.lectures[0].instructorName).toBe(
+          mockUsers.instructor.name,
+        );
+
         expect(mockLecturesRepo.findMany).toHaveBeenCalledWith({
           page: 1,
           limit: 4,
