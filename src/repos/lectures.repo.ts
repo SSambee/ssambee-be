@@ -83,11 +83,23 @@ export class LecturesRepository {
       limit: number;
       instructorId?: string;
       search?: string;
+      day?: number;
     },
     tx?: Prisma.TransactionClient,
   ): Promise<{ lectures: LectureWithRelations[]; totalCount: number }> {
     const client = tx ?? this.prisma;
-    const { page, limit, instructorId, search } = options;
+    const { page, limit, instructorId, search, day } = options;
+
+    // 숫자를 한글 요일로 매핑
+    const DAY_MAP: Record<number, string> = {
+      0: '일',
+      1: '월',
+      2: '화',
+      3: '수',
+      4: '목',
+      5: '금',
+      6: '토',
+    };
 
     const where: Prisma.LectureWhereInput = {
       deletedAt: null,
@@ -98,6 +110,14 @@ export class LecturesRepository {
             { subject: { contains: search, mode: QueryMode.insensitive } },
           ]
         : undefined,
+      // day 필터링: lectureTimes에 해당 요일이 있는 강의만 조회
+      ...(day !== undefined && {
+        lectureTimes: {
+          some: {
+            day: DAY_MAP[day],
+          },
+        },
+      }),
     };
 
     const [lectures, totalCount] = await Promise.all([
@@ -113,7 +133,12 @@ export class LecturesRepository {
               },
             },
           },
-          lectureTimes: true,
+          lectureTimes:
+            day !== undefined
+              ? {
+                  where: { day: DAY_MAP[day] },
+                }
+              : true,
           _count: {
             select: {
               enrollments: true,

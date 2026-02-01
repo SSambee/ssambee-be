@@ -114,6 +114,7 @@ export const getLecturesQuerySchema = z.object({
     .max(PaginationDefaults.MAX_LIMIT)
     .default(PaginationDefaults.LIMIT),
   search: z.string().trim().optional(),
+  day: z.coerce.number().min(0).max(6).optional(), // 0=일요일, 6=토요일
 });
 
 export type GetLecturesQueryDto = z.infer<typeof getLecturesQuerySchema>;

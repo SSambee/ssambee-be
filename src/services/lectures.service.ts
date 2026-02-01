@@ -92,13 +92,14 @@ export class LecturesService {
     instructorId: string,
     query: GetLecturesQueryDto,
   ): Promise<GetLecturesResponse> {
-    const { page = 1, limit = 4, search } = query;
+    const { page = 1, limit = 4, search, day } = query;
 
     const { lectures, totalCount } = await this.lecturesRepository.findMany({
       page,
       limit,
       instructorId,
       search,
+      day,
     });
 
     const mappedLectures = lectures.map((lecture) => ({
