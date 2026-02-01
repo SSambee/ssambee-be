@@ -45,6 +45,35 @@ export type GetLecturesResponse = {
   };
 };
 
+export type LectureDetailResponse = {
+  id: string;
+  title: string;
+  subject: string | null;
+  status: string;
+  startAt: Date | null;
+  instructorName: string;
+  enrollmentsCount: number;
+  lectureTimes: {
+    day: string;
+    startTime: string;
+    endTime: string;
+  }[];
+  students: {
+    id: string;
+    name: string;
+    school: string;
+    phone: string;
+    parentPhone: string;
+  }[];
+  exams: {
+    id: string;
+    title: string;
+    status: string;
+    questionCount: number;
+    createdAt: Date;
+  }[];
+};
+
 export class LecturesService {
   constructor(
     private readonly lecturesRepository: LecturesRepository,
@@ -134,11 +163,12 @@ export class LecturesService {
   }
 
   /** 강의 개별 조회 */
+  /** 강의 개별 조회 */
   async getLectureById(
     profileId: string,
     userType: UserType,
     id: string,
-  ): Promise<Lecture> {
+  ): Promise<LectureDetailResponse> {
     const lecture = await this.lecturesRepository.findById(id);
 
     if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
@@ -149,7 +179,34 @@ export class LecturesService {
       profileId,
     );
 
-    return lecture;
+    return {
+      id: lecture.id,
+      title: lecture.title,
+      subject: lecture.subject,
+      status: lecture.status,
+      startAt: lecture.startAt,
+      instructorName: lecture.instructor.user.name,
+      enrollmentsCount: lecture._count.enrollments,
+      lectureTimes: lecture.lectureTimes.map((lt) => ({
+        day: lt.day,
+        startTime: lt.startTime,
+        endTime: lt.endTime,
+      })),
+      students: lecture.enrollments.map((e) => ({
+        id: e.id,
+        name: e.studentName,
+        school: `${e.school} ${e.schoolYear}`,
+        phone: e.studentPhone,
+        parentPhone: e.parentPhone,
+      })),
+      exams: lecture.exams.map((exam) => ({
+        id: exam.id,
+        title: exam.title,
+        status: exam.gradingStatus,
+        questionCount: exam._count.questions,
+        createdAt: exam.createdAt,
+      })),
+    };
   }
 
   /** 강의 수정 */

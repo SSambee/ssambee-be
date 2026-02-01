@@ -374,7 +374,12 @@ describe('LecturesService - @unit #critical', () => {
 
         expect(result).toBeDefined();
         expect(result.id).toBe(mockLectures.basic.id);
-        expect(result.instructorId).toBe(mockInstructor.id);
+        expect(result.instructorName).toBe(mockUsers.instructor.name);
+        expect(result.enrollmentsCount).toBe(
+          mockLectures.basic._count.enrollments,
+        );
+        expect(result.students).toEqual([]);
+        expect(result.exams).toEqual([]);
         expect(mockLecturesRepo.findById).toHaveBeenCalledWith(
           mockLectures.basic.id,
         );

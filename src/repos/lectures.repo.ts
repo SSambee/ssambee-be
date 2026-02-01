@@ -2,6 +2,8 @@ import { PrismaClient } from '../generated/prisma/client.js';
 import type {
   Lecture,
   LectureTime,
+  Enrollment,
+  Exam,
   Prisma,
 } from '../generated/prisma/client.js';
 import { QueryMode } from '../generated/prisma/internal/prismaNamespace.js';
@@ -9,7 +11,7 @@ import { CreateLectureWithInstructorIdDto } from '../validations/lectures.valida
 
 export type LectureWithTimes = Lecture & { lectureTimes: LectureTime[] };
 
-type LectureWithRelations = Lecture & {
+export type LectureListItem = Lecture & {
   instructor: {
     user: {
       name: string;
@@ -19,6 +21,23 @@ type LectureWithRelations = Lecture & {
   _count: {
     enrollments: number;
   };
+};
+
+export type LectureDetail = LectureListItem & {
+  enrollments: (Enrollment & {
+    studentAnswers: {
+      id: string;
+      isCorrect: boolean;
+      question: {
+        score: number;
+      };
+    }[];
+  })[];
+  exams: (Exam & {
+    _count: {
+      questions: number;
+    };
+  })[];
 };
 
 export class LecturesRepository {
@@ -68,11 +87,54 @@ export class LecturesRepository {
   async findById(
     id: string,
     tx?: Prisma.TransactionClient,
-  ): Promise<LectureWithTimes | null> {
+  ): Promise<LectureDetail | null> {
     const client = tx ?? this.prisma;
     return await client.lecture.findUnique({
       where: { id, deletedAt: null },
-      include: { lectureTimes: true },
+      include: {
+        lectureTimes: true,
+        instructor: {
+          select: {
+            user: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+        enrollments: {
+          include: {
+            studentAnswers: {
+              select: {
+                id: true,
+                isCorrect: true,
+                question: {
+                  select: {
+                    score: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        exams: {
+          include: {
+            _count: {
+              select: {
+                questions: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
+        _count: {
+          select: {
+            enrollments: true,
+          },
+        },
+      },
     });
   }
 
@@ -86,7 +148,7 @@ export class LecturesRepository {
       day?: number;
     },
     tx?: Prisma.TransactionClient,
-  ): Promise<{ lectures: LectureWithRelations[]; totalCount: number }> {
+  ): Promise<{ lectures: LectureListItem[]; totalCount: number }> {
     const client = tx ?? this.prisma;
     const { page, limit, instructorId, search, day } = options;
 
@@ -153,7 +215,7 @@ export class LecturesRepository {
     ]);
 
     return {
-      lectures: lectures as unknown as LectureWithRelations[],
+      lectures: lectures as unknown as LectureListItem[],
       totalCount,
     };
   }
