@@ -215,6 +215,23 @@ export const mockEnrollments = {
     memo: faker.lorem.sentence(),
     deletedAt: null,
   } as Enrollment,
+
+  withEssayLecture: {
+    id: faker.string.uuid(),
+    lectureId: mockLectures.withEnrollments.id,
+    instructorId: mockInstructor.id,
+    appStudentId: mockStudents.basic.id,
+    appParentLinkId: mockParentLinks.active.id,
+    studentName: faker.person.fullName(),
+    school: mockStudents.basic.school,
+    schoolYear: mockStudents.basic.schoolYear,
+    studentPhone: mockStudents.basic.phoneNumber,
+    parentPhone: mockParents.basic.phoneNumber,
+    status: EnrollmentStatus.ACTIVE,
+    registeredAt: faker.date.past(),
+    memo: null,
+    deletedAt: null,
+  } as Enrollment,
 };
 
 /** 수강 등록 요청 DTO */
