@@ -10,25 +10,29 @@ import {
   createMockClinicsRepository,
   createMockExamsRepository,
   createMockLecturesRepository,
-  createMockPermissionService,
-  createMockPrisma,
-} from '../test/mocks/index.js';
+} from '../test/mocks/repo.mock.js';
+import { createMockPermissionService } from '../test/mocks/services.mock.js';
+import { createMockPrisma } from '../test/mocks/prisma.mock.js';
 import {
   mockExams,
   mockLectures,
-  mockEnrollments,
   mockGrades,
   mockClinics,
   mockClinicWithRelations,
+  createClinicDto,
 } from '../test/fixtures/index.js';
 import { Prisma, PrismaClient } from '../generated/prisma/client.js';
+import type { ClinicsRepository } from '../repos/clinics.repo.js';
+import type { ExamsRepository } from '../repos/exams.repo.js';
+import type { LecturesRepository } from '../repos/lectures.repo.js';
+import type { PermissionService } from './permission.service.js';
 
 describe('ClinicsService - @unit #critical', () => {
   let clinicsService: ClinicsService;
-  let mockClinicsRepo: ReturnType<typeof createMockClinicsRepository>;
-  let mockExamsRepo: ReturnType<typeof createMockExamsRepository>;
-  let mockLecturesRepo: ReturnType<typeof createMockLecturesRepository>;
-  let mockPermissionService: ReturnType<typeof createMockPermissionService>;
+  let mockClinicsRepo: jest.Mocked<ClinicsRepository>;
+  let mockExamsRepo: jest.Mocked<ExamsRepository>;
+  let mockLecturesRepo: jest.Mocked<LecturesRepository>;
+  let mockPermissionService: jest.Mocked<PermissionService>;
   let mockPrisma: jest.Mocked<PrismaClient>;
 
   beforeEach(() => {
@@ -42,7 +46,7 @@ describe('ClinicsService - @unit #critical', () => {
 
     mockPrisma.$transaction.mockImplementation(
       <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>) =>
-        callback(mockPrisma),
+        callback(mockPrisma as unknown as Prisma.TransactionClient),
     );
 
     clinicsService = new ClinicsService(
@@ -54,17 +58,13 @@ describe('ClinicsService - @unit #critical', () => {
     );
   });
 
-  describe('completeGrading', () => {
+  describe('[채점 완료] completeGrading', () => {
     const examId = mockExams.basic.id;
     const profileId = mockLectures.basic.instructorId;
     const userType = UserType.INSTRUCTOR;
-    const createData = {
-      title: '클리닉 테스트',
-      deadline: '2024-12-31',
-      memo: '테스트 메모',
-    };
+    const createData = createClinicDto;
 
-    it('시험을 찾을 수 없는 경우 NotFoundException을 던진다', async () => {
+    it('클리닉 생성을 완료할 때, 시험 정보를 찾을 수 없으면 NotFoundException을 던진다', async () => {
       // Arrange
       mockExamsRepo.findById.mockResolvedValue(null);
 
@@ -75,29 +75,40 @@ describe('ClinicsService - @unit #critical', () => {
       expect(mockExamsRepo.findById).toHaveBeenCalledWith(examId);
     });
 
-    it('강의를 찾을 수 없는 경우 NotFoundException을 던진다', async () => {
-      mockExamsRepo.findById.mockResolvedValue(mockExams.basic);
+    it('클리닉 생성을 완료할 때, 강의 정보를 찾을 수 없으면 NotFoundException을 던진다', async () => {
+      // Arrange
+      mockExamsRepo.findById.mockResolvedValue(
+        mockExams.basic as Awaited<ReturnType<typeof mockExamsRepo.findById>>,
+      );
       mockLecturesRepo.findById.mockResolvedValue(null);
 
+      // Act & Assert
       await expect(
         clinicsService.completeGrading(examId, createData, userType, profileId),
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('시험의 채점 상태가 IN_PROGRESS가 아닌 경우 BadRequestException을 던진다', async () => {
+    it('클리닉 생성을 완료할 때, 시험의 채점 상태가 진행 중(IN_PROGRESS)이 아니면 BadRequestException을 던진다', async () => {
+      // Arrange
       mockExamsRepo.findById.mockResolvedValue({
         ...mockExams.basic,
         gradingStatus: GradingStatus.PENDING,
-      });
-      mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
+      } as Awaited<ReturnType<typeof mockExamsRepo.findById>>);
+      mockLecturesRepo.findById.mockResolvedValue(
+        mockLectures.basic as Awaited<
+          ReturnType<typeof mockLecturesRepo.findById>
+        >,
+      );
 
+      // Act & Assert
       await expect(
         clinicsService.completeGrading(examId, createData, userType, profileId),
       ).rejects.toThrow(BadRequestException);
       expect(mockExamsRepo.findById).toHaveBeenCalledWith(examId);
     });
 
-    it('불합격자들에 대해 클리닉을 생성하고 시험 상태를 COMPLETED로 변경한다', async () => {
+    it('클리닉 생성을 완료할 때, 불합격한 학생들에 대해 클리닉을 생성하고 시험 상태를 완료(COMPLETED)로 변경한다', async () => {
+      // Arrange
       const mockExam = {
         ...mockExams.basic,
         gradingStatus: GradingStatus.IN_PROGRESS,
@@ -116,8 +127,12 @@ describe('ClinicsService - @unit #critical', () => {
         },
       ];
 
-      mockExamsRepo.findById.mockResolvedValue(mockExam);
-      mockLecturesRepo.findById.mockResolvedValue(mockLecture);
+      mockExamsRepo.findById.mockResolvedValue(
+        mockExam as Awaited<ReturnType<typeof mockExamsRepo.findById>>,
+      );
+      mockLecturesRepo.findById.mockResolvedValue(
+        mockLecture as Awaited<ReturnType<typeof mockLecturesRepo.findById>>,
+      );
       mockClinicsRepo.findFailedGradesByExamId.mockResolvedValue(
         failedGrades as Awaited<
           ReturnType<typeof mockClinicsRepo.findFailedGradesByExamId>
@@ -126,6 +141,7 @@ describe('ClinicsService - @unit #critical', () => {
       mockClinicsRepo.findExistingClinics.mockResolvedValue([]);
       mockClinicsRepo.createMany.mockResolvedValue({ count: 2 });
 
+      // Act
       const result = await clinicsService.completeGrading(
         examId,
         createData,
@@ -133,6 +149,7 @@ describe('ClinicsService - @unit #critical', () => {
         profileId,
       );
 
+      // Assert
       expect(result.count).toBe(2);
       expect(mockClinicsRepo.createMany).toHaveBeenCalled();
       expect(mockExamsRepo.updateGradingStatus).toHaveBeenCalledWith(
@@ -142,7 +159,8 @@ describe('ClinicsService - @unit #critical', () => {
       );
     });
 
-    it('이미 클리닉이 생성된 학생은 제외하고 생성한다', async () => {
+    it('클리닉 생성을 완료할 때, 이미 클리닉이 생성된 학생은 제외하고 나머지 학생들에 대해서만 생성한다', async () => {
+      // Arrange
       const mockExam = {
         ...mockExams.basic,
         gradingStatus: GradingStatus.IN_PROGRESS,
@@ -161,16 +179,27 @@ describe('ClinicsService - @unit #critical', () => {
       ];
       const existingClinics = [{ enrollmentId: 'enroll-1' }];
 
-      mockExamsRepo.findById.mockResolvedValue(mockExam);
-      mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
+      mockExamsRepo.findById.mockResolvedValue(
+        mockExam as Awaited<ReturnType<typeof mockExamsRepo.findById>>,
+      );
+      mockLecturesRepo.findById.mockResolvedValue(
+        mockLectures.basic as Awaited<
+          ReturnType<typeof mockLecturesRepo.findById>
+        >,
+      );
       mockClinicsRepo.findFailedGradesByExamId.mockResolvedValue(
         failedGrades as Awaited<
           ReturnType<typeof mockClinicsRepo.findFailedGradesByExamId>
         >,
       );
-      mockClinicsRepo.findExistingClinics.mockResolvedValue(existingClinics);
+      mockClinicsRepo.findExistingClinics.mockResolvedValue(
+        existingClinics as Awaited<
+          ReturnType<typeof mockClinicsRepo.findExistingClinics>
+        >,
+      );
       mockClinicsRepo.createMany.mockResolvedValue({ count: 1 });
 
+      // Act
       const result = await clinicsService.completeGrading(
         examId,
         createData,
@@ -178,6 +207,7 @@ describe('ClinicsService - @unit #critical', () => {
         profileId,
       );
 
+      // Assert
       expect(result.count).toBe(1);
       // enroll-1은 이미 존재하므로 enroll-2만 생성 요청되어야 함
       const callArgs = mockClinicsRepo.createMany.mock.calls[0][0];
@@ -186,10 +216,11 @@ describe('ClinicsService - @unit #critical', () => {
     });
   });
 
-  describe('getClinics', () => {
+  describe('[목록 조회] getClinics', () => {
     const profileId = mockLectures.basic.instructorId;
 
-    it('강사 계정으로 조회 시 본인의 클리닉 목록을 반환하고 성적 정보를 포함한다', async () => {
+    it('클리닉 목록을 조회할 때, 강사 계정인 경우 본인의 클리닉 목록과 성적 정보를 함께 반환한다', async () => {
+      // Arrange
       const clinicsWithRelations = [mockClinicWithRelations];
 
       mockClinicsRepo.findByInstructor.mockResolvedValue(
@@ -200,17 +231,19 @@ describe('ClinicsService - @unit #critical', () => {
       (mockPrisma.grade.findMany as jest.Mock).mockResolvedValue([
         {
           examId: mockExams.basic.id,
-          enrollmentId: mockEnrollments.active.id,
+          enrollmentId: mockClinicWithRelations.enrollmentId,
           score: 70,
         },
       ]);
 
+      // Act
       const result = await clinicsService.getClinics(
         UserType.INSTRUCTOR,
         profileId,
         {},
       );
 
+      // Assert
       expect(result).toHaveLength(1);
       expect(result[0].exam.score).toBe(70);
       expect(mockClinicsRepo.findByInstructor).toHaveBeenCalledWith(
@@ -219,8 +252,9 @@ describe('ClinicsService - @unit #critical', () => {
       );
     });
 
-    it('조교 계정으로 조회 시 담당 강사의 ID를 기반으로 목록을 조회한다', async () => {
-      const assistantProfileId = 'assistant-1';
+    it('클리닉 목록을 조회할 때, 조교 계정인 경우 담당 강사의 클리닉 목록을 조회하여 반환한다', async () => {
+      // Arrange
+      const assistantProfileId = 'assistant-id';
       const instructorId = mockLectures.basic.instructorId;
 
       (mockPrisma.assistant.findUnique as jest.Mock).mockResolvedValue({
@@ -228,26 +262,29 @@ describe('ClinicsService - @unit #critical', () => {
       });
       mockClinicsRepo.findByInstructor.mockResolvedValue([]);
 
+      // Act
       await clinicsService.getClinics(
         UserType.ASSISTANT,
         assistantProfileId,
         {},
       );
 
+      // Assert
       expect(mockClinicsRepo.findByInstructor).toHaveBeenCalledWith(
         instructorId,
         {},
       );
     });
 
-    it('권한이 없는 사용자 유형일 경우 BadRequestException을 던진다', async () => {
+    it('클리닉 목록을 조회할 때, 권한이 없는 사용자 유형(예: 학생)이면 BadRequestException을 던진다', async () => {
+      // Act & Assert
       await expect(
-        clinicsService.getClinics(UserType.STUDENT, 'student-1', {}),
+        clinicsService.getClinics(UserType.STUDENT, 'student-id', {}),
       ).rejects.toThrow(BadRequestException);
     });
   });
 
-  describe('updateClinics', () => {
+  describe('[정보 수정] updateClinics', () => {
     const profileId = mockLectures.basic.instructorId;
     const clinicIds = [mockClinics.pending.id, mockClinics.completed.id];
     const updateData = {
@@ -258,9 +295,15 @@ describe('ClinicsService - @unit #critical', () => {
       },
     };
 
-    it('일부 클리닉 ID를 찾을 수 없는 경우 NotFoundException을 던진다', async () => {
-      mockClinicsRepo.findByIds.mockResolvedValue([mockClinics.pending]);
+    it('클리닉 정보를 수정할 때, 요청된 ID 중 일부를 찾을 수 없으면 NotFoundException을 던진다', async () => {
+      // Arrange
+      mockClinicsRepo.findByIds.mockResolvedValue([
+        mockClinics.pending as Awaited<
+          ReturnType<typeof mockClinicsRepo.findByIds>
+        >[number],
+      ]);
 
+      // Act & Assert
       await expect(
         clinicsService.updateClinics(
           updateData,
@@ -270,20 +313,24 @@ describe('ClinicsService - @unit #critical', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('강사의 권한이 없는 클리닉인 경우 ForbiddenException을 던진다', async () => {
+    it('클리닉 정보를 수정할 때, 강사에게 권한이 없는 클리닉이 포함되어 있으면 ForbiddenException을 던진다', async () => {
+      // Arrange
       const otherClinics = [
         { ...mockClinics.pending, instructorId: 'other-instructor' },
         { ...mockClinics.completed, instructorId: 'other-instructor' },
       ];
-      mockClinicsRepo.findByIds.mockResolvedValue(otherClinics);
+      mockClinicsRepo.findByIds.mockResolvedValue(
+        otherClinics as Awaited<ReturnType<typeof mockClinicsRepo.findByIds>>,
+      );
       mockLecturesRepo.findById.mockResolvedValue({
         ...mockLectures.basic,
         instructorId: 'other-instructor',
-      });
+      } as Awaited<ReturnType<typeof mockLecturesRepo.findById>>);
       mockPermissionService.validateInstructorAccess.mockRejectedValue(
         new ForbiddenException('해당 권한이 없습니다.'),
       );
 
+      // Act & Assert
       await expect(
         clinicsService.updateClinics(
           updateData,
@@ -293,17 +340,22 @@ describe('ClinicsService - @unit #critical', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('클리닉들을 성공적으로 수정한다', async () => {
+    it('클리닉 정보를 수정할 때, 모든 조건이 유효하면 클리닉 상태와 메모를 성공적으로 업데이트한다', async () => {
+      // Arrange
       const myClinics = [mockClinics.pending, mockClinics.completed];
-      mockClinicsRepo.findByIds.mockResolvedValue(myClinics);
+      mockClinicsRepo.findByIds.mockResolvedValue(
+        myClinics as Awaited<ReturnType<typeof mockClinicsRepo.findByIds>>,
+      );
       mockClinicsRepo.updateMany.mockResolvedValue({ count: 2 });
 
+      // Act
       const result = await clinicsService.updateClinics(
         updateData,
         UserType.INSTRUCTOR,
         profileId,
       );
 
+      // Assert
       expect(result.count).toBe(2);
       expect(mockClinicsRepo.updateMany).toHaveBeenCalledWith(
         clinicIds,
