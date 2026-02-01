@@ -10,6 +10,10 @@ export const mockInstructor: Instructor = {
   ...mockProfiles.instructor,
 } as Instructor;
 
+/** withEnrollments에 사용될 ID */
+const withEnrollementsLectureId = faker.string.uuid();
+const withEnrollmentsInstructorId = mockInstructor.id;
+
 /** Mock Instructor with User 데이터 (Repo findMany 응답용) */
 export const mockInstructorWithUser = {
   user: {
@@ -41,8 +45,8 @@ export const mockLectures: Record<string, LectureDetail> = {
 
   /** Enrollments와 함께 생성될 강의 */
   withEnrollments: {
-    id: faker.string.uuid(),
-    instructorId: mockInstructor.id,
+    id: withEnrollementsLectureId,
+    instructorId: withEnrollmentsInstructorId,
     title: faker.commerce.productName() + ' 심화 강의',
     subject: faker.helpers.arrayElement(['국어', '영어', '수학']),
     description: faker.commerce.productDescription(),
@@ -65,8 +69,8 @@ export const mockLectures: Record<string, LectureDetail> = {
         studentAnswers: [],
         appStudentId: null,
         appParentLinkId: null,
-        lectureId: faker.string.uuid(),
-        instructorId: faker.string.uuid(),
+        lectureId: withEnrollementsLectureId,
+        instructorId: withEnrollmentsInstructorId,
         registeredAt: faker.date.recent(),
         createdAt: faker.date.past(),
         updatedAt: faker.date.recent(),
@@ -84,8 +88,8 @@ export const mockLectures: Record<string, LectureDetail> = {
         studentAnswers: [],
         appStudentId: null,
         appParentLinkId: null,
-        lectureId: faker.string.uuid(),
-        instructorId: faker.string.uuid(),
+        lectureId: withEnrollementsLectureId,
+        instructorId: withEnrollmentsInstructorId,
         registeredAt: faker.date.recent(),
         createdAt: faker.date.past(),
         updatedAt: faker.date.recent(),
@@ -101,8 +105,8 @@ export const mockLectures: Record<string, LectureDetail> = {
         gradingStatus: 'PENDING',
         _count: { questions: 10 },
         createdAt: faker.date.past(),
-        lectureId: faker.string.uuid(),
-        instructorId: faker.string.uuid(),
+        lectureId: withEnrollementsLectureId,
+        instructorId: withEnrollmentsInstructorId,
         cutoffScore: 0,
         source: null,
         updatedAt: faker.date.recent(),
