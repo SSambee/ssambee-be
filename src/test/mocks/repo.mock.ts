@@ -10,6 +10,7 @@ import type { AttendancesRepository } from '../../repos/attendances.repo.js';
 import { ExamsRepository } from '../../repos/exams.repo.js';
 import { GradesRepository } from '../../repos/grades.repo.js';
 import { ClinicsRepository } from '../../repos/clinics.repo.js';
+import { StatisticsRepository } from '../../repos/statistics.repo.js';
 import { createAutoMock } from './create-mock.util.js';
 
 /** Mock InstructorRepository 생성 */
@@ -132,4 +133,16 @@ export const createMockClinicsRepository = () =>
     'findByInstructor',
     'findByIds',
     'updateMany',
+  ]);
+
+/** Mock StatisticsRepository 생성 */
+export const createMockStatisticsRepository = () =>
+  createAutoMock<StatisticsRepository>([
+    'upsertQuestionStatistic',
+    'findStatisticsByExamId',
+    'countGradesByExamId',
+    'findStudentAnswersByQuestionId',
+    'getExamSummary',
+    'getStudentCorrectCounts',
+    'getStudentGradesWithInfo',
   ]);
