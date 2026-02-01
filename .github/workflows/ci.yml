@@ -9,6 +9,15 @@ on:
     branches:
       - main
       - dev
+  
+# dummy (unit)
+env: 
+  NODE_ENV: test
+  PORT: 3000
+  DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+  FRONT_URL: "http://localhost:3000"
+  BETTER_AUTH_SECRET: "dummy_secret_for_test"
+  BETTER_AUTH_URL: "http://localhost:3000"
 
 jobs:
   build-and-test:
