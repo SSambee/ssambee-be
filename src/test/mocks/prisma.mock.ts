@@ -11,7 +11,13 @@ export const createMockPrisma = () => ({
     findUnique: mockUserFindUnique,
     delete: mockUserDelete,
   },
-  $transaction: mockTransaction,
+  assistant: {
+    findUnique: jest.fn(),
+  },
+  grade: {
+    findMany: jest.fn(),
+  },
+  $transaction: mockTransaction as jest.Mock,
 });
 
 /** Prisma Mock 리셋 */
