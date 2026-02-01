@@ -14,7 +14,7 @@ import type {
 } from '../repos/exams.repo.js';
 import type {
   LecturesRepository,
-  LectureWithTimes,
+  LectureDetail,
 } from '../repos/lectures.repo.js';
 import type { PermissionService } from './permission.service.js';
 import type {
@@ -68,7 +68,11 @@ describe('ExamsService', () => {
         id: mockLectureId,
         instructorId: mockProfileId,
         lectureTimes: [],
-      } as unknown as LectureWithTimes;
+        instructor: { user: { name: 'Test Instructor' } },
+        enrollments: [],
+        exams: [],
+        _count: { enrollments: 0 },
+      } as unknown as LectureDetail;
       const createDto: CreateExamDto = {
         title: 'Midterm Exam',
         cutoffScore: 0,
@@ -135,7 +139,11 @@ describe('ExamsService', () => {
         id: mockLectureId,
         instructorId: mockProfileId,
         lectureTimes: [],
-      } as unknown as LectureWithTimes;
+        instructor: { user: { name: 'Test Instructor' } },
+        enrollments: [],
+        exams: [],
+        _count: { enrollments: 0 },
+      } as unknown as LectureDetail;
       const updateDto: UpdateExamDto = {
         title: 'Updated Title',
         cutoffScore: 0,
