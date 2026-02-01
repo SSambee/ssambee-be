@@ -1,5 +1,4 @@
 import { UserType } from '../constants/auth.constant.js';
-import { QuestionType } from '../constants/exams.constant.js';
 import { NotFoundException } from '../err/http.exception.js';
 import { ExamsService } from './exams.service.js';
 import {
@@ -8,22 +7,18 @@ import {
 } from '../test/mocks/repo.mock.js';
 import { createMockPermissionService } from '../test/mocks/services.mock.js';
 import { createMockPrisma } from '../test/mocks/prisma.mock.js';
-import { mockLectures, mockInstructor } from '../test/fixtures/index.js';
-import type {
-  ExamsRepository,
-  ExamWithQuestions,
-} from '../repos/exams.repo.js';
-import type {
-  LecturesRepository,
-  LectureDetail,
-} from '../repos/lectures.repo.js';
+import {
+  mockLectures,
+  mockInstructor,
+  mockExams,
+  mockExamWithQuestions,
+  createExamRequests,
+  updateExamRequests,
+} from '../test/fixtures/index.js';
+import type { ExamsRepository } from '../repos/exams.repo.js';
+import type { LecturesRepository } from '../repos/lectures.repo.js';
 import type { PermissionService } from './permission.service.js';
-import type {
-  PrismaClient,
-  Prisma,
-  Question,
-  Exam,
-} from '../generated/prisma/client.js';
+import type { PrismaClient, Prisma } from '../generated/prisma/client.js';
 import type {
   CreateExamDto,
   UpdateExamDto,
@@ -49,7 +44,7 @@ describe('ExamsService - @unit #critical', () => {
       createMockLecturesRepository() as jest.Mocked<LecturesRepository>;
     mockPermissionService =
       createMockPermissionService() as jest.Mocked<PermissionService>;
-    mockPrisma = createMockPrisma() as unknown as jest.Mocked<PrismaClient>;
+    mockPrisma = createMockPrisma();
 
     mockPrisma.$transaction.mockImplementation(
       <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> =>
@@ -67,20 +62,13 @@ describe('ExamsService - @unit #critical', () => {
   describe('[조회] getExamsByLectureId', () => {
     it('강의 권한이 있는 사용자가 조회를 요청할 때, 강의에 포함된 시험 목록이 반환된다', async () => {
       // Arrange
-      const mockExams = [
-        {
-          id: mockExamId,
-          title: 'Exam 1',
-          lectureId: mockLectureId,
-          cutoffScore: 0,
-          source: null,
-          gradingStatus: 'PENDING',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      ] as Exam[];
-      mockLecturesRepo.findById.mockResolvedValue(mockLecture);
-      mockExamsRepo.findByLectureId.mockResolvedValue(mockExams);
+      const exams = [mockExams.basic] as Awaited<
+        ReturnType<typeof mockExamsRepo.findByLectureId>
+      >;
+      mockLecturesRepo.findById.mockResolvedValue(
+        mockLecture as Awaited<ReturnType<typeof mockLecturesRepo.findById>>,
+      );
+      mockExamsRepo.findByLectureId.mockResolvedValue(exams);
 
       // Act
       const result = await examsService.getExamsByLectureId(
@@ -99,7 +87,7 @@ describe('ExamsService - @unit #critical', () => {
         mockProfileId,
       );
       expect(mockExamsRepo.findByLectureId).toHaveBeenCalledWith(mockLectureId);
-      expect(result).toEqual(mockExams);
+      expect(result).toEqual(exams);
     });
 
     it('존재하지 않는 강의의 시험 목록을 요청할 때, NotFoundException을 던진다', async () => {
@@ -117,23 +105,14 @@ describe('ExamsService - @unit #critical', () => {
 
   describe('[조회] getExamById', () => {
     it('시험 권한이 있는 사용자가 상세 조회를 요청할 때, 문항을 포함한 시험 상세 정보가 반환된다', async () => {
-      const mockExamWithQuestions = {
-        id: mockExamId,
-        lectureId: mockLectureId,
-        instructorId: mockProfileId,
-        title: 'Exam 1',
-        cutoffScore: 0,
-        source: null,
-        gradingStatus: 'PENDING',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        questions: [],
-      } as unknown as ExamWithQuestions;
+      const examDetail = mockExamWithQuestions.basic as Awaited<
+        ReturnType<typeof mockExamsRepo.findByIdWithQuestions>
+      >;
 
-      mockExamsRepo.findByIdWithQuestions.mockResolvedValue(
-        mockExamWithQuestions,
+      mockExamsRepo.findByIdWithQuestions.mockResolvedValue(examDetail);
+      mockLecturesRepo.findById.mockResolvedValue(
+        mockLecture as Awaited<ReturnType<typeof mockLecturesRepo.findById>>,
       );
-      mockLecturesRepo.findById.mockResolvedValue(mockLecture);
 
       const result = await examsService.getExamById(
         mockExamId,
@@ -152,7 +131,7 @@ describe('ExamsService - @unit #critical', () => {
         mockUserType,
         mockProfileId,
       );
-      expect(result).toEqual(mockExamWithQuestions);
+      expect(result).toEqual(examDetail);
     });
 
     it('존재하지 않는 시험을 조회할 때, NotFoundException을 던진다', async () => {
@@ -167,10 +146,11 @@ describe('ExamsService - @unit #critical', () => {
     });
 
     it('시험은 존재하나 관련 강의 정보가 없을 때, NotFoundException을 던진다', async () => {
-      const mockExam = { id: mockExamId, lectureId: 'none' } as Exam;
-      mockExamsRepo.findByIdWithQuestions.mockResolvedValue(
-        mockExam as ExamWithQuestions,
-      );
+      const exam = {
+        ...mockExams.basic,
+        lectureId: 'none',
+      } as Awaited<ReturnType<typeof mockExamsRepo.findByIdWithQuestions>>;
+      mockExamsRepo.findByIdWithQuestions.mockResolvedValue(exam);
       mockLecturesRepo.findById.mockResolvedValue(null);
 
       await expect(
@@ -184,33 +164,16 @@ describe('ExamsService - @unit #critical', () => {
 
   describe('[생성] createExam', () => {
     it('강사가 올바른 정보로 시험 생성을 요청할 때, 문항을 포함한 시험이 성공적으로 생성된다', async () => {
-      const createDto: CreateExamDto = {
-        title: 'Midterm Exam',
-        cutoffScore: 0,
-        questions: [
-          {
-            questionNumber: 1,
-            content: 'Q1',
-            correctAnswer: 'A',
-            score: 10,
-            type: QuestionType.MULTIPLE,
-            choices: { '1': 'A', '2': 'B' },
-          },
-        ],
-      };
+      const createDto = createExamRequests.basic;
 
-      mockLecturesRepo.findById.mockResolvedValue(mockLecture);
+      mockLecturesRepo.findById.mockResolvedValue(
+        mockLecture as Awaited<ReturnType<typeof mockLecturesRepo.findById>>,
+      );
       mockExamsRepo.createWithQuestions.mockResolvedValue({
-        id: mockExamId,
-        lectureId: mockLectureId,
-        instructorId: mockProfileId,
-        source: null,
-        gradingStatus: 'PENDING',
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        ...mockExams.basic,
         ...createDto,
-        questions: [] as Question[],
-      } as unknown as ExamWithQuestions);
+        questions: [],
+      } as Awaited<ReturnType<typeof mockExamsRepo.createWithQuestions>>);
 
       const result = await examsService.createExam(
         mockLectureId,
@@ -247,61 +210,25 @@ describe('ExamsService - @unit #critical', () => {
 
   describe('[수정] updateExam', () => {
     it('강사가 올바른 정보로 시험 수정을 요청할 때, 시험 정보와 문항들이 성공적으로 수정 및 생성된다', async () => {
-      const mockExam = {
-        id: mockExamId,
-        lectureId: mockLectureId,
-        instructorId: mockProfileId,
-        title: 'Exam 1',
-        cutoffScore: 0,
-        source: null,
-        gradingStatus: 'PENDING',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        questions: [],
-      } as unknown as ExamWithQuestions;
-      const mockLecture = {
-        id: mockLectureId,
-        instructorId: mockProfileId,
-        lectureTimes: [],
-        instructor: { user: { name: 'Test Instructor' } },
-        enrollments: [],
-        exams: [],
-        _count: { enrollments: 0 },
-      } as unknown as LectureDetail;
-      const updateDto: UpdateExamDto = {
-        title: 'Updated Title',
-        cutoffScore: 0,
-        questions: [
-          {
-            id: 'q1',
-            questionNumber: 1,
-            content: 'Updated Q1',
-            score: 10,
-            type: QuestionType.MULTIPLE,
-            correctAnswer: 'A',
-          }, // Update
-          {
-            content: 'New Q2',
-            questionNumber: 2,
-            correctAnswer: 'B',
-            score: 10,
-            type: QuestionType.MULTIPLE,
-          }, // Create (no id)
-        ],
-      };
-      const existingQuestions = [
-        { id: 'q1' },
-        { id: 'q3' },
-      ] as unknown as Question[]; // q3 should be deleted
+      const exam = mockExams.basic as NonNullable<
+        Awaited<ReturnType<typeof mockExamsRepo.findById>>
+      >;
+      const lectureDetail = mockLectures.withEnrollments as NonNullable<
+        Awaited<ReturnType<typeof mockLecturesRepo.findById>>
+      >;
+      const updateDto = updateExamRequests.withQuestions;
+      const existingQuestions = [{ id: 'q1' }, { id: 'q3' }] as Awaited<
+        ReturnType<typeof mockExamsRepo.findQuestionsByExamId>
+      >;
 
-      mockExamsRepo.findById.mockResolvedValue(mockExam as unknown as Exam);
-      mockLecturesRepo.findById.mockResolvedValue(mockLecture);
-      mockExamsRepo.update.mockResolvedValue(mockExam as unknown as Exam);
-      mockExamsRepo.findQuestionsByExamId.mockResolvedValue(
-        existingQuestions as Question[],
-      );
+      mockExamsRepo.findById.mockResolvedValue(exam);
+      mockLecturesRepo.findById.mockResolvedValue(lectureDetail);
+      mockExamsRepo.update.mockResolvedValue(exam);
+      mockExamsRepo.findQuestionsByExamId.mockResolvedValue(existingQuestions);
       mockExamsRepo.findByIdWithQuestions.mockResolvedValue(
-        mockExam as ExamWithQuestions,
+        mockExamWithQuestions.withMultiple as Awaited<
+          ReturnType<typeof mockExamsRepo.findByIdWithQuestions>
+        >,
       );
 
       await examsService.updateExam(
@@ -314,7 +241,7 @@ describe('ExamsService - @unit #critical', () => {
       expect(
         mockPermissionService.validateInstructorAccess,
       ).toHaveBeenCalledWith(
-        mockLecture.instructorId,
+        lectureDetail.instructorId,
         mockUserType,
         mockProfileId,
       );
@@ -334,15 +261,15 @@ describe('ExamsService - @unit #critical', () => {
       // q1 수정 확인
       expect(mockExamsRepo.updateQuestion).toHaveBeenCalledWith(
         'q1',
-        expect.objectContaining({ content: 'Updated Q1' }),
+        expect.objectContaining({ content: updateDto.questions?.[0].content }),
         mockPrisma,
       );
 
       // 새 문항 생성 확인
       expect(mockExamsRepo.createQuestion).toHaveBeenCalledWith(
         mockExamId,
-        mockLectureId,
-        expect.objectContaining({ content: 'New Q2' }),
+        lectureDetail.id,
+        expect.objectContaining({ content: updateDto.questions?.[1].content }),
         mockPrisma,
       );
     });
@@ -361,17 +288,10 @@ describe('ExamsService - @unit #critical', () => {
     });
 
     it('시험은 존재하나 관련 강의 정보가 없을 때, NotFoundException을 던진다', async () => {
-      mockExamsRepo.findById.mockResolvedValue({
-        id: mockExamId,
-        lectureId: 'none',
-        instructorId: null,
-        title: 'Exam 1',
-        cutoffScore: 0,
-        source: null,
-        gradingStatus: 'PENDING',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as Exam);
+      const exam = { ...mockExams.basic, lectureId: 'none' } as Awaited<
+        ReturnType<typeof mockExamsRepo.findById>
+      >;
+      mockExamsRepo.findById.mockResolvedValue(exam);
       mockLecturesRepo.findById.mockResolvedValue(null);
 
       await expect(
