@@ -9,6 +9,7 @@ import type { ParentChildLinkRepository } from '../../repos/parent-child-link.re
 import type { AttendancesRepository } from '../../repos/attendances.repo.js';
 import { ExamsRepository } from '../../repos/exams.repo.js';
 import { GradesRepository } from '../../repos/grades.repo.js';
+import { ClinicsRepository } from '../../repos/clinics.repo.js';
 import { createAutoMock } from './create-mock.util.js';
 
 /** Mock InstructorRepository 생성 */
@@ -120,4 +121,15 @@ export const createMockGradesRepository = () =>
     'upsertStudentAnswers',
     'upsertGrade',
     'findGradesByExamId',
+  ]);
+
+/** Mock ClinicsRepository 생성 */
+export const createMockClinicsRepository = () =>
+  createAutoMock<ClinicsRepository>([
+    'findFailedGradesByExamId',
+    'findExistingClinics',
+    'createMany',
+    'findByInstructor',
+    'findByIds',
+    'updateMany',
   ]);
