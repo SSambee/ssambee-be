@@ -194,10 +194,12 @@ describe('LecturesService - @unit #critical', () => {
         );
         expect(mockLecturesRepo.update).toHaveBeenCalledWith(
           mockLectures.basic.id,
+          mockLectures.basic.instructorId,
           expect.objectContaining({
             title: updateLectureRequests.full.title,
             subject: updateLectureRequests.full.subject,
           }),
+          undefined,
         );
       });
 
@@ -218,9 +220,11 @@ describe('LecturesService - @unit #critical', () => {
         expect(result).toBeDefined();
         expect(mockLecturesRepo.update).toHaveBeenCalledWith(
           mockLectures.basic.id,
+          mockLectures.basic.instructorId,
           expect.objectContaining({
             title: updateLectureRequests.partial.title,
           }),
+          undefined,
         );
         // undefined였던 description은 update payload에 포함되지 않아야 함
         const updateCall = mockLecturesRepo.update.mock.calls[0][1];
