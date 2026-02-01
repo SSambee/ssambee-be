@@ -44,7 +44,7 @@ describe('ExamsService - @unit #critical', () => {
       createMockLecturesRepository() as jest.Mocked<LecturesRepository>;
     mockPermissionService =
       createMockPermissionService() as jest.Mocked<PermissionService>;
-    mockPrisma = createMockPrisma();
+    mockPrisma = createMockPrisma() as unknown as jest.Mocked<PrismaClient>;
 
     mockPrisma.$transaction.mockImplementation(
       <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> =>
