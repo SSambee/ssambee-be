@@ -22,6 +22,10 @@ export const enrollmentIdParamSchema = z.object({
   enrollmentId: z.string().min(1, '수강 ID는 필수입니다.'),
 });
 
+export type EnrollmentIdParamDto = z.infer<typeof enrollmentIdParamSchema>;
+
 export const gradeIdParamSchema = z.object({
   gradeId: z.string().min(1, '성적 ID는 필수입니다.'),
 });
+
+export type GradeIdParamDto = z.infer<typeof gradeIdParamSchema>;

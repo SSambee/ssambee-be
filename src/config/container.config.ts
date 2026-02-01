@@ -154,7 +154,11 @@ const authController = new AuthController(authService);
 const lecturesController = new LecturesController(lecturesService);
 const enrollmentsController = new EnrollmentsController(enrollmentsService);
 const attendancesController = new AttendancesController(attendancesService);
-const childrenController = new ChildrenController(parentsService);
+const childrenController = new ChildrenController(
+  parentsService,
+  gradesService,
+  clinicsService,
+);
 const examsController = new ExamsController(examsService);
 const gradesController = new GradesController(gradesService);
 const statisticsController = new StatisticsController(statisticsService);
