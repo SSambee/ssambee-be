@@ -29,6 +29,9 @@ if (isDevelopment()) {
   app.use(morgan('dev'));
 }
 
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
 // 3. better auth 내부 우회 api (공식문서상 데이터 파서 앞에)
 app.all('/api/auth/*splat', toNodeHandler(auth));
 

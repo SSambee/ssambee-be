@@ -1,0 +1,56 @@
+services:
+  # 백엔드 Blue (기본)
+  backend-blue:
+    image: ghcr.io/${GITHUB_REPOSITORY}:${IMAGE_TAG:-latest}  # GHCR 이미지 사용
+    container_name: eduops-backend-blue
+    ports:
+      - "4000:4000"
+    env_file:
+      - .env
+    volumes:
+      - ./.env:/app/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+    networks:
+      - lms-network
+    restart: always #Prisma 마이그레이션 실행 후 서버 시작
+    profiles:
+      - blue
+
+  # 배포 시에만 실행(포트 4001)
+  backend-green:
+    image: ghcr.io/${GITHUB_REPOSITORY}:${IMAGE_TAG:-latest}  # GHCR 이미지 사용
+    container_name: eduops-backend-green
+    ports:
+      - "4001:4000"
+    env_file:
+      - .env
+    volumes:
+      - ./.env:/app/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+    networks:
+      - lms-network
+    restart: always #Prisma 마이그레이션 실행 후 서버 시작
+    profiles:
+      - green # 기본적으로 실행 되지않음
+
+# Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name:  eduops-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    networks:
+      - lms-network
+    restart: always
+  
+networks:
+  lms-network:
+    driver: bridge
