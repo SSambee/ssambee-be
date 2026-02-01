@@ -273,4 +273,37 @@ export class ClinicsService {
       message: `${result.count}개의 클리닉이 수정되었습니다.`,
     };
   }
+
+  /** 학생용 클리닉 조회 */
+  async getClinicsByStudent(userType: UserType, profileId: string) {
+    let clinics;
+
+    if (userType === UserType.STUDENT) {
+      clinics = await this.clinicsRepo.findByAppStudentId(profileId);
+    } else if (userType === UserType.PARENT) {
+      // 학부모용 조회 로직 (추후 구현)
+      throw new BadRequestException(
+        '학부모용 클리닉 조회는 자녀 선택이 필요합니다.',
+      );
+    } else {
+      throw new BadRequestException('올바르지 않은 사용자 유형입니다.');
+    }
+
+    return clinics.map((clinic) => ({
+      id: clinic.id,
+      title: clinic.title,
+      status: clinic.status,
+      deadline: clinic.deadline,
+      memo: clinic.memo,
+      exam: {
+        title: clinic.exam.title,
+        cutoffScore: clinic.exam.cutoffScore,
+      },
+      lecture: {
+        title: clinic.lecture.title,
+        subject: clinic.lecture.subject,
+      },
+      studentName: clinic.enrollment.studentName,
+    }));
+  }
 }

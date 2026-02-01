@@ -16,3 +16,12 @@ export const submitGradingSchema = z.object({
 });
 
 export type SubmitGradingDto = z.infer<typeof submitGradingSchema>;
+
+/** 성적 조회 파라미터 스키마 */
+export const enrollmentIdParamSchema = z.object({
+  enrollmentId: z.string().min(1, '수강 ID는 필수입니다.'),
+});
+
+export const gradeIdParamSchema = z.object({
+  gradeId: z.string().min(1, '성적 ID는 필수입니다.'),
+});
