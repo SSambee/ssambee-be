@@ -306,13 +306,19 @@ export class ClinicsService {
   async getClinicsByParentLink(
     parentChildLinkId: string,
     userType: UserType,
-    _profileId: string,
+    profileId: string,
   ) {
     if (userType !== UserType.PARENT) {
       throw new BadRequestException(
         '학부모만 이 엔드포인트를 사용할 수 있습니다.',
       );
     }
+
+    await this.permissionService.validateChildAccess(
+      userType,
+      profileId,
+      parentChildLinkId,
+    );
 
     const clinics =
       await this.clinicsRepo.findByAppParentLinkId(parentChildLinkId);
