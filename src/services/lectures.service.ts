@@ -1,7 +1,10 @@
 import { PrismaClient } from '../generated/prisma/client.js';
 import { EnrollmentStatus } from '../constants/enrollments.constant.js';
 import { NotFoundException } from '../err/http.exception.js';
-import { LecturesRepository } from '../repos/lectures.repo.js';
+import {
+  LecturesRepository,
+  LectureWithTimes,
+} from '../repos/lectures.repo.js';
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import { StudentRepository } from '../repos/student.repo.js';
 import { InstructorRepository } from '../repos/instructor.repo.js';
@@ -16,6 +19,60 @@ import {
 import type { Lecture, Enrollment } from '../generated/prisma/client.js';
 
 export type LectureWithEnrollments = Lecture & { enrollments?: Enrollment[] };
+
+export type GetLecturesResponse = {
+  lectures: {
+    id: string;
+    title: string;
+    subject: string | null;
+    status: string;
+    startAt: Date | null;
+    instructorName: string;
+    enrollmentsCount: number;
+    lectureTimes: {
+      day: string;
+      startTime: string;
+      endTime: string;
+    }[];
+  }[];
+  pagination: {
+    totalCount: number;
+    totalPage: number;
+    currentPage: number;
+    limit: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+};
+
+export type LectureDetailResponse = {
+  id: string;
+  title: string;
+  subject: string | null;
+  status: string;
+  startAt: Date | null;
+  instructorName: string;
+  enrollmentsCount: number;
+  lectureTimes: {
+    day: string;
+    startTime: string;
+    endTime: string;
+  }[];
+  students: {
+    id: string;
+    name: string;
+    school: string;
+    phone: string;
+    parentPhone: string;
+  }[];
+  exams: {
+    id: string;
+    title: string;
+    status: string;
+    questionCount: number;
+    createdAt: Date;
+  }[];
+};
 
 export class LecturesService {
   constructor(
@@ -63,18 +120,37 @@ export class LecturesService {
   }
 
   /** 강의 리스트 조회 */
-  async getLectures(instructorId: string, query: GetLecturesQueryDto) {
-    const { page = 1, limit = 4, search } = query;
+  async getLectures(
+    instructorId: string,
+    query: GetLecturesQueryDto,
+  ): Promise<GetLecturesResponse> {
+    const { page = 1, limit = 4, search, day } = query;
 
     const { lectures, totalCount } = await this.lecturesRepository.findMany({
       page,
       limit,
       instructorId,
       search,
+      day,
     });
 
+    const mappedLectures = lectures.map((lecture) => ({
+      id: lecture.id,
+      title: lecture.title,
+      subject: lecture.subject,
+      status: lecture.status,
+      startAt: lecture.startAt,
+      instructorName: lecture.instructor.user.name,
+      enrollmentsCount: lecture._count.enrollments,
+      lectureTimes: lecture.lectureTimes.map((lt) => ({
+        day: lt.day,
+        startTime: lt.startTime,
+        endTime: lt.endTime,
+      })),
+    }));
+
     return {
-      lectures,
+      lectures: mappedLectures,
       pagination: {
         totalCount,
         totalPage: Math.ceil(totalCount / limit),
@@ -87,11 +163,12 @@ export class LecturesService {
   }
 
   /** 강의 개별 조회 */
+  /** 강의 개별 조회 */
   async getLectureById(
     profileId: string,
     userType: UserType,
     id: string,
-  ): Promise<Lecture> {
+  ): Promise<LectureDetailResponse> {
     const lecture = await this.lecturesRepository.findById(id);
 
     if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
@@ -102,7 +179,34 @@ export class LecturesService {
       profileId,
     );
 
-    return lecture;
+    return {
+      id: lecture.id,
+      title: lecture.title,
+      subject: lecture.subject,
+      status: lecture.status,
+      startAt: lecture.startAt,
+      instructorName: lecture.instructor.user.name,
+      enrollmentsCount: lecture._count.enrollments,
+      lectureTimes: lecture.lectureTimes.map((lt) => ({
+        day: lt.day,
+        startTime: lt.startTime,
+        endTime: lt.endTime,
+      })),
+      students: lecture.enrollments.map((e) => ({
+        id: e.id,
+        name: e.studentName,
+        school: `${e.school} ${e.schoolYear}`,
+        phone: e.studentPhone,
+        parentPhone: e.parentPhone,
+      })),
+      exams: lecture.exams.map((exam) => ({
+        id: exam.id,
+        title: exam.title,
+        status: exam.gradingStatus,
+        questionCount: exam._count.questions,
+        createdAt: exam.createdAt,
+      })),
+    };
   }
 
   /** 강의 수정 */
@@ -111,7 +215,7 @@ export class LecturesService {
     userType: UserType,
     id: string,
     data: UpdateLectureDto,
-  ): Promise<Lecture> {
+  ): Promise<LectureWithTimes> {
     const lecture = await this.lecturesRepository.findById(id);
 
     if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
@@ -122,12 +226,20 @@ export class LecturesService {
       profileId,
     );
 
+    // lectureTimes 필드 분리
+    const { lectureTimes, ...lectureData } = data;
+
     // undefined를 제외한 필드만 추출
     const updatePayload = Object.fromEntries(
-      Object.entries(data).filter(([_, value]) => value !== undefined),
+      Object.entries(lectureData).filter(([_, value]) => value !== undefined),
     );
 
-    return await this.lecturesRepository.update(id, updatePayload);
+    return await this.lecturesRepository.update(
+      id,
+      lecture.instructorId,
+      updatePayload,
+      lectureTimes,
+    );
   }
 
   /** 강의 삭제 (Soft Delete) */
