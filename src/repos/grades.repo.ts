@@ -91,4 +91,100 @@ export class GradesRepository {
       orderBy: { score: 'desc' }, // 점수 내림차순 정렬
     });
   }
+
+  /** 수강생별 성적 목록 조회 */
+  async findByEnrollmentId(
+    enrollmentId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return await client.grade.findMany({
+      where: { enrollmentId },
+      include: {
+        exam: {
+          select: {
+            id: true,
+            title: true,
+            schedule: {
+              select: {
+                startTime: true,
+              },
+            },
+          },
+        },
+        enrollment: {
+          include: {
+            lecture: {
+              include: {
+                instructor: {
+                  select: {
+                    user: { select: { name: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /** 성적 상세 조회 (문항 통계 포함) */
+  async findByIdWithDetails(gradeId: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    return await client.grade.findUnique({
+      where: { id: gradeId },
+      include: {
+        exam: {
+          include: {
+            questions: {
+              include: {
+                statistic: true,
+              },
+              orderBy: { questionNumber: 'asc' },
+            },
+          },
+        },
+        enrollment: {
+          select: {
+            id: true,
+            studentName: true,
+          },
+        },
+      },
+    });
+  }
+
+  /** 특정 시험에서의 등수 계산 */
+  async calculateRankByExamId(
+    examId: string,
+    score: number,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    // 나보다 점수가 높은 사람 수 + 1 = 등수
+    const betterCount = await client.grade.count({
+      where: {
+        examId,
+        score: { gt: score },
+      },
+    });
+    return betterCount + 1;
+  }
+
+  /** 특정 시험의 평균 점수 계산 */
+  async calculateAverageByExamId(
+    examId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    const aggregate = await client.grade.aggregate({
+      where: { examId },
+      _avg: {
+        score: true,
+      },
+    });
+    return aggregate._avg.score || 0;
+  }
 }

@@ -11,3 +11,10 @@ export const createChildSchema = z.object({
 });
 
 export type CreateChildDto = z.infer<typeof createChildSchema>;
+
+/** 자녀 ID 파라미터 스키마 */
+export const childIdParamSchema = z.object({
+  id: z.string().min(1, '자녀 ID는 필수입니다.'),
+  enrollmentId: z.string().optional(),
+  gradeId: z.string().optional(),
+});

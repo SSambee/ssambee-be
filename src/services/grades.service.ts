@@ -188,4 +188,104 @@ export class GradesService {
     // 3. 성적 조회
     return await this.gradesRepo.findGradesByExamId(examId);
   }
+
+  /** 수강별 성적 목록 조회 (학생/학부모용) */
+  async getGradesByEnrollment(
+    enrollmentId: string,
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 1. Enrollment 검증 및 권한 확인
+    const enrollment =
+      await this.enrollmentsRepo.findByIdWithRelations(enrollmentId);
+    if (!enrollment) {
+      throw new NotFoundException('수강 정보를 찾을 수 없습니다.');
+    }
+
+    // 본인 또는 자녀 확인
+    await this.permissionService.validateEnrollmentReadAccess(
+      enrollment,
+      userType,
+      profileId,
+    );
+
+    // 2. 성적 목록 조회
+    const grades = await this.gradesRepo.findByEnrollmentId(enrollmentId);
+
+    // 3. 각 성적별 등수 및 평균 계산 (병렬 처리)
+    const gradesWithStats = await Promise.all(
+      grades.map(async (grade) => {
+        const [rank, average] = await Promise.all([
+          this.gradesRepo.calculateRankByExamId(grade.examId, grade.score),
+          this.gradesRepo.calculateAverageByExamId(grade.examId),
+        ]);
+
+        return {
+          id: grade.id,
+          examTitle: grade.exam.title,
+          instructorName:
+            grade.enrollment.lecture.instructor.user.name ?? '알 수 없음',
+          lectureTitle: enrollment.lecture.title,
+          date: grade.exam.schedule?.startTime ?? grade.createdAt,
+          score: grade.score,
+          isPass: grade.isPass,
+          rank,
+          average: Math.round(average * 10) / 10, // 소수점 첫째자리 반올림
+        };
+      }),
+    );
+
+    return gradesWithStats;
+  }
+
+  /** 성적 상세 조회 (학생/학부모용) */
+  async getGradeDetail(gradeId: string, userType: UserType, profileId: string) {
+    // 1. 성적 상세 조회
+    const grade = await this.gradesRepo.findByIdWithDetails(gradeId);
+    if (!grade) {
+      throw new NotFoundException('성적 정보를 찾을 수 없습니다.');
+    }
+
+    // 2. Enrollment 정보로 권한 확인
+    // findByIdWithDetails에서 enrollment 정보를 가져오지만,
+    // 전체 관계 데이터가 필요하므로 validateEnrollmentReadAccess를 위해
+    // enrollmentRepo를 통해 다시 조회하거나 permissionService를 보완해야 함.
+    // 여기서는 permissionService.validateEnrollmentReadAccess가 Enrollment 객체를 받으므로
+    // grade.enrollment에 필요한 필드(appStudentId 등)가 있는지 확인해야 함.
+    // findByIdWithDetails에서는 select로 studentName만 가져왔으므로, 관계 검증을 위해 추가 조회가 필요함.
+    const enrollment = await this.enrollmentsRepo.findByIdWithRelations(
+      grade.enrollmentId,
+    );
+
+    if (!enrollment) {
+      throw new NotFoundException('수강 정보를 찾을 수 없습니다.');
+    }
+
+    await this.permissionService.validateEnrollmentReadAccess(
+      enrollment,
+      userType,
+      profileId,
+    );
+
+    // 3. 등수 및 평균 계산
+    const [rank, average] = await Promise.all([
+      this.gradesRepo.calculateRankByExamId(grade.examId, grade.score),
+      this.gradesRepo.calculateAverageByExamId(grade.examId),
+    ]);
+
+    // 4. 응답 데이터 구성
+    return {
+      studentName: grade.enrollment.studentName,
+      score: grade.score,
+      rank,
+      average: Math.round(average * 10) / 10,
+      examTitle: grade.exam.title,
+      questionStatistics: grade.exam.questions.map((q) => ({
+        questionNumber: q.questionNumber,
+        score: q.score,
+        correctRate: q.statistic?.correctRate ?? 0,
+        choiceRates: q.statistic?.choiceRates ?? null,
+      })),
+    };
+  }
 }

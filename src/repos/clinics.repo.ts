@@ -178,4 +178,68 @@ export class ClinicsRepository {
       },
     });
   }
+
+  /**
+   * 학생 ID로 클리닉 목록 조회
+   */
+  async findByAppStudentId(
+    appStudentId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+
+    return await client.clinic.findMany({
+      where: {
+        enrollment: {
+          appStudentId,
+        },
+      },
+      include: {
+        enrollment: true,
+        exam: true,
+        lecture: {
+          select: {
+            id: true,
+            title: true,
+            subject: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  /**
+   * 학부모 연결 ID로 클리닉 목록 조회
+   */
+  async findByAppParentLinkId(
+    appParentLinkId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+
+    return await client.clinic.findMany({
+      where: {
+        enrollment: {
+          appParentLinkId,
+        },
+      },
+      include: {
+        enrollment: true,
+        exam: true,
+        lecture: {
+          select: {
+            id: true,
+            title: true,
+            subject: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
 }
