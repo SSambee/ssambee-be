@@ -1,4 +1,4 @@
-# 1. 문서/성적표 버킷 (보안 및 보관 중심)
+# 문서/성적표 버킷 (보안 및 보관 중심)
 resource "aws_s3_bucket" "documents" {
   bucket = "${var.project_name}-${var.env}-lms-documents"
   tags   = { Name = "${var.project_name}-${var.env}-lms-documents" }
@@ -22,7 +22,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "documents" {
   }
 }
 
-# 수명 주기 정책 (비용 최적화)
+# 수명 주기 정책 (비용 최적화 언제든지 변화)
 resource "aws_s3_bucket_lifecycle_configuration" "documents" {
   bucket = aws_s3_bucket.documents.id
 
@@ -92,7 +92,7 @@ resource "aws_s3_bucket_cors_configuration" "icons" {
   }
 }
 
-# 3. 공통 보안 설정 (퍼블릭 액세스 차단)
+# 공통 보안 설정 (퍼블릭 액세스 차단)
 resource "aws_s3_account_public_access_block" "global" {
   block_public_acls       = true
   block_public_policy     = true
