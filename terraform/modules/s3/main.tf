@@ -34,16 +34,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "documents" {
       days          = 30
       storage_class = "STANDARD_IA"
     }
-
-    transition {
-      days          = 90
-      storage_class = "GLACIER_IR"
-    }
-
-    transition {
-      days          = 365
-      storage_class = "DEEP_ARCHIVE"
-    }
   }
 }
 
