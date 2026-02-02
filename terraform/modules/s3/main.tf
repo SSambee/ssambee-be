@@ -85,7 +85,7 @@ resource "aws_s3_bucket_cors_configuration" "icons" {
 
   cors_rule {
     allowed_headers = ["*"]
-    allowed_methods = ["GET"]
+    allowed_methods = ["GET", "POST", "DELETE"]
     allowed_origins = [var.frontend_origin]
     expose_headers  = ["ETag"]
     max_age_seconds = 3000
