@@ -200,6 +200,7 @@ model Enrollment {
   receivedInstructorPosts InstructorPostTarget[]
 
   // [Optimization] 강사별 학생 검색, 전화번호 검색 최적화
+  @@unique([instructorId, studentPhone])
   @@index([instructorId])
   @@index([studentPhone])
   @@index([appStudentId])
@@ -262,7 +263,7 @@ model LectureEnrollment {
   id String @id @default(cuid(2))
 
   // [Parent] 어떤 '관계(Enrollment)'에서 파생된 수강인가?
-  enrollmentId String
+  enrollmentId String @map("enrollment_id")
   enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
 
   // [Target] 어떤 '강의(Lecture)'를 듣는가?
