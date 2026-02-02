@@ -29,6 +29,11 @@ variable "s3_bucket_arns" {
   description = "ARNs of the S3 buckets to allow access to"
   type        = list(string)
   default     = []
+
+  validation {
+    condition     = length(var.s3_bucket_arns) > 0
+    error_message = "최소 한 개의 S3 버킷 ARN이 제공되어야 합니다."
+  }
 }
 
 variable "env" {
