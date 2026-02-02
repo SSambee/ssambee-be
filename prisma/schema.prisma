@@ -198,6 +198,7 @@ model Enrollment {
 
   // [Children] 이 관계 하에서 발생한 수강 이력들
   lectureEnrollments LectureEnrollment[]
+  attendances        Attendance[]
 
   // [Children] 이 관계 하에서 발생한 게시글들
   studentPosts    StudentPost[] 
@@ -233,6 +234,7 @@ model Lecture {
   instructor Instructor @relation(fields: [instructorId], references: [id])
 
   lectureEnrollments  LectureEnrollment[]
+  attendances         Attendance[]
   exams        Exam[]
   materials    Material[]
   clinics      Clinic[]
@@ -286,13 +288,15 @@ model LectureEnrollment {
   clinics         Clinic[]
   attendances     Attendance[]
 
-  @@unique([lectureId, enrollmentId, id]) // 한 수업에 중복 등록 방지
+  @@unique([lectureId, enrollmentId]) // 한 수업에 중복 등록 방지
   @@index([enrollmentId])
   @@map("lecture_enrollments")
 }
 
 model Attendance {
   id           String @id @default(cuid(2))
+  lectureId    String @map("lecture_id")
+  enrollmentId String @map("enrollment_id")
   lectureEnrollmentId String @map("lecture_enrollment_id")
 
   date   DateTime @db.Date // 시간 제외한 날짜
@@ -305,12 +309,16 @@ model Attendance {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime? @updatedAt @map("updated_at")
 
+  lecture           Lecture           @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  enrollment        Enrollment        @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
   lectureEnrollment LectureEnrollment @relation(fields: [lectureEnrollmentId], references: [id], onDelete: Cascade)
 
-  // [Constraint] 학생은 하루에 하나의 출석 데이터만 가짐
+  // [Constraint] 강사에 등록된 학생은 하루에 하나의 출석 데이터만 가짐
+  @@unique([lectureId, enrollmentId, date])
   @@unique([lectureEnrollmentId, date])
   // [Performance] 날짜별/상태별 조회 (예: 오늘 결석자 조회)
   @@index([date, status])
+  @@index([enrollmentId])
   @@index([lectureEnrollmentId])
   @@map("attendances")
 }
@@ -403,7 +411,7 @@ model StudentAnswer {
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  lectureEnrollment LectureEnrollment @relation(fields: [lectureId, lectureEnrollmentId, id], references: [lectureId, enrollmentId, id], onDelete: Cascade)
+  lectureEnrollment LectureEnrollment @relation(fields: [lectureId, lectureEnrollmentId], references: [lectureId, enrollmentId], onDelete: Cascade)
   question   Question   @relation(fields: [lectureId, questionId], references: [lectureId, id], onDelete: Cascade)
 
   @@unique([lectureEnrollmentId, questionId])
@@ -427,7 +435,7 @@ model Grade {
   updatedAt DateTime? @updatedAt @map("updated_at")
 
   exam       Exam       @relation(fields: [lectureId, examId], references: [lectureId, id], onDelete: Cascade)
-  lectureEnrollment LectureEnrollment @relation(fields: [lectureId, lectureEnrollmentId, id], references: [lectureId, enrollmentId, id], onDelete: Cascade)
+  lectureEnrollment LectureEnrollment @relation(fields: [lectureId, lectureEnrollmentId], references: [lectureId, enrollmentId], onDelete: Cascade)
 
   //logs GradeLog[]
 
