@@ -23,7 +23,7 @@ export class EnrollmentsController {
       if (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) {
         const query = req.query as unknown as GetEnrollmentsQueryDto;
         const { enrollments, totalCount } =
-          await this.enrollmentsService.getEnrollmentsByInstructor(
+          await this.enrollmentsService.getEnrollments(
             userType,
             profileId,
             query,
@@ -45,7 +45,7 @@ export class EnrollmentsController {
       // 학생/학부모인 경우
       const query = req.query as unknown as GetSvcEnrollmentsQueryDto;
       const { enrollments, totalCount } =
-        await this.enrollmentsService.getEnrollments(
+        await this.enrollmentsService.getMyEnrollments(
           userType,
           profileId,
           query,
@@ -132,36 +132,6 @@ export class EnrollmentsController {
     }
   };
 
-  /** 강의별 Enrollment 목록 조회 */
-  getEnrollmentsByLecture = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) => {
-    try {
-      const { lectureId } = req.params;
-      const { examId } = req.query; // 시험 ID 쿼리 파라미터
-      const user = getAuthUser(req);
-      const profileId = getProfileIdOrThrow(req);
-      const userType = user.userType as UserType;
-
-      const enrollments =
-        await this.enrollmentsService.getEnrollmentsByLectureId(
-          lectureId,
-          userType,
-          profileId,
-          { examId: examId as string | undefined },
-        );
-
-      return successResponse(res, {
-        data: { enrollments },
-        message: '강의별 수강생 목록 조회 성공',
-      });
-    } catch (error) {
-      next(error);
-    }
-  };
-
   /** Enrollment 수정 */
   updateEnrollment = async (
     req: Request,
@@ -185,33 +155,6 @@ export class EnrollmentsController {
       return successResponse(res, {
         data: { enrollment },
         message: '수강 정보 수정 성공',
-      });
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  /** Enrollment 삭제 (Soft Delete) */
-  deleteEnrollment = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) => {
-    try {
-      const { enrollmentId } = req.params;
-      const user = getAuthUser(req);
-      const profileId = getProfileIdOrThrow(req);
-      const userType = user.userType as UserType;
-
-      await this.enrollmentsService.deleteEnrollment(
-        enrollmentId,
-        userType,
-        profileId,
-      );
-
-      return successResponse(res, {
-        statusCode: 204,
-        message: '수강 정보가 삭제되었습니다.',
       });
     } catch (error) {
       next(error);

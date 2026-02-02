@@ -8,10 +8,7 @@ import {
   lectureIdParamSchema,
   updateLectureSchema,
 } from '../../../validations/lectures.validation.js';
-import {
-  createEnrollmentSchema,
-  getEnrollmentsByLectureQuerySchema,
-} from '../../../validations/enrollments.validation.js';
+import { createEnrollmentSchema } from '../../../validations/enrollments.validation.js';
 import { createBulkAttendancesSchema } from '../../../validations/attendances.validation.js';
 import {
   createExamSchema,
@@ -84,13 +81,6 @@ mgmtLecturesRouter.post(
 );
 
 /** --- 수강생 (Nested Routes) --- */
-
-/** 해당 강의의 수강생 목록 조회 */
-mgmtLecturesRouter.get(
-  '/:lectureId/enrollments',
-  validate(getEnrollmentsByLectureQuerySchema, 'query'),
-  container.enrollmentsController.getEnrollmentsByLecture,
-);
 
 /** 해당 강의에 수강생 등록 */
 mgmtLecturesRouter.post(

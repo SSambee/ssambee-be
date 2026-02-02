@@ -87,7 +87,9 @@ export const createMockEnrollmentsRepository = () =>
     'softDelete',
     'updateAppStudentIdByPhoneNumber',
     'updateAppParentLinkIdByStudentPhone',
+    'updateAppParentLinkIdByStudentPhone',
     'findManyByInstructorAndPhones',
+    'findByIdWithLectures',
   ]);
 
 /** Mock LectureEnrollmentsRepository 생성 */
@@ -95,6 +97,7 @@ export const createMockLectureEnrollmentsRepository = () =>
   createAutoMock<LectureEnrollmentsRepository>([
     'createMany',
     'findManyByLectureId',
+    'create',
   ]);
 
 /** Mock AttendancesRepository 생성 */

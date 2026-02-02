@@ -57,15 +57,6 @@ export const updateEnrollmentSchema = z.object({
 
 export type UpdateEnrollmentDto = z.infer<typeof updateEnrollmentSchema>;
 
-/** 강의별 수강생 목록 조회 쿼리 스키마 (시험 성적 포함) */
-export const getEnrollmentsByLectureQuerySchema = z.object({
-  examId: z.string().trim().optional(),
-});
-
-export type GetEnrollmentsByLectureQueryDto = z.infer<
-  typeof getEnrollmentsByLectureQuerySchema
->;
-
 /** 수강생 목록 조회 쿼리 스키마 */
 import { paginationQuerySchema } from './common.validation.js';
 
@@ -74,8 +65,8 @@ export const getEnrollmentsQuerySchema = paginationQuerySchema.extend({
   keyword: z.string().trim().optional(), // 이름, 학교, 전화번호 검색
   year: z.enum([...SCHOOL_YEARS] as [string, ...string[]]).optional(), // 학년 필터 (ex: 중1, 고3)
   status: z.nativeEnum(EnrollmentStatus).optional(), // 상태 필터
-  lectureId: z.string().optional(), // 특정 강의 필터 (선택 사항)
-  includeClosed: z.coerce.boolean().optional(), // 종강된 강의 포함 여부 (true: 포함, false/undefined: 제외)
+  lecture: z.string().optional(), // 특정 강의 필터 (선택 사항)
+  examId: z.string().optional(), // 특정 시험 성적 포함 필터
 });
 
 export type GetEnrollmentsQueryDto = z.infer<typeof getEnrollmentsQuerySchema>;

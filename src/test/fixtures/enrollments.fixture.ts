@@ -275,9 +275,12 @@ export const updateEnrollmentRequests = {
 /** Enrollment with Relations (조회 시 사용) */
 export const mockEnrollmentWithRelations = {
   ...mockEnrollments.active,
-  // lecture 관계 삭제됨
   lectureEnrollments: [
     {
+      id: faker.string.uuid(),
+      enrollmentId: mockEnrollments.active.id,
+      lectureId: mockLectures.basic.id,
+      registeredAt: new Date(),
       lecture: {
         ...mockLectures.basic,
         instructor: {
@@ -298,9 +301,9 @@ export const mockEnrollmentWithRelationsForParent = {
 
 /** Mock Enrollment 배열 (목록 조회용) */
 export const mockEnrollmentsList = [
-  mockEnrollments.active,
-  mockEnrollments.withoutParentLink,
-  mockEnrollments.withMemo,
+  { ...mockEnrollments.active, attendances: [] },
+  { ...mockEnrollments.withoutParentLink, attendances: [] },
+  { ...mockEnrollments.withMemo, attendances: [] },
 ];
 
 /** Mock Query DTO */

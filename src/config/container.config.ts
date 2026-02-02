@@ -135,6 +135,7 @@ const parentsService = new ParentsService(
 const enrollmentsService = new EnrollmentsService(
   enrollmentsRepo,
   lecturesRepo,
+  lectureEnrollmentsRepo,
   studentRepo,
   parentsService,
   permissionService,

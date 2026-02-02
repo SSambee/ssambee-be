@@ -46,12 +46,6 @@ mgmtEnrollmentsRouter.patch(
   enrollmentsController.updateEnrollment,
 );
 
-/** 수강 정보 삭제 (Soft Delete) */
-mgmtEnrollmentsRouter.delete(
-  '/:enrollmentId',
-  enrollmentsController.deleteEnrollment,
-);
-
 /** --- 출결 (Nested Routes) --- */
 
 /** 수강생 출결 등록 (개별) */

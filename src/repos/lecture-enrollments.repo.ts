@@ -15,6 +15,17 @@ export class LectureEnrollmentsRepository {
     });
   }
 
+  /** 강의 수강생 개별 등록 */
+  async create(
+    data: Prisma.LectureEnrollmentUncheckedCreateInput,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return await client.lectureEnrollment.create({
+      data,
+    });
+  }
+
   /** 강의별 수강 명단 조회 (Enrollment 정보 포함) */
   async findManyByLectureId(lectureId: string, tx?: Prisma.TransactionClient) {
     const client = tx ?? this.prisma;

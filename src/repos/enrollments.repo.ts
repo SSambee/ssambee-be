@@ -111,6 +111,27 @@ export class EnrollmentsRepository {
     });
   }
 
+  /** Enrollment ID로 상세 조회 (Lecture 포함) */
+  async findByIdWithLectures(
+    enrollmentId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return await client.enrollment.findFirst({
+      where: {
+        id: enrollmentId,
+        deletedAt: null,
+      },
+      include: {
+        lectureEnrollments: {
+          include: {
+            lecture: true,
+          },
+        },
+      },
+    });
+  }
+
   /** ID로 간단 조회 (권한 체크 및 기본 정보 확인용) */
   async findById(id: string, tx?: Prisma.TransactionClient) {
     const client = tx ?? this.prisma;
@@ -128,8 +149,6 @@ export class EnrollmentsRepository {
     const client = tx ?? this.prisma;
     return await client.enrollment.findMany({
       where: {
-        // lectureId 필드 삭제됨
-        // lectureId,
         lectureEnrollments: {
           some: {
             lectureId,
@@ -139,7 +158,10 @@ export class EnrollmentsRepository {
       },
       include: {
         appStudent: true, // 학생 정보 포함
-        // grades는 LectureEnrollment 밑으로 이동했으므로 여기서 직접 include 불가
+        attendances: {
+          orderBy: { date: 'desc' },
+          take: 1,
+        },
         lectureEnrollments: {
           where: { lectureId },
           include: {
@@ -154,7 +176,7 @@ export class EnrollmentsRepository {
         },
       },
       orderBy: {
-        studentName: 'asc', // 이름순 정렬
+        createdAt: 'desc',
       },
     });
   }
@@ -168,7 +190,6 @@ export class EnrollmentsRepository {
       keyword?: string;
       year?: string;
       status?: EnrollmentStatus;
-      includeClosed?: boolean;
     },
     tx?: Prisma.TransactionClient,
   ) {
@@ -198,21 +219,6 @@ export class EnrollmentsRepository {
       ];
     }
 
-    // 종강된 강의 제외 로직 (includeClosed가 true가 아니면 제외)
-    // if (!params.includeClosed) {
-    //   /*
-    //   where.lectureEnrollments = {
-    //     some: {
-    //       lecture: {
-    //          status: { not: LectureStatus.COMPLETED }
-    //       }
-    //     }
-    //   };
-    //   */
-    //   // 복잡한 로직이므로 일단 pass 혹은 기획 변경 필요.
-    //   // 강사 주소록 관점에서 종강 여부는 중요하지 않을 수 있음.
-    // }
-
     // 데이터 조회 (페이지네이션)
     const { skip, take } = getPagingParams(page, limit);
     const [enrollments, totalCount] = await Promise.all([
@@ -229,6 +235,10 @@ export class EnrollmentsRepository {
           },
           */
           appStudent: true,
+          attendances: {
+            orderBy: { date: 'desc' },
+            take: 1,
+          },
         },
         orderBy: {
           registeredAt: 'desc', // 최신 등록순
