@@ -12,6 +12,7 @@ const envSchema = z.object({
   FRONT_URL: z.string(),
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.string().url(),
+  SENTRY_DSN: z.string(),
 });
 
 const parseEnvironment = () => {
@@ -23,6 +24,7 @@ const parseEnvironment = () => {
       FRONT_URL: process.env.FRONT_URL,
       BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
       BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
+      SENTRY_DSN: process.env.SENTRY_DSN,
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
