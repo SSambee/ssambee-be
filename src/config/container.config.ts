@@ -20,6 +20,7 @@ import { LecturesService } from '../services/lectures.service.js';
 import { LecturesController } from '../controllers/lectures.controller.js';
 
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
+import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 import { EnrollmentsService } from '../services/enrollments.service.js';
 import { EnrollmentsController } from '../controllers/enrollments.controller.js';
 
@@ -63,6 +64,7 @@ const clinicsRepo = new ClinicsRepository(prisma);
 
 const lecturesRepo = new LecturesRepository(prisma);
 const enrollmentsRepo = new EnrollmentsRepository(prisma);
+const lectureEnrollmentsRepo = new LectureEnrollmentsRepository(prisma);
 const attendancesRepo = new AttendancesRepository(prisma);
 
 // 2. Instantiate Services (Inject Repos)
@@ -117,7 +119,7 @@ const clinicsService = new ClinicsService(
 const lecturesService = new LecturesService(
   lecturesRepo,
   enrollmentsRepo,
-  studentRepo,
+  lectureEnrollmentsRepo,
   instructorRepo,
   permissionService,
   prisma,

@@ -8,6 +8,7 @@ import type { EnrollmentsRepository } from '../../repos/enrollments.repo.js';
 import type { ParentChildLinkRepository } from '../../repos/parent-child-link.repo.js';
 import type { AttendancesRepository } from '../../repos/attendances.repo.js';
 import type { ExamsRepository } from '../../repos/exams.repo.js';
+import type { LectureEnrollmentsRepository } from '../../repos/lecture-enrollments.repo.js';
 import { createAutoMock } from './create-mock.util.js';
 
 /** Mock InstructorRepository 생성 */
@@ -86,6 +87,14 @@ export const createMockEnrollmentsRepository = () =>
     'softDelete',
     'updateAppStudentIdByPhoneNumber',
     'updateAppParentLinkIdByStudentPhone',
+    'findManyByInstructorAndPhones',
+  ]);
+
+/** Mock LectureEnrollmentsRepository 생성 */
+export const createMockLectureEnrollmentsRepository = () =>
+  createAutoMock<LectureEnrollmentsRepository>([
+    'createMany',
+    'findManyByLectureId',
   ]);
 
 /** Mock AttendancesRepository 생성 */

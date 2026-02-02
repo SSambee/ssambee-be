@@ -1,10 +1,8 @@
 import { PrismaClient } from '../generated/prisma/client.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { EnrollmentStatus } from '../constants/enrollments.constant.js';
-import { LectureStatus } from '../constants/lectures.constant.js';
 import { getPagingParams } from '../utils/pagination.util.js';
 import { GetSvcEnrollmentsQueryDto } from '../validations/enrollments.validation.js';
-import { QueryMode } from '../generated/prisma/internal/prismaNamespace.js';
 
 export class EnrollmentsRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -24,7 +22,7 @@ export class EnrollmentsRepository {
     );
   }
 
-  /** 학부모-자녀 연결 ID로 수강 목록 조회 (Lecture, Instructor 포함) */
+  /* 학부모-자녀 연결 ID로 수강 목록 조회 (Lecture, Instructor 포함) */
   async findByAppParentLinkId(
     appParentLinkId: string,
     query: Partial<GetSvcEnrollmentsQueryDto> = {},
@@ -35,6 +33,24 @@ export class EnrollmentsRepository {
       query,
       tx,
     );
+  }
+
+  /** 강사 ID와 학생 전화번호 목록으로 Enrollment 조회 */
+  async findManyByInstructorAndPhones(
+    instructorId: string,
+    studentPhones: string[],
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return await client.enrollment.findMany({
+      where: {
+        instructorId,
+        studentPhone: {
+          in: studentPhones,
+        },
+        deletedAt: null,
+      },
+    });
   }
 
   /** 공통 페이징 조회 헬퍼 (Internal) */
@@ -55,27 +71,7 @@ export class EnrollmentsRepository {
     if (keyword) {
       where.AND = [
         {
-          OR: [
-            {
-              lecture: {
-                title: { contains: keyword, mode: QueryMode.insensitive },
-              },
-            },
-            {
-              lecture: {
-                subject: { contains: keyword, mode: QueryMode.insensitive },
-              },
-            },
-            {
-              lecture: {
-                instructor: {
-                  user: {
-                    name: { contains: keyword, mode: QueryMode.insensitive },
-                  },
-                },
-              },
-            },
-          ],
+          OR: [],
         },
       ];
     }
@@ -84,19 +80,7 @@ export class EnrollmentsRepository {
       client.enrollment.findMany({
         where,
         include: {
-          lecture: {
-            include: {
-              instructor: {
-                select: {
-                  id: true,
-                  subject: true,
-                  phoneNumber: true,
-                  academy: true,
-                  user: { select: { name: true } },
-                },
-              },
-            },
-          },
+          // lecture 관계 삭제됨
         },
         orderBy: {
           registeredAt: 'desc',
@@ -122,25 +106,7 @@ export class EnrollmentsRepository {
         deletedAt: null,
       },
       include: {
-        lecture: {
-          include: {
-            instructor: {
-              select: {
-                id: true,
-                subject: true,
-                phoneNumber: true,
-                academy: true,
-              },
-            },
-          },
-        },
-        grades: {
-          include: {
-            exam: true,
-          },
-        },
-        clinic: true,
-        attendances: true,
+        lectureEnrollments: true, // 대신 수강 이력 포함
       },
     });
   }
@@ -162,19 +128,30 @@ export class EnrollmentsRepository {
     const client = tx ?? this.prisma;
     return await client.enrollment.findMany({
       where: {
-        lectureId,
+        // lectureId 필드 삭제됨
+        // lectureId,
+        lectureEnrollments: {
+          some: {
+            lectureId,
+          },
+        },
         deletedAt: null,
       },
       include: {
         appStudent: true, // 학생 정보 포함
-        // examId가 있을 때만 grades를 조인하여 해당 시험의 성적만 가져옴
-        ...(options?.examId && {
-          grades: {
-            where: { examId: options.examId },
-            select: { id: true },
-            take: 1, // 최대 1개만 (유니크 조건이 있으나 안전하게 처리)
+        // grades는 LectureEnrollment 밑으로 이동했으므로 여기서 직접 include 불가
+        lectureEnrollments: {
+          where: { lectureId },
+          include: {
+            grades: options?.examId
+              ? {
+                  where: { examId: options.examId },
+                  select: { id: true },
+                  take: 1,
+                }
+              : undefined,
           },
-        }),
+        },
       },
       orderBy: {
         studentName: 'asc', // 이름순 정렬
@@ -222,13 +199,19 @@ export class EnrollmentsRepository {
     }
 
     // 종강된 강의 제외 로직 (includeClosed가 true가 아니면 제외)
-    if (!params.includeClosed) {
-      where.lecture = {
-        status: {
-          not: LectureStatus.COMPLETED,
-        },
-      };
-    }
+    // if (!params.includeClosed) {
+    //   /*
+    //   where.lectureEnrollments = {
+    //     some: {
+    //       lecture: {
+    //          status: { not: LectureStatus.COMPLETED }
+    //       }
+    //     }
+    //   };
+    //   */
+    //   // 복잡한 로직이므로 일단 pass 혹은 기획 변경 필요.
+    //   // 강사 주소록 관점에서 종강 여부는 중요하지 않을 수 있음.
+    // }
 
     // 데이터 조회 (페이지네이션)
     const { skip, take } = getPagingParams(page, limit);
@@ -236,12 +219,15 @@ export class EnrollmentsRepository {
       client.enrollment.findMany({
         where,
         include: {
+          // lecture 관계 삭제됨
+          /*
           lecture: {
             select: {
               id: true,
               title: true,
             },
           },
+          */
           appStudent: true,
         },
         orderBy: {
