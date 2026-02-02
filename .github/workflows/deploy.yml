@@ -57,7 +57,7 @@ jobs:
   deploy:
     name: Deploy to EC2
     needs: build-and-push
-    runs-on: self-hosted #  EC2에 설치된 self-hosted runner 가 이 작업을 잡게
+    runs-on: [self-hosted, Linux, X64] #  EC2에 설치된 self-hosted runner 가 이 작업을 잡게
 
     env:
       NODE_ENV: ${{ secrets.NODE_ENV }}
@@ -86,6 +86,13 @@ jobs:
             echo "GITHUB_REPOSITORY=${RAW_IMAGE_NAME,,}" >> .env
             chmod 600 .env
 
+      # 생성된 .env와 필요한 소스들을(Sparse Checkout한것) 실행 위치로 복사한다.
+      - name: Sync files to app directory
+        run: |
+            # 러너 워크스페이스의 내용을 /home/ec2-user/app으로 동기화
+            cp -r ./* /home/ec2-user/app/
+            cp .env /home/ec2-user/app/
+      
       - name: Log in to GHCR
         run: |
           echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
@@ -93,6 +100,7 @@ jobs:
       - name: Execute Blue-Green Deployment
         run: |
             # 러너의 workspace 폴더에서 직접 실행
+            cd /home/ec2-user/app
             chmod +x deploy.sh
             ./deploy.sh
 
