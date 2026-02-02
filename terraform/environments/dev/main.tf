@@ -12,11 +12,12 @@ module "vpc" {
 module "compute" {
   source = "../../modules/compute"
 
-  env              = var.env
-  vpc_id           = module.vpc.vpc_id
-  public_subnet_id = module.vpc.public_subnet_ids[0]
-  instance_type    = "t3.micro"
-  key_name         = "lms-key"
+  env                  = var.env
+  vpc_id               = module.vpc.vpc_id
+  public_subnet_id     = module.vpc.public_subnet_ids[0]
+  instance_type        = "t3.micro"
+  key_name             = "lms-key"
+  iam_instance_profile = module.iam.instance_profile_name
 }
 
 module "database" {
@@ -34,6 +35,17 @@ module "database" {
 
 module "iam" {
   source = "../../modules/iam"
+
+  env            = var.env
+  s3_bucket_arns = [module.s3.documents_bucket_arn, module.s3.icons_bucket_arn]
+}
+
+module "s3" {
+  source = "../../modules/s3"
+
+  env             = var.env
+  project_name    = "ssambee"
+  frontend_origin = "https://play.ssambee.com" # 예시 도메인
 }
 
 # Outputs
