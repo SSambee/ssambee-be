@@ -5,6 +5,7 @@ import {
   LectureStatus,
 } from '../constants/lectures.constant.js';
 import { PaginationDefaults } from '../constants/common.constant.js';
+import { SCHOOL_YEARS } from '../constants/enrollments.constant.js';
 
 /** LectureTime 단일 항목 스키마 */
 export const lectureTimeItemSchema = z.object({
@@ -61,6 +62,10 @@ export const createLectureSchema = z.object({
       message: `강의 제목은 ${LectureLimits.TITLE_MAX_LENGTH}자를 초과할 수 없습니다.`,
     })
     .trim(),
+
+  schoolYear: z
+    .enum(SCHOOL_YEARS, { message: '유효한 학년이 아닙니다.' })
+    .optional(),
 
   subject: z
     .string()
@@ -142,6 +147,10 @@ export const updateLectureSchema = z.object({
       message: `강의 제목은 ${LectureLimits.TITLE_MAX_LENGTH}자를 초과할 수 없습니다.`,
     })
     .trim()
+    .optional(),
+
+  schoolYear: z
+    .enum(SCHOOL_YEARS, { message: '유효한 학년이 아닙니다.' })
     .optional(),
 
   subject: z
