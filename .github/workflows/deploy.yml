@@ -57,64 +57,8 @@ jobs:
   deploy:
     name: Deploy to EC2
     needs: build-and-push
-    runs-on: ubuntu-latest
+    runs-on: self-hosted #  EC2에 설치된 self-hosted runner 가 이 작업을 잡게
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Copy files to EC2
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          source: 'deploy.sh,docker-compose.yml,nginx/'
-          target: '/home/${{ secrets.EC2_USER }}/app'
-
-      - name: Deploy to EC2 via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          envs: NODE_ENV,PORT,DATABASE_URL,FRONT_URL,BETTER_AUTH_SECRET,BETTER_AUTH_URL
-          script: |
-            # 작업 디렉토리로 이동
-            cd /home/ec2-user/app
-
-            # 0. 환경 변수 파일 생성
-            echo "NODE_ENV=$NODE_ENV" > .env
-            echo "PORT=$PORT" >> .env
-            echo "DATABASE_URL=$DATABASE_URL" >> .env
-            echo "FRONT_URL=$FRONT_URL" >> .env
-            echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET" >> .env
-            echo "BETTER_AUTH_URL=$BETTER_AUTH_URL" >> .env
-
-            # 1. 디스크 공간 확보 (중요: t3.micro 용량 부족 방지)
-            docker system prune -f
-
-            # 2. 리포지토리 이름을 소문자로 변환
-            IMAGE_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-            echo "GITHUB_REPOSITORY=$IMAGE_NAME" >> .env
-
-            # 3. GitHub Container Registry 로그인
-            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
-
-            # 4. 최신 이미지 pull
-            docker pull ghcr.io/$IMAGE_NAME:latest
-
-            # 5. 무중단 배포 스크립트 실행
-            export $(grep -v '^#' .env | xargs)
-            export GITHUB_REPOSITORY="$IMAGE_NAME"
-            chmod 600 .env
-            chmod +x deploy.sh
-            ./deploy.sh
-
-            # 사용하지 않는 이미지 정리
-            docker image prune -af
     env:
       NODE_ENV: ${{ secrets.NODE_ENV }}
       PORT: ${{ secrets.PORT }}
@@ -122,6 +66,39 @@ jobs:
       FRONT_URL: ${{ secrets.FRONT_URL }}
       BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
       BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+            # 환경 변수 파일 생성
+            echo "NODE_ENV=$NODE_ENV" > .env
+            echo "PORT=$PORT" >> .env
+            echo "DATABASE_URL=$DATABASE_URL" >> .env
+            echo "FRONT_URL=$FRONT_URL" >> .env
+            echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET" >> .env
+            echo "BETTER_AUTH_URL=$BETTER_AUTH_URL" >> .env
+
+            # 리포지토리 이름을 소문자로 변환
+            RAW_IMAGE_NAME="${{ github.repository }}"
+            echo "GITHUB_REPOSITORY=${RAW_IMAGE_NAME,,}" >> .env
+            chmod 600 .env
+
+      - name: Log in to GHCR
+        run: |
+          echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
+
+      - name: Execute Blue-Green Deployment
+        run: |
+            # 러너의 workspace 폴더에서 직접 실행
+            chmod +x deploy.sh
+            ./deploy.sh
+
+      - name: Clean up unused images
+        if: always()
+        run: docker image prune -af
 
   notify:
     name: Notify Deployment Status
