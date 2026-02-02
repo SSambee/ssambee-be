@@ -44,8 +44,8 @@ module "s3" {
   source = "../../modules/s3"
 
   env             = var.env
-  project_name    = "ssambee"
-  frontend_origin = "https://play.ssambee.com" # 예시 도메인
+  project_name    = var.project_name
+  frontend_origin = var.frontend_origin
 }
 
 # Outputs
