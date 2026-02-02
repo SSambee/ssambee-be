@@ -47,10 +47,21 @@ resource "aws_s3_bucket_lifecycle_configuration" "documents" {
   }
 }
 
-# 2. 유저 아이콘 버킷 (성능 및 비용 중심)
+# 유저 아이콘 버킷
 resource "aws_s3_bucket" "icons" {
   bucket = "${var.project_name}-${var.env}-lms-user-icons"
   tags   = { Name = "${var.project_name}-${var.env}-lms-user-icons" }
+}
+
+# 기본기본 암호화 (SSE-S3) for icons
+## AWS가 키 관리와 암호화/복호화를 모두 알아서 처리
+resource "aws_s3_bucket_server_side_encryption_configuration" "icons" {
+  bucket = aws_s3_bucket.icons.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
 }
 
 # Intelligent-Tiering 수명 주기 정책
