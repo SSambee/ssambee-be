@@ -57,7 +57,7 @@ jobs:
   deploy:
     name: Deploy to EC2
     needs: build-and-push
-    runs-on: self-hosted #  EC2에 설치된 self-hosted runner 가 이 작업을 잡게
+    runs-on: [self-hosted, Linux, X64] #  EC2에 설치된 self-hosted runner 가 이 작업을 잡게
 
     env:
       NODE_ENV: ${{ secrets.NODE_ENV }}
