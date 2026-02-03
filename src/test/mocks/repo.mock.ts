@@ -7,7 +7,10 @@ import type { LecturesRepository } from '../../repos/lectures.repo.js';
 import type { EnrollmentsRepository } from '../../repos/enrollments.repo.js';
 import type { ParentChildLinkRepository } from '../../repos/parent-child-link.repo.js';
 import type { AttendancesRepository } from '../../repos/attendances.repo.js';
-import type { ExamsRepository } from '../../repos/exams.repo.js';
+import { ExamsRepository } from '../../repos/exams.repo.js';
+import { GradesRepository } from '../../repos/grades.repo.js';
+import { ClinicsRepository } from '../../repos/clinics.repo.js';
+import { StatisticsRepository } from '../../repos/statistics.repo.js';
 import type { LectureEnrollmentsRepository } from '../../repos/lecture-enrollments.repo.js';
 import { createAutoMock } from './create-mock.util.js';
 
@@ -129,5 +132,37 @@ export const createMockExamsRepository = () =>
     'updateQuestion',
     'deleteQuestions',
     'findQuestionsByExamId',
+    'updateGradingStatus',
     'findByIdWithEnrollments',
+  ]);
+
+/** Mock GradesRepository 생성 */
+export const createMockGradesRepository = () =>
+  createAutoMock<GradesRepository>([
+    'upsertStudentAnswers',
+    'upsertGrade',
+    'findGradesByExamId',
+  ]);
+
+/** Mock ClinicsRepository 생성 */
+export const createMockClinicsRepository = () =>
+  createAutoMock<ClinicsRepository>([
+    'findFailedGradesByExamId',
+    'findExistingClinics',
+    'createMany',
+    'findByInstructor',
+    'findByIds',
+    'updateMany',
+  ]);
+
+/** Mock StatisticsRepository 생성 */
+export const createMockStatisticsRepository = () =>
+  createAutoMock<StatisticsRepository>([
+    'upsertQuestionStatistic',
+    'findStatisticsByExamId',
+    'countGradesByExamId',
+    'findStudentAnswersByQuestionId',
+    'getExamSummary',
+    'getStudentCorrectCounts',
+    'getStudentGradesWithInfo',
   ]);

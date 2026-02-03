@@ -10,6 +10,10 @@ export const mockInstructor: Instructor = {
   ...mockProfiles.instructor,
 } as Instructor;
 
+/** withEnrollments에 사용될 ID */
+const withEnrollementsLectureId = faker.string.uuid();
+const withEnrollmentsInstructorId = mockInstructor.id;
+
 /** Mock Instructor with User 데이터 (Repo findMany 응답용) */
 export const mockInstructorWithUser = {
   user: {
@@ -42,16 +46,16 @@ export const mockLectures: Record<string, LectureDetail> = {
 
   /** Enrollments와 함께 생성될 강의 */
   withEnrollments: {
-    id: faker.string.uuid(),
-    instructorId: mockInstructor.id,
+    id: withEnrollementsLectureId,
+    instructorId: withEnrollmentsInstructorId,
     title: faker.commerce.productName() + ' 심화 강의',
     subject: faker.helpers.arrayElement(['국어', '영어', '수학']),
     description: faker.commerce.productDescription(),
-    startAt: new Date('2024-03-01'),
-    endAt: new Date('2024-12-31'),
+    startAt: faker.date.soon(),
+    endAt: faker.date.future(),
     status: LectureStatus.SCHEDULED,
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-01'),
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
     deletedAt: null,
     lectureTimes: [],
     instructor: mockInstructorWithUser,
@@ -152,11 +156,11 @@ export const mockLectures: Record<string, LectureDetail> = {
     title: '완료된 강의',
     subject: '수학',
     description: '이미 종료된 강의입니다.',
-    startAt: new Date('2023-09-01'),
-    endAt: new Date('2023-12-31'),
+    startAt: faker.date.past(),
+    endAt: faker.date.past(),
     status: LectureStatus.COMPLETED,
-    createdAt: new Date('2023-08-01'),
-    updatedAt: new Date('2023-08-01'),
+    createdAt: faker.date.past(),
+    updatedAt: faker.date.recent(),
     deletedAt: null,
     lectureTimes: [],
     instructor: mockInstructorWithUser,
@@ -175,8 +179,8 @@ export const createLectureRequests = {
     title: faker.commerce.productName() + ' 신규 강의',
     subject: '수학',
     description: faker.lorem.paragraph(),
-    startAt: '2024-03-01',
-    endAt: '2024-06-30',
+    startAt: faker.date.soon().toISOString().split('T')[0],
+    endAt: faker.date.future().toISOString().split('T')[0],
     status: LectureStatus.SCHEDULED,
     lectureTimes: [
       {
@@ -197,8 +201,8 @@ export const createLectureRequests = {
     title: faker.commerce.productName() + ' 패키지 강의',
     subject: '과학',
     description: faker.lorem.paragraph(),
-    startAt: '2024-04-01',
-    endAt: '2024-08-31',
+    startAt: faker.date.soon().toISOString().split('T')[0],
+    endAt: faker.date.future().toISOString().split('T')[0],
     status: LectureStatus.SCHEDULED,
     lectureTimes: [
       {
@@ -233,8 +237,8 @@ export const updateLectureRequests = {
     title: faker.commerce.productName() + ' 수정된 강의명',
     subject: '수정된 과목',
     description: faker.lorem.paragraph(),
-    startAt: '2024-04-01',
-    endAt: '2024-07-31',
+    startAt: faker.date.soon().toISOString().split('T')[0],
+    endAt: faker.date.future().toISOString().split('T')[0],
     status: LectureStatus.IN_PROGRESS,
   },
 

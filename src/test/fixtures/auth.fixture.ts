@@ -12,8 +12,8 @@ export const mockSession = {
   expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   ipAddress: faker.internet.ip(),
   userAgent: faker.internet.userAgent(),
-  createdAt: new Date('2024-01-01'),
-  updatedAt: new Date('2024-01-01'),
+  createdAt: faker.date.past(),
+  updatedAt: faker.date.recent(),
 } as const;
 
 /** 회원가입 요청 데이터 */
@@ -73,5 +73,5 @@ export const mockAssistantCode = {
   instructorId: mockUsers.instructor.id,
   isUsed: false,
   expireAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30일 후
-  createdAt: new Date(),
+  createdAt: faker.date.recent(),
 } as const;
