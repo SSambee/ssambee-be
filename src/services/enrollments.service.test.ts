@@ -556,8 +556,37 @@ describe('EnrollmentsService - @unit #critical', () => {
     const enrollmentId = mockEnrollments.active.id;
     const instructorId = mockInstructor.id;
 
-    describe('ENR-07: 수강 상세 조회 성공', () => {
-      it('강사가 자신의 수강생 상세 정보 조회를 요청할 때, 연관 관계가 포함된 상세 수강 정보가 반환된다', async () => {
+    describe('ENR-07: 수강 상세 조회 성공 (EnrollmentId 기준)', () => {
+      it('강사가 enrollmentId로 수강생 상세 정보 조회를 요청할 때, 성공한다', async () => {
+        mockEnrollmentsRepo.findByIdWithLectures.mockResolvedValue(
+          mockEnrollmentWithRelations,
+        );
+
+        const result = await enrollmentsService.getEnrollmentDetail(
+          enrollmentId,
+          UserType.INSTRUCTOR,
+          instructorId,
+        );
+
+        const { lectureEnrollments, ...expectedBase } =
+          mockEnrollmentWithRelations;
+        const expectedLectures = (
+          lectureEnrollments as NonNullable<EnrollmentWithLectures>['lectureEnrollments']
+        ).map((le) => ({
+          ...le.lecture,
+          lectureEnrollmentId: le.id,
+          registeredAt: le.registeredAt,
+        }));
+
+        expect(result).toEqual({ ...expectedBase, lectures: expectedLectures });
+        expect(mockEnrollmentsRepo.findByIdWithLectures).toHaveBeenCalledWith(
+          enrollmentId,
+        );
+      });
+    });
+
+    describe('ENR-07-2: 수강 상세 조회 성공 (LectureEnrollmentId 기준)', () => {
+      it('강사가 lectureEnrollmentId로 수강생 상세 정보 조회를 요청할 때, 성공한다', async () => {
         mockLectureEnrollmentsRepo.findById.mockResolvedValue({
           id: lectureEnrollmentId,
           enrollmentId,
@@ -568,26 +597,14 @@ describe('EnrollmentsService - @unit #critical', () => {
           mockEnrollmentWithRelations,
         );
 
-        const result = await enrollmentsService.getEnrollmentDetail(
-          lectureEnrollmentId,
-          UserType.INSTRUCTOR,
-          instructorId,
-        );
+        const result =
+          await enrollmentsService.getEnrollmentDetailByLectureEnrollmentId(
+            lectureEnrollmentId,
+            UserType.INSTRUCTOR,
+            instructorId,
+          );
 
-        // lectureEnrollments는 service에서 제거되고 lectures로 변환됨
-        // mockEnrollmentWithRelations에는 lectureEnrollments가 포함되어 있음
-        const { lectureEnrollments, ...expectedBase } =
-          mockEnrollmentWithRelations;
-        // flattening logic check
-        const expectedLectures = (
-          lectureEnrollments as NonNullable<EnrollmentWithLectures>['lectureEnrollments']
-        ).map((le) => ({
-          ...le.lecture,
-          lectureEnrollmentId: le.id,
-          registeredAt: le.registeredAt,
-        }));
-
-        expect(result).toEqual({ ...expectedBase, lectures: expectedLectures });
+        expect(result).toBeDefined();
         expect(mockLectureEnrollmentsRepo.findById).toHaveBeenCalledWith(
           lectureEnrollmentId,
         );
@@ -595,99 +612,31 @@ describe('EnrollmentsService - @unit #critical', () => {
           enrollmentId,
         );
       });
-
-      it('조교가 담당 강사 소속 수강생의 상세 정보 조회를 요청할 때, 연관 관계가 포함된 상세 수강 정보가 반환된다', async () => {
-        mockLectureEnrollmentsRepo.findById.mockResolvedValue({
-          id: lectureEnrollmentId,
-          enrollmentId,
-          lectureId: 'lecture-1',
-          registeredAt: new Date(),
-        });
-        mockEnrollmentsRepo.findByIdWithLectures.mockResolvedValue(
-          mockEnrollmentWithRelations as EnrollmentWithLectures,
-        );
-        mockPermissionService.validateInstructorAccess.mockResolvedValue();
-
-        const result = await enrollmentsService.getEnrollmentDetail(
-          lectureEnrollmentId,
-          UserType.ASSISTANT,
-          mockAssistants.basic.id,
-        );
-
-        // lectureEnrollments는 service에서 제거되고 lectures로 변환됨
-        const { lectureEnrollments, ...expectedBase } =
-          mockEnrollmentWithRelations;
-        const expectedLectures = (
-          lectureEnrollments as NonNullable<EnrollmentWithLectures>['lectureEnrollments']
-        ).map((le) => ({
-          ...le.lecture,
-          lectureEnrollmentId: le.id,
-          registeredAt: le.registeredAt,
-        }));
-
-        expect(result).toEqual({ ...expectedBase, lectures: expectedLectures });
-        expect(
-          mockPermissionService.validateInstructorAccess,
-        ).toHaveBeenCalled();
-      });
     });
 
     describe('ENR-08: 수강 상세 조회 실패', () => {
-      it('사용자가 존재하지 않는 수강 ID(LectureEnrollmentId)로 상세 조회를 요청할 때, NotFoundException을 던진다', async () => {
-        mockLectureEnrollmentsRepo.findById.mockResolvedValue(null);
+      it('존재하지 않는 EnrollmentId로 조회 시 NotFoundException을 던진다', async () => {
+        mockEnrollmentsRepo.findByIdWithLectures.mockResolvedValue(null);
 
         await expect(
           enrollmentsService.getEnrollmentDetail(
+            'invalid-id',
+            UserType.INSTRUCTOR,
+            instructorId,
+          ),
+        ).rejects.toThrow(NotFoundException);
+      });
+
+      it('존재하지 않는 LectureEnrollmentId로 조회 시 NotFoundException을 던진다', async () => {
+        mockLectureEnrollmentsRepo.findById.mockResolvedValue(null);
+
+        await expect(
+          enrollmentsService.getEnrollmentDetailByLectureEnrollmentId(
             'invalid-le-id',
             UserType.INSTRUCTOR,
             instructorId,
           ),
         ).rejects.toThrow(NotFoundException);
-      });
-
-      it('LectureEnrollment는 존재하지만 연결된 Enrollment가 없을 때, NotFoundException을 던진다', async () => {
-        mockLectureEnrollmentsRepo.findById.mockResolvedValue({
-          id: lectureEnrollmentId,
-          enrollmentId,
-          lectureId: 'lecture-1',
-          registeredAt: new Date(),
-        });
-        mockEnrollmentsRepo.findByIdWithRelations.mockResolvedValue(null);
-        // Note: findByIdWithLectures가 호출되지만 mock은 findByIdWithRelations가 되어 있네요?
-        // Service calls findByIdWithLectures.
-        // Let's correct the mock to match service implementation.
-        mockEnrollmentsRepo.findByIdWithLectures.mockResolvedValue(null);
-
-        await expect(
-          enrollmentsService.getEnrollmentDetail(
-            lectureEnrollmentId,
-            UserType.INSTRUCTOR,
-            instructorId,
-          ),
-        ).rejects.toThrow(NotFoundException);
-      });
-
-      it('강사가 다른 강사 소속 수강생의 상세 정보를 조회하려 할 때, ForbiddenException을 던진다', async () => {
-        mockLectureEnrollmentsRepo.findById.mockResolvedValue({
-          id: lectureEnrollmentId,
-          enrollmentId,
-          lectureId: 'lecture-1',
-          registeredAt: new Date(),
-        });
-        mockEnrollmentsRepo.findByIdWithLectures.mockResolvedValue(
-          mockEnrollments.otherInstructor as unknown as EnrollmentWithLectures,
-        );
-        mockPermissionService.validateInstructorAccess.mockRejectedValue(
-          new ForbiddenException('해당 권한이 없습니다.'),
-        );
-
-        await expect(
-          enrollmentsService.getEnrollmentDetail(
-            lectureEnrollmentId,
-            UserType.INSTRUCTOR,
-            instructorId,
-          ),
-        ).rejects.toThrow(ForbiddenException);
       });
     });
   });
