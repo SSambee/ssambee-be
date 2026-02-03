@@ -245,22 +245,22 @@ describe('StatisticsService - @unit #critical', () => {
       // Arrange
       const studentGrades = [
         {
-          enrollmentId: 'e1',
+          lectureEnrollmentId: 'le-1',
           score: 100,
-          enrollment: { studentName: 'S1', school: 'A' },
+          lectureEnrollment: { enrollment: { studentName: 'S1', school: 'A' } },
         },
         {
-          enrollmentId: 'e2',
+          lectureEnrollmentId: 'le-2',
           score: 100,
-          enrollment: { studentName: 'S2', school: 'B' },
+          lectureEnrollment: { enrollment: { studentName: 'S2', school: 'B' } },
         }, // 동점
         {
-          enrollmentId: 'e3',
+          lectureEnrollmentId: 'le-3',
           score: 90,
-          enrollment: { studentName: 'S3', school: 'C' },
+          lectureEnrollment: { enrollment: { studentName: 'S3', school: 'C' } },
         }, // 3등
       ];
-      const correctCounts = { e1: 10, e2: 10, e3: 9 };
+      const correctCounts = { 'le-1': 10, 'le-2': 10, 'le-3': 9 };
       const summary = { ...mockExamSummary, totalExaminees: 3 };
 
       mockExamsRepo.findById.mockResolvedValue(
