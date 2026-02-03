@@ -123,14 +123,33 @@ export class EnrollmentsService {
         enrollmentId = newEnrollment.id;
       }
 
-      // 5. LectureEnrollment 생성 (강의와 학생 연결)
-      const lectureEnrollment = await this.lectureEnrollmentsRepository.create(
-        {
+      // 5. LectureEnrollment 생성 또는 조회 (강의와 학생 연결, 중복 방지)
+      // 먼저 기존 LectureEnrollment 확인
+      let lectureEnrollment =
+        await this.lectureEnrollmentsRepository.findByLectureIdAndEnrollmentId(
           lectureId,
-          enrollmentId: enrollmentId!,
-        },
-        tx,
-      );
+          enrollmentId!,
+          tx,
+        );
+
+      // 없으면 새로 생성하고 다시 조회 (일관된 반환 타입을 위해)
+      if (!lectureEnrollment) {
+        await this.lectureEnrollmentsRepository.create(
+          {
+            lectureId,
+            enrollmentId: enrollmentId!,
+          },
+          tx,
+        );
+
+        // 생성 후 enrollment 정보를 포함하여 다시 조회
+        lectureEnrollment =
+          await this.lectureEnrollmentsRepository.findByLectureIdAndEnrollmentId(
+            lectureId,
+            enrollmentId!,
+            tx,
+          );
+      }
 
       return lectureEnrollment;
     });

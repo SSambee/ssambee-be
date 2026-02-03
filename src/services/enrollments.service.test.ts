@@ -112,12 +112,29 @@ describe('EnrollmentsService - @unit #critical', () => {
         mockPermissionService.validateInstructorAccess.mockResolvedValue();
         mockEnrollmentsRepo.findManyByInstructorAndPhones.mockResolvedValue([]); // 기존 수강생 없음
         mockEnrollmentsRepo.create.mockResolvedValue(mockEnrollments.active);
+
+        // 첫 번째 조회: 기존 LectureEnrollment 없음
+        mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValueOnce(
+          null,
+        );
+
         mockLectureEnrollmentsRepo.create.mockResolvedValue({
           id: 'le-1',
           lectureId: lectureId,
           enrollmentId: mockEnrollments.active.id,
           registeredAt: new Date(),
         });
+
+        // 두 번째 조회: 생성 후 조회 시 enrollment 정보 포함
+        mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValueOnce(
+          {
+            id: 'le-1',
+            lectureId: lectureId,
+            enrollmentId: mockEnrollments.active.id,
+            registeredAt: new Date(),
+            enrollment: mockEnrollments.active,
+          },
+        );
 
         // Act
         const result = await enrollmentsService.createEnrollment(
@@ -163,12 +180,29 @@ describe('EnrollmentsService - @unit #critical', () => {
         mockPermissionService.validateInstructorAccess.mockResolvedValue();
         mockEnrollmentsRepo.findManyByInstructorAndPhones.mockResolvedValue([]);
         mockEnrollmentsRepo.create.mockResolvedValue(mockEnrollments.active);
+
+        // 첫 번째 조회: 기존 LectureEnrollment 없음
+        mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValueOnce(
+          null,
+        );
+
         mockLectureEnrollmentsRepo.create.mockResolvedValue({
           id: 'le-1',
           lectureId: lectureId,
           enrollmentId: mockEnrollments.active.id,
           registeredAt: new Date(),
         });
+
+        // 두 번째 조회: 생성 후 조회
+        mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValueOnce(
+          {
+            id: 'le-1',
+            lectureId: lectureId,
+            enrollmentId: mockEnrollments.active.id,
+            registeredAt: new Date(),
+            enrollment: mockEnrollments.active,
+          },
+        );
 
         const result = await enrollmentsService.createEnrollment(
           lectureId,
@@ -213,12 +247,29 @@ describe('EnrollmentsService - @unit #critical', () => {
           mockParentLinks.active,
         );
         mockEnrollmentsRepo.create.mockResolvedValue(mockEnrollments.active);
+
+        // 첫 번째 조회: 기존 LectureEnrollment 없음
+        mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValueOnce(
+          null,
+        );
+
         mockLectureEnrollmentsRepo.create.mockResolvedValue({
           id: 'le-1',
           lectureId: lectureId,
           enrollmentId: mockEnrollments.active.id,
           registeredAt: new Date(),
         });
+
+        // 두 번째 조회: 생성 후 조회
+        mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValueOnce(
+          {
+            id: 'le-1',
+            lectureId: lectureId,
+            enrollmentId: mockEnrollments.active.id,
+            registeredAt: new Date(),
+            enrollment: mockEnrollments.active,
+          },
+        );
 
         await enrollmentsService.createEnrollment(
           lectureId,
