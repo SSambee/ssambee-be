@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { svcAuthRouter } from './auth.routes.js';
-import { svcLecturesRouter } from './enrollments.route.js';
+import { svcLecturesRouter } from './lectures.route.js';
 import { svcChildrenRouter } from './children.route.js';
 import { svcGradesRouter } from './grades.route.js';
 import { svcClinicsRouter } from './clinics.route.js';
