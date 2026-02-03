@@ -7,7 +7,9 @@ import {
 import { successResponse } from '../utils/response.util.js';
 import { getAuthUser, getProfileIdOrThrow } from '../utils/user.util.js';
 import { UserType } from '../constants/auth.constant.js';
+import { transformDateFieldsToKst } from '../utils/date.util.js';
 
+// 출결 날짜는 단순 DATE만 직접 입력되므로 별도의 처리를 하면 오히려 데이터가 오염됨
 export class AttendancesController {
   constructor(private readonly attendancesService: AttendancesService) {}
 
@@ -35,7 +37,12 @@ export class AttendancesController {
         statusCode: 201,
         data: {
           count: results.length,
-          attendances: results,
+          attendances: transformDateFieldsToKst(results, [
+            'enterTime',
+            'leaveTime',
+            'createdAt',
+            'updatedAt',
+          ]),
         },
         message: '출결이 성공적으로 등록되었습니다.',
       });
@@ -68,7 +75,14 @@ export class AttendancesController {
 
       return successResponse(res, {
         statusCode: 201,
-        data: { attendance },
+        data: {
+          attendance: transformDateFieldsToKst(attendance, [
+            'enterTime',
+            'leaveTime',
+            'createdAt',
+            'updatedAt',
+          ]),
+        },
         message: '출결이 등록되었습니다.',
       });
     } catch (error) {
@@ -95,7 +109,12 @@ export class AttendancesController {
       return successResponse(res, {
         data: {
           stats,
-          attendances,
+          attendances: transformDateFieldsToKst(attendances, [
+            'enterTime',
+            'leaveTime',
+            'createdAt',
+            'updatedAt',
+          ]),
         },
         message: '출결 목록 조회 성공',
       });

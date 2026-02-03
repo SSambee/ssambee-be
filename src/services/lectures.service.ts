@@ -33,6 +33,8 @@ export type GetLecturesResponse = {
     subject: string | null;
     status: string;
     startAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
     instructorName: string;
     enrollmentsCount: number;
     lectureTimes: {
@@ -57,6 +59,8 @@ export type LectureDetailResponse = {
   subject: string | null;
   status: string;
   startAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
   instructorName: string;
   enrollmentsCount: number;
   lectureTimes: {
@@ -201,6 +205,8 @@ export class LecturesService {
       subject: lecture.subject,
       status: lecture.status,
       startAt: lecture.startAt,
+      createdAt: lecture.createdAt,
+      updatedAt: lecture.updatedAt ?? lecture.createdAt, // fallback to createdAt if updatedAt is null
       instructorName: lecture.instructor.user.name,
       enrollmentsCount: lecture._count.lectureEnrollments,
       lectureTimes: lecture.lectureTimes.map((lt) => ({
@@ -245,6 +251,8 @@ export class LecturesService {
       subject: lecture.subject,
       status: lecture.status,
       startAt: lecture.startAt,
+      createdAt: lecture.createdAt,
+      updatedAt: lecture.updatedAt ?? lecture.createdAt, // fallback to createdAt if updatedAt is null
       instructorName: lecture.instructor.user.name,
       enrollmentsCount: lecture._count.lectureEnrollments,
       lectureTimes: lecture.lectureTimes.map((lt) => ({

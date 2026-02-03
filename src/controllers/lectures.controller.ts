@@ -3,6 +3,7 @@ import { LecturesService } from '../services/lectures.service.js';
 import { successResponse } from '../utils/response.util.js';
 import { getAuthUser, getProfileIdOrThrow } from '../utils/user.util.js';
 import { UserType } from '../constants/auth.constant.js';
+import { transformDateFieldsToKst } from '../utils/date.util.js';
 
 export class LecturesController {
   constructor(private readonly lecturesService: LecturesService) {}
@@ -20,7 +21,13 @@ export class LecturesController {
 
       return successResponse(res, {
         statusCode: 201,
-        data: lecture,
+        data: transformDateFieldsToKst(lecture, [
+          'startAt',
+          'endAt',
+          'createdAt',
+          'updatedAt',
+          'deletedAt',
+        ]),
         message: '강의 생성 성공',
       });
     } catch (error) {
@@ -43,7 +50,14 @@ export class LecturesController {
       });
 
       return successResponse(res, {
-        data: result,
+        data: {
+          ...result,
+          lectures: transformDateFieldsToKst(result.lectures, [
+            'startAt',
+            'createdAt',
+            'updatedAt',
+          ]),
+        },
         message: '강의 리스트 조회 성공',
       });
     } catch (error) {
@@ -65,8 +79,15 @@ export class LecturesController {
         id,
       );
 
+      // exams 내부의 createdAt 등은 현재 타입에 없으나 안전하게 처리
+      const transformedLecture = transformDateFieldsToKst(lecture, [
+        'startAt',
+        'createdAt',
+        'updatedAt',
+      ]);
+
       return successResponse(res, {
-        data: lecture,
+        data: transformedLecture,
         message: '강의 개별 조회 성공',
       });
     } catch (error) {
@@ -91,7 +112,12 @@ export class LecturesController {
       );
 
       return successResponse(res, {
-        data: lecture,
+        data: transformDateFieldsToKst(lecture, [
+          'startAt',
+          'endAt',
+          'createdAt',
+          'updatedAt',
+        ]),
         message: '강의 수정 성공',
       });
     } catch (error) {
