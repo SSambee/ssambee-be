@@ -15,8 +15,6 @@ const app = express();
 
 initSentry();
 
-Sentry.setupExpressErrorHandler(app);
-
 // 1. 보안
 const whiteList: string[] = config.FRONT_URL
   ? config.FRONT_URL.split(',').map((url) => url.trim())
