@@ -21,6 +21,16 @@ import type {
   CreateExamDto,
   UpdateExamDto,
 } from '../validations/exams.validation.js';
+import {
+  mockInstructor,
+  mockLectures,
+} from '../test/fixtures/lectures.fixture.js';
+import {
+  mockExams,
+  mockExamWithQuestions,
+  createExamRequests,
+  updateExamRequests,
+} from '../test/fixtures/exams.fixture.js';
 
 describe('ExamsService - @unit #critical', () => {
   let examsService: ExamsService;
@@ -104,10 +114,10 @@ describe('ExamsService - @unit #critical', () => {
   describe('[조회] getExamById', () => {
     it('시험 권한이 있는 사용자가 상세 조회를 요청할 때, 문항을 포함한 시험 상세 정보가 반환된다', async () => {
       const examDetail = mockExamWithQuestions.basic as Awaited<
-        ReturnType<typeof mockExamsRepo.findByIdWithQuestions>
+        ReturnType<typeof mockExamsRepo.findByIdWithEnrollments>
       >;
 
-      mockExamsRepo.findByIdWithQuestions.mockResolvedValue(examDetail);
+      mockExamsRepo.findByIdWithEnrollments.mockResolvedValue(examDetail);
       mockLecturesRepo.findById.mockResolvedValue(
         mockLecture as Awaited<ReturnType<typeof mockLecturesRepo.findById>>,
       );
@@ -118,7 +128,7 @@ describe('ExamsService - @unit #critical', () => {
         mockProfileId,
       );
 
-      expect(mockExamsRepo.findByIdWithQuestions).toHaveBeenCalledWith(
+      expect(mockExamsRepo.findByIdWithEnrollments).toHaveBeenCalledWith(
         mockExamId,
       );
       expect(mockLecturesRepo.findById).toHaveBeenCalledWith(mockLectureId);
@@ -144,11 +154,11 @@ describe('ExamsService - @unit #critical', () => {
     });
 
     it('시험은 존재하나 관련 강의 정보가 없을 때, NotFoundException을 던진다', async () => {
-      const exam = {
-        ...mockExams.basic,
-        lectureId: 'none',
-      } as Awaited<ReturnType<typeof mockExamsRepo.findByIdWithQuestions>>;
-      mockExamsRepo.findByIdWithQuestions.mockResolvedValue(exam);
+      mockExamsRepo.findByIdWithEnrollments.mockResolvedValue(
+        mockExamWithQuestions.basic as Awaited<
+          ReturnType<typeof mockExamsRepo.findByIdWithEnrollments>
+        >,
+      );
       mockLecturesRepo.findById.mockResolvedValue(null);
 
       await expect(
