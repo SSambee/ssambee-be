@@ -223,7 +223,6 @@ export const mockEnrollments = {
 
   withEssayLecture: {
     id: faker.string.uuid(),
-    lectureId: mockLectures.withEnrollments.id,
     instructorId: mockInstructor.id,
     appStudentId: mockStudents.basic.id,
     appParentLinkId: mockParentLinks.active.id,
@@ -235,6 +234,8 @@ export const mockEnrollments = {
     status: EnrollmentStatus.ACTIVE,
     registeredAt: faker.date.past(),
     memo: null,
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-01-01'),
     deletedAt: null,
   } as Enrollment,
 };

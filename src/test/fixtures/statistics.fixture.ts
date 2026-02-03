@@ -38,27 +38,31 @@ export const mockExamSummary = {
 /** Mock Student Grades with Info */
 export const mockStudentGrades = [
   {
-    enrollmentId: 'enroll-1',
+    lectureEnrollmentId: 'le-1',
     score: 90,
-    enrollment: {
-      id: 'enroll-1',
-      studentName: faker.person.fullName(),
-      school: `${faker.location.city()}고등학교`,
+    lectureEnrollment: {
+      enrollment: {
+        id: 'enroll-1',
+        studentName: faker.person.fullName(),
+        school: `${faker.location.city()}고등학교`,
+      },
     },
   },
   {
-    enrollmentId: 'enroll-2',
+    lectureEnrollmentId: 'le-2',
     score: 80,
-    enrollment: {
-      id: 'enroll-2',
-      studentName: faker.person.fullName(),
-      school: `${faker.location.city()}고등학교`,
+    lectureEnrollment: {
+      enrollment: {
+        id: 'enroll-2',
+        studentName: faker.person.fullName(),
+        school: `${faker.location.city()}고등학교`,
+      },
     },
   },
 ];
 
 /** Mock Student Correct Counts */
 export const mockCorrectCounts = {
-  'enroll-1': 10,
-  'enroll-2': 8,
+  'le-1': 10,
+  'le-2': 8,
 };

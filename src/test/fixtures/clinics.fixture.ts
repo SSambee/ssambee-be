@@ -10,7 +10,8 @@ export const mockClinics = {
     id: 'clinic-1',
     lectureId: mockLectures.basic.id,
     examId: mockExams.basic.id,
-    enrollmentId: mockEnrollments.active.id,
+    lectureEnrollmentId: 'le-1',
+    notificationStatus: 'READY',
     title: '수학 중간고사 클리닉',
     deadline: new Date('2024-12-31'),
     status: 'PENDING',
@@ -24,7 +25,8 @@ export const mockClinics = {
     id: 'clinic-2',
     lectureId: mockLectures.basic.id,
     examId: mockExams.basic.id,
-    enrollmentId: mockEnrollments.withoutParentLink.id,
+    lectureEnrollmentId: 'le-2',
+    notificationStatus: 'READY',
     title: '수학 중간고사 클리닉',
     deadline: new Date('2024-12-31'),
     status: 'COMPLETED',
@@ -38,12 +40,15 @@ export const mockClinics = {
 /** Clinic과 관계 데이터가 포함된 Mock (조회용) */
 export const mockClinicWithRelations = {
   ...mockClinics.pending,
-  enrollment: {
-    id: mockEnrollments.active.id,
-    studentName: mockEnrollments.active.studentName,
-    school: mockEnrollments.active.school,
-    schoolYear: mockEnrollments.active.schoolYear,
-    studentPhone: mockEnrollments.active.studentPhone,
+  lectureEnrollmentId: 'le-1',
+  lectureEnrollment: {
+    enrollment: {
+      id: mockEnrollments.active.id,
+      studentName: mockEnrollments.active.studentName,
+      school: mockEnrollments.active.school,
+      schoolYear: mockEnrollments.active.schoolYear,
+      studentPhone: mockEnrollments.active.studentPhone,
+    },
   },
   exam: {
     id: mockExams.basic.id,

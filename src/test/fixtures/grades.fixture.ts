@@ -10,22 +10,20 @@ export const mockStudentAnswers = {
     {
       id: 'sa-1',
       lectureId: mockExams.basic.lectureId,
-      enrollmentId: mockEnrollments.active.id,
+      lectureEnrollmentId: 'le-1',
       questionId: mockQuestions.multipleChoice.id,
       submittedAnswer: 'A',
       isCorrect: true,
       createdAt: faker.date.past(),
-      updatedAt: faker.date.recent(),
     },
     {
       id: 'sa-2',
       lectureId: mockExams.basic.lectureId,
-      enrollmentId: mockEnrollments.active.id,
+      lectureEnrollmentId: 'le-1',
       questionId: mockQuestions.shortAnswer.id,
       submittedAnswer: '정답입니다.',
       isCorrect: true,
       createdAt: faker.date.past(),
-      updatedAt: faker.date.recent(),
     },
   ] as StudentAnswer[],
 };
@@ -36,7 +34,7 @@ export const mockGrades = {
     id: 'grade-1',
     lectureId: mockExams.basic.lectureId,
     examId: mockExams.basic.id,
-    enrollmentId: mockEnrollments.active.id,
+    lectureEnrollmentId: 'le-1',
     score: 25,
     isPass: true,
     createdAt: faker.date.past(),
@@ -47,7 +45,7 @@ export const mockGrades = {
     id: faker.string.uuid(),
     lectureId: mockExams.basic.lectureId,
     examId: mockExams.basic.id,
-    enrollmentId: mockEnrollments.active.id,
+    lectureEnrollmentId: 'le-1',
     score: 25,
     isPass: true,
     createdAt: faker.date.past(),
@@ -58,7 +56,7 @@ export const mockGrades = {
     id: faker.string.uuid(),
     lectureId: mockExams.basic.lectureId,
     examId: mockExams.basic.id,
-    enrollmentId: mockEnrollments.active.id,
+    lectureEnrollmentId: 'le-1',
     score: 100,
     isPass: true,
     createdAt: faker.date.past(),
@@ -70,7 +68,7 @@ export const mockGrades = {
 /** 채점 제출 요청 DTO */
 export const submitGradingRequests = {
   basic: {
-    enrollmentId: mockEnrollments.active.id,
+    lectureEnrollmentId: 'le-1',
     totalScore: 25,
     correctCount: 2,
     answers: [
@@ -88,7 +86,7 @@ export const submitGradingRequests = {
   } as SubmitGradingDto,
 
   withEssay: {
-    enrollmentId: mockEnrollments.withEssayLecture.id,
+    lectureEnrollmentId: 'le-essay',
     totalScore: 20,
     correctCount: 1,
     answers: [
