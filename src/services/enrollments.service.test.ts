@@ -552,17 +552,24 @@ describe('EnrollmentsService - @unit #critical', () => {
 
   /** [수강 상세 조회] getEnrollmentDetail 테스트 케이스 */
   describe('[수강 상세 조회] getEnrollmentDetail', () => {
+    const lectureEnrollmentId = 'le-1';
     const enrollmentId = mockEnrollments.active.id;
     const instructorId = mockInstructor.id;
 
     describe('ENR-07: 수강 상세 조회 성공', () => {
       it('강사가 자신의 수강생 상세 정보 조회를 요청할 때, 연관 관계가 포함된 상세 수강 정보가 반환된다', async () => {
+        mockLectureEnrollmentsRepo.findById.mockResolvedValue({
+          id: lectureEnrollmentId,
+          enrollmentId,
+          lectureId: 'lecture-1',
+          registeredAt: new Date(),
+        });
         mockEnrollmentsRepo.findByIdWithLectures.mockResolvedValue(
           mockEnrollmentWithRelations,
         );
 
         const result = await enrollmentsService.getEnrollmentDetail(
-          enrollmentId,
+          lectureEnrollmentId,
           UserType.INSTRUCTOR,
           instructorId,
         );
@@ -581,19 +588,28 @@ describe('EnrollmentsService - @unit #critical', () => {
         }));
 
         expect(result).toEqual({ ...expectedBase, lectures: expectedLectures });
+        expect(mockLectureEnrollmentsRepo.findById).toHaveBeenCalledWith(
+          lectureEnrollmentId,
+        );
         expect(mockEnrollmentsRepo.findByIdWithLectures).toHaveBeenCalledWith(
           enrollmentId,
         );
       });
 
       it('조교가 담당 강사 소속 수강생의 상세 정보 조회를 요청할 때, 연관 관계가 포함된 상세 수강 정보가 반환된다', async () => {
+        mockLectureEnrollmentsRepo.findById.mockResolvedValue({
+          id: lectureEnrollmentId,
+          enrollmentId,
+          lectureId: 'lecture-1',
+          registeredAt: new Date(),
+        });
         mockEnrollmentsRepo.findByIdWithLectures.mockResolvedValue(
           mockEnrollmentWithRelations as EnrollmentWithLectures,
         );
         mockPermissionService.validateInstructorAccess.mockResolvedValue();
 
         const result = await enrollmentsService.getEnrollmentDetail(
-          enrollmentId,
+          lectureEnrollmentId,
           UserType.ASSISTANT,
           mockAssistants.basic.id,
         );
@@ -617,12 +633,34 @@ describe('EnrollmentsService - @unit #critical', () => {
     });
 
     describe('ENR-08: 수강 상세 조회 실패', () => {
-      it('사용자가 존재하지 않는 수강 ID로 상세 조회를 요청할 때, NotFoundException을 던진다', async () => {
-        mockEnrollmentsRepo.findByIdWithRelations.mockResolvedValue(null);
+      it('사용자가 존재하지 않는 수강 ID(LectureEnrollmentId)로 상세 조회를 요청할 때, NotFoundException을 던진다', async () => {
+        mockLectureEnrollmentsRepo.findById.mockResolvedValue(null);
 
         await expect(
           enrollmentsService.getEnrollmentDetail(
-            'invalid-enrollment-id',
+            'invalid-le-id',
+            UserType.INSTRUCTOR,
+            instructorId,
+          ),
+        ).rejects.toThrow(NotFoundException);
+      });
+
+      it('LectureEnrollment는 존재하지만 연결된 Enrollment가 없을 때, NotFoundException을 던진다', async () => {
+        mockLectureEnrollmentsRepo.findById.mockResolvedValue({
+          id: lectureEnrollmentId,
+          enrollmentId,
+          lectureId: 'lecture-1',
+          registeredAt: new Date(),
+        });
+        mockEnrollmentsRepo.findByIdWithRelations.mockResolvedValue(null);
+        // Note: findByIdWithLectures가 호출되지만 mock은 findByIdWithRelations가 되어 있네요?
+        // Service calls findByIdWithLectures.
+        // Let's correct the mock to match service implementation.
+        mockEnrollmentsRepo.findByIdWithLectures.mockResolvedValue(null);
+
+        await expect(
+          enrollmentsService.getEnrollmentDetail(
+            lectureEnrollmentId,
             UserType.INSTRUCTOR,
             instructorId,
           ),
@@ -630,6 +668,12 @@ describe('EnrollmentsService - @unit #critical', () => {
       });
 
       it('강사가 다른 강사 소속 수강생의 상세 정보를 조회하려 할 때, ForbiddenException을 던진다', async () => {
+        mockLectureEnrollmentsRepo.findById.mockResolvedValue({
+          id: lectureEnrollmentId,
+          enrollmentId,
+          lectureId: 'lecture-1',
+          registeredAt: new Date(),
+        });
         mockEnrollmentsRepo.findByIdWithLectures.mockResolvedValue(
           mockEnrollments.otherInstructor as unknown as EnrollmentWithLectures,
         );
@@ -639,7 +683,7 @@ describe('EnrollmentsService - @unit #critical', () => {
 
         await expect(
           enrollmentsService.getEnrollmentDetail(
-            mockEnrollments.otherInstructor.id,
+            lectureEnrollmentId,
             UserType.INSTRUCTOR,
             instructorId,
           ),

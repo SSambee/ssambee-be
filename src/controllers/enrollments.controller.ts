@@ -71,7 +71,8 @@ export class EnrollmentsController {
   getEnrollment = async (req: Request, res: Response, next: NextFunction) => {
     try {
       // 강사/조교인 경우는 enrollmentId, 학생/학부모는 lectureEnrollmentId
-      const { enrollmentId, lectureEnrollmentId } = req.params;
+      // REFACTOR: 둘 다 lectureEnrollmentId 사용
+      const { lectureEnrollmentId } = req.params;
       const user = getAuthUser(req);
       const profileId = getProfileIdOrThrow(req);
       const userType = user.userType as UserType;
@@ -81,7 +82,7 @@ export class EnrollmentsController {
       // 강사/조교인 경우
       if (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) {
         enrollment = await this.enrollmentsService.getEnrollmentDetail(
-          enrollmentId,
+          lectureEnrollmentId,
           userType,
           profileId,
         );

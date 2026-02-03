@@ -204,10 +204,20 @@ export class EnrollmentsService {
 
   /** Enrollment 상세 조회 (권한 체크 포함) */
   async getEnrollmentDetail(
-    enrollmentId: string,
+    lectureEnrollmentId: string,
     userType: UserType,
     profileId: string,
   ) {
+    // 1. LectureEnrollment ID로 Enrollment ID 조회
+    const lectureEnrollment =
+      await this.lectureEnrollmentsRepository.findById(lectureEnrollmentId);
+    if (!lectureEnrollment) {
+      throw new NotFoundException('수강 정보를 찾을 수 없습니다.');
+    }
+
+    const { enrollmentId } = lectureEnrollment;
+
+    // 2. Enrollment 및 Lecture 정보 조회
     const enrollment =
       await this.enrollmentsRepository.findByIdWithLectures(enrollmentId);
 

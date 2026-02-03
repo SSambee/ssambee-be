@@ -229,4 +229,12 @@ export class LectureEnrollmentsRepository {
       },
     });
   }
+
+  /** [NEW] LectureEnrollment ID로 기본 조회 */
+  async findById(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    return await client.lectureEnrollment.findUnique({
+      where: { id },
+    });
+  }
 }

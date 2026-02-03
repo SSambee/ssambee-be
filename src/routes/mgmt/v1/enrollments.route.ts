@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { container } from '../../../config/container.config.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
 import {
-  enrollmentIdParamSchema,
+  lectureEnrollmentIdParamSchema,
   updateEnrollmentSchema,
   getEnrollmentsQuerySchema,
 } from '../../../validations/enrollments.validation.js';
@@ -25,8 +25,8 @@ mgmtEnrollmentsRouter.get(
 
 /** 수강 정보 상세 조회 */
 mgmtEnrollmentsRouter.get(
-  '/:enrollmentId',
-  validate(enrollmentIdParamSchema, 'params'),
+  '/:lectureEnrollmentId',
+  validate(lectureEnrollmentIdParamSchema, 'params'),
   enrollmentsController.getEnrollment,
 );
 
