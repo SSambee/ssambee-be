@@ -13,7 +13,6 @@ variable "iam_users" {
 variable "s3_bucket_arns" {
   description = "ARNs of the S3 buckets to allow access to"
   type        = list(string)
-  default     = []
 
   validation {
     condition     = length(var.s3_bucket_arns) > 0
