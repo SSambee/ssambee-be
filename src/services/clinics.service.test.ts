@@ -16,7 +16,6 @@ import { createMockPrisma } from '../test/mocks/prisma.mock.js';
 import {
   mockExams,
   mockLectures,
-  mockGrades,
   mockClinics,
   mockClinicWithRelations,
   createClinicDto,
@@ -116,17 +115,52 @@ describe('ClinicsService - @unit #critical', () => {
       const mockLecture = mockLectures.basic;
       const failedGrades = [
         {
-          ...mockGrades.exam1_student1,
-          enrollmentId: 'enroll-1',
+          id: 'grade-1',
+          lectureId: mockExam.lectureId,
+          examId: mockExam.id,
+          lectureEnrollmentId: 'le-1',
+          lectureEnrollment: {
+            id: 'le-1',
+            lectureId: mockExam.lectureId,
+            registeredAt: new Date(),
+            enrollmentId: 'enroll-1',
+            enrollment: {
+              id: 'enroll-1',
+              studentName: '학생1',
+              studentPhone: '010-1234-5678',
+              school: '테스트고',
+              schoolYear: 'HIGH1',
+            },
+          },
+          score: 50,
           isPass: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
         {
-          ...mockGrades.exam1_student1,
-          enrollmentId: 'enroll-2',
+          id: 'grade-2',
+          lectureId: mockExam.lectureId,
+          examId: mockExam.id,
+          lectureEnrollmentId: 'le-2',
+          lectureEnrollment: {
+            id: 'le-2',
+            lectureId: mockExam.lectureId,
+            registeredAt: new Date(),
+            enrollmentId: 'enroll-2',
+            enrollment: {
+              id: 'enroll-2',
+              studentName: '학생2',
+              studentPhone: '010-8765-4321',
+              school: '테스트고',
+              schoolYear: 'HIGH1',
+            },
+          },
+          score: 40,
           isPass: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       ];
-
       mockExamsRepo.findById.mockResolvedValue(
         mockExam as Awaited<ReturnType<typeof mockExamsRepo.findById>>,
       );
@@ -167,17 +201,53 @@ describe('ClinicsService - @unit #critical', () => {
       };
       const failedGrades = [
         {
-          ...mockGrades.exam1_student1,
-          enrollmentId: 'enroll-1',
+          id: 'grade-1',
+          lectureId: mockExam.lectureId,
+          examId: mockExam.id,
+          lectureEnrollmentId: 'le-1',
+          lectureEnrollment: {
+            id: 'le-1',
+            lectureId: mockExam.lectureId,
+            registeredAt: new Date(),
+            enrollmentId: 'enroll-1',
+            enrollment: {
+              id: 'enroll-1',
+              studentName: '학생1',
+              studentPhone: '010-1234-5678',
+              school: '테스트고',
+              schoolYear: 'HIGH1',
+            },
+          },
+          score: 50,
           isPass: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
         {
-          ...mockGrades.exam1_student1,
-          enrollmentId: 'enroll-2',
+          id: 'grade-2',
+          lectureId: mockExam.lectureId,
+          examId: mockExam.id,
+          lectureEnrollmentId: 'le-2',
+          lectureEnrollment: {
+            id: 'le-2',
+            lectureId: mockExam.lectureId,
+            registeredAt: new Date(),
+            enrollmentId: 'enroll-2',
+            enrollment: {
+              id: 'enroll-2',
+              studentName: '학생2',
+              studentPhone: '010-8765-4321',
+              school: '테스트고',
+              schoolYear: 'HIGH1',
+            },
+          },
+          score: 40,
           isPass: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       ];
-      const existingClinics = [{ enrollmentId: 'enroll-1' }];
+      const existingClinics = [{ lectureEnrollmentId: 'le-1' }];
 
       mockExamsRepo.findById.mockResolvedValue(
         mockExam as Awaited<ReturnType<typeof mockExamsRepo.findById>>,
@@ -212,7 +282,7 @@ describe('ClinicsService - @unit #critical', () => {
       // enroll-1은 이미 존재하므로 enroll-2만 생성 요청되어야 함
       const callArgs = mockClinicsRepo.createMany.mock.calls[0][0];
       expect(callArgs).toHaveLength(1);
-      expect(callArgs[0].enrollmentId).toBe('enroll-2');
+      expect(callArgs[0].lectureEnrollmentId).toBe('le-2');
     });
   });
 
@@ -221,7 +291,12 @@ describe('ClinicsService - @unit #critical', () => {
 
     it('클리닉 목록을 조회할 때, 강사 계정인 경우 본인의 클리닉 목록과 성적 정보를 함께 반환한다', async () => {
       // Arrange
-      const clinicsWithRelations = [mockClinicWithRelations];
+      const clinicsWithRelations = [mockClinicWithRelations].map((c) => ({
+        ...c,
+        lectureEnrollment: {
+          enrollment: c.lectureEnrollment.enrollment,
+        },
+      }));
 
       mockClinicsRepo.findByInstructor.mockResolvedValue(
         clinicsWithRelations as Awaited<
@@ -231,7 +306,7 @@ describe('ClinicsService - @unit #critical', () => {
       (mockPrisma.grade.findMany as jest.Mock).mockResolvedValue([
         {
           examId: mockExams.basic.id,
-          enrollmentId: mockClinicWithRelations.enrollmentId,
+          lectureEnrollmentId: mockClinicWithRelations.lectureEnrollmentId,
           score: 70,
         },
       ]);
