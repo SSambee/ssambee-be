@@ -133,7 +133,6 @@ export const mockAssistants = {
 export const mockEnrollments = {
   active: {
     id: faker.string.uuid(),
-    lectureId: mockLectures.basic.id,
     instructorId: mockInstructor.id,
     appStudentId: mockStudents.basic.id,
     appParentLinkId: mockParentLinks.active.id,
@@ -145,12 +144,13 @@ export const mockEnrollments = {
     status: EnrollmentStatus.ACTIVE,
     registeredAt: faker.date.past(),
     memo: null,
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-01-01'),
     deletedAt: null,
   } as Enrollment,
 
   withoutParentLink: {
     id: faker.string.uuid(),
-    lectureId: mockLectures.basic.id,
     instructorId: mockInstructor.id,
     appStudentId: mockStudents.withParentLink.id,
     appParentLinkId: null,
@@ -162,12 +162,13 @@ export const mockEnrollments = {
     status: EnrollmentStatus.ACTIVE,
     registeredAt: faker.date.past(),
     memo: null,
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-01-01'),
     deletedAt: null,
   } as Enrollment,
 
   deleted: {
     id: faker.string.uuid(),
-    lectureId: mockLectures.basic.id,
     instructorId: mockInstructor.id,
     appStudentId: mockStudents.another.id,
     appParentLinkId: null,
@@ -179,12 +180,13 @@ export const mockEnrollments = {
     status: EnrollmentStatus.ACTIVE,
     registeredAt: faker.date.past(),
     memo: null,
-    deletedAt: faker.date.recent(),
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-01-01'),
+    deletedAt: new Date('2024-03-01'),
   } as Enrollment,
 
   otherInstructor: {
     id: faker.string.uuid(),
-    lectureId: mockLectures.otherInstructor.id,
     instructorId: mockLectures.otherInstructor.instructorId,
     appStudentId: mockStudents.another.id,
     appParentLinkId: null,
@@ -196,12 +198,13 @@ export const mockEnrollments = {
     status: EnrollmentStatus.ACTIVE,
     registeredAt: faker.date.past(),
     memo: null,
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-01-01'),
     deletedAt: null,
   } as Enrollment,
 
   withMemo: {
     id: faker.string.uuid(),
-    lectureId: mockLectures.basic.id,
     instructorId: mockInstructor.id,
     appStudentId: null,
     appParentLinkId: null,
@@ -213,6 +216,8 @@ export const mockEnrollments = {
     status: EnrollmentStatus.ACTIVE,
     registeredAt: faker.date.past(),
     memo: faker.lorem.sentence(),
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-01-01'),
     deletedAt: null,
   } as Enrollment,
 
@@ -287,39 +292,35 @@ export const updateEnrollmentRequests = {
 /** Enrollment with Relations (조회 시 사용) */
 export const mockEnrollmentWithRelations = {
   ...mockEnrollments.active,
-  lecture: {
-    ...mockLectures.basic,
-    instructor: {
-      ...mockInstructor,
-      user: {
-        name: mockUsers.instructor.name,
+  lectureEnrollments: [
+    {
+      id: faker.string.uuid(),
+      enrollmentId: mockEnrollments.active.id,
+      lectureId: mockLectures.basic.id,
+      registeredAt: new Date(),
+      lecture: {
+        ...mockLectures.basic,
+        instructor: {
+          ...mockInstructor,
+          user: {
+            name: mockUsers.instructor.name,
+          },
+        },
       },
     },
-  },
-  grades: [],
-  clinic: [],
-  attendances: [],
+  ],
 };
 
 /** Enrollment with Relations (학부모용 - 간소화된 관계) */
 export const mockEnrollmentWithRelationsForParent = {
   ...mockEnrollments.active,
-  lecture: {
-    ...mockLectures.basic,
-    instructor: {
-      ...mockInstructor,
-      user: {
-        name: mockUsers.instructor.name,
-      },
-    },
-  },
 };
 
 /** Mock Enrollment 배열 (목록 조회용) */
 export const mockEnrollmentsList = [
-  mockEnrollments.active,
-  mockEnrollments.withoutParentLink,
-  mockEnrollments.withMemo,
+  { ...mockEnrollments.active, attendances: [] },
+  { ...mockEnrollments.withoutParentLink, attendances: [] },
+  { ...mockEnrollments.withMemo, attendances: [] },
 ];
 
 /** Mock Query DTO */

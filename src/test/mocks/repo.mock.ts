@@ -11,6 +11,7 @@ import { ExamsRepository } from '../../repos/exams.repo.js';
 import { GradesRepository } from '../../repos/grades.repo.js';
 import { ClinicsRepository } from '../../repos/clinics.repo.js';
 import { StatisticsRepository } from '../../repos/statistics.repo.js';
+import type { LectureEnrollmentsRepository } from '../../repos/lecture-enrollments.repo.js';
 import { createAutoMock } from './create-mock.util.js';
 
 /** Mock InstructorRepository 생성 */
@@ -89,6 +90,23 @@ export const createMockEnrollmentsRepository = () =>
     'softDelete',
     'updateAppStudentIdByPhoneNumber',
     'updateAppParentLinkIdByStudentPhone',
+    'updateAppParentLinkIdByStudentPhone',
+    'findManyByInstructorAndPhones',
+    'findByIdWithLectures',
+  ]);
+
+/** Mock LectureEnrollmentsRepository 생성 */
+export const createMockLectureEnrollmentsRepository = () =>
+  createAutoMock<LectureEnrollmentsRepository>([
+    'createMany',
+    'findManyByLectureId',
+    'create',
+    'findManyByAppStudentId',
+    'findManyByAppParentLinkId',
+    'findByIdWithDetails',
+    'findByLectureIdAndEnrollmentId',
+    'findManyByLectureIdWithEnrollments',
+    'findById',
   ]);
 
 /** Mock AttendancesRepository 생성 */
@@ -99,6 +117,7 @@ export const createMockAttendancesRepository = () =>
     'findById',
     'findByEnrollmentId',
     'update',
+    'findByLectureEnrollmentId',
   ]);
 
 /** Mock ExamsRepository 생성 */

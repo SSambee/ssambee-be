@@ -59,28 +59,28 @@ export class ClinicsService {
       );
     }
 
-    // 3. 불합격자 조회
+    // 3. 불합격자 조회 (LectureEnrollment 정보 포함)
     const failedGrades =
       await this.clinicsRepo.findFailedGradesByExamId(examId);
 
     // 4. 중복 생성 방지
-    // 이미 클리닉이 생성된 enrollmentId 조회
-    const enrollmentIds = failedGrades.map((g) => g.enrollmentId);
+    // 이미 클리닉이 생성된 lectureEnrollmentId 조회
+    const lectureEnrollmentIds = failedGrades.map((g) => g.lectureEnrollmentId);
     let targets = failedGrades;
 
     if (failedGrades.length > 0) {
       const existingClinics = await this.clinicsRepo.findExistingClinics(
         examId,
-        enrollmentIds,
+        lectureEnrollmentIds,
       );
-      const existingEnrollmentIds = new Set(
-        existingClinics.map((c) => c.enrollmentId),
+      const existingLectureEnrollmentIds = new Set(
+        existingClinics.map((c) => c.lectureEnrollmentId),
       );
 
       // 5. 생성할 데이터 준비
       // 중복되지 않은 학생들만 필터링
       targets = failedGrades.filter(
-        (g) => !existingEnrollmentIds.has(g.enrollmentId),
+        (g) => !existingLectureEnrollmentIds.has(g.lectureEnrollmentId),
       );
     }
 
@@ -95,7 +95,7 @@ export class ClinicsService {
           targets.map((t) => ({
             lectureId: exam.lectureId,
             examId: examId,
-            enrollmentId: t.enrollmentId,
+            lectureEnrollmentId: t.lectureEnrollmentId,
             title: title,
             deadline: deadlineDate,
             memo: memo,
@@ -158,17 +158,17 @@ export class ClinicsService {
     }
 
     // 3. 성적 정보 조회 (Clinic에는 점수 정보가 없으므로 별도 조회)
-    // (examId, enrollmentId) 조합으로 조회
+    // (examId, lectureEnrollmentId) 조합으로 조회
     const grades = await this.prisma.grade.findMany({
       where: {
         OR: clinics.map((c) => ({
           examId: c.examId,
-          enrollmentId: c.enrollmentId,
+          lectureEnrollmentId: c.lectureEnrollmentId,
         })),
       },
       select: {
         examId: true,
-        enrollmentId: true,
+        lectureEnrollmentId: true,
         score: true,
       },
     });
@@ -176,22 +176,22 @@ export class ClinicsService {
     // 검색 최적화를 위한 Map 생성
     const gradeMap = new Map<string, number>();
     grades.forEach((g) => {
-      gradeMap.set(`${g.examId}:${g.enrollmentId}`, g.score);
+      gradeMap.set(`${g.examId}:${g.lectureEnrollmentId}`, g.score);
     });
 
     // 4. 응답 데이터 매핑
     return clinics.map((clinic) => {
       const score =
-        gradeMap.get(`${clinic.examId}:${clinic.enrollmentId}`) ?? 0;
+        gradeMap.get(`${clinic.examId}:${clinic.lectureEnrollmentId}`) ?? 0;
 
       return {
         id: clinic.id,
         student: {
-          id: clinic.enrollment.id, // enrollmentId를 식별자로 사용
-          name: clinic.enrollment.studentName,
-          school: clinic.enrollment.school,
-          schoolYear: clinic.enrollment.schoolYear,
-          phone: clinic.enrollment.studentPhone,
+          id: clinic.lectureEnrollment.enrollment.id, // enrollmentId를 식별자로 사용
+          name: clinic.lectureEnrollment.enrollment.studentName,
+          school: clinic.lectureEnrollment.enrollment.school,
+          schoolYear: clinic.lectureEnrollment.enrollment.schoolYear,
+          phone: clinic.lectureEnrollment.enrollment.studentPhone,
         },
         exam: {
           id: clinic.exam.id,
@@ -272,5 +272,72 @@ export class ClinicsService {
       count: result.count,
       message: `${result.count}개의 클리닉이 수정되었습니다.`,
     };
+  }
+
+  /** 학생용 클리닉 조회 */
+  async getClinicsByStudent(userType: UserType, profileId: string) {
+    if (userType !== UserType.STUDENT) {
+      throw new BadRequestException(
+        '학생만 이 엔드포인트를 사용할 수 있습니다.',
+      );
+    }
+
+    const clinics = await this.clinicsRepo.findByAppStudentId(profileId);
+
+    return clinics.map((clinic) => ({
+      id: clinic.id,
+      title: clinic.title,
+      status: clinic.status,
+      deadline: clinic.deadline,
+      memo: clinic.memo,
+      exam: {
+        title: clinic.exam.title,
+        cutoffScore: clinic.exam.cutoffScore,
+      },
+      lecture: {
+        title: clinic.lecture.title,
+        subject: clinic.lecture.subject,
+      },
+      studentName: clinic.lectureEnrollment.enrollment.studentName,
+    }));
+  }
+
+  /** 학부모용 클리닉 조회 (ParentChildLink ID 기준) */
+  async getClinicsByParentLink(
+    parentChildLinkId: string,
+    userType: UserType,
+    profileId: string,
+  ) {
+    if (userType !== UserType.PARENT) {
+      throw new BadRequestException(
+        '학부모만 이 엔드포인트를 사용할 수 있습니다.',
+      );
+    }
+
+    await this.permissionService.validateChildAccess(
+      userType,
+      profileId,
+      parentChildLinkId,
+    );
+
+    const clinics =
+      await this.clinicsRepo.findByAppParentLinkId(parentChildLinkId);
+
+    return clinics.map((clinic) => ({
+      id: clinic.id,
+      title: clinic.title,
+      status: clinic.status,
+      deadline: clinic.deadline,
+      memo: clinic.memo,
+      exam: {
+        title: clinic.exam.title,
+        cutoffScore: clinic.exam.cutoffScore,
+      },
+      lecture: {
+        title: clinic.lecture.title,
+        subject: clinic.lecture.subject,
+      },
+      studentName: clinic.lectureEnrollment.enrollment.studentName,
+    }));
   }
 }

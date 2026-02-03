@@ -8,8 +8,12 @@ import { errorHandler } from './middlewares/error.middleware.js';
 import { disconnectDB } from './config/db.config.js';
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from './config/auth.config.js';
+import { initSentry } from './config/sentry.config.js';
+import * as Sentry from '@sentry/node';
 
 const app = express();
+
+initSentry();
 
 // 1. 보안
 const whiteList: string[] = config.FRONT_URL
@@ -43,7 +47,8 @@ app.use(cookieParser());
 // 5. 라우터
 app.use('/', router);
 
-// 6. 에러 핸들러
+// 6. 에러 핸들러 + Sentry 에러 핸들러
+Sentry.setupExpressErrorHandler(app);
 app.use(errorHandler);
 
 const server = app.listen(config.PORT, () => {

@@ -16,10 +16,35 @@ import type {
   GetSvcEnrollmentsQueryDto,
 } from '../validations/enrollments.validation.js';
 
+import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
+
+/** 수강생 목록 항목 (출결 1건 포함) */
+export type EnrollmentWithAttendance = Omit<
+  Awaited<ReturnType<EnrollmentsRepository['findManyByLectureId']>>[number],
+  'attendances' | 'lectureEnrollments'
+> & {
+  attendance:
+    | Awaited<
+        ReturnType<EnrollmentsRepository['findManyByLectureId']>
+      >[number]['attendances'][number]
+    | null;
+  lectureEnrollmentId?: string;
+  lectureEnrollments?: Awaited<
+    ReturnType<EnrollmentsRepository['findManyByLectureId']>
+  >[number]['lectureEnrollments'];
+};
+
+/** 수강생 목록 조회 결과 */
+export interface EnrollmentListResponse {
+  enrollments: EnrollmentWithAttendance[];
+  totalCount: number;
+}
+
 export class EnrollmentsService {
   constructor(
     private readonly enrollmentsRepository: EnrollmentsRepository,
     private readonly lecturesRepository: LecturesRepository,
+    private readonly lectureEnrollmentsRepository: LectureEnrollmentsRepository,
     private readonly studentRepository: StudentRepository,
     private readonly parentsService: ParentsService,
     private readonly permissionService: PermissionService,
@@ -46,100 +71,167 @@ export class EnrollmentsService {
       profileId,
     );
 
-    let parentLinkId = data.appParentLinkId;
-    if (!parentLinkId && data.studentPhone) {
-      const link = await this.parentsService.findLinkByPhoneNumber(
-        data.studentPhone,
-      );
-      if (link) {
-        parentLinkId = link.id;
-      }
-    }
+    return await this.prisma.$transaction(async (tx) => {
+      // 3. 기존 Enrollment 확인 (같은 강사, 같은 학생 번호)
+      let enrollmentId: string | null = null;
 
-    let studentId = data.appStudentId;
-    if (!studentId && data.studentPhone) {
-      const student = await this.studentRepository.findByPhoneNumber(
-        data.studentPhone,
-      );
-      if (student) {
-        studentId = student.id;
-      }
-    }
+      if (data.studentPhone) {
+        const existingEnrollments =
+          await this.enrollmentsRepository.findManyByInstructorAndPhones(
+            lecture.instructorId,
+            [data.studentPhone],
+            tx,
+          );
 
-    // 3. Enrollment 생성
-    return await this.enrollmentsRepository.create({
-      ...data,
-      lectureId,
-      instructorId: lecture.instructorId, // 강의의 담당 강사로 설정
-      status: EnrollmentStatus.ACTIVE,
-      appParentLinkId: parentLinkId, // 자동 연결된 ID 설정
-      appStudentId: studentId, // 자동 연결된 ID 설정
+        if (existingEnrollments.length > 0) {
+          enrollmentId = existingEnrollments[0].id;
+        }
+      }
+
+      // 4. 없으면 새로 생성
+      if (!enrollmentId) {
+        let parentLinkId = data.appParentLinkId;
+        if (!parentLinkId && data.studentPhone) {
+          const link = await this.parentsService.findLinkByPhoneNumber(
+            data.studentPhone,
+          );
+          if (link) {
+            parentLinkId = link.id;
+          }
+        }
+
+        let studentId = data.appStudentId;
+        if (!studentId && data.studentPhone) {
+          const student = await this.studentRepository.findByPhoneNumber(
+            data.studentPhone,
+          );
+          if (student) {
+            studentId = student.id;
+          }
+        }
+
+        const newEnrollment = await this.enrollmentsRepository.create(
+          {
+            ...data,
+            instructorId: lecture.instructorId, // 강의의 담당 강사로 설정
+            status: EnrollmentStatus.ACTIVE,
+            appParentLinkId: parentLinkId, // 자동 연결된 ID 설정
+            appStudentId: studentId, // 자동 연결된 ID 설정
+          },
+          tx,
+        );
+        enrollmentId = newEnrollment.id;
+      }
+
+      // 5. LectureEnrollment 생성 또는 조회 (강의와 학생 연결, 중복 방지)
+      // 먼저 기존 LectureEnrollment 확인
+      let lectureEnrollment =
+        await this.lectureEnrollmentsRepository.findByLectureIdAndEnrollmentId(
+          lectureId,
+          enrollmentId!,
+          tx,
+        );
+
+      // 없으면 새로 생성하고 다시 조회 (일관된 반환 타입을 위해)
+      if (!lectureEnrollment) {
+        await this.lectureEnrollmentsRepository.create(
+          {
+            lectureId,
+            enrollmentId: enrollmentId!,
+          },
+          tx,
+        );
+
+        // 생성 후 enrollment 정보를 포함하여 다시 조회
+        lectureEnrollment =
+          await this.lectureEnrollmentsRepository.findByLectureIdAndEnrollmentId(
+            lectureId,
+            enrollmentId!,
+            tx,
+          );
+      }
+
+      return lectureEnrollment;
     });
   }
 
-  /** 강의별 수강생 목록 조회 */
-  async getEnrollmentsByLectureId(
-    lectureId: string,
-    userType: UserType,
-    profileId: string,
-    options?: { examId?: string },
-  ) {
-    // 1. 강의 존재 및 권한 확인
-    const lecture = await this.lecturesRepository.findById(lectureId);
-    if (!lecture) {
-      throw new NotFoundException('강의를 찾을 수 없습니다.');
-    }
-
-    await this.permissionService.validateInstructorAccess(
-      lecture.instructorId,
-      userType,
-      profileId,
-    );
-
-    // 2. Repository 호출
-    const enrollments = await this.enrollmentsRepository.findManyByLectureId(
-      lectureId,
-      options,
-    );
-
-    // 3. 응답 평탄화: grades[0]?.id -> gradeId
-    return enrollments.map((enrollment) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const grades = (enrollment as any).grades;
-      return {
-        ...enrollment,
-        gradeId: grades?.[0]?.id ?? null,
-        grades: undefined, // 원본 grades 배열 제거
-      };
-    });
-  }
-
-  /** 강사(조교 포함)별 전체 수강생 목록 조회 */
-  async getEnrollmentsByInstructor(
+  /** 수강생 목록 조회 (강사/조교) - 통합됨 */
+  async getEnrollments(
     userType: UserType,
     profileId: string,
     query: GetEnrollmentsQueryDto,
-  ) {
-    const targetInstructorId =
-      await this.permissionService.getEffectiveInstructorId(
+  ): Promise<EnrollmentListResponse> {
+    // 1. 권한 체크 및 대상 강사 ID 확인
+    let targetInstructorId = '';
+
+    if (query.lecture) {
+      // 강의가 있으면 해당 강의의 담당 강사 확인 및 접근 권한 체크 필요
+      const lecture = await this.lecturesRepository.findById(query.lecture);
+      if (!lecture) {
+        throw new NotFoundException('강의를 찾을 수 없습니다.');
+      }
+      targetInstructorId = lecture.instructorId;
+
+      await this.permissionService.validateInstructorAccess(
+        targetInstructorId,
         userType,
         profileId,
       );
 
-    return await this.enrollmentsRepository.findManyByInstructorId(
-      targetInstructorId,
-      query,
-    );
+      // Repository 호출 (강의별 조회)
+      const enrollmentsRaw =
+        await this.enrollmentsRepository.findManyByLectureId(query.lecture, {
+          examId: query.examId,
+        });
+
+      const enrollments = enrollmentsRaw.map((e) => {
+        const { attendances, lectureEnrollments, ...rest } = e;
+        return {
+          ...rest,
+          attendance: attendances?.[0] || null,
+          lectureEnrollmentId: lectureEnrollments?.[0]?.id,
+          lectureEnrollments: lectureEnrollments,
+        } as EnrollmentWithAttendance;
+      });
+
+      return {
+        enrollments,
+        totalCount: enrollments.length,
+      };
+    } else {
+      // 강의 지정 없으면 전체 목록 조회
+      targetInstructorId =
+        await this.permissionService.getEffectiveInstructorId(
+          userType,
+          profileId,
+        );
+
+      const result = await this.enrollmentsRepository.findManyByInstructorId(
+        targetInstructorId,
+        query,
+      );
+
+      return {
+        ...result,
+        enrollments: result.enrollments.map((e) => {
+          const { attendances, ...rest } = e;
+          return {
+            ...rest,
+            attendance: attendances?.[0] || null,
+          } as EnrollmentWithAttendance;
+        }),
+      };
+    }
   }
 
-  /** Enrollment 상세 조회 (권한 체크 포함) */
+  /** Enrollment 상세 조회 (권한 체크 포함) - EnrollmentId 기준 */
   async getEnrollmentDetail(
     enrollmentId: string,
     userType: UserType,
     profileId: string,
   ) {
     const enrollment =
-      await this.enrollmentsRepository.findByIdWithRelations(enrollmentId);
+      await this.enrollmentsRepository.findByIdWithLectures(enrollmentId);
 
     if (!enrollment) {
       throw new NotFoundException('수강 정보를 찾을 수 없습니다.');
@@ -152,7 +244,39 @@ export class EnrollmentsService {
       profileId,
     );
 
-    return enrollment;
+    // 응답 평탄화: lectureEnrollments -> lectures
+    const lectures = enrollment.lectureEnrollments.map((le) => ({
+      ...le.lecture,
+      lectureEnrollmentId: le.id, // 매핑 정보도 알면 좋음
+      registeredAt: le.registeredAt,
+    }));
+
+    return {
+      ...enrollment,
+      lectureEnrollments: undefined, // 원본 제거
+      lectures,
+    };
+  }
+
+  /** Enrollment 상세 조회 (권한 체크 포함) - LectureEnrollmentId 기준 */
+  async getEnrollmentDetailByLectureEnrollmentId(
+    lectureEnrollmentId: string,
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 1. LectureEnrollment ID로 Enrollment ID 조회
+    const lectureEnrollment =
+      await this.lectureEnrollmentsRepository.findById(lectureEnrollmentId);
+    if (!lectureEnrollment) {
+      throw new NotFoundException('수강 정보를 찾을 수 없습니다.');
+    }
+
+    // 2. 기존 상세 조회 호출
+    return this.getEnrollmentDetail(
+      lectureEnrollment.enrollmentId,
+      userType,
+      profileId,
+    );
   }
 
   /** Enrollment 수정 */
@@ -177,28 +301,14 @@ export class EnrollmentsService {
     return await this.enrollmentsRepository.update(id, data);
   }
 
-  /** Enrollment 삭제 (Soft Delete) */
-  async deleteEnrollment(id: string, userType: UserType, profileId: string) {
-    const enrollment = await this.enrollmentsRepository.findById(id);
-    if (!enrollment) {
-      throw new NotFoundException('수강 정보를 찾을 수 없습니다.');
-    }
-
-    // 권한 체크
-    await this.permissionService.validateInstructorAccess(
-      enrollment.instructorId,
-      userType,
-      profileId,
-    );
-
-    return await this.enrollmentsRepository.softDelete(id);
-  }
-
-  /** 학생/학부모용 수강 목록 조회 */
-  async getEnrollments(
+  /** 학생/학부모용 수강 목록 조회 (강의 기반) */
+  async getMyEnrollments(
     userType: UserType,
     profileId: string,
-    query?: GetSvcEnrollmentsQueryDto,
+    query: GetSvcEnrollmentsQueryDto = {
+      page: 1, // Default value from schema
+      limit: 20, // Default value from schema
+    },
   ) {
     if (userType !== UserType.STUDENT) {
       throw new ForbiddenException(
@@ -206,35 +316,53 @@ export class EnrollmentsService {
       );
     }
 
-    const { enrollments, totalCount } =
-      await this.enrollmentsRepository.findByAppStudentId(profileId, query);
+    const { page = 1, limit = 20 } = query;
+    const offset = (page - 1) * limit;
+
+    const { lectureEnrollments, totalCount } =
+      await this.lectureEnrollmentsRepository.findManyByAppStudentId(
+        profileId,
+        { limit, offset },
+      );
 
     return {
-      enrollments,
+      enrollments: lectureEnrollments, // 프론트엔드 호환성을 위해 키 이름은 일단 유지 (API 명세 변경 시 수정)
       totalCount,
     };
   }
 
-  /** 학생/학부모용 수강 상세 조회 */
+  /** 학생/학부모용 수강 상세 조회 (강의 기반) */
   async getEnrollmentById(
-    enrollmentId: string,
+    lectureEnrollmentId: string, // URL param은 enrollmentId이지만 의미는 lectureEnrollmentId
     userType: UserType,
     profileId: string,
   ) {
-    const enrollment =
-      await this.enrollmentsRepository.findByIdWithRelations(enrollmentId);
+    const lectureEnrollment =
+      await this.lectureEnrollmentsRepository.findByIdWithDetails(
+        lectureEnrollmentId,
+      );
 
-    if (!enrollment || enrollment.deletedAt) {
+    if (!lectureEnrollment) {
       throw new NotFoundException('수강 정보를 찾을 수 없습니다.');
     }
 
     // 권한 체크 (학생/학부모 조회 권한)
+    if (userType === UserType.STUDENT) {
+      if (lectureEnrollment.enrollment.appStudentId !== profileId) {
+        throw new ForbiddenException('본인의 수강 정보만 조회할 수 있습니다.');
+      }
+    } else if (userType === UserType.PARENT) {
+      if (lectureEnrollment.enrollment.appParentLinkId === null) {
+        throw new ForbiddenException('자녀의 수강 정보만 조회할 수 있습니다.');
+      }
+    }
+
     await this.permissionService.validateEnrollmentReadAccess(
-      enrollment,
+      lectureEnrollment.enrollment,
       userType,
       profileId,
     );
 
-    return enrollment;
+    return lectureEnrollment;
   }
 }

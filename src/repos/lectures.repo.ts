@@ -2,7 +2,6 @@ import { PrismaClient } from '../generated/prisma/client.js';
 import type {
   Lecture,
   LectureTime,
-  Enrollment,
   Exam,
   Prisma,
 } from '../generated/prisma/client.js';
@@ -19,25 +18,35 @@ export type LectureListItem = Lecture & {
   };
   lectureTimes: LectureTime[];
   _count: {
-    enrollments: number;
+    lectureEnrollments: number;
   };
 };
 
 export type LectureDetail = LectureListItem & {
-  enrollments: (Enrollment & {
-    studentAnswers: {
-      id: string;
-      isCorrect: boolean;
-      question: {
-        score: number;
+  lectureEnrollments: Prisma.LectureEnrollmentGetPayload<{
+    include: {
+      enrollment: true;
+      studentAnswers: {
+        select: {
+          id: true;
+          isCorrect: true;
+          question: {
+            select: {
+              score: true;
+            };
+          };
+        };
       };
-    }[];
-  })[];
+    };
+  }>[];
   exams: (Exam & {
     _count: {
       questions: number;
     };
   })[];
+  _count: {
+    lectureEnrollments: number;
+  };
 };
 
 export class LecturesRepository {
@@ -102,8 +111,9 @@ export class LecturesRepository {
             },
           },
         },
-        enrollments: {
+        lectureEnrollments: {
           include: {
+            enrollment: true,
             studentAnswers: {
               select: {
                 id: true,
@@ -126,12 +136,12 @@ export class LecturesRepository {
             },
           },
           orderBy: {
-            createdAt: 'desc',
+            id: 'desc',
           },
         },
         _count: {
           select: {
-            enrollments: true,
+            lectureEnrollments: true,
           },
         },
       },
@@ -203,7 +213,7 @@ export class LecturesRepository {
               : true,
           _count: {
             select: {
-              enrollments: true,
+              lectureEnrollments: true,
             },
           },
         },

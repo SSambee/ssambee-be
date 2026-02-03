@@ -20,6 +20,7 @@ import { LecturesService } from '../services/lectures.service.js';
 import { LecturesController } from '../controllers/lectures.controller.js';
 
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
+import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 import { EnrollmentsService } from '../services/enrollments.service.js';
 import { EnrollmentsController } from '../controllers/enrollments.controller.js';
 
@@ -63,6 +64,7 @@ const clinicsRepo = new ClinicsRepository(prisma);
 
 const lecturesRepo = new LecturesRepository(prisma);
 const enrollmentsRepo = new EnrollmentsRepository(prisma);
+const lectureEnrollmentsRepo = new LectureEnrollmentsRepository(prisma);
 const attendancesRepo = new AttendancesRepository(prisma);
 
 // 2. Instantiate Services (Inject Repos)
@@ -93,7 +95,7 @@ const gradesService = new GradesService(
   gradesRepo,
   examsRepo,
   lecturesRepo,
-  enrollmentsRepo,
+  lectureEnrollmentsRepo,
   permissionService,
   prisma,
 );
@@ -117,7 +119,7 @@ const clinicsService = new ClinicsService(
 const lecturesService = new LecturesService(
   lecturesRepo,
   enrollmentsRepo,
-  studentRepo,
+  lectureEnrollmentsRepo,
   instructorRepo,
   permissionService,
   prisma,
@@ -126,6 +128,7 @@ const parentsService = new ParentsService(
   parentRepo,
   parentChildLinkRepo,
   enrollmentsRepo,
+  lectureEnrollmentsRepo,
   permissionService,
   prisma,
 );
@@ -133,6 +136,7 @@ const parentsService = new ParentsService(
 const enrollmentsService = new EnrollmentsService(
   enrollmentsRepo,
   lecturesRepo,
+  lectureEnrollmentsRepo,
   studentRepo,
   parentsService,
   permissionService,
@@ -142,6 +146,7 @@ const enrollmentsService = new EnrollmentsService(
 const attendancesService = new AttendancesService(
   attendancesRepo,
   enrollmentsRepo,
+  lectureEnrollmentsRepo,
   lecturesRepo,
   assistantRepo,
   parentsService,
@@ -154,7 +159,11 @@ const authController = new AuthController(authService);
 const lecturesController = new LecturesController(lecturesService);
 const enrollmentsController = new EnrollmentsController(enrollmentsService);
 const attendancesController = new AttendancesController(attendancesService);
-const childrenController = new ChildrenController(parentsService);
+const childrenController = new ChildrenController(
+  parentsService,
+  gradesService,
+  clinicsService,
+);
 const examsController = new ExamsController(examsService);
 const gradesController = new GradesController(gradesService);
 const statisticsController = new StatisticsController(statisticsService);

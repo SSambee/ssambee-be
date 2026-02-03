@@ -83,4 +83,29 @@ export class ClinicsController {
       next(error);
     }
   };
+
+  /** 학생용 클리닉 조회 핸들러 */
+  getClinicsByStudent = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const user = getAuthUser(req);
+      const profileId = getProfileIdOrThrow(req);
+      const userType = user.userType as UserType;
+
+      const result = await this.clinicsService.getClinicsByStudent(
+        userType,
+        profileId,
+      );
+
+      return successResponse(res, {
+        data: { clinics: result },
+        message: '클리닉 목록 조회 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

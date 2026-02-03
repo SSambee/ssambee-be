@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { container } from '../../../config/container.config.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
-import { createChildSchema } from '../../../validations/children.validation.js';
+import {
+  createChildSchema,
+  childIdParamSchema,
+} from '../../../validations/children.validation.js';
 import { getSvcEnrollmentsQuerySchema } from '../../../validations/enrollments.validation.js';
 
 export const svcChildrenRouter = Router();
@@ -22,15 +25,36 @@ svcChildrenRouter.post(
 /** 자녀 목록 조회 */
 svcChildrenRouter.get('/', childrenController.getChildren);
 
-/** 자녀 수강 목록 조회 */
+/** 자녀 수강 강의 목록 조회 */
 svcChildrenRouter.get(
-  '/:id/enrollments',
+  '/:id/lectures',
   validate(getSvcEnrollmentsQuerySchema, 'query'),
   childrenController.getChildEnrollments,
 );
 
-/** 자녀 수강 상세 조회 */
+/** 자녀 수강 강의 상세 조회 */
 svcChildrenRouter.get(
-  '/:id/enrollments/:enrollmentId',
+  '/:id/lectures/:lectureEnrollmentId',
   childrenController.getChildEnrollmentDetail,
+);
+
+/** 자녀의 수강별 성적 목록 조회 */
+svcChildrenRouter.get(
+  '/:id/lectures/:lectureEnrollmentId/grades',
+  validate(childIdParamSchema, 'params'),
+  childrenController.getChildGradesByEnrollment,
+);
+
+/** 자녀의 성적 상세 조회 */
+svcChildrenRouter.get(
+  '/:id/grades/:gradeId',
+  validate(childIdParamSchema, 'params'),
+  childrenController.getChildGradeDetail,
+);
+
+/** 자녀의 클리닉 목록 조회 */
+svcChildrenRouter.get(
+  '/:id/clinics',
+  validate(childIdParamSchema, 'params'),
+  childrenController.getChildClinics,
 );

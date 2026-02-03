@@ -8,11 +8,12 @@ import {
   lectureIdParamSchema,
   updateLectureSchema,
 } from '../../../validations/lectures.validation.js';
+import { createEnrollmentSchema } from '../../../validations/enrollments.validation.js';
 import {
-  createEnrollmentSchema,
-  getEnrollmentsByLectureQuerySchema,
-} from '../../../validations/enrollments.validation.js';
-import { createBulkAttendancesSchema } from '../../../validations/attendances.validation.js';
+  createBulkAttendancesSchema,
+  lectureEnrollmentParamSchema,
+  createAttendanceSchema,
+} from '../../../validations/attendances.validation.js';
 import {
   createExamSchema,
   lectureIdExamParamSchema,
@@ -85,13 +86,6 @@ mgmtLecturesRouter.post(
 
 /** --- 수강생 (Nested Routes) --- */
 
-/** 해당 강의의 수강생 목록 조회 */
-mgmtLecturesRouter.get(
-  '/:lectureId/enrollments',
-  validate(getEnrollmentsByLectureQuerySchema, 'query'),
-  container.enrollmentsController.getEnrollmentsByLecture,
-);
-
 /** 해당 강의에 수강생 등록 */
 mgmtLecturesRouter.post(
   '/:lectureId/enrollments',
@@ -104,4 +98,19 @@ mgmtLecturesRouter.post(
   '/:lectureId/enrollments/attendances',
   validate(createBulkAttendancesSchema, 'body'),
   container.attendancesController.createBulkAttendances,
+);
+
+/** 특정 수강생 출결 등록 */
+mgmtLecturesRouter.post(
+  '/:lectureId/enrollments/:enrollmentId/attendances',
+  validate(lectureEnrollmentParamSchema, 'params'),
+  validate(createAttendanceSchema, 'body'),
+  container.attendancesController.createAttendance,
+);
+
+/** 특정 수강생 출결 조회 */
+mgmtLecturesRouter.get(
+  '/:lectureId/enrollments/:enrollmentId/attendances',
+  validate(lectureEnrollmentParamSchema, 'params'),
+  container.attendancesController.getAttendances,
 );

@@ -1,14 +1,26 @@
 import { fakerKO as faker } from '@faker-js/faker';
 import type { Attendance } from '../../generated/prisma/client.js';
-import { mockEnrollments } from './enrollments.fixture.js';
 import { AttendanceStatus } from '../../constants/attendances.constant.js';
 import type { AttendanceStats } from '../../utils/attendance.util.js';
+
+/** Mock LectureEnrollment 데이터 */
+export const mockLectureEnrollment = {
+  id: 'lecture-enrollment-id-1',
+  lectureId: 'lecture-id-1',
+  enrollmentId: 'enrollment-id-1',
+  registeredAt: new Date('2024-02-01'),
+  enrollment: {
+    id: 'enrollment-id-1',
+    instructorId: 'instructor-1',
+    studentName: '학생',
+  },
+};
 
 /** Mock Attendance 데이터 */
 export const mockAttendances = {
   present: {
     id: faker.string.uuid(),
-    enrollmentId: mockEnrollments.active.id,
+    lectureEnrollmentId: 'lecture-enrollment-id-1', // enrollmentId -> lectureEnrollmentId
     date: new Date('2024-03-01T00:00:00.000Z'),
     status: AttendanceStatus.PRESENT,
     enterTime: new Date('2024-03-01T14:00:00.000Z'),
@@ -20,7 +32,7 @@ export const mockAttendances = {
 
   absent: {
     id: faker.string.uuid(),
-    enrollmentId: mockEnrollments.active.id,
+    lectureEnrollmentId: 'lecture-enrollment-id-1',
     date: new Date('2024-03-02T00:00:00.000Z'),
     status: AttendanceStatus.ABSENT,
     enterTime: null,
@@ -32,7 +44,7 @@ export const mockAttendances = {
 
   late: {
     id: faker.string.uuid(),
-    enrollmentId: mockEnrollments.active.id,
+    lectureEnrollmentId: 'lecture-enrollment-id-1',
     date: new Date('2024-03-03T00:00:00.000Z'),
     status: AttendanceStatus.LATE,
     enterTime: new Date('2024-03-03T14:30:00.000Z'),
@@ -61,14 +73,14 @@ export const createAttendanceRequests = {
 /** 단체 출결 생성 요청 DTO */
 export const bulkAttendanceRequests = [
   {
-    enrollmentId: mockEnrollments.active.id,
+    lectureEnrollmentId: 'lecture-enrollment-id-1', // enrollmentId -> lectureEnrollmentId
     date: new Date('2024-03-01'),
     status: AttendanceStatus.PRESENT,
     enterTime: new Date('2024-03-01T14:00:00.000Z'),
     leaveTime: new Date('2024-03-01T16:00:00.000Z'),
   },
   {
-    enrollmentId: mockEnrollments.withoutParentLink.id,
+    lectureEnrollmentId: 'lecture-enrollment-id-2',
     date: new Date('2024-03-01'),
     status: AttendanceStatus.ABSENT,
     memo: '결석 사유',
