@@ -9,7 +9,7 @@ import {
   createMockGradesRepository,
   createMockExamsRepository,
   createMockLecturesRepository,
-  createMockEnrollmentsRepository,
+  createMockLectureEnrollmentsRepository,
 } from '../test/mocks/repo.mock.js';
 import { createMockPermissionService } from '../test/mocks/services.mock.js';
 import { createMockPrisma } from '../test/mocks/prisma.mock.js';
@@ -17,7 +17,6 @@ import {
   mockLectures,
   mockInstructor,
   mockExams,
-  mockEnrollments,
   mockQuestions,
   mockGrades,
   submitGradingRequests,
@@ -25,7 +24,7 @@ import {
 import type { GradesRepository } from '../repos/grades.repo.js';
 import type { ExamsRepository } from '../repos/exams.repo.js';
 import type { LecturesRepository } from '../repos/lectures.repo.js';
-import type { EnrollmentsRepository } from '../repos/enrollments.repo.js';
+import type { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 import type { PermissionService } from './permission.service.js';
 import type { PrismaClient, Prisma } from '../generated/prisma/client.js';
 
@@ -34,7 +33,7 @@ describe('GradesService - @unit #critical', () => {
   let mockGradesRepo: jest.Mocked<GradesRepository>;
   let mockExamsRepo: jest.Mocked<ExamsRepository>;
   let mockLecturesRepo: jest.Mocked<LecturesRepository>;
-  let mockEnrollmentsRepo: jest.Mocked<EnrollmentsRepository>;
+  let mockLectureEnrollmentsRepo: jest.Mocked<LectureEnrollmentsRepository>;
   let mockPermissionService: jest.Mocked<PermissionService>;
   let mockPrisma: jest.Mocked<PrismaClient>;
 
@@ -42,14 +41,13 @@ describe('GradesService - @unit #critical', () => {
   const mockProfileId = mockInstructor.id;
   const mockLecture = mockLectures.basic;
   const mockExam = mockExams.basic;
-  const mockEnrollment = mockEnrollments.active;
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockGradesRepo = createMockGradesRepository();
     mockExamsRepo = createMockExamsRepository();
     mockLecturesRepo = createMockLecturesRepository();
-    mockEnrollmentsRepo = createMockEnrollmentsRepository();
+    mockLectureEnrollmentsRepo = createMockLectureEnrollmentsRepository();
     mockPermissionService = createMockPermissionService();
     mockPrisma = createMockPrisma() as unknown as jest.Mocked<PrismaClient>;
 
@@ -62,7 +60,7 @@ describe('GradesService - @unit #critical', () => {
       mockGradesRepo,
       mockExamsRepo,
       mockLecturesRepo,
-      mockEnrollmentsRepo,
+      mockLectureEnrollmentsRepo,
       mockPermissionService,
       mockPrisma,
     );
@@ -83,11 +81,12 @@ describe('GradesService - @unit #critical', () => {
       mockLecturesRepo.findById.mockResolvedValue(
         mockLecture as Awaited<ReturnType<typeof mockLecturesRepo.findById>>,
       );
-      mockEnrollmentsRepo.findById.mockResolvedValue(
-        mockEnrollment as Awaited<
-          ReturnType<typeof mockEnrollmentsRepo.findById>
-        >,
-      );
+      mockLectureEnrollmentsRepo.findByIdWithDetails.mockResolvedValue({
+        id: 'le-1',
+        lectureId: mockExam.lectureId,
+      } as Awaited<
+        ReturnType<typeof mockLectureEnrollmentsRepo.findByIdWithDetails>
+      >);
       mockExamsRepo.findQuestionsByExamId.mockResolvedValue(mockQuestionsList);
       mockGradesRepo.upsertGrade.mockResolvedValue(mockGrades.basic);
 
@@ -109,7 +108,7 @@ describe('GradesService - @unit #critical', () => {
       expect(mockGradesRepo.upsertGrade).toHaveBeenCalledWith(
         mockExam.lectureId,
         mockExam.id,
-        data.enrollmentId,
+        data.lectureEnrollmentId,
         data.totalScore,
         data.totalScore >= mockExam.cutoffScore,
         mockPrisma,
@@ -123,7 +122,12 @@ describe('GradesService - @unit #critical', () => {
 
       mockExamsRepo.findById.mockResolvedValue(mockExam);
       mockLecturesRepo.findById.mockResolvedValue(mockLecture);
-      mockEnrollmentsRepo.findById.mockResolvedValue(mockEnrollment);
+      mockLectureEnrollmentsRepo.findByIdWithDetails.mockResolvedValue({
+        id: 'le-essay',
+        lectureId: mockExam.lectureId,
+      } as Awaited<
+        ReturnType<typeof mockLectureEnrollmentsRepo.findByIdWithDetails>
+      >);
       mockExamsRepo.findQuestionsByExamId.mockResolvedValue(mockQuestionsList);
 
       await gradesService.submitGrading(
@@ -136,7 +140,7 @@ describe('GradesService - @unit #critical', () => {
       expect(mockGradesRepo.upsertGrade).toHaveBeenCalledWith(
         mockExam.lectureId,
         mockExam.id,
-        data.enrollmentId,
+        data.lectureEnrollmentId,
         data.totalScore,
         data.totalScore >= mockExam.cutoffScore,
         mockPrisma,
@@ -173,7 +177,12 @@ describe('GradesService - @unit #critical', () => {
       };
       mockExamsRepo.findById.mockResolvedValue(mockExam);
       mockLecturesRepo.findById.mockResolvedValue(mockLecture);
-      mockEnrollmentsRepo.findById.mockResolvedValue(mockEnrollment);
+      mockLectureEnrollmentsRepo.findByIdWithDetails.mockResolvedValue({
+        id: 'le-1',
+        lectureId: mockExam.lectureId,
+      } as Awaited<
+        ReturnType<typeof mockLectureEnrollmentsRepo.findByIdWithDetails>
+      >);
       mockExamsRepo.findQuestionsByExamId.mockResolvedValue([
         mockQuestions.multipleChoice,
       ]);
@@ -192,7 +201,12 @@ describe('GradesService - @unit #critical', () => {
       const data = { ...submitGradingRequests.basic, totalScore: 999 }; // 잘못된 총점
       mockExamsRepo.findById.mockResolvedValue(mockExam);
       mockLecturesRepo.findById.mockResolvedValue(mockLecture);
-      mockEnrollmentsRepo.findById.mockResolvedValue(mockEnrollment);
+      mockLectureEnrollmentsRepo.findByIdWithDetails.mockResolvedValue({
+        id: 'le-1',
+        lectureId: mockExam.lectureId,
+      } as Awaited<
+        ReturnType<typeof mockLectureEnrollmentsRepo.findByIdWithDetails>
+      >);
       mockExamsRepo.findQuestionsByExamId.mockResolvedValue([
         mockQuestions.multipleChoice,
         mockQuestions.shortAnswer,
@@ -218,7 +232,12 @@ describe('GradesService - @unit #critical', () => {
       };
       mockExamsRepo.findById.mockResolvedValue(mockExam);
       mockLecturesRepo.findById.mockResolvedValue(mockLecture);
-      mockEnrollmentsRepo.findById.mockResolvedValue(mockEnrollment);
+      mockLectureEnrollmentsRepo.findByIdWithDetails.mockResolvedValue({
+        id: 'le-1',
+        lectureId: mockExam.lectureId,
+      } as Awaited<
+        ReturnType<typeof mockLectureEnrollmentsRepo.findByIdWithDetails>
+      >);
       mockExamsRepo.findQuestionsByExamId.mockResolvedValue([
         mockQuestions.multipleChoice,
         mockQuestions.shortAnswer,
@@ -239,7 +258,7 @@ describe('GradesService - @unit #critical', () => {
           mockUserType,
           mockProfileId,
         ),
-      ).rejects.toThrow('중복된 문항 ID가 제출되었습니다');
+      ).rejects.toThrow('문항 1번의 답안이 중복 제출되었습니다.');
     });
 
     it('유효하지 않은 문항 ID가 제출될 때, BadRequestException을 던진다', async () => {
@@ -254,7 +273,12 @@ describe('GradesService - @unit #critical', () => {
       };
       mockExamsRepo.findById.mockResolvedValue(mockExam);
       mockLecturesRepo.findById.mockResolvedValue(mockLecture);
-      mockEnrollmentsRepo.findById.mockResolvedValue(mockEnrollment);
+      mockLectureEnrollmentsRepo.findByIdWithDetails.mockResolvedValue({
+        id: 'le-1',
+        lectureId: mockExam.lectureId,
+      } as Awaited<
+        ReturnType<typeof mockLectureEnrollmentsRepo.findByIdWithDetails>
+      >);
       mockExamsRepo.findQuestionsByExamId.mockResolvedValue([
         mockQuestions.multipleChoice,
       ]);
@@ -274,14 +298,19 @@ describe('GradesService - @unit #critical', () => {
           mockUserType,
           mockProfileId,
         ),
-      ).rejects.toThrow('유효하지 않습니다');
+      ).rejects.toThrow('해당 시험에 존재하지 않는 문항입니다.');
     });
 
     it('클라이언트가 제출한 정답 개수가 서버 계산과 다를 때, BadRequestException을 던진다', async () => {
       const data = { ...submitGradingRequests.basic, correctCount: 999 }; // 잘못된 개수
       mockExamsRepo.findById.mockResolvedValue(mockExam);
       mockLecturesRepo.findById.mockResolvedValue(mockLecture);
-      mockEnrollmentsRepo.findById.mockResolvedValue(mockEnrollment);
+      mockLectureEnrollmentsRepo.findByIdWithDetails.mockResolvedValue({
+        id: 'le-1',
+        lectureId: mockExam.lectureId,
+      } as Awaited<
+        ReturnType<typeof mockLectureEnrollmentsRepo.findByIdWithDetails>
+      >);
       mockExamsRepo.findQuestionsByExamId.mockResolvedValue([
         mockQuestions.multipleChoice,
         mockQuestions.shortAnswer,
@@ -298,10 +327,14 @@ describe('GradesService - @unit #critical', () => {
     });
 
     it('수강 정보의 강의 ID와 시험의 강의 ID가 일치하지 않을 때, BadRequestException을 던진다', async () => {
-      const wrongEnrollment = { ...mockEnrollment, lectureId: 'other-lecture' };
       mockExamsRepo.findById.mockResolvedValue(mockExam);
       mockLecturesRepo.findById.mockResolvedValue(mockLecture);
-      mockEnrollmentsRepo.findById.mockResolvedValue(wrongEnrollment);
+      mockLectureEnrollmentsRepo.findByIdWithDetails.mockResolvedValue({
+        id: 'le-1',
+        lectureId: 'other-lecture',
+      } as Awaited<
+        ReturnType<typeof mockLectureEnrollmentsRepo.findByIdWithDetails>
+      >);
 
       await expect(
         gradesService.submitGrading(
@@ -316,7 +349,7 @@ describe('GradesService - @unit #critical', () => {
 
   describe('[조회] getGradesByExam', () => {
     it('권한이 있는 사용자가 성적 조회를 요청할 때, 해당 시험의 성적 목록이 반환된다', async () => {
-      const mockGradesList = [mockGrades.withEnrollment] as Awaited<
+      const mockGradesList = [mockGrades.withEnrollment] as unknown as Awaited<
         ReturnType<typeof mockGradesRepo.findGradesByExamId>
       >;
       mockExamsRepo.findById.mockResolvedValue(
