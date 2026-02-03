@@ -328,27 +328,16 @@ export class EnrollmentsService {
     }
 
     // 권한 체크 (학생/학부모 조회 권한)
-    // 기존 validateEnrollmentReadAccess는 Enrollment 객체를 받으므로,
-    // 여기서 직접 체크하거나 helper를 수정해야 함.
-    // 일단 직접 체크 구현:
     if (userType === UserType.STUDENT) {
       if (lectureEnrollment.enrollment.appStudentId !== profileId) {
         throw new ForbiddenException('본인의 수강 정보만 조회할 수 있습니다.');
       }
     } else if (userType === UserType.PARENT) {
       if (lectureEnrollment.enrollment.appParentLinkId === null) {
-        // 연동 안된 경우
         throw new ForbiddenException('자녀의 수강 정보만 조회할 수 있습니다.');
       }
-      // 부모 ID -> Link -> 검증 로직이 복잡하므로 PermissionService 위임 권장하나
-      // 여기서는 Enrollment 객체를 통해 간접 검증 가능
-      // (단, lectureEnrollment.enrollment에는 appParentLinkId만 있음)
-      // ParentsService를 통해 profileId가 해당 appParentLinkId를 소유하는지 확인 필요.
-      // 하지만 현재 ParentsService.validateParentLinkAccess 같은게 없다면?
-      // 일단 기존 로직처럼 validateEnrollmentReadAccess 재활용 시도
     }
 
-    // PermissionService 재활용을 위해 Enrollment 객체 형태 맞춤 (최소한의 필드)
     await this.permissionService.validateEnrollmentReadAccess(
       lectureEnrollment.enrollment,
       userType,
