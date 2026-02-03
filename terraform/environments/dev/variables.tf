@@ -27,3 +27,14 @@ variable "rds_skip_final_snapshot" {
   type        = bool
   default     = false # 기본적으로 마지막 백업을 남기도록 설정
 }
+
+variable "project_name" {
+  description = "프로젝트 이름"
+  type        = string
+  default     = "ssambee"
+}
+
+variable "frontend_origin" {
+  description = "프론트엔드 URL (CORS 및 리다이렉트 용)"
+  type        = string
+}

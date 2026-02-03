@@ -66,6 +66,7 @@ jobs:
       FRONT_URL: ${{ secrets.FRONT_URL }}
       BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
       BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
+      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
 
     steps:
       - name: Checkout code
@@ -80,6 +81,7 @@ jobs:
             echo "FRONT_URL=$FRONT_URL" >> .env
             echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET" >> .env
             echo "BETTER_AUTH_URL=$BETTER_AUTH_URL" >> .env
+            echo "SENTRY_DSN=$SENTRY_DSN" >> .env
 
             # 리포지토리 이름을 소문자로 변환
             RAW_IMAGE_NAME="${{ github.repository }}"

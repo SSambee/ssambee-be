@@ -19,3 +19,9 @@ variable "key_name" {
   type    = string
   default = "lms-key"
 }
+
+variable "iam_instance_profile" {
+  description = "IAM Instance Profile name to attach to the EC2 instance"
+  type        = string
+  default     = null
+}

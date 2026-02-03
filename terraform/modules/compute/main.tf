@@ -68,6 +68,7 @@ resource "aws_instance" "app_server" {
   key_name               = var.key_name
 
   associate_public_ip_address = true
+  iam_instance_profile        = var.iam_instance_profile
 
   metadata_options {
     http_tokens                 = "required"
