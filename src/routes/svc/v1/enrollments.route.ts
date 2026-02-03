@@ -8,7 +8,8 @@ import {
 
 export const svcLecturesRouter = Router();
 
-const { requireAuth, requireStudent, enrollmentsController } = container;
+const { requireAuth, requireStudent, enrollmentsController, gradesController } =
+  container;
 
 /** ---------- 로그인한 사용자 ---------- */
 svcLecturesRouter.use(requireAuth);
@@ -26,4 +27,11 @@ svcLecturesRouter.get(
   '/:lectureEnrollmentId',
   validate(lectureEnrollmentIdParamSchema, 'params'),
   enrollmentsController.getEnrollment,
+);
+
+/** 수강별 성적 목록 조회 */
+svcLecturesRouter.get(
+  '/:lectureEnrollmentId/grades',
+  validate(lectureEnrollmentIdParamSchema, 'params'),
+  gradesController.getGradesByEnrollment,
 );

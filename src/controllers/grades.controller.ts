@@ -51,4 +51,54 @@ export class GradesController {
       next(error);
     }
   };
+
+  /** 수강별 성적 목록 조회 (학생/학부모용) */
+  getGradesByEnrollment = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { enrollmentId } = req.params;
+      const user = getAuthUser(req);
+      const profileId = getProfileIdOrThrow(req);
+      const userType = user.userType as UserType;
+
+      const result = await this.gradesService.getGradesByEnrollment(
+        enrollmentId,
+        userType,
+        profileId,
+      );
+
+      return successResponse(res, {
+        data: { grades: result },
+        message: '성적 목록 조회 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /** 성적 상세 조회 (학생/학부모용) */
+  getGradeDetail = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { gradeId } = req.params;
+      const user = getAuthUser(req);
+      const profileId = getProfileIdOrThrow(req);
+      const userType = user.userType as UserType;
+
+      const result = await this.gradesService.getGradeDetail(
+        gradeId,
+        userType,
+        profileId,
+      );
+
+      return successResponse(res, {
+        data: { grade: result },
+        message: '성적 상세 조회 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

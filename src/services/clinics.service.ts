@@ -273,4 +273,71 @@ export class ClinicsService {
       message: `${result.count}개의 클리닉이 수정되었습니다.`,
     };
   }
+
+  /** 학생용 클리닉 조회 */
+  async getClinicsByStudent(userType: UserType, profileId: string) {
+    if (userType !== UserType.STUDENT) {
+      throw new BadRequestException(
+        '학생만 이 엔드포인트를 사용할 수 있습니다.',
+      );
+    }
+
+    const clinics = await this.clinicsRepo.findByAppStudentId(profileId);
+
+    return clinics.map((clinic) => ({
+      id: clinic.id,
+      title: clinic.title,
+      status: clinic.status,
+      deadline: clinic.deadline,
+      memo: clinic.memo,
+      exam: {
+        title: clinic.exam.title,
+        cutoffScore: clinic.exam.cutoffScore,
+      },
+      lecture: {
+        title: clinic.lecture.title,
+        subject: clinic.lecture.subject,
+      },
+      studentName: clinic.enrollment.studentName,
+    }));
+  }
+
+  /** 학부모용 클리닉 조회 (ParentChildLink ID 기준) */
+  async getClinicsByParentLink(
+    parentChildLinkId: string,
+    userType: UserType,
+    profileId: string,
+  ) {
+    if (userType !== UserType.PARENT) {
+      throw new BadRequestException(
+        '학부모만 이 엔드포인트를 사용할 수 있습니다.',
+      );
+    }
+
+    await this.permissionService.validateChildAccess(
+      userType,
+      profileId,
+      parentChildLinkId,
+    );
+
+    const clinics =
+      await this.clinicsRepo.findByAppParentLinkId(parentChildLinkId);
+
+    return clinics.map((clinic) => ({
+      id: clinic.id,
+      title: clinic.title,
+      status: clinic.status,
+      deadline: clinic.deadline,
+      memo: clinic.memo,
+      exam: {
+        title: clinic.exam.title,
+        cutoffScore: clinic.exam.cutoffScore,
+      },
+      lecture: {
+        title: clinic.lecture.title,
+        subject: clinic.lecture.subject,
+      },
+      studentName: clinic.enrollment.studentName,
+    }));
+  }
 }
