@@ -57,7 +57,6 @@ export class GradesService {
       await this.lectureEnrollmentsRepo.findByIdWithDetails(
         lectureEnrollmentId,
       );
-    console.log('lectureEnrollment', lectureEnrollmentId);
     if (!lectureEnrollment) {
       throw new NotFoundException('수강 정보를 찾을 수 없습니다.');
     }
