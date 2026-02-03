@@ -258,11 +258,14 @@ export class EnrollmentsService {
     return await this.enrollmentsRepository.update(id, data);
   }
 
-  /** 학생/학부모용 수강 목록 조회 */
+  /** 학생/학부모용 수강 목록 조회 (강의 기반) */
   async getMyEnrollments(
     userType: UserType,
     profileId: string,
-    query?: GetSvcEnrollmentsQueryDto,
+    query: GetSvcEnrollmentsQueryDto = {
+      page: 1, // Default value from schema
+      limit: 20, // Default value from schema
+    },
   ) {
     if (userType !== UserType.STUDENT) {
       throw new ForbiddenException(
@@ -270,46 +273,64 @@ export class EnrollmentsService {
       );
     }
 
-    const { enrollments, totalCount } =
-      await this.enrollmentsRepository.findByAppStudentId(profileId, query);
+    const { page = 1, limit = 20 } = query;
+    const offset = (page - 1) * limit;
+
+    const { lectureEnrollments, totalCount } =
+      await this.lectureEnrollmentsRepository.findManyByAppStudentId(
+        profileId,
+        { limit, offset },
+      );
 
     return {
-      enrollments,
+      enrollments: lectureEnrollments, // 프론트엔드 호환성을 위해 키 이름은 일단 유지 (API 명세 변경 시 수정)
       totalCount,
     };
   }
 
-  /** 학생/학부모용 수강 상세 조회 */
+  /** 학생/학부모용 수강 상세 조회 (강의 기반) */
   async getEnrollmentById(
-    enrollmentId: string,
+    lectureEnrollmentId: string, // URL param은 enrollmentId이지만 의미는 lectureEnrollmentId
     userType: UserType,
     profileId: string,
   ) {
-    const enrollment =
-      await this.enrollmentsRepository.findByIdWithLectures(enrollmentId);
+    const lectureEnrollment =
+      await this.lectureEnrollmentsRepository.findByIdWithDetails(
+        lectureEnrollmentId,
+      );
 
-    if (!enrollment || enrollment.deletedAt) {
+    if (!lectureEnrollment) {
       throw new NotFoundException('수강 정보를 찾을 수 없습니다.');
     }
 
     // 권한 체크 (학생/학부모 조회 권한)
+    // 기존 validateEnrollmentReadAccess는 Enrollment 객체를 받으므로,
+    // 여기서 직접 체크하거나 helper를 수정해야 함.
+    // 일단 직접 체크 구현:
+    if (userType === UserType.STUDENT) {
+      if (lectureEnrollment.enrollment.appStudentId !== profileId) {
+        throw new ForbiddenException('본인의 수강 정보만 조회할 수 있습니다.');
+      }
+    } else if (userType === UserType.PARENT) {
+      if (lectureEnrollment.enrollment.appParentLinkId === null) {
+        // 연동 안된 경우
+        throw new ForbiddenException('자녀의 수강 정보만 조회할 수 있습니다.');
+      }
+      // 부모 ID -> Link -> 검증 로직이 복잡하므로 PermissionService 위임 권장하나
+      // 여기서는 Enrollment 객체를 통해 간접 검증 가능
+      // (단, lectureEnrollment.enrollment에는 appParentLinkId만 있음)
+      // ParentsService를 통해 profileId가 해당 appParentLinkId를 소유하는지 확인 필요.
+      // 하지만 현재 ParentsService.validateParentLinkAccess 같은게 없다면?
+      // 일단 기존 로직처럼 validateEnrollmentReadAccess 재활용 시도
+    }
+
+    // PermissionService 재활용을 위해 Enrollment 객체 형태 맞춤 (최소한의 필드)
     await this.permissionService.validateEnrollmentReadAccess(
-      enrollment,
+      lectureEnrollment.enrollment,
       userType,
       profileId,
     );
 
-    // 응답 평탄화
-    const lectures = enrollment.lectureEnrollments.map((le) => ({
-      ...le.lecture,
-      lectureEnrollmentId: le.id,
-      registeredAt: le.registeredAt,
-    }));
-
-    return {
-      ...enrollment,
-      lectureEnrollments: undefined,
-      lectures,
-    };
+    return lectureEnrollment;
   }
 }

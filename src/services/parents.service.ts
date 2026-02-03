@@ -12,11 +12,14 @@ import { PermissionService } from './permission.service.js';
 import type { CreateChildDto } from '../validations/children.validation.js';
 import type { GetSvcEnrollmentsQueryDto } from '../validations/enrollments.validation.js';
 
+import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
+
 export class ParentsService {
   constructor(
     private readonly parentRepository: ParentRepository,
     private readonly parentChildLinkRepository: ParentChildLinkRepository,
     private readonly enrollmentsRepository: EnrollmentsRepository,
+    private readonly lectureEnrollmentsRepository: LectureEnrollmentsRepository,
     private readonly permissionService: PermissionService,
     private readonly prisma: PrismaClient,
   ) {}
@@ -73,12 +76,15 @@ export class ParentsService {
     return await this.parentChildLinkRepository.findByAppParentId(profileId);
   }
 
-  /** 자녀의 수강 목록 조회 */
+  /** 자녀의 수강 목록 조회 (강의 기반) */
   async getChildEnrollments(
     userType: UserType,
     profileId: string,
     childId: string,
-    query?: GetSvcEnrollmentsQueryDto,
+    query: GetSvcEnrollmentsQueryDto = {
+      page: 1, // Default value from schema
+      limit: 20, // Default value from schema
+    },
   ) {
     // 1. 자녀 링크 검증
     const childLink = await this.permissionService.validateChildAccess(
@@ -87,24 +93,28 @@ export class ParentsService {
       childId,
     );
 
-    // 2. 해당 링크 ID로 수강 목록 조회
-    const result = await this.enrollmentsRepository.findByAppParentLinkId(
-      childLink.id,
-      query,
-    );
+    const { page = 1, limit = 20 } = query;
+    const offset = (page - 1) * limit;
+
+    // 2. 해당 링크 ID로 수강 목록 조회 (LectureEnrollment)
+    const { lectureEnrollments, totalCount } =
+      await this.lectureEnrollmentsRepository.findManyByAppParentLinkId(
+        childLink.id,
+        { limit, offset },
+      );
 
     return {
-      enrollments: result.enrollments,
-      totalCount: result.totalCount,
+      enrollments: lectureEnrollments,
+      totalCount,
     };
   }
 
-  /** 자녀의 수강 상세 조회 */
+  /** 자녀의 수강 상세 조회 (강의 기반) */
   async getChildEnrollmentDetail(
     userType: UserType,
     profileId: string,
     childId: string,
-    enrollmentId: string,
+    lectureEnrollmentId: string, // URL param: enrollmentId -> logic: lectureEnrollmentId
   ) {
     // 1. 자녀 링크 검증
     const childLink = await this.permissionService.validateChildAccess(
@@ -113,22 +123,24 @@ export class ParentsService {
       childId,
     );
 
-    // 2. 수강 상세 조회
-    const enrollment =
-      await this.enrollmentsRepository.findByIdWithRelations(enrollmentId);
+    // 2. 수강 상세 조회 (LectureEnrollment)
+    const lectureEnrollment =
+      await this.lectureEnrollmentsRepository.findByIdWithDetails(
+        lectureEnrollmentId,
+      );
 
-    if (!enrollment) {
+    if (!lectureEnrollment) {
       throw new NotFoundException('수강 정보를 찾을 수 없습니다.');
     }
 
     // 3. 해당 수강 정보가 내 자녀의 것이 맞는지 확인
-    if (enrollment.appParentLinkId !== childLink.id) {
+    if (lectureEnrollment.enrollment.appParentLinkId !== childLink.id) {
       throw new ForbiddenException(
         '해당 자녀의 수강 정보가 아니거나 접근 권한이 없습니다.',
       );
     }
 
-    return enrollment;
+    return lectureEnrollment;
   }
 
   /** 학부모 자녀 정보를 전화번호로 조회 (가장 최근 것 하나) */

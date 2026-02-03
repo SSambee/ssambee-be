@@ -98,6 +98,9 @@ export const createMockLectureEnrollmentsRepository = () =>
     'createMany',
     'findManyByLectureId',
     'create',
+    'findManyByAppStudentId',
+    'findManyByAppParentLinkId',
+    'findByIdWithDetails',
   ]);
 
 /** Mock AttendancesRepository 생성 */

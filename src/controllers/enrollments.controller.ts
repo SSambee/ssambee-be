@@ -70,7 +70,8 @@ export class EnrollmentsController {
   /**  수강 상세 조회 핸들러 */
   getEnrollment = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { enrollmentId } = req.params;
+      // 강사/조교인 경우는 enrollmentId, 학생/학부모는 lectureEnrollmentId
+      const { enrollmentId, lectureEnrollmentId } = req.params;
       const user = getAuthUser(req);
       const profileId = getProfileIdOrThrow(req);
       const userType = user.userType as UserType;
@@ -87,7 +88,7 @@ export class EnrollmentsController {
       } else {
         // 학생/학부모인 경우
         enrollment = await this.enrollmentsService.getEnrollmentById(
-          enrollmentId,
+          lectureEnrollmentId,
           userType,
           profileId,
         );

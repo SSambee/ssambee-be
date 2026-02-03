@@ -2,28 +2,28 @@ import { Router } from 'express';
 import { container } from '../../../config/container.config.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
 import {
-  enrollmentIdParamSchema,
+  lectureEnrollmentIdParamSchema,
   getSvcEnrollmentsQuerySchema,
 } from '../../../validations/enrollments.validation.js';
 
-export const svcEnrollmentsRouter = Router();
+export const svcLecturesRouter = Router();
 
 const { requireAuth, requireStudent, enrollmentsController } = container;
 
 /** ---------- 로그인한 사용자 ---------- */
-svcEnrollmentsRouter.use(requireAuth);
-svcEnrollmentsRouter.use(requireStudent);
+svcLecturesRouter.use(requireAuth);
+svcLecturesRouter.use(requireStudent);
 
-/** 수강 목록 조회 */
-svcEnrollmentsRouter.get(
+/** 수강 강의 목록 조회 */
+svcLecturesRouter.get(
   '/',
   validate(getSvcEnrollmentsQuerySchema, 'query'),
   enrollmentsController.getEnrollments,
 );
 
-/** 수강 상세 조회 */
-svcEnrollmentsRouter.get(
-  '/:enrollmentId',
-  validate(enrollmentIdParamSchema, 'params'),
+/** 수강 강의 상세 조회 */
+svcLecturesRouter.get(
+  '/:lectureEnrollmentId',
+  validate(lectureEnrollmentIdParamSchema, 'params'),
   enrollmentsController.getEnrollment,
 );

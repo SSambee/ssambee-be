@@ -98,12 +98,12 @@ export class ChildrenController {
       const user = getAuthUser(req);
       const profileId = getProfileIdOrThrow(req);
 
-      const { id, enrollmentId } = req.params;
+      const { id, lectureEnrollmentId } = req.params;
       const enrollment = await this.parentsService.getChildEnrollmentDetail(
         user.userType as UserType,
         profileId,
         id,
-        enrollmentId,
+        lectureEnrollmentId,
       );
 
       return successResponse(res, {

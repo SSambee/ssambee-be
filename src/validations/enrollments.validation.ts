@@ -18,6 +18,18 @@ export const enrollmentIdParamSchema = z.object({
 
 export type EnrollmentIdParamDto = z.infer<typeof enrollmentIdParamSchema>;
 
+/** Lecture Enrollment ID 파라미터 스키마 (학생용) */
+export const lectureEnrollmentIdParamSchema = z.object({
+  lectureEnrollmentId: z
+    .string()
+    .trim()
+    .min(1, { message: 'Lecture Enrollment ID는 필수입니다.' }),
+});
+
+export type LectureEnrollmentIdParamDto = z.infer<
+  typeof lectureEnrollmentIdParamSchema
+>;
+
 /** 수강 등록 스키마 */
 export const createEnrollmentSchema = z.object({
   school: z.string().trim().min(1, '학교명은 필수입니다.'),

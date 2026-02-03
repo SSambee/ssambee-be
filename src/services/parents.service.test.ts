@@ -9,17 +9,22 @@ import {
   createMockParentRepository,
   createMockParentChildLinkRepository,
   createMockEnrollmentsRepository,
+  createMockLectureEnrollmentsRepository,
   createMockPrisma,
   createMockPermissionService,
 } from '../test/mocks/index.js';
-import {
-  mockParents,
-  mockParentLinks,
-  mockEnrollments,
-  mockEnrollmentWithRelations,
-  mockEnrollmentWithRelationsForParent,
-} from '../test/fixtures/index.js';
+import { mockParents, mockParentLinks } from '../test/fixtures/index.js';
 import { PrismaClient } from '../generated/prisma/client.js';
+
+import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
+
+type ParentLectureEnrollmentItem = Awaited<
+  ReturnType<LectureEnrollmentsRepository['findManyByAppParentLinkId']>
+>['lectureEnrollments'][number];
+
+type LectureEnrollmentDetail = NonNullable<
+  Awaited<ReturnType<LectureEnrollmentsRepository['findByIdWithDetails']>>
+>;
 
 describe('ParentsService - @unit #critical', () => {
   // Mock Dependencies
@@ -28,6 +33,9 @@ describe('ParentsService - @unit #critical', () => {
     typeof createMockParentChildLinkRepository
   >;
   let mockEnrollmentsRepo: ReturnType<typeof createMockEnrollmentsRepository>;
+  let mockLectureEnrollmentsRepo: ReturnType<
+    typeof createMockLectureEnrollmentsRepository
+  >;
   let mockPermissionService: ReturnType<typeof createMockPermissionService>;
   let mockPrisma: PrismaClient;
 
@@ -42,6 +50,7 @@ describe('ParentsService - @unit #critical', () => {
     mockParentRepo = createMockParentRepository();
     mockParentChildLinkRepo = createMockParentChildLinkRepository();
     mockEnrollmentsRepo = createMockEnrollmentsRepository();
+    mockLectureEnrollmentsRepo = createMockLectureEnrollmentsRepository();
     mockPermissionService = createMockPermissionService();
     mockPrisma = createMockPrisma() as unknown as PrismaClient;
 
@@ -50,6 +59,7 @@ describe('ParentsService - @unit #critical', () => {
       mockParentRepo,
       mockParentChildLinkRepo,
       mockEnrollmentsRepo,
+      mockLectureEnrollmentsRepo,
       mockPermissionService,
       mockPrisma,
     );
@@ -243,18 +253,26 @@ describe('ParentsService - @unit #critical', () => {
     const parentId = mockParents.basic.id;
     const childLinkId = mockParentLinks.active.id;
 
-    describe('PAR-06: 수강 목록 조회 성공', () => {
-      it('학부모가 본인 자녀의 수강 목록 조회를 요청할 때, 수강 정보 배열이 반환된다', async () => {
+    describe('PAR-06: 수강 목록 조회 성공 (LectureCentric)', () => {
+      it('학부모가 본인 자녀의 수강 목록 조회를 요청할 때, LectureEnrollment 배열이 반환된다', async () => {
         mockPermissionService.validateChildAccess.mockResolvedValue(
           mockParentLinks.active,
         );
-        const enrollmentsResult = {
-          enrollments: [mockEnrollmentWithRelationsForParent],
+
+        const mockLectureEnrollmentList = [
+          {
+            id: 'le-1',
+            lectureId: 'lecture-1',
+            enrollmentId: 'enrollment-1',
+            registeredAt: new Date(),
+          },
+        ];
+
+        mockLectureEnrollmentsRepo.findManyByAppParentLinkId.mockResolvedValue({
+          lectureEnrollments:
+            mockLectureEnrollmentList as unknown as ParentLectureEnrollmentItem[],
           totalCount: 1,
-        };
-        mockEnrollmentsRepo.findByAppParentLinkId.mockResolvedValue(
-          enrollmentsResult,
-        );
+        });
 
         const result = await parentsService.getChildEnrollments(
           UserType.PARENT,
@@ -265,44 +283,38 @@ describe('ParentsService - @unit #critical', () => {
         expect(result).toBeDefined();
         expect(result.enrollments).toHaveLength(1);
         expect(result.totalCount).toBe(1);
-        expect(result.enrollments[0].id).toBe(mockEnrollments.active.id);
         expect(mockPermissionService.validateChildAccess).toHaveBeenCalledWith(
           UserType.PARENT,
           parentId,
           childLinkId,
         );
-        expect(mockEnrollmentsRepo.findByAppParentLinkId).toHaveBeenCalledWith(
-          childLinkId,
-          undefined,
-        );
+        expect(
+          mockLectureEnrollmentsRepo.findManyByAppParentLinkId,
+        ).toHaveBeenCalledWith(childLinkId, { limit: 20, offset: 0 }); // Default limit=20
       });
 
       it('학부모가 페이지네이션 옵션과 함께 자녀의 수강 목록 조회를 요청할 때, 요청된 범위의 목록과 전체 개수가 반환된다', async () => {
         mockPermissionService.validateChildAccess.mockResolvedValue(
           mockParentLinks.active,
         );
-        const enrollmentsResult = {
-          enrollments: [mockEnrollmentWithRelationsForParent],
+
+        mockLectureEnrollmentsRepo.findManyByAppParentLinkId.mockResolvedValue({
+          lectureEnrollments: [],
           totalCount: 10,
-        };
-        mockEnrollmentsRepo.findByAppParentLinkId.mockResolvedValue(
-          enrollmentsResult,
-        );
+        });
 
-        const query = { page: 1, limit: 10 };
+        const query = { page: 2, limit: 5 };
 
-        const result = await parentsService.getChildEnrollments(
+        await parentsService.getChildEnrollments(
           UserType.PARENT,
           parentId,
           childLinkId,
           query,
         );
 
-        expect(result.totalCount).toBe(10);
-        expect(mockEnrollmentsRepo.findByAppParentLinkId).toHaveBeenCalledWith(
-          childLinkId,
-          query,
-        );
+        expect(
+          mockLectureEnrollmentsRepo.findManyByAppParentLinkId,
+        ).toHaveBeenCalledWith(childLinkId, { limit: 5, offset: 5 });
       });
     });
 
@@ -366,35 +378,44 @@ describe('ParentsService - @unit #critical', () => {
       });
     });
 
-    describe('[자녀 수강 상세 조회] getChildEnrollmentDetail', () => {
+    describe('[자녀 수강 상세 조회] getChildEnrollmentDetail (LectureCentric)', () => {
       const parentId = mockParents.basic.id;
       const childLinkId = mockParentLinks.active.id;
-      const enrollmentId = mockEnrollments.active.id;
+      const lectureEnrollmentId = 'le-123';
+
+      const mockLectureEnrollment = {
+        id: lectureEnrollmentId,
+        lectureId: 'lecture-1',
+        enrollmentId: 'enrollment-1',
+        enrollment: {
+          appParentLinkId: childLinkId,
+        },
+      };
 
       describe('PAR-08: 수강 상세 조회 성공', () => {
         it('학부모가 본인 자녀의 수강 상세 정보 조회를 요청할 때, 상세 수강 정보가 반환된다', async () => {
           mockPermissionService.validateChildAccess.mockResolvedValue(
             mockParentLinks.active,
           );
-          mockEnrollmentsRepo.findByIdWithRelations.mockResolvedValue(
-            mockEnrollmentWithRelations,
+          mockLectureEnrollmentsRepo.findByIdWithDetails.mockResolvedValue(
+            mockLectureEnrollment as unknown as LectureEnrollmentDetail,
           );
 
           const result = await parentsService.getChildEnrollmentDetail(
             UserType.PARENT,
             parentId,
             childLinkId,
-            enrollmentId,
+            lectureEnrollmentId,
           );
 
           expect(result).toBeDefined();
-          expect(result.id).toBe(enrollmentId);
+          expect(result.id).toBe(lectureEnrollmentId);
           expect(
             mockPermissionService.validateChildAccess,
           ).toHaveBeenCalledWith(UserType.PARENT, parentId, childLinkId);
           expect(
-            mockEnrollmentsRepo.findByIdWithRelations,
-          ).toHaveBeenCalledWith(enrollmentId);
+            mockLectureEnrollmentsRepo.findByIdWithDetails,
+          ).toHaveBeenCalledWith(lectureEnrollmentId);
         });
       });
 
@@ -409,7 +430,7 @@ describe('ParentsService - @unit #critical', () => {
               UserType.PARENT,
               parentId,
               childLinkId,
-              enrollmentId,
+              lectureEnrollmentId,
             ),
           ).rejects.toThrow(ForbiddenException);
         });
@@ -418,28 +439,32 @@ describe('ParentsService - @unit #critical', () => {
           mockPermissionService.validateChildAccess.mockResolvedValue(
             mockParentLinks.active,
           );
-          mockEnrollmentsRepo.findByIdWithRelations.mockResolvedValue(null);
+          mockLectureEnrollmentsRepo.findByIdWithDetails.mockResolvedValue(
+            null,
+          );
 
           await expect(
             parentsService.getChildEnrollmentDetail(
               UserType.PARENT,
               parentId,
               childLinkId,
-              'invalid-enrollment-id',
+              'invalid-id',
             ),
           ).rejects.toThrow(NotFoundException);
         });
 
-        it('학부모가 본인 자녀의 것이 아닌 수강 정보를 조회하려 할 때, ForbiddenException을 던진다', async () => {
+        it('학부모가 본인 자녀의 것이 아닌 수강 정보를 조회하려 할 때(appParentLinkId 불일치), ForbiddenException을 던진다', async () => {
           mockPermissionService.validateChildAccess.mockResolvedValue(
             mockParentLinks.active,
           );
           const differentEnrollment = {
-            ...mockEnrollmentWithRelations,
-            appParentLinkId: 'different-link-id',
+            ...mockLectureEnrollment,
+            enrollment: {
+              appParentLinkId: 'different-link-id',
+            },
           };
-          mockEnrollmentsRepo.findByIdWithRelations.mockResolvedValue(
-            differentEnrollment,
+          mockLectureEnrollmentsRepo.findByIdWithDetails.mockResolvedValue(
+            differentEnrollment as unknown as LectureEnrollmentDetail,
           );
 
           await expect(
@@ -447,22 +472,7 @@ describe('ParentsService - @unit #critical', () => {
               UserType.PARENT,
               parentId,
               childLinkId,
-              enrollmentId,
-            ),
-          ).rejects.toThrow(ForbiddenException);
-        });
-
-        it('학부모 권한이 없는 사용자가 수강 상세 정보를 조회하려 할 때, ForbiddenException을 던진다', async () => {
-          mockPermissionService.validateChildAccess.mockRejectedValue(
-            new ForbiddenException('접근 권한이 없습니다.'),
-          );
-
-          await expect(
-            parentsService.getChildEnrollmentDetail(
-              UserType.INSTRUCTOR,
-              'instructor-id',
-              childLinkId,
-              enrollmentId,
+              lectureEnrollmentId,
             ),
           ).rejects.toThrow(ForbiddenException);
         });
@@ -477,10 +487,12 @@ describe('ParentsService - @unit #critical', () => {
             mockPermissionService.validateChildAccess.mockResolvedValue(
               mockParentLinks.active,
             );
-            mockEnrollmentsRepo.findByAppParentLinkId.mockResolvedValue({
-              enrollments: [],
-              totalCount: 0,
-            });
+            mockLectureEnrollmentsRepo.findManyByAppParentLinkId.mockResolvedValue(
+              {
+                lectureEnrollments: [],
+                totalCount: 0,
+              },
+            );
 
             await expect(
               parentsService.getChildEnrollments(

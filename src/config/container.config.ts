@@ -128,6 +128,7 @@ const parentsService = new ParentsService(
   parentRepo,
   parentChildLinkRepo,
   enrollmentsRepo,
+  lectureEnrollmentsRepo,
   permissionService,
   prisma,
 );
