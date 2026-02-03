@@ -8,6 +8,10 @@ import { PaginationDefaults } from '../constants/common.constant.js';
 import { SCHOOL_YEARS } from '../constants/enrollments.constant.js';
 import { dateTimeSchema } from './common.validation.js';
 
+const phoneSchema = z
+  .string()
+  .regex(Regex.PHONE, '유효한 전화번호 형식이 아닙니다.');
+
 /** LectureTime 단일 항목 스키마 */
 export const lectureTimeItemSchema = z.object({
   day: z.string().min(1, { message: '요일은 최소 1개 이상이어야 합니다.' }),
@@ -37,19 +41,8 @@ export const lectureEnrollmentSchema = z.object({
     .max(50, { message: '학생 이름은 50자를 초과할 수 없습니다.' })
     .trim(),
 
-  studentPhone: z
-    .string()
-    .regex(/^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$/, {
-      message: '유효한 전화번호 형식이 아닙니다.',
-    })
-    .transform((val) => val.replace(/-/g, '')), // 하이픈 제거
-
-  parentPhone: z
-    .string()
-    .regex(/^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$/, {
-      message: '유효한 전화번호 형식이 아닙니다.',
-    })
-    .transform((val) => val.replace(/-/g, '')), // 하이픈 제거
+  studentPhone: phoneSchema,
+  parentPhone: phoneSchema,
 });
 
 export type LectureEnrollmentDto = z.infer<typeof lectureEnrollmentSchema>;
