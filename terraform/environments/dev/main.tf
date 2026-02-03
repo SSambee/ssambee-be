@@ -38,6 +38,22 @@ module "iam" {
 
   env            = var.env
   s3_bucket_arns = [module.s3.documents_bucket_arn, module.s3.icons_bucket_arn]
+  iam_users = {
+    "dev-member-Lee" = {
+      path = "/"
+      tags = {}
+    }
+    "dev-member-Lim" = {
+      path = "/"
+      tags = {}
+    }
+    "dev-member-kim" = {
+      path = "/"
+      tags = {
+        "Department" = "Devops" # 태그가 있다면 이렇게 기록
+      }
+    }
+  }
 }
 
 module "s3" {

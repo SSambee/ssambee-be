@@ -7,22 +7,7 @@ variable "iam_users" {
     path = string
     tags = map(string)
   }))
-  default = {
-    "dev-member-Lee" = {
-      path = "/"
-      tags = {}
-    }
-    "dev-member-Lim" = {
-      path = "/"
-      tags = {}
-    }
-    "dev-member-kim" = {
-      path = "/"
-      tags = {
-        "Department" = "Devops" # 태그가 있다면 이렇게 기록
-      }
-    }
-  }
+  default = {}
 }
 
 variable "s3_bucket_arns" {
