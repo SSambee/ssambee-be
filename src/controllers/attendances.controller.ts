@@ -3,7 +3,6 @@ import { AttendancesService } from '../services/attendances.service.js';
 import {
   CreateBulkAttendancesDto,
   CreateAttendanceDto,
-  UpdateAttendanceDto,
 } from '../validations/attendances.validation.js';
 import { successResponse } from '../utils/response.util.js';
 import { getAuthUser, getProfileIdOrThrow } from '../utils/user.util.js';
@@ -27,7 +26,7 @@ export class AttendancesController {
 
       const results = await this.attendancesService.createBulkAttendances(
         lectureId,
-        body.attendances,
+        body,
         userType,
         profileId,
       );
@@ -52,13 +51,15 @@ export class AttendancesController {
     next: NextFunction,
   ) => {
     try {
-      const { enrollmentId } = req.params;
+      // route: /lectures/:lectureId/enrollments/:enrollmentId/attendances
+      const { lectureId, enrollmentId } = req.params;
       const user = getAuthUser(req);
       const profileId = getProfileIdOrThrow(req);
       const userType = user.userType as UserType;
       const body = req.body as CreateAttendanceDto;
 
       const attendance = await this.attendancesService.createAttendance(
+        lectureId,
         enrollmentId,
         body,
         userType,
@@ -78,13 +79,14 @@ export class AttendancesController {
   /** 수강생 출결 조회 + 통계 */
   getAttendances = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { enrollmentId } = req.params;
+      const { lectureId, enrollmentId } = req.params;
       const user = getAuthUser(req);
       const profileId = getProfileIdOrThrow(req);
       const userType = user.userType as UserType;
 
       const { attendances, stats } =
-        await this.attendancesService.getAttendancesByEnrollment(
+        await this.attendancesService.getAttendancesByLectureEnrollment(
+          lectureId,
           enrollmentId,
           userType,
           profileId,
@@ -96,37 +98,6 @@ export class AttendancesController {
           attendances,
         },
         message: '출결 목록 조회 성공',
-      });
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  /** 출결 수정 */
-  updateAttendance = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) => {
-    try {
-      // route: /:enrollmentId/attendances/:attendanceId
-      const { enrollmentId, attendanceId } = req.params;
-      const user = getAuthUser(req);
-      const profileId = getProfileIdOrThrow(req);
-      const userType = user.userType as UserType;
-      const body = req.body as UpdateAttendanceDto;
-
-      const attendance = await this.attendancesService.updateAttendance(
-        enrollmentId,
-        attendanceId,
-        body,
-        userType,
-        profileId,
-      );
-
-      return successResponse(res, {
-        data: { attendance },
-        message: '출결 정보가 수정되었습니다.',
       });
     } catch (error) {
       next(error);

@@ -9,7 +9,11 @@ import {
   updateLectureSchema,
 } from '../../../validations/lectures.validation.js';
 import { createEnrollmentSchema } from '../../../validations/enrollments.validation.js';
-import { createBulkAttendancesSchema } from '../../../validations/attendances.validation.js';
+import {
+  createBulkAttendancesSchema,
+  lectureEnrollmentParamSchema,
+  createAttendanceSchema,
+} from '../../../validations/attendances.validation.js';
 import {
   createExamSchema,
   lectureIdExamParamSchema,
@@ -94,4 +98,19 @@ mgmtLecturesRouter.post(
   '/:lectureId/enrollments/attendances',
   validate(createBulkAttendancesSchema, 'body'),
   container.attendancesController.createBulkAttendances,
+);
+
+/** 특정 수강생 출결 등록 */
+mgmtLecturesRouter.post(
+  '/:lectureId/enrollments/:enrollmentId/attendances',
+  validate(lectureEnrollmentParamSchema, 'params'),
+  validate(createAttendanceSchema, 'body'),
+  container.attendancesController.createAttendance,
+);
+
+/** 특정 수강생 출결 조회 */
+mgmtLecturesRouter.get(
+  '/:lectureId/enrollments/:enrollmentId/attendances',
+  validate(lectureEnrollmentParamSchema, 'params'),
+  container.attendancesController.getAttendances,
 );

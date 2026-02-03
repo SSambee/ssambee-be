@@ -3,6 +3,19 @@ import type { Attendance } from '../../generated/prisma/client.js';
 import { AttendanceStatus } from '../../constants/attendances.constant.js';
 import type { AttendanceStats } from '../../utils/attendance.util.js';
 
+/** Mock LectureEnrollment 데이터 */
+export const mockLectureEnrollment = {
+  id: 'lecture-enrollment-id-1',
+  lectureId: 'lecture-id-1',
+  enrollmentId: 'enrollment-id-1',
+  registeredAt: new Date('2024-02-01'),
+  enrollment: {
+    id: 'enrollment-id-1',
+    instructorId: 'instructor-1',
+    studentName: '학생',
+  },
+};
+
 /** Mock Attendance 데이터 */
 export const mockAttendances = {
   present: {

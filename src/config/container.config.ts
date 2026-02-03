@@ -146,6 +146,7 @@ const enrollmentsService = new EnrollmentsService(
 const attendancesService = new AttendancesService(
   attendancesRepo,
   enrollmentsRepo,
+  lectureEnrollmentsRepo,
   lecturesRepo,
   assistantRepo,
   parentsService,

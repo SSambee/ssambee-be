@@ -101,6 +101,8 @@ export const createMockLectureEnrollmentsRepository = () =>
     'findManyByAppStudentId',
     'findManyByAppParentLinkId',
     'findByIdWithDetails',
+    'findByLectureIdAndEnrollmentId',
+    'findManyByLectureIdWithEnrollments',
   ]);
 
 /** Mock AttendancesRepository 생성 */
@@ -111,6 +113,7 @@ export const createMockAttendancesRepository = () =>
     'findById',
     'findByEnrollmentId',
     'update',
+    'findByLectureEnrollmentId',
   ]);
 
 /** Mock ExamsRepository 생성 */
