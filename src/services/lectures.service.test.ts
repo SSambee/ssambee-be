@@ -80,10 +80,11 @@ describe('LecturesService - @unit #critical', () => {
         );
 
         // Act
-        const result = await lecturesService.createLecture(
-          mockInstructor.id,
-          createLectureRequests.basic,
-        );
+        const result = await lecturesService.createLecture(mockInstructor.id, {
+          ...createLectureRequests.basic,
+          startAt: new Date(createLectureRequests.basic.startAt),
+          endAt: new Date(createLectureRequests.basic.endAt),
+        });
 
         // Assert
         expect(result).toBeDefined();
@@ -120,10 +121,11 @@ describe('LecturesService - @unit #critical', () => {
           },
         );
 
-        const result = await lecturesService.createLecture(
-          mockInstructor.id,
-          createLectureRequests.withEnrollments,
-        );
+        const result = await lecturesService.createLecture(mockInstructor.id, {
+          ...createLectureRequests.withEnrollments,
+          startAt: new Date(createLectureRequests.withEnrollments.startAt),
+          endAt: new Date(createLectureRequests.withEnrollments.endAt),
+        });
 
         expect(result).toBeDefined();
         // expect(result.enrollments).toBeDefined(); // 서비스에서 enrollments 필드가 없어졌을 수 있음 (lectureEnrollments로 대체)
@@ -161,17 +163,19 @@ describe('LecturesService - @unit #critical', () => {
         mockInstructorRepo.findById.mockResolvedValue(null);
 
         await expect(
-          lecturesService.createLecture(
-            'non-existent-instructor-id',
-            createLectureRequests.basic,
-          ),
+          lecturesService.createLecture('non-existent-instructor-id', {
+            ...createLectureRequests.basic,
+            startAt: new Date(createLectureRequests.basic.startAt),
+            endAt: new Date(createLectureRequests.basic.endAt),
+          }),
         ).rejects.toThrow(NotFoundException);
 
         await expect(
-          lecturesService.createLecture(
-            'non-existent-instructor-id',
-            createLectureRequests.basic,
-          ),
+          lecturesService.createLecture('non-existent-instructor-id', {
+            ...createLectureRequests.basic,
+            startAt: new Date(createLectureRequests.basic.startAt),
+            endAt: new Date(createLectureRequests.basic.endAt),
+          }),
         ).rejects.toThrow('강사를 찾을 수 없습니다.');
 
         expect(mockLecturesRepo.create).not.toHaveBeenCalled();
@@ -198,7 +202,11 @@ describe('LecturesService - @unit #critical', () => {
           mockInstructor.id,
           UserType.INSTRUCTOR,
           mockLectures.basic.id,
-          updateLectureRequests.full,
+          {
+            ...updateLectureRequests.full,
+            startAt: new Date(updateLectureRequests.full.startAt),
+            endAt: new Date(updateLectureRequests.full.endAt),
+          },
         );
 
         expect(result).toBeDefined();
@@ -255,7 +263,11 @@ describe('LecturesService - @unit #critical', () => {
             mockInstructor.id,
             UserType.INSTRUCTOR,
             'non-existent-lecture-id',
-            updateLectureRequests.full,
+            {
+              ...updateLectureRequests.full,
+              startAt: new Date(updateLectureRequests.full.startAt),
+              endAt: new Date(updateLectureRequests.full.endAt),
+            },
           ),
         ).rejects.toThrow(NotFoundException);
 
@@ -264,7 +276,11 @@ describe('LecturesService - @unit #critical', () => {
             mockInstructor.id,
             UserType.INSTRUCTOR,
             'non-existent-lecture-id',
-            updateLectureRequests.full,
+            {
+              ...updateLectureRequests.full,
+              startAt: new Date(updateLectureRequests.full.startAt),
+              endAt: new Date(updateLectureRequests.full.endAt),
+            },
           ),
         ).rejects.toThrow('강의를 찾을 수 없습니다.');
 
@@ -284,7 +300,11 @@ describe('LecturesService - @unit #critical', () => {
             mockInstructor.id,
             UserType.INSTRUCTOR,
             mockLectures.otherInstructor.id,
-            updateLectureRequests.full,
+            {
+              ...updateLectureRequests.full,
+              startAt: new Date(updateLectureRequests.full.startAt),
+              endAt: new Date(updateLectureRequests.full.endAt),
+            },
           ),
         ).rejects.toThrow(ForbiddenException);
 
@@ -293,7 +313,11 @@ describe('LecturesService - @unit #critical', () => {
             mockInstructor.id,
             UserType.INSTRUCTOR,
             mockLectures.otherInstructor.id,
-            updateLectureRequests.full,
+            {
+              ...updateLectureRequests.full,
+              startAt: new Date(updateLectureRequests.full.startAt),
+              endAt: new Date(updateLectureRequests.full.endAt),
+            },
           ),
         ).rejects.toThrow('해당 강의를 수정할 권한이 없습니다.');
 

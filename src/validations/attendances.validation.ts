@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { AttendanceStatus } from '../constants/attendances.constant.js';
-
-// --- Params ---
+import { dateTimeSchema } from './common.validation.js';
 
 // --- Params ---
 
@@ -16,8 +15,8 @@ export const lectureEnrollmentParamSchema = z.object({
 export const createAttendanceSchema = z.object({
   date: z.coerce.date(),
   status: z.nativeEnum(AttendanceStatus).default(AttendanceStatus.PRESENT),
-  enterTime: z.coerce.date().optional(),
-  leaveTime: z.coerce.date().optional(),
+  enterTime: dateTimeSchema.optional(),
+  leaveTime: dateTimeSchema.optional(),
   memo: z.string().optional(),
 });
 
@@ -27,8 +26,8 @@ const bulkAttendanceItemSchema = z.object({
   enrollmentId: z.string().trim().min(1, 'Enrollment ID는 필수입니다.'),
   // date는 상위에서 받음
   status: z.nativeEnum(AttendanceStatus).default(AttendanceStatus.PRESENT),
-  enterTime: z.coerce.date().optional(),
-  leaveTime: z.coerce.date().optional(),
+  enterTime: dateTimeSchema.optional(),
+  leaveTime: dateTimeSchema.optional(),
   memo: z.string().optional(),
 });
 

@@ -157,7 +157,6 @@ export class EnrollmentsRepository {
         deletedAt: null,
       },
       include: {
-        appStudent: true, // 학생 정보 포함
         attendances: {
           orderBy: { date: 'desc' },
           take: 1,

@@ -6,6 +6,7 @@ import {
 } from '../constants/lectures.constant.js';
 import { PaginationDefaults } from '../constants/common.constant.js';
 import { SCHOOL_YEARS } from '../constants/enrollments.constant.js';
+import { dateTimeSchema } from './common.validation.js';
 
 /** LectureTime 단일 항목 스키마 */
 export const lectureTimeItemSchema = z.object({
@@ -83,17 +84,9 @@ export const createLectureSchema = z.object({
     .trim()
     .optional(),
 
-  startAt: z
-    .string()
-    .datetime({ message: '유효한 ISO 8601 날짜 형식이어야 합니다.' })
-    .optional()
-    .nullable(),
+  startAt: dateTimeSchema.optional().nullable(),
 
-  endAt: z
-    .string()
-    .datetime({ message: '유효한 ISO 8601 날짜 형식이어야 합니다.' })
-    .optional()
-    .nullable(),
+  endAt: dateTimeSchema.optional().nullable(),
 
   status: z
     .nativeEnum(LectureStatus)
@@ -169,17 +162,9 @@ export const updateLectureSchema = z.object({
     .trim()
     .optional(),
 
-  startAt: z
-    .string()
-    .datetime({ message: '유효한 ISO 8601 날짜 형식이어야 합니다.' })
-    .optional()
-    .nullable(),
+  startAt: dateTimeSchema.optional().nullable(),
 
-  endAt: z
-    .string()
-    .datetime({ message: '유효한 ISO 8601 날짜 형식이어야 합니다.' })
-    .optional()
-    .nullable(),
+  endAt: dateTimeSchema.optional().nullable(),
 
   status: z.nativeEnum(LectureStatus).optional(),
 
