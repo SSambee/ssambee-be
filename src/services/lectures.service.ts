@@ -65,7 +65,8 @@ export type LectureDetailResponse = {
     endTime: string;
   }[];
   students: {
-    id: string;
+    id: string; // enrollmentId
+    lectureEnrollmentId: string;
     name: string;
     school: string;
     phone: string;
@@ -254,6 +255,7 @@ export class LecturesService {
       // LectureEnrollment를 통해 학생 정보를 평탄화하여 반환
       students: lecture.lectureEnrollments.map((le) => ({
         id: le.enrollment.id,
+        lectureEnrollmentId: le.id,
         name: le.enrollment.studentName,
         school: `${le.enrollment.school} ${le.enrollment.schoolYear}`,
         phone: le.enrollment.studentPhone,

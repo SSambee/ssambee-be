@@ -115,6 +115,7 @@ export const mockLectures: Record<string, LectureDetail> = {
         source: null,
         updatedAt: new Date(),
         createdAt: new Date(),
+        gradingStatus: 'PENDING',
         _count: { questions: 0 },
       },
     ],

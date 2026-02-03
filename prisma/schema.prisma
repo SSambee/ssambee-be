@@ -338,6 +338,8 @@ model Exam {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime? @updatedAt @map("updated_at")
 
+  gradingStatus String @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED
+
   lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
   instructor   Instructor? @relation(fields: [instructorId], references: [id])
 
@@ -411,7 +413,7 @@ model StudentAnswer {
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  lectureEnrollment LectureEnrollment @relation(fields: [lectureId, lectureEnrollmentId], references: [lectureId, enrollmentId], onDelete: Cascade)
+  lectureEnrollment LectureEnrollment @relation(fields: [lectureEnrollmentId], references: [id], onDelete: Cascade)
   question   Question   @relation(fields: [lectureId, questionId], references: [lectureId, id], onDelete: Cascade)
 
   @@unique([lectureEnrollmentId, questionId])
@@ -435,7 +437,7 @@ model Grade {
   updatedAt DateTime? @updatedAt @map("updated_at")
 
   exam       Exam       @relation(fields: [lectureId, examId], references: [lectureId, id], onDelete: Cascade)
-  lectureEnrollment LectureEnrollment @relation(fields: [lectureId, lectureEnrollmentId], references: [lectureId, enrollmentId], onDelete: Cascade)
+  lectureEnrollment LectureEnrollment @relation(fields: [lectureEnrollmentId], references: [id], onDelete: Cascade)
 
   //logs GradeLog[]
 

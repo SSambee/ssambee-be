@@ -28,9 +28,7 @@ export type EnrollmentWithAttendance = Omit<
         ReturnType<EnrollmentsRepository['findManyByLectureId']>
       >[number]['attendances'][number]
     | null;
-  lectureEnrollments?: Awaited<
-    ReturnType<EnrollmentsRepository['findManyByLectureId']>
-  >[number]['lectureEnrollments'];
+  lectureEnrollmentId?: string;
 };
 
 /** 수강생 목록 조회 결과 */
@@ -165,10 +163,12 @@ export class EnrollmentsService {
         });
 
       const enrollments = enrollmentsRaw.map((e) => {
-        const { attendances, ...rest } = e;
+        const { attendances, lectureEnrollments, ...rest } = e;
         return {
           ...rest,
           attendance: attendances?.[0] || null,
+          lectureEnrollmentId: lectureEnrollments?.[0]?.id,
+          lectureEnrollments: lectureEnrollments,
         } as EnrollmentWithAttendance;
       });
 

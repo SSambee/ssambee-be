@@ -52,20 +52,20 @@ export class GradesController {
     }
   };
 
-  /** 수강별 성적 목록 조회 (학생/학부모용) */
+  /** 수강별 성적 목록 조회 (학생/학부모용) - LectureEnrollment ID 기준 */
   getGradesByEnrollment = async (
     req: Request,
     res: Response,
     next: NextFunction,
   ) => {
     try {
-      const { enrollmentId } = req.params;
+      const { lectureEnrollmentId } = req.params;
       const user = getAuthUser(req);
       const profileId = getProfileIdOrThrow(req);
       const userType = user.userType as UserType;
 
-      const result = await this.gradesService.getGradesByEnrollment(
-        enrollmentId,
+      const result = await this.gradesService.getGradesByLectureEnrollment(
+        lectureEnrollmentId,
         userType,
         profileId,
       );

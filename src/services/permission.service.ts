@@ -113,4 +113,18 @@ export class PermissionService {
 
     throw new ForbiddenException('접근 권한이 없습니다.');
   }
+
+  /** LectureEnrollment 기반 수강 정보 조회 권한 체크 (학생/학부모용) */
+  async validateLectureEnrollmentReadAccess(
+    lectureEnrollment: { enrollment: Enrollment },
+    userType: UserType,
+    profileId: string,
+  ) {
+    // LectureEnrollment에서 Enrollment 정보를 추출하여 기존 권한 검증 로직 위임
+    await this.validateEnrollmentReadAccess(
+      lectureEnrollment.enrollment,
+      userType,
+      profileId,
+    );
+  }
 }

@@ -112,17 +112,17 @@ export class StatisticsRepository {
     };
   }
 
-  /** [Extended] 수강생별 정답 개수 조회 */
+  /** [Extended] 수강생별 정답 개수 조회 (LectureEnrollment ID 기준) */
   async getStudentCorrectCounts(
     examId: string,
     tx?: Prisma.TransactionClient,
   ): Promise<Record<string, number>> {
     const client = tx ?? this.prisma;
 
-    // 해당 시험의 모든 문항에 대한 정답(isCorrect=true) 개수를 학생별(enrollmentId)로 집계
+    // 해당 시험의 모든 문항에 대한 정답(isCorrect=true) 개수를 학생별(lectureEnrollmentId)로 집계
     // Prisma의 groupBy 사용
     const grouped = await client.studentAnswer.groupBy({
-      by: ['enrollmentId'],
+      by: ['lectureEnrollmentId'],
       where: {
         question: {
           is: { examId },
@@ -134,10 +134,10 @@ export class StatisticsRepository {
       },
     });
 
-    // Map 형태로 변환 { enrollmentId: count }
+    // Map 형태로 변환 { lectureEnrollmentId: count }
     const result: Record<string, number> = {};
     grouped.forEach((g) => {
-      result[g.enrollmentId] = g._count._all;
+      result[g.lectureEnrollmentId] = g._count._all;
     });
 
     return result;
@@ -152,11 +152,15 @@ export class StatisticsRepository {
     return await client.grade.findMany({
       where: { examId },
       include: {
-        enrollment: {
-          select: {
-            id: true,
-            studentName: true,
-            school: true,
+        lectureEnrollment: {
+          include: {
+            enrollment: {
+              select: {
+                id: true,
+                studentName: true,
+                school: true,
+              },
+            },
           },
         },
       },
