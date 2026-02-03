@@ -128,4 +128,5 @@ export const createMockExamsRepository = () =>
     'updateQuestion',
     'deleteQuestions',
     'findQuestionsByExamId',
+    'findByIdWithEnrollments',
   ]);

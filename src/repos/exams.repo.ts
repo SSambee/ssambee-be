@@ -8,6 +8,21 @@ import type {
 
 export type ExamWithQuestions = Exam & { questions: Question[] };
 
+export type EnrollmentGradeInfo = {
+  lectureEnrollmentId: string;
+  studentName: string;
+  appStudentId: string | null; // 추가: 학생 상세 이동 위해
+  schoolYear: string;
+  hasGrade: boolean;
+  score?: number; // 선택적: 점수도 보여줄 수 있음
+};
+
+export type ExamDetailWithEnrollments = Exam & {
+  questions: Question[];
+  lecture: { title: string };
+  enrollments: EnrollmentGradeInfo[];
+};
+
 export class ExamsRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -85,6 +100,71 @@ export class ExamsRepository {
         },
       },
     });
+  }
+
+  /** Exam 조회 (ID) - 수강생 및 성적 정보 포함 */
+  async findByIdWithEnrollments(
+    id: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<ExamDetailWithEnrollments | null> {
+    const client = tx ?? this.prisma;
+    const exam = await client.exam.findUnique({
+      where: { id },
+      include: {
+        questions: {
+          orderBy: { questionNumber: 'asc' },
+        },
+        lecture: {
+          select: {
+            title: true,
+            lectureEnrollments: {
+              where: {
+                enrollment: {
+                  // 삭제된 수강생 제외 (혹은 status 체크) - 일단 삭제되지 않은 것만
+                  deletedAt: null,
+                },
+              },
+              include: {
+                enrollment: {
+                  select: {
+                    studentName: true,
+                    schoolYear: true,
+                    appStudentId: true,
+                  },
+                },
+                grades: {
+                  where: { examId: id },
+                  select: { id: true, score: true },
+                  take: 1,
+                },
+              },
+              orderBy: {
+                enrollment: { studentName: 'asc' },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!exam) return null;
+
+    // 데이터 매핑
+    const enrollments: EnrollmentGradeInfo[] =
+      exam.lecture.lectureEnrollments.map((le) => ({
+        lectureEnrollmentId: le.id,
+        studentName: le.enrollment.studentName,
+        schoolYear: le.enrollment.schoolYear,
+        appStudentId: le.enrollment.appStudentId,
+        hasGrade: le.grades.length > 0,
+        score: le.grades[0]?.score,
+      }));
+
+    return {
+      ...exam,
+      lecture: { title: exam.lecture.title }, // lecture 객체 축소
+      enrollments,
+    };
   }
 
   /** Exam 기본 정보 수정 */

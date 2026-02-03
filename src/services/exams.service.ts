@@ -40,10 +40,10 @@ export class ExamsService {
     return await this.examsRepo.findByLectureId(lectureId);
   }
 
-  /** 시험 상세 조회 (questions 포함) */
+  /** 시험 상세 조회 (questions 및 수강생 정보 포함) */
   async getExamById(examId: string, userType: UserType, profileId: string) {
     // 1. Exam 조회
-    const exam = await this.examsRepo.findByIdWithQuestions(examId);
+    const exam = await this.examsRepo.findByIdWithEnrollments(examId);
     if (!exam) {
       throw new NotFoundException('시험을 찾을 수 없습니다.');
     }
