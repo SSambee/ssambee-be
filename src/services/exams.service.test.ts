@@ -11,6 +11,7 @@ import { createMockPrisma } from '../test/mocks/prisma.mock.js';
 import type {
   ExamsRepository,
   ExamWithQuestions,
+  ExamDetailWithEnrollments,
 } from '../repos/exams.repo.js';
 import type {
   LecturesRepository,
@@ -223,6 +224,64 @@ describe('ExamsService', () => {
         expect.objectContaining({ content: 'New Q2' }),
         mockPrisma,
       );
+    });
+  });
+
+  describe('getExamById', () => {
+    it('should return exam with enrollments', async () => {
+      const mockExamWithEnrollments = {
+        id: mockExamId,
+        lectureId: mockLectureId,
+        questions: [],
+        enrollments: [
+          {
+            lectureEnrollmentId: 'le-1',
+            studentName: 'Student A',
+            schoolYear: 'Year 1',
+            hasGrade: true,
+            score: 90,
+          },
+        ],
+        lecture: { title: 'Math Class' },
+      } as unknown as ExamDetailWithEnrollments;
+      const mockLecture = {
+        id: mockLectureId,
+        instructorId: mockProfileId,
+      } as LectureDetail;
+
+      mockExamsRepo.findByIdWithEnrollments.mockResolvedValue(
+        mockExamWithEnrollments,
+      );
+      mockLecturesRepo.findById.mockResolvedValue(mockLecture);
+
+      const result = await examsService.getExamById(
+        mockExamId,
+        mockUserType,
+        mockProfileId,
+      );
+
+      expect(mockExamsRepo.findByIdWithEnrollments).toHaveBeenCalledWith(
+        mockExamId,
+      );
+      expect(mockLecturesRepo.findById).toHaveBeenCalledWith(mockLectureId);
+      expect(
+        mockPermissionService.validateInstructorAccess,
+      ).toHaveBeenCalledWith(
+        mockLecture.instructorId,
+        mockUserType,
+        mockProfileId,
+      );
+      expect(result).toBeDefined();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((result as any).enrollments).toHaveLength(1);
+    });
+
+    it('should throw NotFoundException if exam not found', async () => {
+      mockExamsRepo.findByIdWithEnrollments.mockResolvedValue(null);
+
+      await expect(
+        examsService.getExamById(mockExamId, mockUserType, mockProfileId),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

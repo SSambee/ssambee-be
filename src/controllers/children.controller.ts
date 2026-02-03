@@ -105,12 +105,12 @@ export class ChildrenController {
       const user = getAuthUser(req);
       const profileId = getProfileIdOrThrow(req);
 
-      const { id, enrollmentId } = req.params;
+      const { id, lectureEnrollmentId } = req.params;
       const enrollment = await this.parentsService.getChildEnrollmentDetail(
         user.userType as UserType,
         profileId,
         id,
-        enrollmentId,
+        lectureEnrollmentId,
       );
 
       return successResponse(res, {
@@ -131,7 +131,7 @@ export class ChildrenController {
     try {
       const user = getAuthUser(req);
       const profileId = getProfileIdOrThrow(req);
-      const { id, enrollmentId } = req.params;
+      const { id, lectureEnrollmentId } = req.params;
 
       // 1. 자녀 링크 검증
       const childLink = await this.parentsService.getChildren(
@@ -144,8 +144,8 @@ export class ChildrenController {
       }
 
       // 2. 성적 목록 조회 (학부모 권한으로)
-      const result = await this.gradesService.getGradesByEnrollment(
-        enrollmentId,
+      const result = await this.gradesService.getGradesByLectureEnrollment(
+        lectureEnrollmentId,
         user.userType as UserType,
         profileId,
       );

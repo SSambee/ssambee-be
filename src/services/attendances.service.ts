@@ -4,14 +4,14 @@ import { UserType } from '../constants/auth.constant.js';
 import { NotFoundException } from '../err/http.exception.js';
 import { AttendancesRepository } from '../repos/attendances.repo.js';
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
+import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 import { LecturesRepository } from '../repos/lectures.repo.js';
 import { AssistantRepository } from '../repos/assistant.repo.js';
 import { ParentsService } from './parents.service.js';
 import { PermissionService } from './permission.service.js';
 import type {
   CreateAttendanceDto,
-  BulkAttendanceDto,
-  UpdateAttendanceDto,
+  CreateBulkAttendancesDto,
 } from '../validations/attendances.validation.js';
 import {
   calculateAttendanceStats,
@@ -22,6 +22,7 @@ export class AttendancesService {
   constructor(
     private readonly attendancesRepository: AttendancesRepository,
     private readonly enrollmentsRepository: EnrollmentsRepository,
+    private readonly lectureEnrollmentsRepository: LectureEnrollmentsRepository,
     private readonly lecturesRepository: LecturesRepository,
     private readonly assistantRepository: AssistantRepository,
     private readonly parentsService: ParentsService,
@@ -32,7 +33,7 @@ export class AttendancesService {
   /** 강의 내 단체 출결 등록 (Transaction + Upsert Loop) */
   async createBulkAttendances(
     lectureId: string,
-    attendances: BulkAttendanceDto[],
+    data: CreateBulkAttendancesDto, // DTO 구조 변경 반영
     userType: UserType,
     profileId: string,
   ) {
@@ -49,36 +50,46 @@ export class AttendancesService {
       profileId,
     );
 
-    // 3. Transactional Upsert
+    // 3. 강의의 유효한 수강생 목록(LectureEnrollment) 조회
+    //    (요청된 enrollmentId가 실제 이 강의의 수강생인지 검증하기 위함 + lectureEnrollmentId 획득)
+    const validLectureEnrollments =
+      await this.lectureEnrollmentsRepository.findManyByLectureIdWithEnrollments(
+        lectureId,
+      );
+
+    // Map으로 변환하여 빠른 조회 (enrollmentId -> lectureEnrollment)
+    const lectureEnrollmentMap = new Map(
+      validLectureEnrollments.map((le) => [le.enrollmentId, le]),
+    );
+
+    // 5. Transactional Upsert
     return await this.prisma.$transaction(async (tx) => {
       const results = [];
-      for (const item of attendances) {
-        // Enrollment 유효성 체크
-        const enrollment =
-          await this.enrollmentsRepository.findByIdWithRelations(
-            item.enrollmentId,
-            tx,
-          );
-        if (!enrollment || enrollment.lectureId !== lectureId) {
+      for (const item of data.attendances) {
+        // 해당 enrollmentId가 이 강의에 유효하게 등록되어 있는지 확인
+        const lectureEnrollment = lectureEnrollmentMap.get(item.enrollmentId);
+
+        if (!lectureEnrollment) {
+          // 존재하지 않는 수강생은 건너뛰거나 에러 처리
+          // 여기서는 '해당 강의의 수강생이 아님'으로 간주하고 에러 발생
           throw new NotFoundException(
-            `수강 정보(ID: ${item.enrollmentId})를 찾을 수 없거나 해당 강의의 수강생이 아닙니다.`,
+            `수강 정보(ID: ${item.enrollmentId})가 해당 강의에 존재하지 않습니다.`,
           );
         }
-
-        // 날짜 정규화 (시간 제거)
-        const dateOnly = this.truncateTime(new Date(item.date));
 
         // Upsert
         const result = await this.attendancesRepository.upsert(
           {
-            enrollmentId_date: {
-              enrollmentId: item.enrollmentId,
-              date: dateOnly,
+            lectureEnrollmentId_date: {
+              lectureEnrollmentId: lectureEnrollment.id,
+              date: data.date,
             },
           },
           {
+            lectureId,
             enrollmentId: item.enrollmentId,
-            date: dateOnly,
+            lectureEnrollmentId: lectureEnrollment.id,
+            date: data.date,
             status: item.status,
             enterTime: item.enterTime ? new Date(item.enterTime) : null,
             leaveTime: item.leaveTime ? new Date(item.leaveTime) : null,
@@ -100,36 +111,44 @@ export class AttendancesService {
 
   /** 단일 수강생 출결 등록 (Upsert) */
   async createAttendance(
+    lectureId: string,
     enrollmentId: string,
     data: CreateAttendanceDto,
     userType: UserType,
     profileId: string,
   ) {
-    const enrollment =
-      await this.enrollmentsRepository.findByIdWithRelations(enrollmentId);
-    if (!enrollment) {
-      throw new NotFoundException('수강 정보를 찾을 수 없습니다.');
+    // 1. LectureEnrollment 확인
+    const lectureEnrollment =
+      await this.lectureEnrollmentsRepository.findByLectureIdAndEnrollmentId(
+        lectureId,
+        enrollmentId,
+      );
+
+    if (!lectureEnrollment) {
+      throw new NotFoundException('해당 강의의 수강생이 아닙니다.');
     }
 
-    // 권한 확인
+    const lecture = await this.lecturesRepository.findById(lectureId);
+    if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
+
     await this.permissionService.validateInstructorAccess(
-      enrollment.instructorId,
+      lecture.instructorId,
       userType,
       profileId,
     );
 
-    const dateOnly = this.truncateTime(new Date(data.date));
-
     return await this.attendancesRepository.upsert(
       {
-        enrollmentId_date: {
-          enrollmentId,
-          date: dateOnly,
+        lectureEnrollmentId_date: {
+          lectureEnrollmentId: lectureEnrollment.id,
+          date: data.date,
         },
       },
       {
+        lectureId,
         enrollmentId,
-        date: dateOnly,
+        lectureEnrollmentId: lectureEnrollment.id,
+        date: data.date,
         status: data.status,
         enterTime: data.enterTime ? new Date(data.enterTime) : null,
         leaveTime: data.leaveTime ? new Date(data.leaveTime) : null,
@@ -144,76 +163,47 @@ export class AttendancesService {
     );
   }
 
-  /** 수강생 출결 조회 + 통계 */
-  async getAttendancesByEnrollment(
+  /** 수강생 출결 조회 + 통계 (강의별) */
+  async getAttendancesByLectureEnrollment(
+    lectureId: string,
     enrollmentId: string,
     userType: UserType,
     profileId: string,
   ): Promise<{ attendances: Attendance[]; stats: AttendanceStats }> {
-    const enrollment =
-      await this.enrollmentsRepository.findByIdWithRelations(enrollmentId);
-    if (!enrollment) {
+    const lectureEnrollment =
+      await this.lectureEnrollmentsRepository.findByLectureIdAndEnrollmentId(
+        lectureId,
+        enrollmentId,
+      );
+
+    if (!lectureEnrollment) {
       throw new NotFoundException('수강 정보를 찾을 수 없습니다.');
     }
 
-    // 권한 확인 (강사/조교 or 학생 본인 or 학부모)
-    await this.validateReadAccess(enrollment, userType, profileId);
+    // 권한 확인: 여기서는 Enrollment(관계)에 대한 권한 체크를 재사용
+    await this.validateReadAccess(
+      lectureEnrollment.enrollment,
+      userType,
+      profileId,
+    );
 
     const attendances =
-      await this.attendancesRepository.findByEnrollmentId(enrollmentId);
+      await this.attendancesRepository.findByLectureEnrollmentId(
+        lectureEnrollment.id,
+      );
     const stats = calculateAttendanceStats(attendances);
 
     return { attendances, stats };
   }
 
-  /** 출결 수정 */
-  async updateAttendance(
-    enrollmentId: string, // URL Path param 검증용
-    attendanceId: string,
-    data: UpdateAttendanceDto,
-    userType: UserType,
-    profileId: string,
-  ) {
-    const attendance = await this.attendancesRepository.findById(attendanceId);
-    if (!attendance) {
-      throw new NotFoundException('출결 정보를 찾을 수 없습니다.');
-    }
-
-    if (attendance.enrollmentId !== enrollmentId) {
-      throw new NotFoundException(
-        '해당 수강생의 출결 정보가 아닙니다. (URL 불일치)',
-      );
-    }
-
-    const enrollment = await this.enrollmentsRepository.findByIdWithRelations(
-      attendance.enrollmentId,
-    );
-    if (!enrollment) {
-      throw new NotFoundException('관련 수강 정보를 찾을 수 없습니다.');
-    }
-
-    // 권한 확인 (수정은 강사/조교만)
-    await this.permissionService.validateInstructorAccess(
-      enrollment.instructorId,
-      userType,
-      profileId,
-    );
-
-    return await this.attendancesRepository.update(attendanceId, {
-      ...data,
-      enterTime: data.enterTime ? new Date(data.enterTime) : undefined,
-      leaveTime: data.leaveTime ? new Date(data.leaveTime) : undefined,
-    });
-  }
-
   /** Helper Functions */
 
-  /** 날짜에서 시간 제거 (00:00:00.000) */
-  private truncateTime(date: Date): Date {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }
+  // /** 날짜에서 시간 제거 (00:00:00.000) */
+  // private truncateTime(date: Date): Date {
+  //   const d = new Date(date);
+  //   d.setHours(0, 0, 0, 0);
+  //   return d;
+  // }
 
   /** 조회 권한 체크 (강사/조교/학생/학부모) */
   private async validateReadAccess(

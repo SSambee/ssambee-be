@@ -4,7 +4,7 @@ export class ClinicsRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   /**
-   * 해당 시험의 불합격 성적 조회 (Enrollment 정보 포함)
+   * 해당 시험의 불합격 성적 조회 (LectureEnrollment 정보 포함)
    * isPass = false 인 Grade 조회
    */
   async findFailedGradesByExamId(
@@ -18,13 +18,17 @@ export class ClinicsRepository {
         isPass: false,
       },
       include: {
-        enrollment: {
-          select: {
-            id: true,
-            studentName: true,
-            studentPhone: true,
-            school: true,
-            schoolYear: true,
+        lectureEnrollment: {
+          include: {
+            enrollment: {
+              select: {
+                id: true,
+                studentName: true,
+                studentPhone: true,
+                school: true,
+                schoolYear: true,
+              },
+            },
           },
         },
       },
@@ -36,19 +40,19 @@ export class ClinicsRepository {
    */
   async findExistingClinics(
     examId: string,
-    enrollmentIds: string[],
+    lectureEnrollmentIds: string[],
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
     return await client.clinic.findMany({
       where: {
         examId,
-        enrollmentId: {
-          in: enrollmentIds,
+        lectureEnrollmentId: {
+          in: lectureEnrollmentIds,
         },
       },
       select: {
-        enrollmentId: true,
+        lectureEnrollmentId: true,
       },
     });
   }
@@ -60,7 +64,7 @@ export class ClinicsRepository {
     data: Array<{
       lectureId: string;
       examId: string;
-      enrollmentId: string;
+      lectureEnrollmentId: string;
       title: string;
       deadline?: Date | null;
       memo?: string;
@@ -74,14 +78,14 @@ export class ClinicsRepository {
       data: data.map((item) => ({
         lectureId: item.lectureId,
         examId: item.examId,
-        enrollmentId: item.enrollmentId,
+        lectureEnrollmentId: item.lectureEnrollmentId,
         title: item.title,
         deadline: item.deadline,
         memo: item.memo,
         instructorId: item.instructorId,
         status: 'PENDING',
       })),
-      skipDuplicates: true, // 중복 키 에러 방지 (@@unique([enrollmentId, examId]))
+      skipDuplicates: true, // 중복 키 에러 방지 (@@unique([lectureEnrollmentId, examId]))
     });
   }
 
@@ -110,13 +114,17 @@ export class ClinicsRepository {
     return await client.clinic.findMany({
       where,
       include: {
-        enrollment: {
-          select: {
-            id: true,
-            studentName: true,
-            school: true,
-            schoolYear: true,
-            studentPhone: true,
+        lectureEnrollment: {
+          include: {
+            enrollment: {
+              select: {
+                id: true,
+                studentName: true,
+                school: true,
+                schoolYear: true,
+                studentPhone: true,
+              },
+            },
           },
         },
         exam: {
@@ -180,7 +188,7 @@ export class ClinicsRepository {
   }
 
   /**
-   * 학생 ID로 클리닉 목록 조회
+   * 학생 ID로 클리닉 목록 조회 (LectureEnrollment.Enrollment 기준)
    */
   async findByAppStudentId(
     appStudentId: string,
@@ -190,12 +198,18 @@ export class ClinicsRepository {
 
     return await client.clinic.findMany({
       where: {
-        enrollment: {
-          appStudentId,
+        lectureEnrollment: {
+          enrollment: {
+            appStudentId,
+          },
         },
       },
       include: {
-        enrollment: true,
+        lectureEnrollment: {
+          include: {
+            enrollment: true,
+          },
+        },
         exam: true,
         lecture: {
           select: {
@@ -212,7 +226,7 @@ export class ClinicsRepository {
   }
 
   /**
-   * 학부모 연결 ID로 클리닉 목록 조회
+   * 학부모 연결 ID로 클리닉 목록 조회 (LectureEnrollment.Enrollment 기준)
    */
   async findByAppParentLinkId(
     appParentLinkId: string,
@@ -222,12 +236,18 @@ export class ClinicsRepository {
 
     return await client.clinic.findMany({
       where: {
-        enrollment: {
-          appParentLinkId,
+        lectureEnrollment: {
+          enrollment: {
+            appParentLinkId,
+          },
         },
       },
       include: {
-        enrollment: true,
+        lectureEnrollment: {
+          include: {
+            enrollment: true,
+          },
+        },
         exam: true,
         lecture: {
           select: {

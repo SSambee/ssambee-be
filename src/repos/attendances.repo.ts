@@ -54,6 +54,22 @@ export class AttendancesRepository {
     });
   }
 
+  // [NEW] LectureEnrollment 단위 출결 목록 조회 (날짜 내림차순)
+  async findByLectureEnrollmentId(
+    lectureEnrollmentId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return await client.attendance.findMany({
+      where: {
+        lectureEnrollmentId,
+      },
+      orderBy: {
+        date: 'desc',
+      },
+    });
+  }
+
   // 출결 수정
   async update(
     id: string,

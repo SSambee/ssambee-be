@@ -155,10 +155,11 @@ export class StatisticsService {
       }
 
       studentStats.push({
-        enrollmentId: grade.enrollmentId,
-        studentName: grade.enrollment.studentName,
-        school: grade.enrollment.school,
-        correctCount: correctCounts[grade.enrollmentId] ?? 0,
+        lectureEnrollmentId: grade.lectureEnrollmentId,
+        enrollmentId: grade.lectureEnrollment.enrollment.id,
+        studentName: grade.lectureEnrollment.enrollment.studentName,
+        school: grade.lectureEnrollment.enrollment.school,
+        correctCount: correctCounts[grade.lectureEnrollmentId] ?? 0,
         score: grade.score,
         rank: currentRank,
         totalRank: totalExaminees, // 분모 (예: 5/20등)

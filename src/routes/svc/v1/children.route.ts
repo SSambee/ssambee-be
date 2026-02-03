@@ -25,23 +25,22 @@ svcChildrenRouter.post(
 /** 자녀 목록 조회 */
 svcChildrenRouter.get('/', childrenController.getChildren);
 
-/** 자녀 수강 목록 조회 */
+/** 자녀 수강 강의 목록 조회 */
 svcChildrenRouter.get(
-  '/:id/enrollments',
+  '/:id/lectures',
   validate(getSvcEnrollmentsQuerySchema, 'query'),
   childrenController.getChildEnrollments,
 );
 
-/** 자녀 수강 상세 조회 */
+/** 자녀 수강 강의 상세 조회 */
 svcChildrenRouter.get(
-  '/:id/enrollments/:enrollmentId',
-  validate(childIdParamSchema, 'params'),
+  '/:id/lectures/:lectureEnrollmentId',
   childrenController.getChildEnrollmentDetail,
 );
 
 /** 자녀의 수강별 성적 목록 조회 */
 svcChildrenRouter.get(
-  '/:id/enrollments/:enrollmentId/grades',
+  '/:id/lectures/:lectureEnrollmentId/grades',
   validate(childIdParamSchema, 'params'),
   childrenController.getChildGradesByEnrollment,
 );

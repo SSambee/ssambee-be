@@ -6,7 +6,7 @@ import {
   LectureWithTimes,
 } from '../repos/lectures.repo.js';
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
-import { StudentRepository } from '../repos/student.repo.js';
+import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 import { InstructorRepository } from '../repos/instructor.repo.js';
 import { PermissionService } from './permission.service.js';
 import { UserType } from '../constants/auth.constant.js';
@@ -16,9 +16,15 @@ import {
   UpdateLectureDto,
 } from '../validations/lectures.validation.js';
 
-import type { Lecture, Enrollment } from '../generated/prisma/client.js';
+import type {
+  Lecture,
+  LectureEnrollment,
+  Prisma,
+} from '../generated/prisma/client.js';
 
-export type LectureWithEnrollments = Lecture & { enrollments?: Enrollment[] };
+export type LectureWithEnrollments = Lecture & {
+  lectureEnrollments?: LectureEnrollment[];
+};
 
 export type GetLecturesResponse = {
   lectures: {
@@ -59,7 +65,8 @@ export type LectureDetailResponse = {
     endTime: string;
   }[];
   students: {
-    id: string;
+    id: string; // enrollmentId
+    lectureEnrollmentId: string;
     name: string;
     school: string;
     phone: string;
@@ -68,9 +75,9 @@ export type LectureDetailResponse = {
   exams: {
     id: string;
     title: string;
-    status: string;
+    status: string; // 임시: 항상 'PENDING' 등으로 반환하거나 기획 확인 필요
     questionCount: number;
-    createdAt: Date;
+    // createdAt: Date; // 삭제
   }[];
 };
 
@@ -78,7 +85,7 @@ export class LecturesService {
   constructor(
     private readonly lecturesRepository: LecturesRepository,
     private readonly enrollmentsRepository: EnrollmentsRepository,
-    private readonly studentRepository: StudentRepository,
+    private readonly lectureEnrollmentsRepository: LectureEnrollmentsRepository,
     private readonly instructorRepository: InstructorRepository,
     private readonly permissionService: PermissionService,
     private readonly prisma: PrismaClient,
@@ -100,22 +107,76 @@ export class LecturesService {
         tx,
       );
 
-      // 2. 수강생 생성 (있는 경우)
-      let enrollments: Enrollment[] = [];
+      // 2. 수강생 처리 (있는 경우)
+      let lectureEnrollments: LectureEnrollment[] = [];
       if (data.enrollments && data.enrollments.length > 0) {
-        const enrollmentData = data.enrollments.map((e) => ({
-          ...e,
-          lectureId: lecture.id,
-          instructorId,
-          status: EnrollmentStatus.ACTIVE,
-        }));
-        enrollments = await this.enrollmentsRepository.createMany(
-          enrollmentData,
+        // 2-1. 요청된 학생들의 전화번호 목록 추출
+        const studentPhones = data.enrollments.map((e) => e.studentPhone);
+
+        // 2-2. 기존 Enrollment 조회 (해당 강사의 학생 명단에서)
+        const existingEnrollments =
+          await this.enrollmentsRepository.findManyByInstructorAndPhones(
+            instructorId,
+            studentPhones,
+            tx,
+          );
+
+        const existingPhoneMap = new Map(
+          existingEnrollments.map((e) => [e.studentPhone, e]),
+        );
+
+        // 2-3. 새롭게 생성해야 할 Enrollment와 재사용할 Enrollment 분류
+        const newEnrollmentsData: Prisma.EnrollmentUncheckedCreateInput[] = [];
+        const finalEnrollmentIds: string[] = [];
+
+        for (const enrollmentReq of data.enrollments) {
+          const existing = existingPhoneMap.get(enrollmentReq.studentPhone);
+          if (existing) {
+            // 이미 존재하는 주소록(Enrollment)이면 ID 사용
+            // 정보 업데이트가 필요한 경우 여기서 할 수도 있으나,
+            // 현재 요구사항은 "기존 주소록에 있으면 그걸 쓴다"임.
+            finalEnrollmentIds.push(existing.id);
+          } else {
+            // 없으면 새로 생성할 목록에 추가
+            newEnrollmentsData.push({
+              instructorId,
+              studentName: enrollmentReq.studentName,
+              studentPhone: enrollmentReq.studentPhone,
+              school: enrollmentReq.school,
+              schoolYear: enrollmentReq.schoolYear,
+              parentPhone: enrollmentReq.parentPhone,
+              status: EnrollmentStatus.ACTIVE,
+            });
+          }
+        }
+
+        // 2-4. 새 Enrollment 일괄 생성
+        if (newEnrollmentsData.length > 0) {
+          const createdEnrollments =
+            await this.enrollmentsRepository.createMany(newEnrollmentsData, tx);
+          // createManyAndReturn을 쓰면 ID를 바로 얻을 수 있음 (Prisma 최신 버전 가정)
+          // 만약 createManyAndReturn을 지원하지 않는 환경이면 별도 조회 필요하지만
+          // EnrollmentsRepository.createMany가 createManyAndReturn을 쓴다고 가정 (코드 리뷰 내용 기반)
+          finalEnrollmentIds.push(
+            ...createdEnrollments.map((e: { id: string }) => e.id),
+          );
+        }
+
+        // 2-5. LectureEnrollment 생성 (강의와 학생 연결)
+        const lectureEnrollmentData = finalEnrollmentIds.map(
+          (enrollmentId) => ({
+            lectureId: lecture.id,
+            enrollmentId: enrollmentId,
+          }),
+        );
+
+        lectureEnrollments = await this.lectureEnrollmentsRepository.createMany(
+          lectureEnrollmentData,
           tx,
         );
       }
 
-      return { ...lecture, enrollments };
+      return { ...lecture, lectureEnrollments };
     });
   }
 
@@ -141,7 +202,7 @@ export class LecturesService {
       status: lecture.status,
       startAt: lecture.startAt,
       instructorName: lecture.instructor.user.name,
-      enrollmentsCount: lecture._count.enrollments,
+      enrollmentsCount: lecture._count.lectureEnrollments,
       lectureTimes: lecture.lectureTimes.map((lt) => ({
         day: lt.day,
         startTime: lt.startTime,
@@ -162,7 +223,6 @@ export class LecturesService {
     };
   }
 
-  /** 강의 개별 조회 */
   /** 강의 개별 조회 */
   async getLectureById(
     profileId: string,
@@ -186,25 +246,26 @@ export class LecturesService {
       status: lecture.status,
       startAt: lecture.startAt,
       instructorName: lecture.instructor.user.name,
-      enrollmentsCount: lecture._count.enrollments,
+      enrollmentsCount: lecture._count.lectureEnrollments,
       lectureTimes: lecture.lectureTimes.map((lt) => ({
         day: lt.day,
         startTime: lt.startTime,
         endTime: lt.endTime,
       })),
-      students: lecture.enrollments.map((e) => ({
-        id: e.id,
-        name: e.studentName,
-        school: `${e.school} ${e.schoolYear}`,
-        phone: e.studentPhone,
-        parentPhone: e.parentPhone,
+      // LectureEnrollment를 통해 학생 정보를 평탄화하여 반환
+      students: lecture.lectureEnrollments.map((le) => ({
+        id: le.enrollment.id,
+        lectureEnrollmentId: le.id,
+        name: le.enrollment.studentName,
+        school: `${le.enrollment.school} ${le.enrollment.schoolYear}`,
+        phone: le.enrollment.studentPhone,
+        parentPhone: le.enrollment.parentPhone,
       })),
       exams: lecture.exams.map((exam) => ({
         id: exam.id,
         title: exam.title,
-        status: exam.gradingStatus,
+        status: 'PENDING', // 스키마에 필드 없음
         questionCount: exam._count.questions,
-        createdAt: exam.createdAt,
       })),
     };
   }

@@ -1,5 +1,4 @@
 import { PrismaClient, Prisma } from '../generated/prisma/client.js';
-import type { SubmitGradingDto } from '../validations/grades.validation.js';
 
 export class GradesRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -7,8 +6,12 @@ export class GradesRepository {
   /** 학생 답안 일괄 Upsert (Transaction 내에서 호출 권장) */
   async upsertStudentAnswers(
     lectureId: string,
-    enrollmentId: string,
-    answers: SubmitGradingDto['answers'],
+    lectureEnrollmentId: string,
+    answers: {
+      questionId: string;
+      submittedAnswer: string;
+      isCorrect: boolean;
+    }[],
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
@@ -19,14 +22,14 @@ export class GradesRepository {
       // isCorrect 여부에 관계없이 모두 저장
       return client.studentAnswer.upsert({
         where: {
-          enrollmentId_questionId: {
-            enrollmentId,
+          lectureEnrollmentId_questionId: {
+            lectureEnrollmentId,
             questionId: answer.questionId,
           },
         },
         create: {
           lectureId,
-          enrollmentId,
+          lectureEnrollmentId,
           questionId: answer.questionId,
           submittedAnswer: answer.submittedAnswer,
           isCorrect: answer.isCorrect,
@@ -45,7 +48,7 @@ export class GradesRepository {
   async upsertGrade(
     lectureId: string,
     examId: string,
-    enrollmentId: string,
+    lectureEnrollmentId: string,
     score: number,
     isPass: boolean,
     tx?: Prisma.TransactionClient,
@@ -53,15 +56,15 @@ export class GradesRepository {
     const client = tx ?? this.prisma;
     return await client.grade.upsert({
       where: {
-        examId_enrollmentId: {
+        examId_lectureEnrollmentId: {
           examId,
-          enrollmentId,
+          lectureEnrollmentId,
         },
       },
       create: {
         lectureId,
         examId,
-        enrollmentId,
+        lectureEnrollmentId,
         score,
         isPass,
       },
@@ -72,19 +75,23 @@ export class GradesRepository {
     });
   }
 
-  /** 시험별 성적 목록 조회 (Enrollment 정보 포함) */
+  /** 시험별 성적 목록 조회 (LectureEnrollment → Enrollment 정보 포함) */
   async findGradesByExamId(examId: string, tx?: Prisma.TransactionClient) {
     const client = tx ?? this.prisma;
     return await client.grade.findMany({
       where: { examId },
       include: {
-        enrollment: {
-          select: {
-            id: true,
-            studentName: true,
-            studentPhone: true,
-            school: true,
-            schoolYear: true,
+        lectureEnrollment: {
+          include: {
+            enrollment: {
+              select: {
+                id: true,
+                studentName: true,
+                studentPhone: true,
+                school: true,
+                schoolYear: true,
+              },
+            },
           },
         },
       },
@@ -92,14 +99,14 @@ export class GradesRepository {
     });
   }
 
-  /** 수강생별 성적 목록 조회 */
-  async findByEnrollmentId(
-    enrollmentId: string,
+  /** 수강생별 성적 목록 조회 (LectureEnrollment ID 기준) */
+  async findByLectureEnrollmentId(
+    lectureEnrollmentId: string,
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
     return await client.grade.findMany({
-      where: { enrollmentId },
+      where: { lectureEnrollmentId },
       include: {
         exam: {
           select: {
@@ -112,8 +119,9 @@ export class GradesRepository {
             },
           },
         },
-        enrollment: {
+        lectureEnrollment: {
           include: {
+            enrollment: true,
             lecture: {
               include: {
                 instructor: {
@@ -146,10 +154,16 @@ export class GradesRepository {
             },
           },
         },
-        enrollment: {
-          select: {
-            id: true,
-            studentName: true,
+        lectureEnrollment: {
+          include: {
+            enrollment: {
+              select: {
+                id: true,
+                studentName: true,
+                appStudentId: true,
+                appParentLinkId: true,
+              },
+            },
           },
         },
       },
