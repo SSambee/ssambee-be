@@ -133,6 +133,7 @@ export const createMockExamsRepository = () =>
     'deleteQuestions',
     'findQuestionsByExamId',
     'updateGradingStatus',
+    'findByIdWithEnrollments',
   ]);
 
 /** Mock GradesRepository 생성 */
