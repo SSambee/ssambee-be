@@ -3,7 +3,7 @@ region = "ap-northeast-2"
 # db_password is set via environment variable or manual entry
 rds_deletion_protection = false
 rds_skip_final_snapshot = true
-environment - development
+environment = development
 db_password             = ""
 # dev용
 frontend_origin = "http://localhost:3000"
