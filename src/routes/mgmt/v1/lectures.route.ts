@@ -111,6 +111,13 @@ mgmtLecturesRouter.get(
   container.enrollmentsController.getEnrollmentsByLectureId,
 );
 
+/** 해당 강의 수강생 삭제 (강의에서만 제외) */
+mgmtLecturesRouter.delete(
+  '/:lectureId/enrollments/:enrollmentId',
+  validate(lectureEnrollmentParamSchema, 'params'),
+  container.enrollmentsController.removeLectureEnrollment,
+);
+
 /** 해당 강의 수강생 단체 출결 등록 */
 mgmtLecturesRouter.post(
   '/:lectureId/enrollments/attendances',

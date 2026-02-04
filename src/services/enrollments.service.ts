@@ -5,6 +5,7 @@ import { LectureStatus } from '../constants/lectures.constant.js';
 import {
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '../err/http.exception.js';
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import { LecturesRepository } from '../repos/lectures.repo.js';
@@ -441,6 +442,57 @@ export class EnrollmentsService {
     );
 
     return lectureEnrollment;
+  }
+
+  /** 강의 수강 삭제 (Hard Delete) */
+  async removeLectureEnrollment(
+    lectureId: string,
+    enrollmentId: string,
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 1. 강의 존재 여부 확인
+    const lecture = await this.lecturesRepository.findById(lectureId);
+    if (!lecture) {
+      throw new NotFoundException('강의를 찾을 수 없습니다.');
+    }
+
+    // 2. 권한 체크
+    await this.permissionService.validateInstructorAccess(
+      lecture.instructorId,
+      userType,
+      profileId,
+    );
+
+    // 3. LectureEnrollment 존재 여부 확인
+    const lectureEnrollment =
+      await this.lectureEnrollmentsRepository.findByLectureIdAndEnrollmentId(
+        lectureId,
+        enrollmentId,
+      );
+
+    if (!lectureEnrollment) {
+      throw new NotFoundException('수강 정보를 찾을 수 없습니다.');
+    }
+
+    const isDeletable =
+      lecture.status === LectureStatus.SCHEDULED ||
+      !lecture.startAt ||
+      new Date(lecture.startAt) > new Date();
+
+    if (!isDeletable) {
+      throw new BadRequestException(
+        '이미 시작되었거나 예정되지 않은 강의의 수강 정보는 삭제할 수 없습니다.',
+      );
+    }
+
+    // 4. 삭제 수행 (Hard Delete)
+    await this.lectureEnrollmentsRepository.removeByLectureIdAndEnrollmentId(
+      lectureId,
+      enrollmentId,
+    );
+
+    return { lectureId, enrollmentId };
   }
 
   private transformToEnrollmentWithAttendance(

@@ -238,4 +238,32 @@ export class EnrollmentsController {
       next(error);
     }
   };
+
+  /** Enrollment 삭제 (강의에서만 제거) */
+  removeLectureEnrollment = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { lectureId, enrollmentId } = req.params;
+      const user = getAuthUser(req);
+      const profileId = getProfileIdOrThrow(req);
+      const userType = user.userType as UserType;
+
+      const result = await this.enrollmentsService.removeLectureEnrollment(
+        lectureId,
+        enrollmentId,
+        userType,
+        profileId,
+      );
+
+      return successResponse(res, {
+        data: result,
+        message: '수강생 삭제 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
