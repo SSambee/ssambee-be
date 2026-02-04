@@ -186,7 +186,7 @@ export class EnrollmentsService {
       profileId,
     );
 
-    const { enrollmentIds } = data;
+    const { enrollmentIds, memo } = data;
 
     // 3. 이미 이 강의에 등록된 학생들(Enrollment) 필터링을 위해 기존 LectureEnrollment 조회
     const existingLectureEnrollments =
@@ -209,6 +209,7 @@ export class EnrollmentsService {
       newEnrollmentIds.map((eid) => ({
         lectureId,
         enrollmentId: eid,
+        memo,
       })),
     );
 

@@ -105,6 +105,7 @@ export const createEnrollmentMigrationSchema = z.object({
   enrollmentIds: z
     .array(z.string().trim().min(1))
     .min(1, '최소 1개의 선택된 학생이 필요합니다.'),
+  memo: z.string().optional(),
 });
 
 export type CreateEnrollmentMigrationDto = z.infer<

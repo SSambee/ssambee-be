@@ -414,7 +414,7 @@ describe('EnrollmentsService - @unit #critical', () => {
       // Act
       const result = await enrollmentsService.createEnrollmentMigration(
         lectureId,
-        { enrollmentIds },
+        { enrollmentIds, memo: 'migration memo' },
         UserType.INSTRUCTOR,
         instructorId,
       );
@@ -422,7 +422,11 @@ describe('EnrollmentsService - @unit #critical', () => {
       // Assert
       expect(result.count).toBe(3);
       expect(mockLectureEnrollmentsRepo.createMany).toHaveBeenCalledWith(
-        enrollmentIds.map((eid) => ({ lectureId, enrollmentId: eid })),
+        enrollmentIds.map((eid) => ({
+          lectureId,
+          enrollmentId: eid,
+          memo: 'migration memo',
+        })),
       );
     });
 
