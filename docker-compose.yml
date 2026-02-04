@@ -47,6 +47,7 @@ services:
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - /etc/letsencrypt:/etc/letsencrypt:ro #( 인증서 read전용)
     networks:
       - lms-network
     restart: always

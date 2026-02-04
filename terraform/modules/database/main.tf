@@ -49,6 +49,10 @@ resource "aws_db_instance" "postgres" {
   publicly_accessible = false
   deletion_protection = var.rds_deletion_protection
   skip_final_snapshot = var.rds_skip_final_snapshot
+  # skip_final_snapshot 이 false일경우 이 이름 사용
+  final_snapshot_identifier = "${var.env}ssambee-db-final-snapshot"
+  # production 세팅일경우 
+  backup_retention_period = var.environment == "production" ? 7 : 0
 
   tags = { Name = "${var.env}-postgres" }
 }
