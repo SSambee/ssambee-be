@@ -33,4 +33,18 @@ variable "rds_skip_final_snapshot" {
 
 variable "environment" {
   type = string
+ }
+
+//** App User **//
+// 서비스 유저 정보를 변수로 관리
+variable "app_db_username" {
+  description = "Prisma/App에서 사용할 유저명" 
+  type = string
+  default = "eduops_user"
+}
+
+variable "app_db_password" {
+  description = "Prisma/App에서 사용할 비밀번호" 
+  type = string
+  sensitive = true
 }

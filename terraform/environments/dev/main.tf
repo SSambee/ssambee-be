@@ -2,6 +2,16 @@ provider "aws" {
   region = var.region
 }
 
+# MPL2.0 라이선스 해당 프로바이더 내부 소스 코드를 고친다면 공개의무 (근데 그럴일이 있을까?)
+terraform {
+  required_providers {
+    postgresql = {
+      source = "cyrilgdn/postgresql"
+      version = "~> 1.25.0"
+    }
+  }
+}
+
 module "vpc" {
   source = "../../modules/vpc"
 
@@ -32,6 +42,8 @@ module "database" {
   rds_deletion_protection = var.rds_deletion_protection
   rds_skip_final_snapshot = var.rds_skip_final_snapshot
   environment = var.environment
+  app_db_username = var.app_db_username
+  app_db_password = var.app_db_password
 }
 
 module "dns" {
