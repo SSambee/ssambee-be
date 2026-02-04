@@ -24,6 +24,8 @@ const corsOptions: CorsOptions = {
   origin: isProduction() ? whiteList : true, // 프로덕션은 화이트리스트, 개발은 모두 허용(true)
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
+  // Sentry
+  allowedHeaders: ['Content-Type', 'Authorization', 'sentry-trace', 'baggage'],
 };
 
 app.use(cors(corsOptions));
