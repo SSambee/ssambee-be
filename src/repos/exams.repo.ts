@@ -64,14 +64,37 @@ export class ExamsRepository {
   }
 
   /** 강의별 시험 목록 조회 (questions 제외 - 성능 최적화) */
-  async findByLectureId(
-    lectureId: string,
-    tx?: Prisma.TransactionClient,
-  ): Promise<Exam[]> {
+  async findByLectureId(lectureId: string, tx?: Prisma.TransactionClient) {
     const client = tx ?? this.prisma;
     return await client.exam.findMany({
       where: { lectureId },
+      include: {
+        lecture: {
+          select: {
+            title: true,
+          },
+        },
+      },
       orderBy: { title: 'asc' },
+    });
+  }
+
+  /** 강사별 전체 시험 목록 조회 (강의 정보 포함) */
+  async findByInstructorId(
+    instructorId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return await client.exam.findMany({
+      where: { instructorId },
+      include: {
+        lecture: {
+          select: {
+            title: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 

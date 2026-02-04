@@ -70,9 +70,12 @@ describe('ExamsService - @unit #critical', () => {
   describe('[조회] getExamsByLectureId', () => {
     it('강의 권한이 있는 사용자가 조회를 요청할 때, 강의에 포함된 시험 목록이 반환된다', async () => {
       // Arrange
-      const exams = [mockExams.basic] as Awaited<
-        ReturnType<typeof mockExamsRepo.findByLectureId>
-      >;
+      const exams = [
+        {
+          ...mockExams.basic,
+          lecture: { title: mockLecture.title },
+        },
+      ];
       mockLecturesRepo.findById.mockResolvedValue(
         mockLecture as Awaited<ReturnType<typeof mockLecturesRepo.findById>>,
       );
@@ -95,7 +98,12 @@ describe('ExamsService - @unit #critical', () => {
         mockProfileId,
       );
       expect(mockExamsRepo.findByLectureId).toHaveBeenCalledWith(mockLectureId);
-      expect(result).toEqual(exams);
+      expect(result).toEqual([
+        {
+          ...mockExams.basic,
+          lectureTitle: mockLecture.title,
+        },
+      ]);
     });
 
     it('존재하지 않는 강의의 시험 목록을 요청할 때, NotFoundException을 던진다', async () => {
@@ -368,6 +376,61 @@ describe('ExamsService - @unit #critical', () => {
       await expect(
         examsService.getExamById(mockExamId, mockUserType, mockProfileId),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('getExamsByInstructor', () => {
+    it('강사가 조회를 요청할 때, 본인의 시험 목록이 반환된다', async () => {
+      // Arrange
+      const exams = [
+        { ...mockExams.basic, lecture: { title: 'Math' } },
+      ] as ExamDetailWithEnrollments[];
+      mockPermissionService.getEffectiveInstructorId.mockResolvedValue(
+        mockProfileId,
+      );
+      mockExamsRepo.findByInstructorId.mockResolvedValue(exams);
+
+      // Act
+      const result = await examsService.getExamsByInstructor(
+        UserType.INSTRUCTOR,
+        mockProfileId,
+      );
+
+      // Assert
+      expect(
+        mockPermissionService.getEffectiveInstructorId,
+      ).toHaveBeenCalledWith(UserType.INSTRUCTOR, mockProfileId);
+      expect(mockExamsRepo.findByInstructorId).toHaveBeenCalledWith(
+        mockProfileId,
+      );
+      expect(result).toEqual([{ ...mockExams.basic, lectureTitle: 'Math' }]);
+    });
+
+    it('조교가 조회를 요청할 때, 담당 강사의 시험 목록이 반환된다', async () => {
+      // Arrange
+      const mockAssistantId = 'assistant-1';
+      const exams = [
+        { ...mockExams.basic, lecture: { title: 'Math' } },
+      ] as ExamDetailWithEnrollments[];
+      mockPermissionService.getEffectiveInstructorId.mockResolvedValue(
+        mockProfileId,
+      );
+      mockExamsRepo.findByInstructorId.mockResolvedValue(exams);
+
+      // Act
+      const result = await examsService.getExamsByInstructor(
+        UserType.ASSISTANT,
+        mockAssistantId,
+      );
+
+      // Assert
+      expect(
+        mockPermissionService.getEffectiveInstructorId,
+      ).toHaveBeenCalledWith(UserType.ASSISTANT, mockAssistantId);
+      expect(mockExamsRepo.findByInstructorId).toHaveBeenCalledWith(
+        mockProfileId,
+      );
+      expect(result).toEqual([{ ...mockExams.basic, lectureTitle: 'Math' }]);
     });
   });
 });

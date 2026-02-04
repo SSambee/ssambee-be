@@ -17,6 +17,23 @@ export class ExamsService {
     private readonly prisma: PrismaClient,
   ) {}
 
+  /** 강사별 전체 시험 목록 조회 */
+  async getExamsByInstructor(userType: UserType, profileId: string) {
+    const effectiveInstructorId =
+      await this.permissionService.getEffectiveInstructorId(
+        userType,
+        profileId,
+      );
+
+    const exams = await this.examsRepo.findByInstructorId(
+      effectiveInstructorId,
+    );
+    return exams.map(({ lecture, ...exam }) => ({
+      ...exam,
+      lectureTitle: lecture.title,
+    }));
+  }
+
   /** 강의별 시험 목록 조회 (questions 제외) */
   async getExamsByLectureId(
     lectureId: string,
@@ -37,7 +54,11 @@ export class ExamsService {
     );
 
     // 3. 시험 목록 조회
-    return await this.examsRepo.findByLectureId(lectureId);
+    const exams = await this.examsRepo.findByLectureId(lectureId);
+    return exams.map(({ lecture, ...exam }) => ({
+      ...exam,
+      lectureTitle: lecture.title,
+    }));
   }
 
   /** 시험 상세 조회 (questions 및 수강생 정보 포함) */

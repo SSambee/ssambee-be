@@ -17,6 +17,9 @@ const { requireAuth, requireInstructorOrAssistant, examsController } =
 mgmtExamsRouter.use(requireAuth);
 mgmtExamsRouter.use(requireInstructorOrAssistant);
 
+/** 강사별 전체 시험 목록 조회 */
+mgmtExamsRouter.get('/', examsController.getExams);
+
 /** 시험 상세 조회 (questions 포함) */
 mgmtExamsRouter.get(
   '/:examId',

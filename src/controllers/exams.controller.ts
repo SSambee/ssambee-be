@@ -7,6 +7,24 @@ import { UserType } from '../constants/auth.constant.js';
 export class ExamsController {
   constructor(private readonly examsService: ExamsService) {}
 
+  /** 강사별 전체 시험 목록 조회 핸들러 */
+  getExams = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const profileId = getProfileIdOrThrow(req);
+      const user = getAuthUser(req);
+      const userType = user.userType as UserType;
+
+      const result = await this.examsService.getExamsByInstructor(
+        userType,
+        profileId,
+      );
+
+      return successResponse(res, { data: result });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   /** 강의별 시험 목록 조회 핸들러 */
   getExamsByLecture = async (
     req: Request,
