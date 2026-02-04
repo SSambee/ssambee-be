@@ -26,8 +26,8 @@ variable "iam_instance_profile" {
   default     = null
 }
 
-variable "github_pat" {
-  description = "GitHub Personal Access Token for Runner Registration"
-  type = string
-  sensitive = true
-}
+# variable "github_pat" {
+#   description = "GitHub Personal Access Token for Runner Registration"
+#   type = string
+#   sensitive = true
+# }

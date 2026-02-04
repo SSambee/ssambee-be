@@ -44,11 +44,11 @@ variable "frontend_origin" {
   type        = string
 }
 
-variable "github_pat" {
-  description = "GitHub Personal Access Token for Runner Registration"
-  type = string
-  sensitive = true
-}
+# variable "github_pat" {
+#   description = "GitHub Personal Access Token for Runner Registration"
+#   type = string
+#   sensitive = true
+# }
 
 variable "domain_name" {
   description = "Route53  에서 관리할 도메인 이름"

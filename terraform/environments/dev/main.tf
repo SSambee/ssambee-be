@@ -18,7 +18,6 @@ module "compute" {
   instance_type        = "t3.micro"
   key_name             = "lms-key"
   iam_instance_profile = module.iam.instance_profile_name
-  github_pat           = var.github_pat
 }
 
 module "database" {
