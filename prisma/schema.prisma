@@ -341,7 +341,9 @@ model Exam {
   updatedAt DateTime? @updatedAt @map("updated_at")
 
   gradingStatus String @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED
-
+  examDate      DateTime? @map("exam_date") @db.Date
+  category      String?
+  isAutoClinic  Boolean   @default(true) @map("is_auto_clinic")
   lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
   instructor   Instructor? @relation(fields: [instructorId], references: [id])
 
@@ -368,6 +370,7 @@ model Question {
   score   Int     @default(0)
   choices Json? // 보기 문항 (Postgres JSONB)
   source  String?
+  category String?
 
   correctAnswer String @map("correct_answer")
 

@@ -52,73 +52,141 @@ export class ClinicsService {
       profileId,
     );
 
-    // 2-1. 채점 상태 검증 (채점 중일 경우에만 완료 처리 가능)
-    if (exam.gradingStatus !== GradingStatus.IN_PROGRESS) {
-      throw new BadRequestException(
-        '채점이 진행 중인 시험에 대해서만 채점 완료(클리닉 생성)를 수행할 수 있습니다.',
-      );
-    }
+    // 3. 클리닉 생성/동기화 로직 (isAutoClinic이 true인 경우만)
+    let createCount = 0;
+    let deleteCount = 0;
+    let totalFailedCount = 0;
 
-    // 3. 불합격자 조회 (LectureEnrollment 정보 포함)
-    const failedGrades =
-      await this.clinicsRepo.findFailedGradesByExamId(examId);
-
-    // 4. 중복 생성 방지
-    // 이미 클리닉이 생성된 lectureEnrollmentId 조회
-    const lectureEnrollmentIds = failedGrades.map((g) => g.lectureEnrollmentId);
-    let targets = failedGrades;
-
-    if (failedGrades.length > 0) {
-      const existingClinics = await this.clinicsRepo.findExistingClinics(
-        examId,
-        lectureEnrollmentIds,
-      );
-      const existingLectureEnrollmentIds = new Set(
-        existingClinics.map((c) => c.lectureEnrollmentId),
+    if (exam.isAutoClinic) {
+      // 불합격자 조회
+      const failedGrades =
+        await this.clinicsRepo.findFailedGradesByExamId(examId);
+      totalFailedCount = failedGrades.length;
+      const failedEnrollmentIds = failedGrades.map(
+        (g) => g.lectureEnrollmentId,
       );
 
-      // 5. 생성할 데이터 준비
-      // 중복되지 않은 학생들만 필터링
-      targets = failedGrades.filter(
-        (g) => !existingLectureEnrollmentIds.has(g.lectureEnrollmentId),
-      );
-    }
-
-    // 6. 일괄 생성 (Transaction)
-    const deadlineDate = deadline ? new Date(deadline) : undefined;
-    const assignedInstructorId = lecture.instructorId;
-
-    const result = await this.prisma.$transaction(async (tx) => {
-      let createCount = 0;
-      if (targets.length > 0) {
-        const createResult = await this.clinicsRepo.createMany(
-          targets.map((t) => ({
-            lectureId: exam.lectureId,
-            examId: examId,
-            lectureEnrollmentId: t.lectureEnrollmentId,
-            title: title,
-            deadline: deadlineDate,
-            memo: memo,
-            instructorId: assignedInstructorId,
-          })),
-          tx,
+      // 기존 클리닉 상태에 따른 처리
+      if (exam.gradingStatus !== GradingStatus.COMPLETED) {
+        // [Case A] 채점 완료 전 -> 신규 생성 로직
+        const existingClinics = await this.clinicsRepo.findExistingClinics(
+          examId,
+          failedEnrollmentIds,
         );
-        createCount = createResult.count;
+        const existingIds = new Set(
+          existingClinics.map((c) => c.lectureEnrollmentId),
+        );
+
+        const targets = failedGrades.filter(
+          (g) => !existingIds.has(g.lectureEnrollmentId),
+        );
+
+        if (targets.length > 0) {
+          const deadlineDate = deadline ? new Date(deadline) : undefined;
+          const assignedInstructorId = lecture.instructorId;
+
+          const createResult = await this.prisma.$transaction(async (tx) => {
+            const res = await this.clinicsRepo.createMany(
+              targets.map((t) => ({
+                lectureId: exam.lectureId,
+                examId: examId,
+                lectureEnrollmentId: t.lectureEnrollmentId,
+                title: title,
+                deadline: deadlineDate,
+                memo: memo,
+                instructorId: assignedInstructorId,
+              })),
+              tx,
+            );
+
+            // 상태 변경 (여기서 함께 처리)
+            await this.examsRepo.updateGradingStatus(
+              examId,
+              GradingStatus.COMPLETED,
+              tx,
+            );
+            return res;
+          });
+          createCount = createResult.count;
+        } else {
+          // 생성할 대상이 없더라도 상태는 변경
+          await this.examsRepo.updateGradingStatus(
+            examId,
+            GradingStatus.COMPLETED,
+          );
+        }
+      } else {
+        // [Case B] 이미 채점 완료된 경우 -> 동기화(Sync) 로직
+        // 1) 전체 기존 클리닉 조회 (이 시험에 대해)
+        const allExistingClinics = await this.prisma.clinic.findMany({
+          where: { examId },
+          select: { lectureEnrollmentId: true },
+        });
+        const existingIds = new Set(
+          allExistingClinics.map((c) => c.lectureEnrollmentId),
+        );
+        const failedIdsSet = new Set(failedEnrollmentIds);
+
+        // 추가 생성 대상: 불합격자 목록에 있지만 기존 클리닉이 없는 경우
+        const toCreate = failedGrades.filter(
+          (g) => !existingIds.has(g.lectureEnrollmentId),
+        );
+
+        // 삭제 대상: 기존 클리닉은 있지만 불합격자 목록에 없는 경우 (합격자로 변경됨)
+        const toDeleteIds = allExistingClinics
+          .filter((c) => !failedIdsSet.has(c.lectureEnrollmentId))
+          .map((c) => c.lectureEnrollmentId);
+
+        if (toCreate.length > 0 || toDeleteIds.length > 0) {
+          await this.prisma.$transaction(async (tx) => {
+            if (toDeleteIds.length > 0) {
+              const delRes =
+                await this.clinicsRepo.deleteManyByExamAndEnrollments(
+                  examId,
+                  toDeleteIds,
+                  tx,
+                );
+              deleteCount = delRes.count;
+            }
+            if (toCreate.length > 0) {
+              const deadlineDate = deadline ? new Date(deadline) : undefined;
+              const assignedInstructorId = lecture.instructorId;
+              const createRes = await this.clinicsRepo.createMany(
+                toCreate.map((t) => ({
+                  lectureId: exam.lectureId,
+                  examId: examId,
+                  lectureEnrollmentId: t.lectureEnrollmentId,
+                  title: title,
+                  deadline: deadlineDate,
+                  memo: memo,
+                  instructorId: assignedInstructorId,
+                })),
+                tx,
+              );
+              createCount = createRes.count;
+            }
+          });
+        }
       }
+    } else {
+      // isAutoClinic 가 false인 경우 상태만 COMPLETED로 변경
+      if (exam.gradingStatus !== GradingStatus.COMPLETED) {
+        await this.examsRepo.updateGradingStatus(
+          examId,
+          GradingStatus.COMPLETED,
+        );
+      }
+    }
 
-      // 상태 변경 (채점 중 -> 완료)
-      await this.examsRepo.updateGradingStatus(
-        examId,
-        GradingStatus.COMPLETED,
-        tx,
-      );
-
-      return { count: createCount };
-    });
+    let message = '채점이 완료되었습니다.';
+    if (exam.isAutoClinic) {
+      message += ` (클리닉 생성: ${createCount}건, 삭제: ${deleteCount}건, 총 불합격자: ${totalFailedCount}명)`;
+    }
 
     return {
-      count: result.count,
-      message: `채점이 완료되었습니다. (클리닉 생성: ${result.count}건, 총 불합격자: ${failedGrades.length}명)`,
+      createCount,
+      deleteCount,
+      message,
     };
   }
 

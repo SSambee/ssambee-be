@@ -1,1 +1,10 @@
-db_password = "your-rds-password"
+env    = "dev"
+region = "ap-northeast-2"
+# db_password is set via environment variable or manual entry
+rds_deletion_protection = false
+rds_skip_final_snapshot = true
+environment = "development"
+db_password             = ""
+# dev용
+frontend_origin = "http://localhost:3000"
+# github_pat 은 SSM PARAMETER_STORE 로 관리
