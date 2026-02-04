@@ -257,6 +257,9 @@ export class EnrollmentsService {
 
     return {
       ...enrollment,
+      instructorName: enrollment.instructor?.user?.name,
+      instructorPhoneNumber: enrollment.instructor?.phoneNumber,
+      instructor: undefined, // 원본 제거
       lectureEnrollments: undefined, // 원본 제거
       lectures,
     };

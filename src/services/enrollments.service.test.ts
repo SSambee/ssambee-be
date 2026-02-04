@@ -754,7 +754,14 @@ describe('EnrollmentsService - @unit #critical', () => {
           registeredAt: le.registeredAt,
         }));
 
-        expect(result).toEqual({ ...expectedBase, lectures: expectedLectures });
+        expect(result).toEqual({
+          ...expectedBase,
+          instructor: undefined,
+          instructorName: mockEnrollmentWithRelations.instructor.user.name,
+          instructorPhoneNumber:
+            mockEnrollmentWithRelations.instructor.phoneNumber,
+          lectures: expectedLectures,
+        });
         expect(mockEnrollmentsRepo.findByIdWithLectures).toHaveBeenCalledWith(
           enrollmentId,
         );

@@ -303,13 +303,15 @@ export const mockEnrollmentWithRelations = {
         ...mockLectures.basic,
         instructor: {
           ...mockInstructor,
-          user: {
-            name: mockUsers.instructor.name,
-          },
+          user: mockUsers.instructor,
         },
       },
     },
   ],
+  instructor: {
+    ...mockInstructor,
+    user: mockUsers.instructor,
+  },
 };
 
 /** Enrollment with Relations (학부모용 - 간소화된 관계) */

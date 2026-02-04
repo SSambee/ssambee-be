@@ -128,6 +128,11 @@ export class EnrollmentsRepository {
             lecture: true,
           },
         },
+        instructor: {
+          include: {
+            user: true,
+          },
+        },
       },
     });
   }
