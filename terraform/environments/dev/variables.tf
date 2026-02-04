@@ -28,6 +28,11 @@ variable "rds_skip_final_snapshot" {
   default     = false # 기본적으로 마지막 백업을 남기도록 설정
 }
 
+variable "environment" {
+  description = "배포 환경 (development, production 등)"
+  type        = string
+}
+
 variable "project_name" {
   description = "프로젝트 이름"
   type        = string

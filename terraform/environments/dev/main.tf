@@ -32,6 +32,7 @@ module "database" {
   db_password             = var.db_password
   rds_deletion_protection = var.rds_deletion_protection
   rds_skip_final_snapshot = var.rds_skip_final_snapshot
+  environment = var.environment
 }
 
 module "dns" {
