@@ -97,3 +97,13 @@ output "ec2_public_ip" {
   description = "EC2 퍼블릭 IP"
   value       = module.compute.ec2_public_ip
 }
+
+import {
+  to = module.dns.aws_route53_record.vercel_root
+  id = "Z03897078WHI3EBE3DTQ_ssambee.com_A"
+}
+
+import {
+  to = module.dns.aws_route53_record.vercel_www
+  id = "Z03897078WHI3EBE3DTQ_www.ssambee.com_CNAME"
+}
