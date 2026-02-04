@@ -914,6 +914,45 @@ describe('EnrollmentsService - @unit #critical', () => {
       });
     });
 
+    describe('ENR-07-3: Include lectureTimes in enrollment detail', () => {
+      it('수강 상세 조회 시 강의 시간표(lectureTimes)가 포함되어 반환된다', async () => {
+        const mockLectureTimes = [
+          {
+            id: 'time-1',
+            day: 'MON',
+            startTime: '14:00',
+            endTime: '16:00',
+            lectureId: 'lecture-1',
+            instructorId: instructorId,
+          },
+        ];
+        const mockEnrollmentWithTimetable = {
+          ...mockEnrollmentWithRelations,
+          lectureEnrollments: [
+            {
+              ...mockEnrollmentWithRelations.lectureEnrollments[0],
+              lecture: {
+                ...mockEnrollmentWithRelations.lectureEnrollments[0].lecture,
+                lectureTimes: mockLectureTimes,
+              },
+            },
+          ],
+        };
+
+        mockEnrollmentsRepo.findByIdWithLectures.mockResolvedValue(
+          mockEnrollmentWithTimetable,
+        );
+
+        const result = await enrollmentsService.getEnrollmentDetail(
+          enrollmentId,
+          UserType.INSTRUCTOR,
+          instructorId,
+        );
+
+        expect(result.lectures[0].lectureTimes).toEqual(mockLectureTimes);
+      });
+    });
+
     describe('ENR-08: 수강 상세 조회 실패', () => {
       it('존재하지 않는 EnrollmentId로 조회 시 NotFoundException을 던진다', async () => {
         mockEnrollmentsRepo.findByIdWithLectures.mockResolvedValue(null);

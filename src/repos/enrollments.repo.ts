@@ -125,7 +125,11 @@ export class EnrollmentsRepository {
       include: {
         lectureEnrollments: {
           include: {
-            lecture: true,
+            lecture: {
+              include: {
+                lectureTimes: true,
+              },
+            },
           },
         },
         instructor: {
