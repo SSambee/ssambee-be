@@ -98,7 +98,7 @@ resource "aws_instance" "app_server" {
                 echo '/swapfile none swap sw 0 0' >> /etc/fstab
 
                 dnf update -y
-                dnf install -y docker git jq libicu
+                dnf install -y docker git jq libicu postgresql15
                 systemctl start docker
                 systemctl enable docker
                 usermod -aG docker ec2-user
@@ -114,6 +114,11 @@ resource "aws_instance" "app_server" {
                 # GITHUB CLI 설치 (Amazon Linux 2023 AMI)
                 dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
                 dnf install -y gh
+
+                # Terraform 바이너리 설치
+                dnf install -y yum-utils
+                dnf config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+                dnf install -y terraform
 
                 #  Runner 설치 및 자동 등록
                 export GH_TOKEN=$(aws ssm get-parameter --name "/github/pat" --with-decryption --query "Parameter.Value" --output text)
