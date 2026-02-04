@@ -107,3 +107,39 @@ import {
   to = module.dns.aws_route53_record.vercel_www
   id = "Z03897078WHI3EBE3DTQ_www.ssambee.com_CNAME"
 }
+
+# 1. DB Subnet Group
+import {
+  to = module.database.aws_db_subnet_group.lms_db_sn_group
+  id = "dev-db-subnet-group"
+}
+
+# 2. IAM Role
+import {
+  to = module.iam.aws_iam_role.ec2_s3_access_role
+  id = "dev-ec2-s3-access-role"
+}
+
+# 3. IAM Users
+import {
+  to = module.iam.aws_iam_user.imported_users["dev-member-Lee"]
+  id = "dev-member-Lee"
+}
+import {
+  to = module.iam.aws_iam_user.imported_users["dev-member-Lim"]
+  id = "dev-member-Lim"
+}
+import {
+  to = module.iam.aws_iam_user.imported_users["dev-member-kim"]
+  id = "dev-member-kim"
+}
+
+# 4. S3 Buckets
+import {
+  to = module.s3.aws_s3_bucket.documents
+  id = "ssambee-dev-lms-documents"
+}
+import {
+  to = module.s3.aws_s3_bucket.icons
+  id = "ssambee-dev-lms-user-icons"
+}
