@@ -87,23 +87,35 @@ describe('ClinicsService - @unit #critical', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('클리닉 생성을 완료할 때, 시험의 채점 상태가 진행 중(IN_PROGRESS)이 아니면 BadRequestException을 던진다', async () => {
+    it('클리닉 생성을 완료할 때, 시험의 채점 상태가 진행 중(IN_PROGRESS)이 아니더라도(예: PENDING) 성공적으로 완료 처리하고 상태를 변경한다', async () => {
       // Arrange
       mockExamsRepo.findById.mockResolvedValue({
         ...mockExams.basic,
         gradingStatus: GradingStatus.PENDING,
+        isAutoClinic: true,
       } as Awaited<ReturnType<typeof mockExamsRepo.findById>>);
       mockLecturesRepo.findById.mockResolvedValue(
         mockLectures.basic as Awaited<
           ReturnType<typeof mockLecturesRepo.findById>
         >,
       );
+      mockClinicsRepo.findFailedGradesByExamId.mockResolvedValue([]);
+      mockClinicsRepo.findExistingClinics.mockResolvedValue([]);
 
-      // Act & Assert
-      await expect(
-        clinicsService.completeGrading(examId, createData, userType, profileId),
-      ).rejects.toThrow(BadRequestException);
-      expect(mockExamsRepo.findById).toHaveBeenCalledWith(examId);
+      // Act
+      const result = await clinicsService.completeGrading(
+        examId,
+        createData,
+        userType,
+        profileId,
+      );
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(mockExamsRepo.updateGradingStatus).toHaveBeenCalledWith(
+        examId,
+        GradingStatus.COMPLETED,
+      );
     });
 
     it('클리닉 생성을 완료할 때, 불합격한 학생들에 대해 클리닉을 생성하고 시험 상태를 완료(COMPLETED)로 변경한다', async () => {
@@ -184,7 +196,7 @@ describe('ClinicsService - @unit #critical', () => {
       );
 
       // Assert
-      expect(result.count).toBe(2);
+      expect(result.createCount).toBe(2);
       expect(mockClinicsRepo.createMany).toHaveBeenCalled();
       expect(mockExamsRepo.updateGradingStatus).toHaveBeenCalledWith(
         examId,
@@ -278,7 +290,7 @@ describe('ClinicsService - @unit #critical', () => {
       );
 
       // Assert
-      expect(result.count).toBe(1);
+      expect(result.createCount).toBe(1);
       // enroll-1은 이미 존재하므로 enroll-2만 생성 요청되어야 함
       const callArgs = mockClinicsRepo.createMany.mock.calls[0][0];
       expect(callArgs).toHaveLength(1);

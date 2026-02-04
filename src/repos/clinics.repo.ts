@@ -90,6 +90,25 @@ export class ClinicsRepository {
   }
 
   /**
+   * 클리닉 일괄 삭제
+   */
+  async deleteManyByExamAndEnrollments(
+    examId: string,
+    lectureEnrollmentIds: string[],
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return await client.clinic.deleteMany({
+      where: {
+        examId,
+        lectureEnrollmentId: {
+          in: lectureEnrollmentIds,
+        },
+      },
+    });
+  }
+
+  /**
    * 강사의 클리닉 목록 조회
    */
   async findByInstructor(

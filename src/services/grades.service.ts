@@ -37,9 +37,9 @@ export class GradesService {
       throw new NotFoundException('시험을 찾을 수 없습니다.');
     }
 
-    if (exam.gradingStatus === GradingStatus.COMPLETED) {
-      throw new BadRequestException('이미 채점이 완료된 시험입니다.');
-    }
+    // if (exam.gradingStatus === GradingStatus.COMPLETED) {
+    //   throw new BadRequestException('이미 채점이 완료된 시험입니다.');
+    // }
 
     // 2. 권한 검증 (강사/조교)
     const lecture = await this.lecturesRepo.findById(exam.lectureId);
@@ -152,9 +152,9 @@ export class GradesService {
         throw new NotFoundException('시험을 찾을 수 없습니다.');
       }
 
-      if (currentExam.gradingStatus === GradingStatus.COMPLETED) {
-        throw new BadRequestException('이미 채점이 완료된 시험입니다.');
-      }
+      // if (currentExam.gradingStatus === GradingStatus.COMPLETED) {
+      //   throw new BadRequestException('이미 채점이 완료된 시험입니다.');
+      // }
 
       if (currentExam.gradingStatus === GradingStatus.PENDING) {
         await this.examsRepo.updateGradingStatus(

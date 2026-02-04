@@ -147,21 +147,36 @@ describe('GradesService - @unit #critical', () => {
       );
     });
 
-    it('이미 채점이 완료된 시험에 제출을 시도할 때, BadRequestException을 던진다', async () => {
+    it('이미 채점이 완료된 시험에 제출을 시도할 때에도 제출이 성공한다', async () => {
       const completedExam = {
         ...mockExam,
         gradingStatus: GradingStatus.COMPLETED,
       } as Awaited<ReturnType<typeof mockExamsRepo.findById>>;
+      const data = submitGradingRequests.basic;
+      const mockQuestionsList = [
+        mockQuestions.multipleChoice,
+        mockQuestions.shortAnswer,
+      ];
+
       mockExamsRepo.findById.mockResolvedValue(completedExam);
+      mockLecturesRepo.findById.mockResolvedValue(mockLecture);
+      mockLectureEnrollmentsRepo.findByIdWithDetails.mockResolvedValue({
+        id: 'le-1',
+        lectureId: mockExam.lectureId,
+      } as Awaited<
+        ReturnType<typeof mockLectureEnrollmentsRepo.findByIdWithDetails>
+      >);
+      mockExamsRepo.findQuestionsByExamId.mockResolvedValue(mockQuestionsList);
+      mockGradesRepo.upsertGrade.mockResolvedValue(mockGrades.basic);
 
       await expect(
         gradesService.submitGrading(
           mockExam.id,
-          submitGradingRequests.basic,
+          data,
           mockUserType,
           mockProfileId,
         ),
-      ).rejects.toThrow(BadRequestException);
+      ).resolves.toBeDefined();
     });
 
     it('객관식 문항의 정답이 서버 데이터와 일치하지 않을 때, BadRequestException을 던진다', async () => {
