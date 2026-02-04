@@ -38,3 +38,15 @@ variable "frontend_origin" {
   description = "프론트엔드 URL (CORS 및 리다이렉트 용)"
   type        = string
 }
+
+variable "github_pat" {
+  description = "GitHub Personal Access Token for Runner Registration"
+  type = string
+  sensitive = true
+}
+
+variable "domain_name" {
+  description = "Route53  에서 관리할 도메인 이름"
+  type = string
+  default = "ssambee.com"
+}
