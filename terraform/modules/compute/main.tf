@@ -144,6 +144,8 @@ resource "aws_instance" "app_server" {
                 echo "deploy.sh" >> .git/info/sparse-checkout
                 echo "nginx/" >> .git/info/sparse-checkout
                 git pull origin main
+                # 토큰이 포함된 URL을 일반 URL로 교체
+                git remote set-url origin https://github.com/$${REPO_OWNER}/$${REPO_NAME}.git
                 chown -R ec2-user:ec2-user /home/ec2-user/app
                 find /home/ec2-user/app -type f -name ".env" -exec chmod 644 {} +
                 EOF
