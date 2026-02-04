@@ -86,13 +86,17 @@ jobs:
             # 리포지토리 이름을 소문자로 변환
             RAW_IMAGE_NAME="${{ github.repository }}"
             echo "GITHUB_REPOSITORY=${RAW_IMAGE_NAME,,}" >> .env
-            chmod 600 .env
+            chmod 644 .env
 
       # 생성된 .env와 필요한 소스들을(Sparse Checkout한것) 실행 위치로 복사한다.
       - name: Sync files to app directory
         run: |
+            # 기존 app 폴더가 있다면 소유권을 먼저 확보
+            sudo chown -R ec2-user:ec2-user /home/ec2-user/app || true
             # 러너 워크스페이스의 내용을 /home/ec2-user/app으로 동기화
             cp -r ./* /home/ec2-user/app/
+            # 복사 후 다시 한번 전체 소유권을 ec2-user로 강제하기!
+            sudo chown -R ec2-user:ec2-user /home/ec2-user/app/
             cp .env /home/ec2-user/app/
       
       - name: Log in to GHCR
