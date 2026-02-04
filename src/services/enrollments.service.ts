@@ -355,6 +355,25 @@ export class EnrollmentsService {
       userType,
       profileId,
     );
+    if (data.status) {
+      data.deletedAt = data.status === 'DROPPED' ? new Date() : null;
+    }
+    if (data.studentPhone) {
+      const student = await this.studentRepository.findByPhoneNumber(
+        data.studentPhone as string,
+      );
+      if (student) {
+        data.appStudent = { connect: { id: student.id } };
+      }
+    }
+    if (data.parentPhone) {
+      const parent = await this.parentsService.findLinkByPhoneNumber(
+        data.parentPhone as string,
+      );
+      if (parent) {
+        data.appParentLink = { connect: { id: parent.id } };
+      }
+    }
 
     return await this.enrollmentsRepository.update(id, data);
   }
