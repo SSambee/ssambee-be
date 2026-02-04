@@ -129,6 +129,9 @@ export class EnrollmentsRepository {
               },
             },
           },
+          orderBy: {
+            registeredAt: 'desc',
+          },
         },
         instructor: {
           include: {
