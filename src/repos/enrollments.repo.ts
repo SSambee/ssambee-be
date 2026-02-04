@@ -82,9 +82,7 @@ export class EnrollmentsRepository {
         include: {
           // lecture 관계 삭제됨
         },
-        orderBy: {
-          registeredAt: 'desc',
-        },
+        orderBy: [{ registeredAt: 'desc' }, { studentName: 'asc' }],
         skip,
         take,
       }),
@@ -225,9 +223,10 @@ export class EnrollmentsRepository {
             },
           },
         },
-        orderBy: {
-          registeredAt: 'desc', // 최신 등록순
-        },
+        orderBy: [
+          { registeredAt: 'desc' }, // 최신 등록순
+          { studentName: 'asc' }, // 이름 오름차순
+        ],
         skip,
         take,
       }),

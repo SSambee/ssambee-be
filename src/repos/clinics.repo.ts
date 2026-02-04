@@ -161,6 +161,7 @@ export class ClinicsRepository {
       },
       orderBy: {
         createdAt: 'desc',
+        id: 'desc',
       },
     });
   }
@@ -240,6 +241,7 @@ export class ClinicsRepository {
       },
       orderBy: {
         createdAt: 'desc',
+        id: 'desc',
       },
     });
   }
@@ -278,6 +280,7 @@ export class ClinicsRepository {
       },
       orderBy: {
         createdAt: 'desc',
+        id: 'desc',
       },
     });
   }
