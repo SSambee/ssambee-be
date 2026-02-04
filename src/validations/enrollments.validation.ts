@@ -35,6 +35,7 @@ export const createEnrollmentSchema = z.object({
   school: z.string().trim().min(1, '학교명은 필수입니다.'),
   schoolYear: z.enum([...SCHOOL_YEARS] as [string, ...string[]]),
   studentName: z.string().trim().min(1, '학생 이름은 필수입니다.'),
+  studentEmail: z.string().email().optional(),
   studentPhone: z
     .string()
     .trim()
@@ -53,6 +54,7 @@ export const updateEnrollmentSchema = z.object({
   school: z.string().trim().min(1, '학교명은 필수입니다.').optional(),
   schoolYear: z.enum([...SCHOOL_YEARS] as [string, ...string[]]).optional(),
   studentName: z.string().trim().min(1, '학생 이름은 필수입니다.').optional(),
+  studentEmail: z.string().email().optional(),
   studentPhone: z
     .string()
     .trim()
