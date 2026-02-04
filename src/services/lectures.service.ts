@@ -331,4 +331,16 @@ export class LecturesService {
 
     await this.lecturesRepository.softDelete(id);
   }
+
+  /** 단순 강의 리스트 조회 (드롭다운 용) */
+  async getLectureSimpleList(
+    instructorId: string,
+  ): Promise<{ id: string; title: string; status: string }[]> {
+    const lectures = await this.lecturesRepository.findSimpleMany(instructorId);
+    return lectures.map((lecture) => ({
+      id: lecture.id,
+      title: lecture.title,
+      status: lecture.status,
+    }));
+  }
 }

@@ -42,6 +42,9 @@ mgmtLecturesRouter.get(
   lecturesController.getLectures,
 );
 
+/** 단순 강의 리스트 조회 (드롭다운 용) */
+mgmtLecturesRouter.get('/simplelist', lecturesController.getLectureSimpleList);
+
 /** 강의 개별 조회 */
 mgmtLecturesRouter.get(
   '/:id',

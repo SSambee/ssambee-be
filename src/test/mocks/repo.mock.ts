@@ -72,6 +72,7 @@ export const createMockLecturesRepository = () =>
     'findMany',
     'update',
     'softDelete',
+    'findSimpleMany',
   ]);
 
 /** Mock EnrollmentsRepository 생성 */
