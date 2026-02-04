@@ -28,6 +28,7 @@ import {
   mockLectures,
   mockInstructor,
 } from '../test/fixtures/lectures.fixture.js';
+import { LectureStatus } from '../constants/lectures.constant.js';
 import { UserType } from '../constants/auth.constant.js';
 import { EnrollmentStatus } from '../constants/enrollments.constant.js';
 import { PrismaClient } from '../generated/prisma/client.js';
@@ -44,8 +45,8 @@ type EnrollmentWithLectures = Awaited<
 >;
 
 type EnrollmentListItem = Awaited<
-  ReturnType<EnrollmentsRepository['findManyByLectureId']>
->[number];
+  ReturnType<EnrollmentsRepository['findMany']>
+>['enrollments'][number];
 
 type StudentLectureEnrollmentItem = Awaited<
   ReturnType<LectureEnrollmentsRepository['findManyByAppStudentId']>
@@ -395,11 +396,12 @@ describe('EnrollmentsService - @unit #critical', () => {
     describe('ENR-04: 강의별 수강생 목록 조회 성공 (lectureId 포함)', () => {
       it('강사가 자신의 강의 수강생 목록 조회를 요청할 때, 해당 강의의 모든 수강 정보 목록이 반환된다', async () => {
         mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
-        mockEnrollmentsRepo.findManyByLectureId.mockResolvedValue(
-          mockEnrollmentsList as unknown as Awaited<
-            ReturnType<EnrollmentsRepository['findManyByLectureId']>
-          >,
-        );
+        mockEnrollmentsRepo.findMany.mockResolvedValue({
+          enrollments: mockEnrollmentsList as unknown as Awaited<
+            ReturnType<EnrollmentsRepository['findMany']>
+          >['enrollments'],
+          totalCount: mockEnrollmentsList.length,
+        });
 
         const result = await enrollmentsService.getEnrollments(
           UserType.INSTRUCTOR,
@@ -407,31 +409,42 @@ describe('EnrollmentsService - @unit #critical', () => {
           { lecture: lectureId, ...mockEnrollmentQueries.withPagination },
         );
 
-        const expectedEnrollments = mockEnrollmentsList.map((e) => {
-          const { attendances, ...rest } = e;
+        const expectedEnrollments = (
+          mockEnrollmentsList as unknown as EnrollmentListItem[]
+        ).map((e) => {
+          const { attendances, lectureEnrollments, ...rest } = e;
           return {
             ...rest,
             attendance: attendances?.[0] || null,
+            lectureEnrollmentId: lectureEnrollments?.[0]?.id,
+            lectureEnrollments: lectureEnrollments,
+            lecture: null, // Mock data doesn't have active lecture logic setup implies null
           };
         });
 
         expect(result.enrollments).toEqual(expectedEnrollments);
         expect(result.totalCount).toBe(mockEnrollmentsList.length);
         expect(mockLecturesRepo.findById).toHaveBeenCalledWith(lectureId);
-        expect(mockEnrollmentsRepo.findManyByLectureId).toHaveBeenCalledWith(
-          lectureId,
-          { examId: undefined },
+        expect(mockEnrollmentsRepo.findMany).toHaveBeenCalledWith(
+          instructorId,
+          {
+            lecture: lectureId,
+            lectureId: lectureId,
+            ...mockEnrollmentQueries.withPagination,
+            examId: undefined,
+          },
         );
       });
 
       it('조교가 담당 강사의 강의 수강생 목록 조회를 요청할 때, 해당 강의의 모든 수강 정보 목록이 반환된다', async () => {
         mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
         mockPermissionService.validateInstructorAccess.mockResolvedValue();
-        mockEnrollmentsRepo.findManyByLectureId.mockResolvedValue(
-          mockEnrollmentsList as unknown as Awaited<
-            ReturnType<EnrollmentsRepository['findManyByLectureId']>
-          >,
-        );
+        mockEnrollmentsRepo.findMany.mockResolvedValue({
+          enrollments: mockEnrollmentsList as unknown as Awaited<
+            ReturnType<EnrollmentsRepository['findMany']>
+          >['enrollments'],
+          totalCount: mockEnrollmentsList.length,
+        });
 
         const result = await enrollmentsService.getEnrollments(
           UserType.ASSISTANT,
@@ -439,11 +452,16 @@ describe('EnrollmentsService - @unit #critical', () => {
           { lecture: lectureId, ...mockEnrollmentQueries.withPagination },
         );
 
-        const expectedEnrollments = mockEnrollmentsList.map((e) => {
-          const { attendances, ...rest } = e;
+        const expectedEnrollments = (
+          mockEnrollmentsList as unknown as EnrollmentListItem[]
+        ).map((e) => {
+          const { attendances, lectureEnrollments, ...rest } = e;
           return {
             ...rest,
             attendance: attendances?.[0] || null,
+            lectureEnrollmentId: lectureEnrollments?.[0]?.id,
+            lectureEnrollments: lectureEnrollments,
+            lecture: null,
           };
         });
 
@@ -454,6 +472,15 @@ describe('EnrollmentsService - @unit #critical', () => {
           mockLectures.basic.instructorId,
           UserType.ASSISTANT,
           mockAssistants.basic.id,
+        );
+        expect(mockEnrollmentsRepo.findMany).toHaveBeenCalledWith(
+          mockLectures.basic.instructorId,
+          {
+            lecture: lectureId,
+            lectureId: lectureId,
+            ...mockEnrollmentQueries.withPagination,
+            examId: undefined,
+          },
         );
       });
 
@@ -476,12 +503,13 @@ describe('EnrollmentsService - @unit #critical', () => {
           },
         ];
 
-        mockEnrollmentsRepo.findManyByLectureId.mockResolvedValue(
-          mockEnrollmentsWithGrades.map((e) => ({
+        mockEnrollmentsRepo.findMany.mockResolvedValue({
+          enrollments: mockEnrollmentsWithGrades.map((e) => ({
             ...e,
             lectureEnrollments: [],
           })) as unknown as EnrollmentListItem[],
-        );
+          totalCount: mockEnrollmentsWithGrades.length,
+        });
 
         await enrollmentsService.getEnrollments(
           UserType.INSTRUCTOR,
@@ -493,9 +521,14 @@ describe('EnrollmentsService - @unit #critical', () => {
           },
         );
 
-        expect(mockEnrollmentsRepo.findManyByLectureId).toHaveBeenCalledWith(
-          lectureId,
-          { examId },
+        expect(mockEnrollmentsRepo.findMany).toHaveBeenCalledWith(
+          instructorId,
+          {
+            lecture: lectureId,
+            lectureId: lectureId,
+            examId,
+            ...mockEnrollmentQueries.withPagination,
+          },
         );
       });
     });
@@ -531,9 +564,9 @@ describe('EnrollmentsService - @unit #critical', () => {
 
     describe('ENR-06: 강사별 전체 수강생 목록 조회 성공 (lectureId 미포함)', () => {
       it('강사가 본인 소속 모든 수강생 목록 조회를 요청할 때, 페이지네이션이 적용된 목록과 전체 개수가 반환된다', async () => {
-        mockEnrollmentsRepo.findManyByInstructorId.mockResolvedValue({
+        mockEnrollmentsRepo.findMany.mockResolvedValue({
           enrollments: mockEnrollmentsList as unknown as Awaited<
-            ReturnType<EnrollmentsRepository['findManyByInstructorId']>
+            ReturnType<EnrollmentsRepository['findMany']>
           >['enrollments'],
           totalCount: mockEnrollmentsList.length,
         });
@@ -544,11 +577,16 @@ describe('EnrollmentsService - @unit #critical', () => {
           mockEnrollmentQueries.withPagination,
         );
 
-        const expectedEnrollments = mockEnrollmentsList.map((e) => {
-          const { attendances, ...rest } = e;
+        const expectedEnrollments = (
+          mockEnrollmentsList as unknown as EnrollmentListItem[]
+        ).map((e) => {
+          const { attendances, lectureEnrollments, ...rest } = e;
           return {
             ...rest,
             attendance: attendances?.[0] || null,
+            lectureEnrollmentId: lectureEnrollments?.[0]?.id,
+            lectureEnrollments: lectureEnrollments,
+            lecture: null,
           };
         });
 
@@ -565,9 +603,9 @@ describe('EnrollmentsService - @unit #critical', () => {
         mockPermissionService.getEffectiveInstructorId.mockResolvedValue(
           instructorId,
         );
-        mockEnrollmentsRepo.findManyByInstructorId.mockResolvedValue({
+        mockEnrollmentsRepo.findMany.mockResolvedValue({
           enrollments: mockEnrollmentsList as unknown as Awaited<
-            ReturnType<EnrollmentsRepository['findManyByInstructorId']>
+            ReturnType<EnrollmentsRepository['findMany']>
           >['enrollments'],
           totalCount: mockEnrollmentsList.length,
         });
@@ -578,11 +616,16 @@ describe('EnrollmentsService - @unit #critical', () => {
           mockEnrollmentQueries.withPagination,
         );
 
-        const expectedEnrollments = mockEnrollmentsList.map((e) => {
-          const { attendances, ...rest } = e;
+        const expectedEnrollments = (
+          mockEnrollmentsList as unknown as EnrollmentListItem[]
+        ).map((e) => {
+          const { attendances, lectureEnrollments, ...rest } = e;
           return {
             ...rest,
             attendance: attendances?.[0] || null,
+            lectureEnrollmentId: lectureEnrollments?.[0]?.id,
+            lectureEnrollments: lectureEnrollments,
+            lecture: null,
           };
         });
 
@@ -593,10 +636,92 @@ describe('EnrollmentsService - @unit #critical', () => {
         expect(
           mockPermissionService.getEffectiveInstructorId,
         ).toHaveBeenCalledWith(UserType.ASSISTANT, mockAssistants.basic.id);
-        expect(mockEnrollmentsRepo.findManyByInstructorId).toHaveBeenCalledWith(
+        expect(mockEnrollmentsRepo.findMany).toHaveBeenCalledWith(
           instructorId,
           mockEnrollmentQueries.withPagination,
         );
+      });
+
+      it('ENR-06-1: Active Lecture Selection Logic - Status & EndDate Check', async () => {
+        const futureDate = new Date();
+        futureDate.setFullYear(futureDate.getFullYear() + 1);
+        const pastDate = new Date();
+        pastDate.setFullYear(pastDate.getFullYear() - 1);
+
+        const mockLectureActive = {
+          ...mockLectures.basic,
+          id: 'active',
+          status: LectureStatus.IN_PROGRESS,
+          endAt: futureDate,
+        };
+        const mockLectureExpired = {
+          ...mockLectures.basic,
+          id: 'expired',
+          status: LectureStatus.IN_PROGRESS,
+          endAt: pastDate,
+        };
+        const mockLectureScheduled = {
+          ...mockLectures.basic,
+          id: 'scheduled',
+          status: LectureStatus.SCHEDULED,
+          endAt: futureDate,
+        };
+
+        // Scenario 1: Has Active Lecture (should be picked even if not first in list)
+        // List: [Expired (Recent), Active (Old)]
+        // Expected: Active
+        const enrollmentWithActive = {
+          ...mockEnrollmentsList[0],
+          lectureEnrollments: [
+            {
+              id: 'le-1',
+              lecture: mockLectureExpired,
+              registeredAt: new Date(),
+            },
+            {
+              id: 'le-2',
+              lecture: mockLectureActive,
+              registeredAt: new Date(),
+            },
+          ],
+        };
+
+        // Scenario 2: No Active Lecture (fallback to most recent)
+        // List: [Expired (Recent), Scheduled (Old)]
+        // Expected: Expired (index 0)
+        const enrollmentFallback = {
+          ...mockEnrollmentsList[1],
+          lectureEnrollments: [
+            {
+              id: 'le-3',
+              lecture: mockLectureExpired,
+              registeredAt: new Date(),
+            },
+            {
+              id: 'le-4',
+              lecture: mockLectureScheduled,
+              registeredAt: new Date(),
+            },
+          ],
+        };
+
+        const mockData = [enrollmentWithActive, enrollmentFallback];
+
+        mockEnrollmentsRepo.findMany.mockResolvedValue({
+          enrollments: mockData as unknown as Awaited<
+            ReturnType<EnrollmentsRepository['findMany']>
+          >['enrollments'],
+          totalCount: 2,
+        });
+
+        const result = await enrollmentsService.getEnrollments(
+          UserType.INSTRUCTOR,
+          instructorId,
+          mockEnrollmentQueries.withPagination,
+        );
+
+        expect(result.enrollments[0].lecture).toEqual(mockLectureActive);
+        expect(result.enrollments[1].lecture).toEqual(mockLectureExpired);
       });
     });
   });
@@ -1002,7 +1127,7 @@ describe('EnrollmentsService - @unit #critical', () => {
       mockPermissionService.getEffectiveInstructorId.mockResolvedValue(
         mockAssistants.basic.instructorId,
       );
-      mockEnrollmentsRepo.findManyByInstructorId.mockResolvedValue({
+      mockEnrollmentsRepo.findMany.mockResolvedValue({
         enrollments: [],
         totalCount: 0,
       });
@@ -1016,7 +1141,7 @@ describe('EnrollmentsService - @unit #critical', () => {
       expect(
         mockPermissionService.getEffectiveInstructorId,
       ).toHaveBeenCalledWith(UserType.ASSISTANT, mockAssistants.basic.id);
-      expect(mockEnrollmentsRepo.findManyByInstructorId).toHaveBeenCalledWith(
+      expect(mockEnrollmentsRepo.findMany).toHaveBeenCalledWith(
         mockAssistants.basic.instructorId,
         mockEnrollmentQueries.withPagination,
       );

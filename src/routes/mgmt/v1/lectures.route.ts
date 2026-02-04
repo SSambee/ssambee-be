@@ -93,6 +93,14 @@ mgmtLecturesRouter.post(
   container.enrollmentsController.createEnrollment,
 );
 
+/** 해당 강의 수강생 목록 조회 (New) */
+mgmtLecturesRouter.get(
+  '/:lectureId/enrollments',
+  validate(lectureParamSchema, 'params'),
+  validate(getLecturesQuerySchema, 'query'), // Using existing query schema for pagination/search
+  container.enrollmentsController.getEnrollmentsByLectureId,
+);
+
 /** 해당 강의 수강생 단체 출결 등록 */
 mgmtLecturesRouter.post(
   '/:lectureId/enrollments/attendances',

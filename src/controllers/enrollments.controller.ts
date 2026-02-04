@@ -67,6 +67,43 @@ export class EnrollmentsController {
     }
   };
 
+  /** 강의별 수강생 목록 조회 핸들러 (New) */
+  getEnrollmentsByLectureId = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { lectureId } = req.params;
+      const user = getAuthUser(req);
+      const profileId = getProfileIdOrThrow(req);
+      const userType = user.userType as UserType;
+      const query = req.query as unknown as GetEnrollmentsQueryDto;
+
+      const { enrollments, totalCount } =
+        await this.enrollmentsService.getEnrollmentsByLectureId(
+          lectureId,
+          userType,
+          profileId,
+          query,
+        );
+
+      const responseData = getPagingData(
+        enrollments,
+        totalCount,
+        query.page,
+        query.limit,
+      );
+
+      return successResponse(res, {
+        data: responseData,
+        message: '강의별 수강 목록 조회 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   /**  수강 상세 조회 핸들러 */
   getEnrollment = async (req: Request, res: Response, next: NextFunction) => {
     try {
