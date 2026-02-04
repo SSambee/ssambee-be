@@ -101,4 +101,31 @@ export class GradesController {
       next(error);
     }
   };
+
+  /** (관리자용) 수강생 성적/답안 상세 조회 핸들러 */
+  getStudentGradeWithAnswers = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { examId, lectureEnrollmentId } = req.params;
+      const user = getAuthUser(req);
+      const profileId = getProfileIdOrThrow(req);
+      const userType = user.userType as UserType;
+
+      const result = await this.gradesService.getStudentGradeWithAnswers(
+        examId,
+        lectureEnrollmentId,
+        userType,
+        profileId,
+      );
+
+      return successResponse(res, {
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

@@ -3,6 +3,7 @@ import { container } from '../../../config/container.config.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
 import {
   examIdParamSchema,
+  examAndEnrollmentParamSchema,
   updateExamSchema,
 } from '../../../validations/exams.validation.js';
 import { submitGradingSchema } from '../../../validations/grades.validation.js';
@@ -16,6 +17,9 @@ const { requireAuth, requireInstructorOrAssistant, examsController } =
 /** 모든 라우트에 대해 강사/조교 권한 필요 */
 mgmtExamsRouter.use(requireAuth);
 mgmtExamsRouter.use(requireInstructorOrAssistant);
+
+/** 강사별 전체 시험 목록 조회 */
+mgmtExamsRouter.get('/', examsController.getExams);
 
 /** 시험 상세 조회 (questions 포함) */
 mgmtExamsRouter.get(
@@ -32,6 +36,13 @@ mgmtExamsRouter.patch(
   examsController.updateExam,
 );
 
+/** 시험 삭제 (PENDING 상태일 때만 가능) */
+mgmtExamsRouter.delete(
+  '/:examId',
+  validate(examIdParamSchema, 'params'),
+  examsController.deleteExam,
+);
+
 /** 채점 제출 (학생 답안 채점 및 Upsert) */
 mgmtExamsRouter.post(
   '/:examId/grades',
@@ -46,6 +57,14 @@ mgmtExamsRouter.get(
   validate(examIdParamSchema, 'params'),
   (req, res, next) =>
     container.gradesController.getGradesByExam(req, res, next),
+);
+
+/** 수강생별 성적/답안 상세 조회 */
+mgmtExamsRouter.get(
+  '/:examId/grades/lectureEnrollments/:lectureEnrollmentId',
+  validate(examAndEnrollmentParamSchema, 'params'),
+  (req, res, next) =>
+    container.gradesController.getStudentGradeWithAnswers(req, res, next),
 );
 
 /** 통계 산출 및 저장 */

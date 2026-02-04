@@ -63,6 +63,7 @@ export class LecturesRepository {
         instructorId: data.instructorId,
         title: data.title,
         subject: data.subject,
+        schoolYear: data.schoolYear,
         description: data.description,
         startAt: data.startAt ? new Date(data.startAt) : null,
         endAt: data.endAt ? new Date(data.endAt) : null,

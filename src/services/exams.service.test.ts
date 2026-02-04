@@ -1,5 +1,9 @@
 import { UserType } from '../constants/auth.constant.js';
-import { NotFoundException } from '../err/http.exception.js';
+import {
+  NotFoundException,
+  BadRequestException,
+} from '../err/http.exception.js';
+import { GradingStatus } from '../constants/exams.constant.js';
 import { ExamsService } from './exams.service.js';
 import {
   createMockExamsRepository,
@@ -70,9 +74,12 @@ describe('ExamsService - @unit #critical', () => {
   describe('[조회] getExamsByLectureId', () => {
     it('강의 권한이 있는 사용자가 조회를 요청할 때, 강의에 포함된 시험 목록이 반환된다', async () => {
       // Arrange
-      const exams = [mockExams.basic] as Awaited<
-        ReturnType<typeof mockExamsRepo.findByLectureId>
-      >;
+      const exams = [
+        {
+          ...mockExams.basic,
+          lecture: { title: mockLecture.title },
+        },
+      ];
       mockLecturesRepo.findById.mockResolvedValue(
         mockLecture as Awaited<ReturnType<typeof mockLecturesRepo.findById>>,
       );
@@ -95,7 +102,12 @@ describe('ExamsService - @unit #critical', () => {
         mockProfileId,
       );
       expect(mockExamsRepo.findByLectureId).toHaveBeenCalledWith(mockLectureId);
-      expect(result).toEqual(exams);
+      expect(result).toEqual([
+        {
+          ...mockExams.basic,
+          lectureTitle: mockLecture.title,
+        },
+      ]);
     });
 
     it('존재하지 않는 강의의 시험 목록을 요청할 때, NotFoundException을 던진다', async () => {
@@ -198,7 +210,12 @@ describe('ExamsService - @unit #critical', () => {
         mockUserType,
         mockProfileId,
       );
-      expect(mockExamsRepo.createWithQuestions).toHaveBeenCalled();
+      expect(mockExamsRepo.createWithQuestions).toHaveBeenCalledWith(
+        mockLectureId,
+        mockLecture.instructorId,
+        createDto,
+        expect.anything(), // tx
+      );
       expect(result).toBeDefined();
     });
 
@@ -269,7 +286,10 @@ describe('ExamsService - @unit #critical', () => {
       // q1 수정 확인
       expect(mockExamsRepo.updateQuestion).toHaveBeenCalledWith(
         'q1',
-        expect.objectContaining({ content: updateDto.questions?.[0].content }),
+        expect.objectContaining({
+          content: updateDto.questions?.[0].content,
+          category: 'UPDATED_CAT',
+        }),
         mockPrisma,
       );
 
@@ -358,8 +378,7 @@ describe('ExamsService - @unit #critical', () => {
         mockProfileId,
       );
       expect(result).toBeDefined();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expect((result as any).enrollments).toHaveLength(1);
+      expect((result as ExamDetailWithEnrollments).enrollments).toHaveLength(1);
     });
 
     it('should throw NotFoundException if exam not found', async () => {
@@ -368,6 +387,118 @@ describe('ExamsService - @unit #critical', () => {
       await expect(
         examsService.getExamById(mockExamId, mockUserType, mockProfileId),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('getExamsByInstructor', () => {
+    it('강사가 조회를 요청할 때, 본인의 시험 목록이 반환된다', async () => {
+      // Arrange
+      const exams = [
+        { ...mockExams.basic, lecture: { title: 'Math' } },
+      ] as ExamDetailWithEnrollments[];
+      mockPermissionService.getEffectiveInstructorId.mockResolvedValue(
+        mockProfileId,
+      );
+      mockExamsRepo.findByInstructorId.mockResolvedValue(exams);
+
+      // Act
+      const result = await examsService.getExamsByInstructor(
+        UserType.INSTRUCTOR,
+        mockProfileId,
+      );
+
+      // Assert
+      expect(
+        mockPermissionService.getEffectiveInstructorId,
+      ).toHaveBeenCalledWith(UserType.INSTRUCTOR, mockProfileId);
+      expect(mockExamsRepo.findByInstructorId).toHaveBeenCalledWith(
+        mockProfileId,
+      );
+      expect(result).toEqual([{ ...mockExams.basic, lectureTitle: 'Math' }]);
+    });
+
+    it('조교가 조회를 요청할 때, 담당 강사의 시험 목록이 반환된다', async () => {
+      // Arrange
+      const mockAssistantId = 'assistant-1';
+      const exams = [
+        { ...mockExams.basic, lecture: { title: 'Math' } },
+      ] as ExamDetailWithEnrollments[];
+      mockPermissionService.getEffectiveInstructorId.mockResolvedValue(
+        mockProfileId,
+      );
+      mockExamsRepo.findByInstructorId.mockResolvedValue(exams);
+
+      // Act
+      const result = await examsService.getExamsByInstructor(
+        UserType.ASSISTANT,
+        mockAssistantId,
+      );
+
+      // Assert
+      expect(
+        mockPermissionService.getEffectiveInstructorId,
+      ).toHaveBeenCalledWith(UserType.ASSISTANT, mockAssistantId);
+      expect(mockExamsRepo.findByInstructorId).toHaveBeenCalledWith(
+        mockProfileId,
+      );
+      expect(result).toEqual([{ ...mockExams.basic, lectureTitle: 'Math' }]);
+    });
+  });
+
+  describe('[삭제] deleteExam', () => {
+    const mockExam = {
+      ...mockExams.basic,
+      gradingStatus: GradingStatus.PENDING,
+    };
+
+    it('시험 상태가 PENDING이고 권한이 있을 때, 시험이 정상적으로 삭제된다', async () => {
+      mockExamsRepo.findById.mockResolvedValue(mockExam);
+      mockLecturesRepo.findById.mockResolvedValue(mockLecture as LectureDetail);
+
+      await examsService.deleteExam(mockExamId, mockUserType, mockProfileId);
+
+      expect(mockExamsRepo.findById).toHaveBeenCalledWith(mockExamId);
+      expect(mockLecturesRepo.findById).toHaveBeenCalledWith(
+        mockExam.lectureId,
+      );
+      expect(
+        mockPermissionService.validateInstructorAccess,
+      ).toHaveBeenCalledWith(
+        mockLecture.instructorId,
+        mockUserType,
+        mockProfileId,
+      );
+      expect(mockExamsRepo.delete).toHaveBeenCalledWith(mockExamId);
+    });
+
+    it('존재하지 않는 시험을 삭제하려 할 때, NotFoundException을 던진다', async () => {
+      mockExamsRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        examsService.deleteExam(mockExamId, mockUserType, mockProfileId),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('시험은 존재하나 관련 강의 정보가 없을 때, NotFoundException을 던진다', async () => {
+      mockExamsRepo.findById.mockResolvedValue(mockExam);
+      mockLecturesRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        examsService.deleteExam(mockExamId, mockUserType, mockProfileId),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('시험 상태가 PENDING이 아닐 때, BadRequestException을 던진다', async () => {
+      const inProgressExam = {
+        ...mockExam,
+        gradingStatus: GradingStatus.IN_PROGRESS,
+      };
+      mockExamsRepo.findById.mockResolvedValue(inProgressExam);
+      mockLecturesRepo.findById.mockResolvedValue(mockLecture as LectureDetail);
+
+      await expect(
+        examsService.deleteExam(mockExamId, mockUserType, mockProfileId),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

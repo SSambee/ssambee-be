@@ -133,6 +133,8 @@ export const createMockExamsRepository = () =>
     'findQuestionsByExamId',
     'updateGradingStatus',
     'findByIdWithEnrollments',
+    'findByInstructorId',
+    'delete',
   ]);
 
 /** Mock GradesRepository 생성 */
@@ -141,6 +143,11 @@ export const createMockGradesRepository = () =>
     'upsertStudentAnswers',
     'upsertGrade',
     'findGradesByExamId',
+    'calculateRankByExamId',
+    'calculateAverageByExamId',
+    'findByIdWithDetails',
+    'findByLectureEnrollmentId',
+    'findGradeWithDetailsByExamAndEnrollment',
   ]);
 
 /** Mock ClinicsRepository 생성 */

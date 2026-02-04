@@ -7,6 +7,24 @@ import { UserType } from '../constants/auth.constant.js';
 export class ExamsController {
   constructor(private readonly examsService: ExamsService) {}
 
+  /** 강사별 전체 시험 목록 조회 핸들러 */
+  getExams = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const profileId = getProfileIdOrThrow(req);
+      const user = getAuthUser(req);
+      const userType = user.userType as UserType;
+
+      const result = await this.examsService.getExamsByInstructor(
+        userType,
+        profileId,
+      );
+
+      return successResponse(res, { data: result });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   /** 강의별 시험 목록 조회 핸들러 */
   getExamsByLecture = async (
     req: Request,
@@ -96,6 +114,25 @@ export class ExamsController {
       return successResponse(res, {
         data: result,
         message: '시험 수정 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /** 시험 삭제 핸들러 */
+  deleteExam = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { examId } = req.params;
+      const profileId = getProfileIdOrThrow(req);
+      const user = getAuthUser(req);
+      const userType = user.userType as UserType;
+
+      await this.examsService.deleteExam(examId, userType, profileId);
+
+      return successResponse(res, {
+        statusCode: 204,
+        message: '시험 삭제 성공',
       });
     } catch (error) {
       next(error);

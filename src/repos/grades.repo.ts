@@ -170,6 +170,52 @@ export class GradesRepository {
     });
   }
 
+  /** 특정 시험/수강생의 성적 및 답안 조회 */
+  async findGradeWithDetailsByExamAndEnrollment(
+    examId: string,
+    lectureEnrollmentId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return await client.grade.findUnique({
+      where: {
+        examId_lectureEnrollmentId: {
+          examId,
+          lectureEnrollmentId,
+        },
+      },
+      include: {
+        exam: {
+          include: {
+            questions: {
+              orderBy: { questionNumber: 'asc' },
+            },
+          },
+        },
+        lectureEnrollment: {
+          include: {
+            enrollment: {
+              select: {
+                id: true,
+                studentName: true,
+                studentPhone: true,
+                school: true,
+                schoolYear: true,
+              },
+            },
+            studentAnswers: {
+              where: {
+                question: {
+                  examId: examId,
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
   /** 특정 시험에서의 등수 계산 */
   async calculateRankByExamId(
     examId: string,

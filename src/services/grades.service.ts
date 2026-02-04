@@ -37,9 +37,9 @@ export class GradesService {
       throw new NotFoundException('시험을 찾을 수 없습니다.');
     }
 
-    if (exam.gradingStatus === GradingStatus.COMPLETED) {
-      throw new BadRequestException('이미 채점이 완료된 시험입니다.');
-    }
+    // if (exam.gradingStatus === GradingStatus.COMPLETED) {
+    //   throw new BadRequestException('이미 채점이 완료된 시험입니다.');
+    // }
 
     // 2. 권한 검증 (강사/조교)
     const lecture = await this.lecturesRepo.findById(exam.lectureId);
@@ -152,9 +152,9 @@ export class GradesService {
         throw new NotFoundException('시험을 찾을 수 없습니다.');
       }
 
-      if (currentExam.gradingStatus === GradingStatus.COMPLETED) {
-        throw new BadRequestException('이미 채점이 완료된 시험입니다.');
-      }
+      // if (currentExam.gradingStatus === GradingStatus.COMPLETED) {
+      //   throw new BadRequestException('이미 채점이 완료된 시험입니다.');
+      // }
 
       if (currentExam.gradingStatus === GradingStatus.PENDING) {
         await this.examsRepo.updateGradingStatus(
@@ -322,6 +322,71 @@ export class GradesService {
         correctRate: q.statistic?.correctRate ?? 0,
         choiceRates: q.statistic?.choiceRates ?? null,
       })),
+    };
+  }
+
+  /** (관리자용) 수강생별 시험 답안 상세 조회 */
+  async getStudentGradeWithAnswers(
+    examId: string,
+    lectureEnrollmentId: string,
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 1. Exam 확인
+    const exam = await this.examsRepo.findById(examId);
+    if (!exam) {
+      throw new NotFoundException('시험을 찾을 수 없습니다.');
+    }
+
+    // 2. 권한 검증 (강사/조교)
+    const lecture = await this.lecturesRepo.findById(exam.lectureId);
+    if (!lecture) {
+      throw new NotFoundException('강의를 찾을 수 없습니다.');
+    }
+    await this.permissionService.validateInstructorAccess(
+      lecture.instructorId,
+      userType,
+      profileId,
+    );
+
+    // 3. 데이터 조회
+    const gradeWithDetails =
+      await this.gradesRepo.findGradeWithDetailsByExamAndEnrollment(
+        examId,
+        lectureEnrollmentId,
+      );
+
+    if (!gradeWithDetails) {
+      // 성적이 아직 등록되지 않았다면, 답안이라도 있는지 확인 필요하거나 예외 처리
+      // 현재 로직상 성적이 없으면 조회 불가 처리
+      throw new NotFoundException('해당 수강생의 성적 정보가 없습니다.');
+    }
+
+    // 4. 데이터 가공
+    const { questions } = gradeWithDetails.exam;
+    const { studentAnswers } = gradeWithDetails.lectureEnrollment;
+    const answerMap = new Map(studentAnswers.map((a) => [a.questionId, a]));
+
+    const questionResults = questions.map((q) => {
+      const studentAnswer = answerMap.get(q.id);
+      return {
+        questionId: q.id,
+        questionNumber: q.questionNumber,
+        type: q.type,
+        score: q.score,
+        content: q.content,
+        correctAnswer: q.correctAnswer,
+        submittedAnswer: studentAnswer?.submittedAnswer ?? null,
+        isCorrect: studentAnswer?.isCorrect ?? false,
+      };
+    });
+
+    return {
+      studentName: gradeWithDetails.lectureEnrollment.enrollment.studentName,
+      score: gradeWithDetails.score,
+      isPass: gradeWithDetails.isPass,
+      examTitle: gradeWithDetails.exam.title,
+      questions: questionResults,
     };
   }
 }
