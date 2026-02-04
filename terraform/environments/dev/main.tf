@@ -18,6 +18,7 @@ module "compute" {
   instance_type        = "t3.micro"
   key_name             = "lms-key"
   iam_instance_profile = module.iam.instance_profile_name
+  github_pat           = var.github_pat
 }
 
 module "database" {
@@ -33,9 +34,19 @@ module "database" {
   rds_skip_final_snapshot = var.rds_skip_final_snapshot
 }
 
+module "dns" {
+  source = "../../modules/dns"
+  domain_name = var.domain_name
+  public_ip = module.compute.ec2_public_ip
+}
+
+import {
+    to = module.dns.aws_route53_zone.main
+    id = "Z03897078WHI3EBE3DTQ"
+}
+
 module "iam" {
   source = "../../modules/iam"
-
   env            = var.env
   s3_bucket_arns = [module.s3.documents_bucket_arn, module.s3.icons_bucket_arn]
   iam_users = {
