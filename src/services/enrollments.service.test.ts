@@ -388,6 +388,123 @@ describe('EnrollmentsService - @unit #critical', () => {
     });
   });
 
+  /** [수강 마이그레이션] createEnrollmentMigration 테스트 케이스 */
+  describe('[수강 마이그레이션] createEnrollmentMigration', () => {
+    const lectureId = mockLectures.basic.id;
+    const instructorId = mockInstructor.id;
+    const enrollmentIds = ['e-1', 'e-2', 'e-3'];
+
+    it('성공: 새로운 학생들을 일괄 등록한다', async () => {
+      // Arrange
+      mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
+      mockPermissionService.validateInstructorAccess.mockResolvedValue();
+      mockLectureEnrollmentsRepo.findManyByLectureId.mockResolvedValue([]); // 기존 등록 없음
+      mockLectureEnrollmentsRepo.createMany.mockResolvedValue(
+        enrollmentIds.map((id) => ({ enrollmentId: id })) as unknown as Awaited<
+          ReturnType<LectureEnrollmentsRepository['createMany']>
+        >,
+      );
+
+      // Act
+      const result = await enrollmentsService.createEnrollmentMigration(
+        lectureId,
+        { enrollmentIds },
+        UserType.INSTRUCTOR,
+        instructorId,
+      );
+
+      // Assert
+      expect(result.count).toBe(3);
+      expect(mockLectureEnrollmentsRepo.createMany).toHaveBeenCalledWith(
+        enrollmentIds.map((eid) => ({ lectureId, enrollmentId: eid })),
+      );
+    });
+
+    it('성공: 중복된 학생은 제외하고 새로운 학생만 등록한다', async () => {
+      // Arrange
+      mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
+      mockPermissionService.validateInstructorAccess.mockResolvedValue();
+      mockLectureEnrollmentsRepo.findManyByLectureId.mockResolvedValue([
+        { enrollmentId: 'e-1' }, // e-1은 이미 등록됨
+      ] as unknown as Awaited<
+        ReturnType<LectureEnrollmentsRepository['findManyByLectureId']>
+      >);
+      mockLectureEnrollmentsRepo.createMany.mockResolvedValue([
+        { enrollmentId: 'e-2' },
+        { enrollmentId: 'e-3' },
+      ] as unknown as Awaited<
+        ReturnType<LectureEnrollmentsRepository['createMany']>
+      >);
+
+      // Act
+      const result = await enrollmentsService.createEnrollmentMigration(
+        lectureId,
+        { enrollmentIds },
+        UserType.INSTRUCTOR,
+        instructorId,
+      );
+
+      // Assert
+      expect(result.count).toBe(2);
+      expect(mockLectureEnrollmentsRepo.createMany).toHaveBeenCalledWith([
+        { lectureId, enrollmentId: 'e-2' },
+        { lectureId, enrollmentId: 'e-3' },
+      ]);
+    });
+
+    it('성공: 모든 학생이 이미 등록된 경우 등록하지 않는다', async () => {
+      // Arrange
+      mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
+      mockPermissionService.validateInstructorAccess.mockResolvedValue();
+      mockLectureEnrollmentsRepo.findManyByLectureId.mockResolvedValue(
+        enrollmentIds.map((id) => ({ enrollmentId: id })) as unknown as Awaited<
+          ReturnType<LectureEnrollmentsRepository['findManyByLectureId']>
+        >,
+      );
+
+      // Act
+      const result = await enrollmentsService.createEnrollmentMigration(
+        lectureId,
+        { enrollmentIds },
+        UserType.INSTRUCTOR,
+        instructorId,
+      );
+
+      // Assert
+      expect(result.count).toBe(0);
+      expect(mockLectureEnrollmentsRepo.createMany).not.toHaveBeenCalled();
+    });
+
+    it('실패: 강의가 존재하지 않으면 NotFoundException을 던진다', async () => {
+      mockLecturesRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        enrollmentsService.createEnrollmentMigration(
+          'invalid',
+          { enrollmentIds },
+          UserType.INSTRUCTOR,
+          instructorId,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('실패: 권한이 없으면 ForbiddenException을 던진다', async () => {
+      mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
+      mockPermissionService.validateInstructorAccess.mockRejectedValue(
+        new ForbiddenException('해당 권한이 없습니다.'),
+      );
+
+      await expect(
+        enrollmentsService.createEnrollmentMigration(
+          lectureId,
+          { enrollmentIds },
+          UserType.INSTRUCTOR,
+          'other-id',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
   /** [수강생 목록 조회] getEnrollments 테스트 케이스 */
   describe('[수강생 목록 조회] getEnrollments', () => {
     const lectureId = mockLectures.basic.id;

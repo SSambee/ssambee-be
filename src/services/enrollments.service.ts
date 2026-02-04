@@ -15,6 +15,7 @@ import type { Prisma } from '../generated/prisma/client.js';
 import type {
   GetEnrollmentsQueryDto,
   GetSvcEnrollmentsQueryDto,
+  CreateEnrollmentMigrationDto,
 } from '../validations/enrollments.validation.js';
 
 import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
@@ -163,6 +164,55 @@ export class EnrollmentsService {
 
       return lectureEnrollment;
     });
+  }
+
+  /** 수강 마이그레이션 (기존 등록 학생들을 다른 강의로 일괄 등록) */
+  async createEnrollmentMigration(
+    lectureId: string,
+    data: CreateEnrollmentMigrationDto,
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 1. 강의 존재 여부 확인
+    const lecture = await this.lecturesRepository.findById(lectureId);
+    if (!lecture) {
+      throw new NotFoundException('강의를 찾을 수 없습니다.');
+    }
+
+    // 2. 권한 체크 (강사 본인 또는 담당 조교)
+    await this.permissionService.validateInstructorAccess(
+      lecture.instructorId,
+      userType,
+      profileId,
+    );
+
+    const { enrollmentIds } = data;
+
+    // 3. 이미 이 강의에 등록된 학생들(Enrollment) 필터링을 위해 기존 LectureEnrollment 조회
+    const existingLectureEnrollments =
+      await this.lectureEnrollmentsRepository.findManyByLectureId(lectureId);
+    const existingEnrollmentIds = new Set(
+      existingLectureEnrollments.map((le) => le.enrollmentId),
+    );
+
+    // 4. 아직 등록되지 않은 학생 ID들만 필터링
+    const newEnrollmentIds = enrollmentIds.filter(
+      (id) => !existingEnrollmentIds.has(id),
+    );
+
+    if (newEnrollmentIds.length === 0) {
+      return { count: 0 };
+    }
+
+    // 5. 일괄 등록
+    const result = await this.lectureEnrollmentsRepository.createMany(
+      newEnrollmentIds.map((eid) => ({
+        lectureId,
+        enrollmentId: eid,
+      })),
+    );
+
+    return { count: result.length };
   }
 
   /** 수강생 목록 조회 (강사/조교) - 통합됨 */

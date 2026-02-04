@@ -180,6 +180,36 @@ export class EnrollmentsController {
     }
   };
 
+  /** 수강 마이그레이션 핸들러 (일괄 등록) */
+  createEnrollmentMigration = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { lectureId } = req.params;
+      const user = getAuthUser(req);
+      const profileId = getProfileIdOrThrow(req);
+      const userType = user.userType as UserType;
+      const body = req.body;
+
+      const result = await this.enrollmentsService.createEnrollmentMigration(
+        lectureId,
+        body,
+        userType,
+        profileId,
+      );
+
+      return successResponse(res, {
+        statusCode: 201,
+        data: result,
+        message: '수강 마이그레이션 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   /** Enrollment 수정 */
   updateEnrollment = async (
     req: Request,

@@ -97,3 +97,14 @@ export const getSvcEnrollmentsQuerySchema = z.object({
 export type GetSvcEnrollmentsQueryDto = z.infer<
   typeof getSvcEnrollmentsQuerySchema
 >;
+
+/** 수강 마이그레이션(일괄 등록) 스키마 */
+export const createEnrollmentMigrationSchema = z.object({
+  enrollmentIds: z
+    .array(z.string().trim().min(1))
+    .min(1, '최소 1개의 선택된 학생이 필요합니다.'),
+});
+
+export type CreateEnrollmentMigrationDto = z.infer<
+  typeof createEnrollmentMigrationSchema
+>;
