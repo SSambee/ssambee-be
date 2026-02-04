@@ -51,3 +51,8 @@ export const examIdParamSchema = z.object({
 export const lectureIdExamParamSchema = z.object({
   lectureId: z.string().min(1),
 });
+
+export const examAndEnrollmentParamSchema = z.object({
+  examId: z.string().min(1),
+  lectureEnrollmentId: z.string().min(1),
+});

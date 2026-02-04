@@ -142,6 +142,11 @@ export const createMockGradesRepository = () =>
     'upsertStudentAnswers',
     'upsertGrade',
     'findGradesByExamId',
+    'calculateRankByExamId',
+    'calculateAverageByExamId',
+    'findByIdWithDetails',
+    'findByLectureEnrollmentId',
+    'findGradeWithDetailsByExamAndEnrollment',
   ]);
 
 /** Mock ClinicsRepository 생성 */

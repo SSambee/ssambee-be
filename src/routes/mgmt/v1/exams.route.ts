@@ -3,6 +3,7 @@ import { container } from '../../../config/container.config.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
 import {
   examIdParamSchema,
+  examAndEnrollmentParamSchema,
   updateExamSchema,
 } from '../../../validations/exams.validation.js';
 import { submitGradingSchema } from '../../../validations/grades.validation.js';
@@ -49,6 +50,14 @@ mgmtExamsRouter.get(
   validate(examIdParamSchema, 'params'),
   (req, res, next) =>
     container.gradesController.getGradesByExam(req, res, next),
+);
+
+/** 수강생별 성적/답안 상세 조회 */
+mgmtExamsRouter.get(
+  '/:examId/grades/lectureEnrollments/:lectureEnrollmentId',
+  validate(examAndEnrollmentParamSchema, 'params'),
+  (req, res, next) =>
+    container.gradesController.getStudentGradeWithAnswers(req, res, next),
 );
 
 /** 통계 산출 및 저장 */

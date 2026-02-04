@@ -380,4 +380,104 @@ describe('GradesService - @unit #critical', () => {
       ).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe('[조회] getStudentGradeWithAnswers', () => {
+    it('유효한 요청에 대해 성적 및 답안 정보를 반환한다', async () => {
+      // Arrange
+      const mockGradeWithDetails = {
+        score: 90,
+        isPass: true,
+        exam: {
+          title: '중간고사',
+          questions: [
+            {
+              id: 'q1',
+              examId: mockExam.id,
+              lectureId: mockExam.lectureId,
+              questionNumber: 1,
+              type: 'MULTIPLE',
+              score: 10,
+              content: 'Q1 Content',
+              correctAnswer: 'A',
+              choices: { '1': 'A', '2': 'B', '3': 'C', '4': 'D' },
+              source: null,
+              category: null,
+            },
+          ],
+        },
+        lectureEnrollment: {
+          id: 'le-1',
+          registeredAt: new Date(),
+          memo: null,
+          lectureId: mockExam.lectureId,
+          enrollmentId: 'enrollment-1',
+          enrollment: {
+            id: 'enrollment-1',
+            studentName: '홍길동',
+            studentPhone: '010-1234-5678',
+            school: '서울고등학교',
+            schoolYear: '3',
+          },
+          studentAnswers: [
+            {
+              id: 'sa-1',
+              lectureId: mockExam.lectureId,
+              createdAt: new Date(),
+              lectureEnrollmentId: 'le-1',
+              questionId: 'q1',
+              submittedAnswer: 'A',
+              isCorrect: true,
+            },
+          ],
+        },
+      };
+
+      mockExamsRepo.findById.mockResolvedValue(mockExam);
+      mockLecturesRepo.findById.mockResolvedValue(mockLecture);
+      mockGradesRepo.findGradeWithDetailsByExamAndEnrollment.mockResolvedValue(
+        mockGradeWithDetails as unknown as Awaited<
+          ReturnType<
+            typeof mockGradesRepo.findGradeWithDetailsByExamAndEnrollment
+          >
+        >, // Cast to satisfy Prisma's complex nested type
+      );
+
+      // Act
+      const result = await gradesService.getStudentGradeWithAnswers(
+        mockExam.id,
+        'le-1',
+        mockUserType,
+        mockProfileId,
+      );
+
+      // Assert
+      expect(mockExamsRepo.findById).toHaveBeenCalledWith(mockExam.id);
+      expect(mockLecturesRepo.findById).toHaveBeenCalledWith(
+        mockExam.lectureId,
+      );
+      expect(mockPermissionService.validateInstructorAccess).toHaveBeenCalled();
+      expect(result).toBeDefined();
+      expect(result.studentName).toBe('홍길동');
+      expect(result.questions).toHaveLength(1);
+      expect(result.questions[0].submittedAnswer).toBe('A');
+      expect(result.questions[0].isCorrect).toBe(true);
+    });
+
+    it('성적 정보가 존재하지 않을 때, NotFoundException을 던진다', async () => {
+      mockExamsRepo.findById.mockResolvedValue(mockExam);
+      mockLecturesRepo.findById.mockResolvedValue(mockLecture);
+      mockGradesRepo.findGradeWithDetailsByExamAndEnrollment.mockResolvedValue(
+        null,
+      );
+
+      await expect(
+        gradesService.getStudentGradeWithAnswers(
+          mockExam.id,
+          'le-1',
+          mockUserType,
+          mockProfileId,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
 });
