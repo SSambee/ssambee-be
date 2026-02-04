@@ -74,9 +74,25 @@ resource "aws_iam_role_policy" "ec2_s3_policy" {
         Resource = flatten([
           for arn in var.s3_bucket_arns : [arn, "${arn}/*"]
         ])
-      }
-    ]
-  })
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParameterHistory"
+        ]
+        Resource = "arn:aws:ssm:*:*:parameter/github/pat"
+        },
+        {
+          Effect = "Allow"
+          Action = [
+            "kms:Decrypt",
+          ]
+          Resource = "*"
+        }
+      ]
+    })
 }
 
 # EC2에 부착할 Instance Profile

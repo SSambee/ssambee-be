@@ -116,7 +116,7 @@ resource "aws_instance" "app_server" {
                 dnf install -y gh
 
                 #  Runner 설치 및 자동 등록
-                export GH_TOKEN="${var.github_pat}"
+                export GH_TOKEN=$(aws ssm get-parameter --name "/github/pat" --with-decryption --query "Parameter.Value" --output text)
                 REPO_OWNER="EduOps-Lab"
                 REPO_NAME="ssambee-be"
                 # Runner용 폴더 생성 (ec2-user 권한으로)
@@ -147,7 +147,6 @@ resource "aws_instance" "app_server" {
                 # 토큰이 포함된 URL을 일반 URL로 교체
                 git remote set-url origin https://github.com/$${REPO_OWNER}/$${REPO_NAME}.git
                 chown -R ec2-user:ec2-user /home/ec2-user/app
-                find /home/ec2-user/app -type f -name ".env" -exec chmod 644 {} +
                 EOF
   tags = { Name = "${var.env}-app-server" }
 }

@@ -7,4 +7,4 @@ environment - development
 db_password             = ""
 # dev용
 frontend_origin = "http://localhost:3000"
-github_pat = ""
+# github_pat 은 SSM PARAMETER_STORE 로 관리
