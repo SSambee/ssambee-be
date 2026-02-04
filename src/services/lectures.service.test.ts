@@ -414,9 +414,8 @@ describe('LecturesService - @unit #critical', () => {
         expect(result.id).toBe(mockLectures.basic.id);
         expect(result.instructorName).toBe(mockUsers.instructor.name);
         expect(result.enrollmentsCount).toBe(
-          mockLectures.basic._count.lectureEnrollments, // 수정됨
+          mockLectures.basic._count.lectureEnrollments,
         );
-        // expect(result.students).toEqual([]); // 구현 방식에 따라 빈 배열이거나 매핑된 결과임
         expect(mockLecturesRepo.findById).toHaveBeenCalledWith(
           mockLectures.basic.id,
         );

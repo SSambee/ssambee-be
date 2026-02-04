@@ -125,7 +125,16 @@ export class EnrollmentsRepository {
       include: {
         lectureEnrollments: {
           include: {
-            lecture: true,
+            lecture: {
+              include: {
+                lectureTimes: true,
+              },
+            },
+          },
+        },
+        instructor: {
+          include: {
+            user: true,
           },
         },
       },
@@ -140,48 +149,8 @@ export class EnrollmentsRepository {
     });
   }
 
-  /** 강의별 수강생 목록 조회 (시험 성적 포함 옵션) */
-  async findManyByLectureId(
-    lectureId: string,
-    options?: { examId?: string },
-    tx?: Prisma.TransactionClient,
-  ) {
-    const client = tx ?? this.prisma;
-    return await client.enrollment.findMany({
-      where: {
-        lectureEnrollments: {
-          some: {
-            lectureId,
-          },
-        },
-        deletedAt: null,
-      },
-      include: {
-        attendances: {
-          orderBy: { date: 'desc' },
-          take: 1,
-        },
-        lectureEnrollments: {
-          where: { lectureId },
-          include: {
-            grades: options?.examId
-              ? {
-                  where: { examId: options.examId },
-                  select: { id: true },
-                  take: 1,
-                }
-              : undefined,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-  }
-
-  /** 강사별 전체 수강생 목록 조회 (검색/필터/페이지네이션) */
-  async findManyByInstructorId(
+  /** 수강생 목록 조회 (검색/필터/페이지네이션) - 통합됨 */
+  async findMany(
     instructorId: string,
     params: {
       page: number;
@@ -189,11 +158,13 @@ export class EnrollmentsRepository {
       keyword?: string;
       year?: string;
       status?: EnrollmentStatus;
+      lectureId?: string;
+      examId?: string;
     },
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
-    const { page, limit, keyword, year, status } = params;
+    const { page, limit, keyword, year, status, lectureId, examId } = params;
 
     // 검색 조건 구성
     const where: Prisma.EnrollmentWhereInput = {
@@ -218,25 +189,40 @@ export class EnrollmentsRepository {
       ];
     }
 
+    // 강의 필터링
+    if (lectureId) {
+      where.lectureEnrollments = {
+        some: {
+          lectureId,
+        },
+      };
+    }
+
     // 데이터 조회 (페이지네이션)
     const { skip, take } = getPagingParams(page, limit);
     const [enrollments, totalCount] = await Promise.all([
       client.enrollment.findMany({
         where,
         include: {
-          // lecture 관계 삭제됨
-          /*
-          lecture: {
-            select: {
-              id: true,
-              title: true,
-            },
-          },
-          */
           appStudent: true,
           attendances: {
             orderBy: { date: 'desc' },
             take: 1,
+          },
+          lectureEnrollments: {
+            include: {
+              grades: examId
+                ? {
+                    where: { examId: examId },
+                    select: { id: true },
+                    take: 1,
+                  }
+                : undefined,
+              lecture: true,
+            },
+            orderBy: {
+              registeredAt: 'desc',
+            },
           },
         },
         orderBy: {

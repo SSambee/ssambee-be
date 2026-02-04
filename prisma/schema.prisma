@@ -180,6 +180,7 @@ model Enrollment {
 
   // [Snapshot & Profile] 학생 기본 정보 (강사가 관리하는 주소록 개념)
   studentName  String @map("student_name")
+  studentEmail String? @map("student_email")
   studentPhone String @map("student_phone") // 이 정보를 통해 동일성 및 연속성 확보
   parentPhone  String @map("parent_phone")
   
@@ -269,6 +270,7 @@ model LectureTime {
 // - 실제 출석부, 성적 처리, 과제 제출 등이 일어나는 단위입니다.
 model LectureEnrollment {
   id String @id @default(cuid(2))
+  memo String?
 
   // [Parent] 어떤 '관계(Enrollment)'에서 파생된 수강인가?
   enrollmentId String @map("enrollment_id")

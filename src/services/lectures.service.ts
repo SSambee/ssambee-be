@@ -71,6 +71,7 @@ export type LectureDetailResponse = {
   students: {
     id: string; // enrollmentId
     lectureEnrollmentId: string;
+    lectureEnrollmentMemo: string | null;
     name: string;
     school: string;
     phone: string;
@@ -264,6 +265,7 @@ export class LecturesService {
       students: lecture.lectureEnrollments.map((le) => ({
         id: le.enrollment.id,
         lectureEnrollmentId: le.id,
+        lectureEnrollmentMemo: le.memo,
         name: le.enrollment.studentName,
         school: `${le.enrollment.school} ${le.enrollment.schoolYear}`,
         phone: le.enrollment.studentPhone,

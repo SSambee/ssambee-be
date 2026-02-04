@@ -296,6 +296,7 @@ export const mockEnrollmentWithRelations = {
   lectureEnrollments: [
     {
       id: faker.string.uuid(),
+      memo: null,
       enrollmentId: mockEnrollments.active.id,
       lectureId: mockLectures.basic.id,
       registeredAt: new Date(),
@@ -303,13 +304,15 @@ export const mockEnrollmentWithRelations = {
         ...mockLectures.basic,
         instructor: {
           ...mockInstructor,
-          user: {
-            name: mockUsers.instructor.name,
-          },
+          user: mockUsers.instructor,
         },
       },
     },
   ],
+  instructor: {
+    ...mockInstructor,
+    user: mockUsers.instructor,
+  },
 };
 
 /** Enrollment with Relations (학부모용 - 간소화된 관계) */

@@ -62,6 +62,7 @@ export const mockLectures: Record<string, LectureDetail> = {
     lectureEnrollments: [
       {
         id: 'le-1',
+        memo: null,
         lectureId: 'lecture-id',
         enrollmentId: 'enrollment-1',
         registeredAt: new Date(),
@@ -81,11 +82,13 @@ export const mockLectures: Record<string, LectureDetail> = {
           deletedAt: null,
           appStudentId: null,
           appParentLinkId: null,
+          studentEmail: null,
         },
         studentAnswers: [],
       },
       {
         id: 'le-2',
+        memo: null,
         lectureId: 'lecture-id',
         enrollmentId: 'enrollment-2',
         registeredAt: new Date(),
@@ -105,6 +108,7 @@ export const mockLectures: Record<string, LectureDetail> = {
           deletedAt: null,
           appStudentId: null,
           appParentLinkId: null,
+          studentEmail: null,
         },
         studentAnswers: [],
       },

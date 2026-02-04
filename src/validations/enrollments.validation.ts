@@ -35,6 +35,7 @@ export const createEnrollmentSchema = z.object({
   school: z.string().trim().min(1, '학교명은 필수입니다.'),
   schoolYear: z.enum([...SCHOOL_YEARS] as [string, ...string[]]),
   studentName: z.string().trim().min(1, '학생 이름은 필수입니다.'),
+  studentEmail: z.string().email().optional(),
   studentPhone: z
     .string()
     .trim()
@@ -53,6 +54,7 @@ export const updateEnrollmentSchema = z.object({
   school: z.string().trim().min(1, '학교명은 필수입니다.').optional(),
   schoolYear: z.enum([...SCHOOL_YEARS] as [string, ...string[]]).optional(),
   studentName: z.string().trim().min(1, '학생 이름은 필수입니다.').optional(),
+  studentEmail: z.string().email().optional(),
   studentPhone: z
     .string()
     .trim()
@@ -96,4 +98,16 @@ export const getSvcEnrollmentsQuerySchema = z.object({
 
 export type GetSvcEnrollmentsQueryDto = z.infer<
   typeof getSvcEnrollmentsQuerySchema
+>;
+
+/** 수강 마이그레이션(일괄 등록) 스키마 */
+export const createEnrollmentMigrationSchema = z.object({
+  enrollmentIds: z
+    .array(z.string().trim().min(1))
+    .min(1, '최소 1개의 선택된 학생이 필요합니다.'),
+  memo: z.string().optional(),
+});
+
+export type CreateEnrollmentMigrationDto = z.infer<
+  typeof createEnrollmentMigrationSchema
 >;

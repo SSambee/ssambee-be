@@ -8,7 +8,10 @@ import {
   lectureIdParamSchema,
   updateLectureSchema,
 } from '../../../validations/lectures.validation.js';
-import { createEnrollmentSchema } from '../../../validations/enrollments.validation.js';
+import {
+  createEnrollmentSchema,
+  createEnrollmentMigrationSchema,
+} from '../../../validations/enrollments.validation.js';
 import {
   createBulkAttendancesSchema,
   lectureEnrollmentParamSchema,
@@ -91,6 +94,21 @@ mgmtLecturesRouter.post(
   '/:lectureId/enrollments',
   validate(createEnrollmentSchema, 'body'),
   container.enrollmentsController.createEnrollment,
+);
+
+/** 해당 강의에 수강생 마이그레이션 (일괄 등록) */
+mgmtLecturesRouter.post(
+  '/:lectureId/enrollments/migration',
+  validate(createEnrollmentMigrationSchema, 'body'),
+  container.enrollmentsController.createEnrollmentMigration,
+);
+
+/** 해당 강의 수강생 목록 조회 (New) */
+mgmtLecturesRouter.get(
+  '/:lectureId/enrollments',
+  validate(lectureIdParamSchema, 'params'),
+  validate(getLecturesQuerySchema, 'query'),
+  container.enrollmentsController.getEnrollmentsByLectureId,
 );
 
 /** 해당 강의 수강생 단체 출결 등록 */
