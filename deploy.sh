@@ -47,6 +47,25 @@ if [ -z "$DATABASE_URL" ]; then
     exit 1
 fi
 
+# 테라폼을 통한 DB 인프라 및 권한 최신화
+echo -e "${BLUE}=== 테라폼 DB 권한 설정 시작 ===${NC}"
+# 현재 위치를 기억하고 테라폼 디렉토리로 이동
+pushd terraform/environments/dev > /dev/null 2>&1
+
+# -auth-approve를 사용하여 중단 없이 실행
+if terraform apply -auto-approve \
+    -var "db_password=${DB_PASSWORD}" \
+    -var "app_db_password=${APP_DB_PASSWORD}" ; then
+    echo -e "${GREEN}테라폼 DB 권한 설정 완료!${NC}"
+else
+    echo -e "${RED}테라폼 DB 권한 설정 실패! 배포를 중단합니다.${NC}"
+    popd > /dev/null # 실패해도 원위치로 복귀
+    exit 1
+fi
+
+# 다시 원래 배포 스크립트 경로로 복귀
+cd - > /dev/null 2>&1
+
 # 현재 실행 중인 컨테이너 확인
 BLUE_RUNNING=$(docker ps -q -f name=eduops-backend-blue -f status=running)
 GREEN_RUNNING=$(docker ps -q -f name=eduops-backend-green -f status=running)
