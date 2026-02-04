@@ -62,7 +62,9 @@ fi
 # -auto-approve를 사용하여 중단 없이 실행
 if terraform apply -auto-approve \
     -var "db_password=${DB_PASSWORD}" \
-    -var "app_db_password=${APP_DB_PASSWORD}" ; then
+    -var "app_db_password=${APP_DB_PASSWORD}"\
+    -var "environment=${ENVIRONMENT}" \
+    -var "frontend_origin=${FRONTEND_ORIGIN}" ; then
     echo -e "${GREEN}테라폼 DB 권한 설정 완료!${NC}"
 else
     echo -e "${RED}테라폼 DB 권한 설정 실패! 배포를 중단합니다.${NC}"
