@@ -121,6 +121,7 @@ describe('EnrollmentsService - @unit #critical', () => {
 
         mockLectureEnrollmentsRepo.create.mockResolvedValue({
           id: 'le-1',
+          memo: null,
           lectureId: lectureId,
           enrollmentId: mockEnrollments.active.id,
           registeredAt: new Date(),
@@ -130,6 +131,7 @@ describe('EnrollmentsService - @unit #critical', () => {
         mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValueOnce(
           {
             id: 'le-1',
+            memo: null,
             lectureId: lectureId,
             enrollmentId: mockEnrollments.active.id,
             registeredAt: new Date(),
@@ -189,6 +191,7 @@ describe('EnrollmentsService - @unit #critical', () => {
 
         mockLectureEnrollmentsRepo.create.mockResolvedValue({
           id: 'le-1',
+          memo: null,
           lectureId: lectureId,
           enrollmentId: mockEnrollments.active.id,
           registeredAt: new Date(),
@@ -198,6 +201,7 @@ describe('EnrollmentsService - @unit #critical', () => {
         mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValueOnce(
           {
             id: 'le-1',
+            memo: null,
             lectureId: lectureId,
             enrollmentId: mockEnrollments.active.id,
             registeredAt: new Date(),
@@ -256,6 +260,7 @@ describe('EnrollmentsService - @unit #critical', () => {
 
         mockLectureEnrollmentsRepo.create.mockResolvedValue({
           id: 'le-1',
+          memo: null,
           lectureId: lectureId,
           enrollmentId: mockEnrollments.active.id,
           registeredAt: new Date(),
@@ -265,6 +270,7 @@ describe('EnrollmentsService - @unit #critical', () => {
         mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValueOnce(
           {
             id: 'le-1',
+            memo: null,
             lectureId: lectureId,
             enrollmentId: mockEnrollments.active.id,
             registeredAt: new Date(),
@@ -889,6 +895,7 @@ describe('EnrollmentsService - @unit #critical', () => {
       it('강사가 lectureEnrollmentId로 수강생 상세 정보 조회를 요청할 때, 성공한다', async () => {
         mockLectureEnrollmentsRepo.findById.mockResolvedValue({
           id: lectureEnrollmentId,
+          memo: null,
           enrollmentId,
           lectureId: 'lecture-1',
           registeredAt: new Date(),

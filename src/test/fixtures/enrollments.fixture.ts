@@ -296,6 +296,7 @@ export const mockEnrollmentWithRelations = {
   lectureEnrollments: [
     {
       id: faker.string.uuid(),
+      memo: null,
       enrollmentId: mockEnrollments.active.id,
       lectureId: mockLectures.basic.id,
       registeredAt: new Date(),
