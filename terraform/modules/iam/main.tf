@@ -104,3 +104,29 @@ resource "aws_iam_instance_profile" "ec2_s3_profile" {
 output "instance_profile_name" {
   value = aws_iam_instance_profile.ec2_s3_profile.name
 }
+
+# 테라폼 실행을 위한 관리 권한 추가
+
+## EC2 및 네트워크(VPC) 관리 권한
+resource "aws_iam_role_policy_attachment" "ec2_admin" {
+  role       = aws_iam_role.ec2_s3_access_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
+}
+
+## RDS 관리 권한 (DB 유저 설정을 위해 필수)
+resource "aws_iam_role_policy_attachment" "rds_admin" {
+  role       = aws_iam_role.ec2_s3_access_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonRDSFullAccess"
+}
+
+## Route53 관리 권한 (도메인 설정 조회 에러 해결)
+resource "aws_iam_role_policy_attachment" "route53_admin" {
+  role       = aws_iam_role.ec2_s3_access_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonRoute53FullAccess"
+}
+
+## IAM 관리 권한 (테라폼이 IAM 리소스를 관리하는 경우 필요)
+resource "aws_iam_role_policy_attachment" "iam_admin" {
+  role       = aws_iam_role.ec2_s3_access_role.name
+  policy_arn = "arn:aws:iam::aws:policy/IAMFullAccess"
+}
