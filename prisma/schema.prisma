@@ -270,6 +270,7 @@ model LectureTime {
 // - 실제 출석부, 성적 처리, 과제 제출 등이 일어나는 단위입니다.
 model LectureEnrollment {
   id String @id @default(cuid(2))
+  memo String?
 
   // [Parent] 어떤 '관계(Enrollment)'에서 파생된 수강인가?
   enrollmentId String @map("enrollment_id")
