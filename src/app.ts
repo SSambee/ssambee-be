@@ -15,6 +15,11 @@ const app = express();
 
 initSentry();
 
+// Nginx 프록시 신뢰 설정
+if (isProduction()) {
+  app.set('trust proxy', 1); // 1은 1번째 프록시(Nginx)를 믿는다
+}
+
 // 1. 보안
 const whiteList: string[] = config.FRONT_URL
   ? config.FRONT_URL.split(',').map((url) => url.trim())
