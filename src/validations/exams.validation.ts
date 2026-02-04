@@ -12,6 +12,7 @@ const questionCreateSchema = z.object({
   score: z.number().int().min(0).default(0),
   choices: choicesSchema, // { "1": "내용", "2": "", ... }
   source: z.string().optional(),
+  category: z.string().optional(),
   correctAnswer: z.string().min(1, '정답은 필수입니다.'),
 });
 
@@ -27,6 +28,9 @@ export const createExamSchema = z.object({
   title: z.string().min(1, '시험 제목은 필수입니다.').max(100),
   cutoffScore: z.number().int().min(0).default(0),
   source: z.string().optional(),
+  examDate: z.string().optional(),
+  category: z.string().optional(),
+  isAutoClinic: z.boolean().default(true),
   questions: z
     .array(questionCreateSchema)
     .min(1, '최소 1개의 문항이 필요합니다.'),
@@ -39,6 +43,9 @@ export const updateExamSchema = z.object({
   title: z.string().min(1).max(100).optional(),
   cutoffScore: z.number().int().min(0).optional(),
   source: z.string().optional().nullable(),
+  examDate: z.string().optional().nullable(),
+  category: z.string().optional().nullable(),
+  isAutoClinic: z.boolean().optional(),
   questions: z.array(questionUpsertSchema).optional(),
 });
 

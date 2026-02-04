@@ -43,6 +43,9 @@ export class ExamsRepository {
         title: data.title,
         cutoffScore: data.cutoffScore,
         source: data.source,
+        examDate: data.examDate,
+        category: data.category,
+        isAutoClinic: data.isAutoClinic,
         questions: {
           create: data.questions.map((q) => ({
             questionNumber: q.questionNumber,
@@ -52,6 +55,7 @@ export class ExamsRepository {
             choices: q.choices ?? Prisma.JsonNull,
             correctAnswer: q.correctAnswer,
             source: q.source,
+            category: q.category,
           })),
         },
       },
@@ -240,6 +244,7 @@ export class ExamsRepository {
         choices: data.choices ?? Prisma.JsonNull,
         correctAnswer: data.correctAnswer,
         source: data.source,
+        category: data.category,
       },
     });
   }
@@ -261,6 +266,7 @@ export class ExamsRepository {
         choices: data.choices ?? Prisma.JsonNull,
         correctAnswer: data.correctAnswer,
         source: data.source,
+        category: data.category,
       },
     });
   }

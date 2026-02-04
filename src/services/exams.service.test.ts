@@ -206,7 +206,12 @@ describe('ExamsService - @unit #critical', () => {
         mockUserType,
         mockProfileId,
       );
-      expect(mockExamsRepo.createWithQuestions).toHaveBeenCalled();
+      expect(mockExamsRepo.createWithQuestions).toHaveBeenCalledWith(
+        mockLectureId,
+        mockLecture.instructorId,
+        createDto,
+        expect.anything(), // tx
+      );
       expect(result).toBeDefined();
     });
 
@@ -277,7 +282,10 @@ describe('ExamsService - @unit #critical', () => {
       // q1 수정 확인
       expect(mockExamsRepo.updateQuestion).toHaveBeenCalledWith(
         'q1',
-        expect.objectContaining({ content: updateDto.questions?.[0].content }),
+        expect.objectContaining({
+          content: updateDto.questions?.[0].content,
+          category: 'UPDATED_CAT',
+        }),
         mockPrisma,
       );
 

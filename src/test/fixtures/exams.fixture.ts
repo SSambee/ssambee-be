@@ -127,6 +127,9 @@ export const createExamRequests = {
   basic: {
     title: faker.word.words(2) + ' 시험',
     cutoffScore: 60,
+    examDate: '2024-12-25',
+    category: 'MIDTERM',
+    isAutoClinic: false,
     questions: [
       {
         questionNumber: 1,
@@ -135,6 +138,7 @@ export const createExamRequests = {
         score: 10,
         type: QuestionType.MULTIPLE,
         choices: { '1': 'A', '2': 'B', '3': 'C', '4': 'D' },
+        category: 'MATH',
       },
     ],
   } as CreateExamDto,
@@ -142,6 +146,7 @@ export const createExamRequests = {
   multipleQuestions: {
     title: faker.word.words(2) + ' 시험',
     cutoffScore: 70,
+    isAutoClinic: true,
     questions: [
       {
         questionNumber: 1,
@@ -170,6 +175,7 @@ export const createExamRequests = {
   noQuestions: {
     title: faker.word.words(2) + ' 시험',
     cutoffScore: 50,
+    isAutoClinic: true,
     questions: [],
   } as CreateExamDto,
 } as const;
@@ -193,6 +199,7 @@ export const updateExamRequests = {
         score: 12,
         type: QuestionType.MULTIPLE,
         choices: { '1': 'A', '2': 'B', '3': 'C', '4': 'D' },
+        category: 'UPDATED_CAT',
       },
       {
         questionNumber: 2,
