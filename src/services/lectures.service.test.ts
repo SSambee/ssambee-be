@@ -414,11 +414,8 @@ describe('LecturesService - @unit #critical', () => {
         expect(result.id).toBe(mockLectures.basic.id);
         expect(result.instructorName).toBe(mockUsers.instructor.name);
         expect(result.enrollmentsCount).toBe(
-          mockLectures.basic._count.lectureEnrollments, // 수정됨
+          mockLectures.basic._count.lectureEnrollments,
         );
-        // expect(result.students).toEqual([]); // 구현 방식에 따라 빈 배열이거나 매핑된 결과임
-        // students 배열이 비어있지 않다면 memo 필드 확인 (mock data에 따라 다름, 여기서는 students가 비어있을 수 있음)
-        // 하지만 타입이 변경되었으므로 컴파일 에러가 나지 않는지 확인하는 의미도 있음
         expect(mockLecturesRepo.findById).toHaveBeenCalledWith(
           mockLectures.basic.id,
         );
