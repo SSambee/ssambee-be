@@ -36,6 +36,13 @@ mgmtExamsRouter.patch(
   examsController.updateExam,
 );
 
+/** 시험 삭제 (PENDING 상태일 때만 가능) */
+mgmtExamsRouter.delete(
+  '/:examId',
+  validate(examIdParamSchema, 'params'),
+  examsController.deleteExam,
+);
+
 /** 채점 제출 (학생 답안 채점 및 Upsert) */
 mgmtExamsRouter.post(
   '/:examId/grades',

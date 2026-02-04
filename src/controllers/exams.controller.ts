@@ -119,4 +119,23 @@ export class ExamsController {
       next(error);
     }
   };
+
+  /** 시험 삭제 핸들러 */
+  deleteExam = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { examId } = req.params;
+      const profileId = getProfileIdOrThrow(req);
+      const user = getAuthUser(req);
+      const userType = user.userType as UserType;
+
+      await this.examsService.deleteExam(examId, userType, profileId);
+
+      return successResponse(res, {
+        statusCode: 204,
+        message: '시험 삭제 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

@@ -294,4 +294,12 @@ export class ExamsRepository {
       orderBy: { questionNumber: 'asc' },
     });
   }
+
+  /** 시험 삭제 */
+  async delete(id: string, tx?: Prisma.TransactionClient): Promise<void> {
+    const client = tx ?? this.prisma;
+    await client.exam.delete({
+      where: { id },
+    });
+  }
 }

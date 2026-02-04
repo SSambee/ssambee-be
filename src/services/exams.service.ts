@@ -1,6 +1,10 @@
 import { PrismaClient } from '../generated/prisma/client.js';
 import { UserType } from '../constants/auth.constant.js';
-import { NotFoundException } from '../err/http.exception.js';
+import {
+  NotFoundException,
+  BadRequestException,
+} from '../err/http.exception.js';
+import { GradingStatus } from '../constants/exams.constant.js';
 import { ExamsRepository } from '../repos/exams.repo.js';
 import { LecturesRepository } from '../repos/lectures.repo.js';
 import { PermissionService } from './permission.service.js';
@@ -190,5 +194,36 @@ export class ExamsService {
       // 3-3. 최종 결과 반환 (수정된 문항 포함)
       return await this.examsRepo.findByIdWithQuestions(examId, tx);
     });
+  }
+
+  /** 시험 삭제 (PENDING 상태일 때만 가능) */
+  async deleteExam(examId: string, userType: UserType, profileId: string) {
+    // 1. Exam 확인
+    const exam = await this.examsRepo.findById(examId);
+    if (!exam) {
+      throw new NotFoundException('시험을 찾을 수 없습니다.');
+    }
+
+    // 2. 권한 확인
+    const lecture = await this.lecturesRepo.findById(exam.lectureId);
+    if (!lecture) {
+      throw new NotFoundException('관련 강의를 찾을 수 없습니다.');
+    }
+
+    await this.permissionService.validateInstructorAccess(
+      lecture.instructorId,
+      userType,
+      profileId,
+    );
+
+    // 3. 상태 확인 (PENDING 이외는 삭제 불가)
+    if (exam.gradingStatus !== GradingStatus.PENDING) {
+      throw new BadRequestException(
+        '채점이 시작된 시험은 삭제할 수 없습니다. (Pending 상태만 가능)',
+      );
+    }
+
+    // 4. 삭제 처리
+    await this.examsRepo.delete(examId);
   }
 }
