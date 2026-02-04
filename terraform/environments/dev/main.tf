@@ -31,11 +31,22 @@ module "database" {
   db_password             = var.db_password
   rds_deletion_protection = var.rds_deletion_protection
   rds_skip_final_snapshot = var.rds_skip_final_snapshot
+  environment = var.environment
+}
+
+module "dns" {
+  source = "../../modules/dns"
+  domain_name = var.domain_name
+  public_ip = module.compute.ec2_public_ip
+}
+
+import {
+    to = module.dns.aws_route53_zone.main
+    id = "Z03897078WHI3EBE3DTQ"
 }
 
 module "iam" {
   source = "../../modules/iam"
-
   env            = var.env
   s3_bucket_arns = [module.s3.documents_bucket_arn, module.s3.icons_bucket_arn]
   iam_users = {

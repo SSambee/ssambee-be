@@ -30,3 +30,7 @@ variable "rds_deletion_protection" {
 variable "rds_skip_final_snapshot" {
   type = bool
 }
+
+variable "environment" {
+  type = string
+}
