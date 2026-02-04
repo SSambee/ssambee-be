@@ -35,7 +35,7 @@ variable "environment" {
   type = string
  }
 
-//** App User **//
+# App User
 // 서비스 유저 정보를 변수로 관리
 variable "app_db_username" {
   description = "Prisma/App에서 사용할 유저명" 

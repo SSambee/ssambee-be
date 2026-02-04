@@ -56,7 +56,7 @@ variable "domain_name" {
   default = "ssambee.com"
 }
 
-//** App User **//
+# App User
 variable "app_db_username" {
   description = "Prisma/App에서 사용할 유저명" 
   type = string

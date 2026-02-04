@@ -52,7 +52,14 @@ echo -e "${BLUE}=== 테라폼 DB 권한 설정 시작 ===${NC}"
 # 현재 위치를 기억하고 테라폼 디렉토리로 이동
 pushd terraform/environments/dev > /dev/null 2>&1
 
-# -auth-approve를 사용하여 중단 없이 실행
+# terraform init 실행 (이미 초기화되어 있으면 빠르게 완료)
+if ! terraform init -input=false; then
+    echo -e "${RED}테라폼 초기화 실패! 배포를 중단합니다.${NC}"
+    popd > /dev/null
+    exit 1
+fi
+
+# -auto-approve를 사용하여 중단 없이 실행
 if terraform apply -auto-approve \
     -var "db_password=${DB_PASSWORD}" \
     -var "app_db_password=${APP_DB_PASSWORD}" ; then
@@ -64,7 +71,7 @@ else
 fi
 
 # 다시 원래 배포 스크립트 경로로 복귀
-cd - > /dev/null 2>&1
+popd - > /dev/null 2>&1
 
 # 현재 실행 중인 컨테이너 확인
 BLUE_RUNNING=$(docker ps -q -f name=eduops-backend-blue -f status=running)
