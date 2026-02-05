@@ -57,6 +57,7 @@ export type LectureDetailResponse = {
   id: string;
   title: string;
   subject: string | null;
+  schoolYear: string | null;
   status: string;
   startAt: Date | null;
   createdAt: Date;
@@ -204,6 +205,7 @@ export class LecturesService {
       id: lecture.id,
       title: lecture.title,
       subject: lecture.subject,
+      schoolYear: lecture.schoolYear,
       status: lecture.status,
       startAt: lecture.startAt,
       createdAt: lecture.createdAt,
@@ -250,6 +252,7 @@ export class LecturesService {
       id: lecture.id,
       title: lecture.title,
       subject: lecture.subject,
+      schoolYear: lecture.schoolYear,
       status: lecture.status,
       startAt: lecture.startAt,
       createdAt: lecture.createdAt,
