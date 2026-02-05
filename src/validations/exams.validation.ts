@@ -43,7 +43,7 @@ export const createExamSchema = z.object({
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `문번은 중복될 수 없습니다: ${[...new Set(duplicates)].join(', ')}`,
-          path: ['questions'],
+          path: [],
         });
       }
     }),
@@ -76,7 +76,7 @@ export const updateExamSchema = z.object({
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `문번은 중복될 수 없습니다: ${[...new Set(duplicates)].join(', ')}`,
-          path: ['questions'],
+          path: [],
         });
       }
     }),
