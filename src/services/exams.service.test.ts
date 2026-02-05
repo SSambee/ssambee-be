@@ -15,10 +15,7 @@ import type {
   ExamsRepository,
   ExamDetailWithEnrollments,
 } from '../repos/exams.repo.js';
-import type {
-  LecturesRepository,
-  LectureDetail,
-} from '../repos/lectures.repo.js';
+import type { LecturesRepository } from '../repos/lectures.repo.js';
 import type { PermissionService } from './permission.service.js';
 import type { PrismaClient, Prisma } from '../generated/prisma/client.js';
 import type {
@@ -132,9 +129,6 @@ describe('ExamsService - @unit #critical', () => {
       >;
 
       mockExamsRepo.findByIdWithEnrollments.mockResolvedValue(examDetail);
-      mockLecturesRepo.findById.mockResolvedValue(
-        mockLecture as Awaited<ReturnType<typeof mockLecturesRepo.findById>>,
-      );
 
       const result = await examsService.getExamById(
         mockExamId,
@@ -145,11 +139,10 @@ describe('ExamsService - @unit #critical', () => {
       expect(mockExamsRepo.findByIdWithEnrollments).toHaveBeenCalledWith(
         mockExamId,
       );
-      expect(mockLecturesRepo.findById).toHaveBeenCalledWith(mockLectureId);
       expect(
         mockPermissionService.validateInstructorAccess,
       ).toHaveBeenCalledWith(
-        mockLecture.instructorId,
+        examDetail!.instructorId,
         mockUserType,
         mockProfileId,
       );
@@ -157,7 +150,7 @@ describe('ExamsService - @unit #critical', () => {
     });
 
     it('존재하지 않는 시험을 조회할 때, NotFoundException을 던진다', async () => {
-      mockExamsRepo.findByIdWithQuestions.mockResolvedValue(null);
+      mockExamsRepo.findByIdWithEnrollments.mockResolvedValue(null);
 
       await expect(
         examsService.getExamById(mockExamId, mockUserType, mockProfileId),
@@ -165,22 +158,6 @@ describe('ExamsService - @unit #critical', () => {
       await expect(
         examsService.getExamById(mockExamId, mockUserType, mockProfileId),
       ).rejects.toThrow('시험을 찾을 수 없습니다.');
-    });
-
-    it('시험은 존재하나 관련 강의 정보가 없을 때, NotFoundException을 던진다', async () => {
-      mockExamsRepo.findByIdWithEnrollments.mockResolvedValue(
-        mockExamWithQuestions.basic as Awaited<
-          ReturnType<typeof mockExamsRepo.findByIdWithEnrollments>
-        >,
-      );
-      mockLecturesRepo.findById.mockResolvedValue(null);
-
-      await expect(
-        examsService.getExamById(mockExamId, mockUserType, mockProfileId),
-      ).rejects.toThrow(NotFoundException);
-      await expect(
-        examsService.getExamById(mockExamId, mockUserType, mockProfileId),
-      ).rejects.toThrow('관련 강의를 찾을 수 없습니다.');
     });
   });
 
@@ -242,9 +219,6 @@ describe('ExamsService - @unit #critical', () => {
       const exam = mockExams.basic as NonNullable<
         Awaited<ReturnType<typeof mockExamsRepo.findById>>
       >;
-      const lectureDetail = mockLectures.withEnrollments as NonNullable<
-        Awaited<ReturnType<typeof mockLecturesRepo.findById>>
-      >;
       const updateDto = updateExamRequests.withQuestions;
       const existingQuestions = [
         { id: 'q1', questionNumber: 1 },
@@ -252,7 +226,6 @@ describe('ExamsService - @unit #critical', () => {
       ] as Awaited<ReturnType<typeof mockExamsRepo.findQuestionsByExamId>>;
 
       mockExamsRepo.findById.mockResolvedValue(exam);
-      mockLecturesRepo.findById.mockResolvedValue(lectureDetail);
       mockExamsRepo.update.mockResolvedValue(exam);
       mockExamsRepo.findQuestionsByExamId.mockResolvedValue(existingQuestions);
       mockExamsRepo.findByIdWithQuestions.mockResolvedValue(
@@ -270,11 +243,7 @@ describe('ExamsService - @unit #critical', () => {
 
       expect(
         mockPermissionService.validateInstructorAccess,
-      ).toHaveBeenCalledWith(
-        lectureDetail.instructorId,
-        mockUserType,
-        mockProfileId,
-      );
+      ).toHaveBeenCalledWith(exam.instructorId, mockUserType, mockProfileId);
 
       expect(mockExamsRepo.update).toHaveBeenCalledWith(
         mockExamId,
@@ -298,10 +267,10 @@ describe('ExamsService - @unit #critical', () => {
         mockPrisma,
       );
 
-      // 새 문항 생성 확인
+      // 새 문항 생성 확인 (exam.lectureId 사용)
       expect(mockExamsRepo.createQuestion).toHaveBeenCalledWith(
         mockExamId,
-        lectureDetail.id,
+        exam.lectureId,
         expect.objectContaining({ content: updateDto.questions?.[1].content }),
         mockPrisma,
       );
@@ -319,23 +288,6 @@ describe('ExamsService - @unit #critical', () => {
         ),
       ).rejects.toThrow(NotFoundException);
     });
-
-    it('시험은 존재하나 관련 강의 정보가 없을 때, NotFoundException을 던진다', async () => {
-      const exam = { ...mockExams.basic, lectureId: 'none' } as Awaited<
-        ReturnType<typeof mockExamsRepo.findById>
-      >;
-      mockExamsRepo.findById.mockResolvedValue(exam);
-      mockLecturesRepo.findById.mockResolvedValue(null);
-
-      await expect(
-        examsService.updateExam(
-          mockExamId,
-          {} as UpdateExamDto,
-          mockUserType,
-          mockProfileId,
-        ),
-      ).rejects.toThrow(NotFoundException);
-    });
   });
 
   describe('getExamById', () => {
@@ -343,6 +295,7 @@ describe('ExamsService - @unit #critical', () => {
       const mockExamWithEnrollments = {
         id: mockExamId,
         lectureId: mockLectureId,
+        instructorId: mockProfileId,
         questions: [],
         enrollments: [
           {
@@ -355,15 +308,10 @@ describe('ExamsService - @unit #critical', () => {
         ],
         lecture: { title: 'Math Class' },
       } as unknown as ExamDetailWithEnrollments;
-      const mockLecture = {
-        id: mockLectureId,
-        instructorId: mockProfileId,
-      } as LectureDetail;
 
       mockExamsRepo.findByIdWithEnrollments.mockResolvedValue(
         mockExamWithEnrollments,
       );
-      mockLecturesRepo.findById.mockResolvedValue(mockLecture);
 
       const result = await examsService.getExamById(
         mockExamId,
@@ -374,11 +322,10 @@ describe('ExamsService - @unit #critical', () => {
       expect(mockExamsRepo.findByIdWithEnrollments).toHaveBeenCalledWith(
         mockExamId,
       );
-      expect(mockLecturesRepo.findById).toHaveBeenCalledWith(mockLectureId);
       expect(
         mockPermissionService.validateInstructorAccess,
       ).toHaveBeenCalledWith(
-        mockLecture.instructorId,
+        mockExamWithEnrollments.instructorId,
         mockUserType,
         mockProfileId,
       );
@@ -468,18 +415,14 @@ describe('ExamsService - @unit #critical', () => {
 
     it('시험 상태가 PENDING이고 권한이 있을 때, 시험이 정상적으로 삭제된다', async () => {
       mockExamsRepo.findById.mockResolvedValue(mockExam);
-      mockLecturesRepo.findById.mockResolvedValue(mockLecture as LectureDetail);
 
       await examsService.deleteExam(mockExamId, mockUserType, mockProfileId);
 
       expect(mockExamsRepo.findById).toHaveBeenCalledWith(mockExamId);
-      expect(mockLecturesRepo.findById).toHaveBeenCalledWith(
-        mockExam.lectureId,
-      );
       expect(
         mockPermissionService.validateInstructorAccess,
       ).toHaveBeenCalledWith(
-        mockLecture.instructorId,
+        mockExam.instructorId,
         mockUserType,
         mockProfileId,
       );
@@ -494,22 +437,12 @@ describe('ExamsService - @unit #critical', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('시험은 존재하나 관련 강의 정보가 없을 때, NotFoundException을 던진다', async () => {
-      mockExamsRepo.findById.mockResolvedValue(mockExam);
-      mockLecturesRepo.findById.mockResolvedValue(null);
-
-      await expect(
-        examsService.deleteExam(mockExamId, mockUserType, mockProfileId),
-      ).rejects.toThrow(NotFoundException);
-    });
-
     it('시험 상태가 PENDING이 아닐 때, BadRequestException을 던진다', async () => {
       const inProgressExam = {
         ...mockExam,
         gradingStatus: GradingStatus.IN_PROGRESS,
       };
       mockExamsRepo.findById.mockResolvedValue(inProgressExam);
-      mockLecturesRepo.findById.mockResolvedValue(mockLecture as LectureDetail);
 
       await expect(
         examsService.deleteExam(mockExamId, mockUserType, mockProfileId),

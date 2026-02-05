@@ -121,6 +121,8 @@ export const mockLectures: Record<string, LectureDetail> = {
         instructorId: 'instructor-id',
         cutoffScore: 0,
         source: null,
+        subject: null,
+        description: null,
         updatedAt: new Date(),
         createdAt: new Date(),
         gradingStatus: 'PENDING',
