@@ -62,12 +62,8 @@ jobs:
     env:
       NODE_ENV: ${{ secrets.NODE_ENV }}
       PORT: ${{ secrets.PORT }}
-      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-      APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
-      ENVIRONMENT: ${{ secrets. ENVIRONMENT }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       FRONT_URL: ${{ secrets.FRONT_URL }}
-      FRONTEND_ORIGIN: ${{ secrets.FRONTEND_ORIGIN }}
       BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
       BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
       SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
@@ -81,12 +77,8 @@ jobs:
             # 환경 변수 파일 생성
             echo "NODE_ENV=$NODE_ENV" > .env
             echo "PORT=$PORT" >> .env
-            echo "DB_PASSWORD=$DB_PASSWORD" >> .env
-            echo "APP_DB_PASSWORD=$APP_DB_PASSWORD" >> .env
-            echo "ENVIRONMENT=$ENVIRONMENT" >> .env
             echo "DATABASE_URL=$DATABASE_URL" >> .env
             echo "FRONT_URL=$FRONT_URL" >> .env
-            echo "FRONTEND_ORIGIN=$FRONTEND_ORIGIN" >> .env
             echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET" >> .env
             echo "BETTER_AUTH_URL=$BETTER_AUTH_URL" >> .env
             echo "SENTRY_DSN=$SENTRY_DSN" >> .env
