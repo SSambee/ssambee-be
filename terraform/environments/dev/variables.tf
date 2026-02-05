@@ -57,14 +57,14 @@ variable "domain_name" {
 }
 
 # App User
-variable "app_db_username" {
-  description = "Prisma/App에서 사용할 유저명" 
-  type = string
-  default = "eduops_user"
-}
+# variable "app_db_username" {
+#   description = "Prisma/App에서 사용할 유저명" 
+#   type = string
+#   default = "eduops_user"
+# }
 
-variable "app_db_password" {
-  description = "Prisma/App에서 사용할 비밀번호" 
-  type = string
-  sensitive = true
-}
+# variable "app_db_password" {
+#   description = "Prisma/App에서 사용할 비밀번호" 
+#   type = string
+#   sensitive = true
+# }
