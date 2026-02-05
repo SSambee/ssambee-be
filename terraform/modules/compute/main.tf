@@ -78,11 +78,11 @@ resource "aws_instance" "app_server" {
 
   lifecycle {
     # 실수로라도 테라폼이 이 서버를 삭제하는 것을 막는다.
-    prevent_destroy = true
+    # prevent_destroy = true
     # AMI 변경 등 교체가 불필요한 상황이면 새 서버를 먼저 다 띄우고 (Runner 등록 까지 완료) 예전 서버를 죽이게 한다.
-    create_before_destroy = true
+    # create_before_destroy = true
     # 콘솔에서 태그를 바꿨다고 서버를 재시작하면 곤란하니 태그 변화는 무시
-    ignore_changes = [ tags, user_data ]
+    # ignore_changes = [ tags, user_data ]
   }
 
   user_data = <<-EOF
@@ -98,10 +98,12 @@ resource "aws_instance" "app_server" {
                 echo '/swapfile none swap sw 0 0' >> /etc/fstab
 
                 dnf update -y
-                dnf install -y docker git jq libicu postgresql15
+                dnf install -y docker git jq libicu postgresql15 certbot cronie
                 systemctl start docker
                 systemctl enable docker
                 usermod -aG docker ec2-user
+                sudo systemctl start crond
+                sudo systemctl enable crond
 
                 # Docker Compose 설치
                 mkdir -p /usr/local/lib/docker/cli-plugins/
@@ -124,12 +126,13 @@ resource "aws_instance" "app_server" {
                 export GH_TOKEN=$(aws ssm get-parameter --name "/github/pat" --with-decryption --query "Parameter.Value" --output text)
                 REPO_OWNER="EduOps-Lab"
                 REPO_NAME="ssambee-be"
+                RUNNER_VERSION="2.331.0"
                 # Runner용 폴더 생성 (ec2-user 권한으로)
                 mkdir -p /home/ec2-user/actions-runner  && cd /home/ec2-user/actions-runner
+                sudo chown -R ec2-user:ec2-user /home/ec2-user/actions-runner
                 # 최신 등록 토큰 발급 (실시간)
                 RUNNER_TOKEN=$(gh api --method POST repos/$${REPO_OWNER}/$${REPO_NAME}/actions/runners/registration-token | jq -r '.token')
                 # Runner 패키지 다운 (버전은 주기적 업데이트 필요)
-                RUNNER_VERSION="2.331.0"
                 curl -o actions-runner-linux-x64-$${RUNNER_VERSION}.tar.gz -L https://github.com/actions/runner/releases/download/v$${RUNNER_VERSION}/actions-runner-linux-x64-$${RUNNER_VERSION}.tar.gz
                 tar xzf ./actions-runner-linux-x64-$${RUNNER_VERSION}.tar.gz
                 # Runner 구성 및 서비스 등록 (ec2-user 소유권을 준수하면서)
@@ -139,19 +142,29 @@ resource "aws_instance" "app_server" {
                 sudo ./svc.sh install
                 sudo ./svc.sh start
 
+                # certbot 전용 디렉토리 미리 생성 Nginx 컨테이너가 마운트해서 쓸수있게
+                mkdir -p /etc/letsencrypt
+                mkdir -p /var/lib/letsencrypt
+                # 크론탭 자동 갱신 설정 매일 새벽 3시에 갱신을 시도, 성공 시 Nginx 리로드
+                echo "0 3 * * * root /usr/bin/certbot renew --post-hook 'docker exec eduops-nginx nginx -s reload' >> /var/log/certbot-renew.log 2>&1" | sudo tee /etc/cron.d/certbot-renew
+                sudo chmod 644 /etc/cron.d/certbot-renew
+
                 # Sparse  Checkout 설정
                 cd /home/ec2-user
-                mkdir -p app && cd app
-                git init
-                git remote add origin https://oauth2:$${GH_TOKEN}@github.com/$${REPO_OWNER}/$${REPO_NAME}.git
-                git config core.sparseCheckout true
-                echo "docker-compose.yml" >> .git/info/sparse-checkout
-                echo "deploy.sh" >> .git/info/sparse-checkout
-                echo "nginx/" >> .git/info/sparse-checkout
-                git pull origin main
+                mkdir -p app
+                sudo chown -R ec2-user:ec2-user /home/ec2-user/app
+                cd app
+
+                # ec2-user 권한으로 git 수행
+                sudo -u ec2-user git init
+                sudo -u ec2-user git remote add origin https://oauth2:$${GH_TOKEN}@github.com/$${REPO_OWNER}/$${REPO_NAME}.git
+                sudo -u ec2-user git config core.sparseCheckout true
+                echo "docker-compose.yml" | sudo -u ec2-user tee -a .git/info/sparse-checkout
+                echo "deploy.sh" | sudo -u ec2-user tee -a .git/info/sparse-checkout
+                echo "nginx/" | sudo -u ec2-user tee -a  .git/info/sparse-checkout
+                sudo -u ec2-user git pull origin dev
                 # 토큰이 포함된 URL을 일반 URL로 교체
-                git remote set-url origin https://github.com/$${REPO_OWNER}/$${REPO_NAME}.git
-                chown -R ec2-user:ec2-user /home/ec2-user/app
+                sudo -u ec2-user git remote set-url origin https://github.com/$${REPO_OWNER}/$${REPO_NAME}.git
                 EOF
   tags = { Name = "${var.env}-app-server" }
 }
