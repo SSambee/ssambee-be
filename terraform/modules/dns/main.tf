@@ -1,6 +1,10 @@
 # 기존 호스팅 영역
 resource "aws_route53_zone" "main" {
     name = var.domain_name
+
+    lifecycle {
+        prevent_destroy = true # 실수로 삭제되는 것을 방지!
+    }
 }
 
 # 백엔드 api 레코드
