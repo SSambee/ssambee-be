@@ -170,7 +170,7 @@ export class EnrollmentsRepository {
     // 검색 조건 구성
     const where: Prisma.EnrollmentWhereInput = {
       instructorId,
-      deletedAt: null,
+      deletedAt: status === EnrollmentStatus.DROPPED ? undefined : null,
     };
 
     if (status) {

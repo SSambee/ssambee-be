@@ -73,14 +73,9 @@ export class ExamsService {
       throw new NotFoundException('시험을 찾을 수 없습니다.');
     }
 
-    // 2. 권한 확인 (강의 담당자 체크)
-    const lecture = await this.lecturesRepo.findById(exam.lectureId);
-    if (!lecture) {
-      throw new NotFoundException('관련 강의를 찾을 수 없습니다.');
-    }
-
+    // 2. 권한 확인
     await this.permissionService.validateInstructorAccess(
-      lecture.instructorId,
+      exam.instructorId,
       userType,
       profileId,
     );
@@ -133,18 +128,9 @@ export class ExamsService {
       throw new NotFoundException('시험을 찾을 수 없습니다.');
     }
 
-    // 2. 권한 확인 (강사/조교가 해당 강의에 접근 권한이 있는지)
-    // Exam에는 instructorId가 있지만 nullable일 수 있으므로 lecture를 통해 확인 권장
-    // (스키마상 Exam.instructorId는 nullable이지만 Create 시점엔 넣음)
-    // 가장 확실한건 Lecture의 instructorId 확인
-    const lecture = await this.lecturesRepo.findById(exam.lectureId);
-    if (!lecture) {
-      // 데이터 무결성 문제지만 예외 처리
-      throw new NotFoundException('관련 강의를 찾을 수 없습니다.');
-    }
-
+    // 2. 권한 확인
     await this.permissionService.validateInstructorAccess(
-      lecture.instructorId,
+      exam.instructorId,
       userType,
       profileId,
     );
@@ -163,30 +149,38 @@ export class ExamsService {
           examId,
           tx,
         );
-        const existingIds = existingQuestions.map((q) => q.id);
+        const existingQuestionMap = new Map(
+          existingQuestions.map((q) => [q.questionNumber, q]),
+        );
 
-        const inputIds = inputQuestions
-          .map((q) => q.id)
-          .filter((id): id is string => !!id);
+        const inputQuestionNumbers = inputQuestions.map(
+          (q) => q.questionNumber,
+        );
 
-        // A. Delete: 전달되지 않은 기존 ID 삭제
-        const toDeleteIds = existingIds.filter((id) => !inputIds.includes(id));
+        // A. Delete: 전달되지 않은 기존 문항 번호 삭제
+        const toDeleteIds = existingQuestions
+          .filter((q) => !inputQuestionNumbers.includes(q.questionNumber))
+          .map((q) => q.id);
+
         if (toDeleteIds.length > 0) {
           await this.examsRepo.deleteQuestions(toDeleteIds, tx);
         }
 
         // B. Upsert Loop
         for (const inputQ of inputQuestions) {
-          if (inputQ.id && existingIds.includes(inputQ.id)) {
-            // Update
-            await this.examsRepo.updateQuestion(inputQ.id, inputQ, tx);
+          const existingQ = existingQuestionMap.get(inputQ.questionNumber);
+
+          if (existingQ) {
+            // Update using existing Question ID
+            await this.examsRepo.updateQuestion(existingQ.id, inputQ, tx);
           } else {
-            // Create (id가 없거나, 있어도 DB에 없는 경우 - DB에 없는데 ID 보내면 에러나거나 무시? -> 여기선 Create로 취급하되 ID는 새로 따짐)
-            // 보통 ID가 있으면 Update 시도하므로, ID가 있는데 DB에 없으면 에러가 낫겠지만,
-            // 여기 로직상 inputQ.id && existingIds.includes 체크하므로
-            // ID가 있어도 매칭 안되면 Create로 넘어옴 (ID 무시하고 새로 생성됨)
-            // -> 기획 의도: id 없음 = Create.
-            await this.examsRepo.createQuestion(examId, lecture.id, inputQ, tx);
+            // Create
+            await this.examsRepo.createQuestion(
+              examId,
+              exam.lectureId,
+              inputQ,
+              tx,
+            );
           }
         }
       }
@@ -204,14 +198,8 @@ export class ExamsService {
       throw new NotFoundException('시험을 찾을 수 없습니다.');
     }
 
-    // 2. 권한 확인
-    const lecture = await this.lecturesRepo.findById(exam.lectureId);
-    if (!lecture) {
-      throw new NotFoundException('관련 강의를 찾을 수 없습니다.');
-    }
-
     await this.permissionService.validateInstructorAccess(
-      lecture.instructorId,
+      exam.instructorId,
       userType,
       profileId,
     );

@@ -16,6 +16,8 @@ export const mockExams = {
     title: faker.helpers.arrayElement(['중간고사', '기말고사', '단원평가']),
     cutoffScore: 60,
     source: null,
+    subject: null,
+    description: null,
     gradingStatus: 'PENDING',
     examDate: faker.date.recent(),
     category: null,
@@ -31,6 +33,8 @@ export const mockExams = {
     title: faker.helpers.arrayElement(['중간고사', '기말고사', '단원평가']),
     cutoffScore: 70,
     source: null,
+    subject: null,
+    description: null,
     gradingStatus: 'PENDING',
     examDate: faker.date.recent(),
     category: null,
@@ -46,6 +50,8 @@ export const mockExams = {
     title: '타 강사 시험',
     cutoffScore: 60,
     source: null,
+    subject: null,
+    description: null,
     gradingStatus: 'PENDING',
     examDate: faker.date.recent(),
     category: null,
@@ -192,7 +198,6 @@ export const updateExamRequests = {
     cutoffScore: 70,
     questions: [
       {
-        id: 'q1',
         questionNumber: 1,
         content: '수정된 문제 내용',
         correctAnswer: 'B',
@@ -217,7 +222,6 @@ export const updateExamRequests = {
     cutoffScore: 60,
     questions: [
       {
-        id: 'q1',
         questionNumber: 1,
         content: '유지되는 문제',
         correctAnswer: 'A',
