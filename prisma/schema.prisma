@@ -334,6 +334,8 @@ model Exam {
   lectureId   String  @map("lecture_id")
   instructorId String?     @map("instructor_id")
   title       String
+  description String?
+  subject     String?
   cutoffScore Int     @default(0) @map("cutoff_score")
   source      String?
 
