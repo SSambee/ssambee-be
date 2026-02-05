@@ -32,7 +32,21 @@ export const createExamSchema = z.object({
   isAutoClinic: z.boolean().default(true),
   questions: z
     .array(questionCreateSchema)
-    .min(1, '최소 1개의 문항이 필요합니다.'),
+    .min(1, '최소 1개의 문항이 필요합니다.')
+    .superRefine((questions, ctx) => {
+      const questionNumbers = questions.map((q) => q.questionNumber);
+      const duplicates = questionNumbers.filter(
+        (num, index) => questionNumbers.indexOf(num) !== index,
+      );
+
+      if (duplicates.length > 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `문번은 중복될 수 없습니다: ${[...new Set(duplicates)].join(', ')}`,
+          path: ['questions'],
+        });
+      }
+    }),
 });
 
 export type CreateExamDto = z.infer<typeof createExamSchema>;
@@ -47,7 +61,25 @@ export const updateExamSchema = z.object({
   examDate: z.string().optional().nullable(),
   category: z.string().optional().nullable(),
   isAutoClinic: z.boolean().optional(),
-  questions: z.array(questionUpsertSchema).optional(),
+  questions: z
+    .array(questionUpsertSchema)
+    .optional()
+    .superRefine((questions, ctx) => {
+      if (!questions) return;
+
+      const questionNumbers = questions.map((q) => q.questionNumber);
+      const duplicates = questionNumbers.filter(
+        (num, index) => questionNumbers.indexOf(num) !== index,
+      );
+
+      if (duplicates.length > 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `문번은 중복될 수 없습니다: ${[...new Set(duplicates)].join(', ')}`,
+          path: ['questions'],
+        });
+      }
+    }),
 });
 
 export type UpdateExamDto = z.infer<typeof updateExamSchema>;
