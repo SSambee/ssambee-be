@@ -41,6 +41,8 @@ export class ExamsRepository {
         lectureId,
         instructorId,
         title: data.title,
+        description: data.description,
+        subject: data.subject,
         cutoffScore: data.cutoffScore,
         source: data.source,
         examDate: data.examDate,

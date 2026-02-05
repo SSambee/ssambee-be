@@ -26,6 +26,8 @@ export type QuestionUpsertDto = z.infer<typeof questionUpsertSchema>;
 /** 시험 생성 스키마 */
 export const createExamSchema = z.object({
   title: z.string().min(1, '시험 제목은 필수입니다.').max(100),
+  description: z.string().optional(),
+  subject: z.string().optional(),
   cutoffScore: z.number().int().min(0).default(0),
   source: z.string().optional(),
   examDate: z.string().optional(),
@@ -41,6 +43,8 @@ export type CreateExamDto = z.infer<typeof createExamSchema>;
 /** 시험 수정 스키마 */
 export const updateExamSchema = z.object({
   title: z.string().min(1).max(100).optional(),
+  description: z.string().optional(),
+  subject: z.string().optional(),
   cutoffScore: z.number().int().min(0).optional(),
   source: z.string().optional().nullable(),
   examDate: z.string().optional().nullable(),

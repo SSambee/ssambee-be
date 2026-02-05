@@ -181,11 +181,6 @@ export class ExamsService {
             // Update
             await this.examsRepo.updateQuestion(inputQ.id, inputQ, tx);
           } else {
-            // Create (id가 없거나, 있어도 DB에 없는 경우 - DB에 없는데 ID 보내면 에러나거나 무시? -> 여기선 Create로 취급하되 ID는 새로 따짐)
-            // 보통 ID가 있으면 Update 시도하므로, ID가 있는데 DB에 없으면 에러가 낫겠지만,
-            // 여기 로직상 inputQ.id && existingIds.includes 체크하므로
-            // ID가 있어도 매칭 안되면 Create로 넘어옴 (ID 무시하고 새로 생성됨)
-            // -> 기획 의도: id 없음 = Create.
             await this.examsRepo.createQuestion(examId, lecture.id, inputQ, tx);
           }
         }
