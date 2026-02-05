@@ -29,6 +29,22 @@ if [ -f "$ENV_PATH" ]; then
     . "$ENV_PATH"  # source 대신 . 을 사용하여 호환성 확보
     set +a
     echo -e "${GREEN}.env 파일 로드 성공!${NC}"
+
+    # SSL 인증서 체크 및 초기 발급 로직
+    CERT_PATH="/etc/letsencrypt/live/api.ssambee.com/fullchain.pem"
+    
+    if [ ! -f "$CERT_PATH" ]; then
+        echo -e "${YELLOW} 인증서가 없습니다. 초기 발급을 시도합니다...${NC}"
+
+        docker stop eduops-nginx 2>/dev/null || true
+
+        if sudo certbot certonly --standalone -d api.ssambee.com --email rklpoi5678@naver.com --agree-tos --non-interactive; then
+            echo -e "${GREEN} 인증서 발급 성공! ${NC}"
+        else
+            echo -e "${RED} 인증서 발급 실패! DNS 설정과 80포트 개방 여부를 확인하세요.${NC}"
+            exit 1
+        fi
+    fi
 else
     echo -e "${RED}경고: .env 파일을 찾을 수 없습니다! $(pwd) ${NC}"
     ls -al
@@ -82,6 +98,7 @@ echo -e "${YELLOW}사용하지 않는 이미지 및 컨테이너 정리 중...${
 docker system prune -f
 
 # Docker Compose 명령어 확인 및 설치 (Amazon Linux 2023 대응)
+##  테라폼 user_data에서 이미 설치를 해주기에 실행될일은 거의 없지만 보험
 if docker compose version > /dev/null 2>&1; then
     COMPOSE="docker compose"
 elif docker-compose version > /dev/null 2>&1; then

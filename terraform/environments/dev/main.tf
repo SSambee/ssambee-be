@@ -52,11 +52,6 @@ module "dns" {
   public_ip = module.compute.ec2_public_ip
 }
 
-import {
-    to = module.dns.aws_route53_zone.main
-    id = "Z03897078WHI3EBE3DTQ"
-}
-
 module "iam" {
   source = "../../modules/iam"
   env            = var.env
