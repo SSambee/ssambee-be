@@ -1,6 +1,5 @@
 /** @type {import('jest').Config} */
 const config = {
-  preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
   testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
@@ -12,9 +11,16 @@ const config = {
     '!src/app.ts',
     '!src/test/**/*.ts'
   ],
-  transform: {
-    '^.+\\.(ts|js)$': ['ts-jest', {
-      tsconfig: './tsconfig.test.json',
+transform: {
+    '^.+\\.(t|j)s$': ['@swc/jest', {
+      // tsconfig.test.json의 내용을 SWC가 이해할 수 있게 설정
+      jsc: {
+        parser: {
+          syntax: 'typescript',
+          decorators: true, // 필요한 경우
+        },
+        target: 'es2022',
+      },
     }]
   },
   transformIgnorePatterns: [
