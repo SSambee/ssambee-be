@@ -308,4 +308,26 @@ export class LecturesRepository {
       data: { deletedAt: new Date() },
     });
   }
+
+  /** 단순 강의 리스트 조회 (드롭다운 용) */
+  async findSimpleMany(
+    instructorId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<Pick<Lecture, 'id' | 'title' | 'status'>[]> {
+    const client = tx ?? this.prisma;
+    return await client.lecture.findMany({
+      where: {
+        instructorId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+      },
+      orderBy: {
+        title: 'asc',
+      },
+    });
+  }
 }

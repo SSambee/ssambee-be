@@ -535,4 +535,31 @@ describe('LecturesService - @unit #critical', () => {
       });
     });
   });
+
+  describe('[단순 강의 목록 조회] getLectureSimpleList', () => {
+    it('강사가 단순 강의 목록 조회를 요청할 때, id, title, status만 포함된 목록이 반환된다', async () => {
+      // Arrange
+      const mockSimpleLectures = [
+        { id: 'lecture-1', title: '강의 1', status: 'SCHEDULED' },
+        { id: 'lecture-2', title: '강의 2', status: 'IN_PROGRESS' },
+      ];
+      mockLecturesRepo.findSimpleMany.mockResolvedValue(mockSimpleLectures);
+
+      // Act
+      const result = await lecturesService.getLectureSimpleList(
+        mockInstructor.id,
+      );
+
+      // Assert
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({
+        id: 'lecture-1',
+        title: '강의 1',
+        status: 'SCHEDULED',
+      });
+      expect(mockLecturesRepo.findSimpleMany).toHaveBeenCalledWith(
+        mockInstructor.id,
+      );
+    });
+  });
 });

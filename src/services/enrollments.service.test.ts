@@ -2,6 +2,7 @@ import { EnrollmentsService } from './enrollments.service.js';
 import {
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '../err/http.exception.js';
 import {
   createMockEnrollmentsRepository,
@@ -1349,6 +1350,115 @@ describe('EnrollmentsService - @unit #critical', () => {
           mockEnrollmentQueries.withPagination,
         ),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+  describe('[수강 삭제] removeLectureEnrollment', () => {
+    const lectureId = 'lecture-1';
+    const enrollmentId = 'enrollment-1';
+    const instructorId = 'instructor-1';
+
+    it('성공: 수강 정보를 영구 삭제(Hard Delete)한다', async () => {
+      mockLecturesRepo.findById.mockResolvedValue({
+        ...mockLectures.basic,
+        status: LectureStatus.SCHEDULED,
+        id: lectureId,
+        instructorId,
+      });
+      mockPermissionService.validateInstructorAccess.mockResolvedValue();
+      mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValue(
+        {
+          id: 'le-1',
+          lectureId,
+          enrollmentId,
+          registeredAt: new Date(),
+          memo: null,
+          enrollment: mockEnrollments.active,
+        },
+      );
+
+      const result = await enrollmentsService.removeLectureEnrollment(
+        lectureId,
+        enrollmentId,
+        UserType.INSTRUCTOR,
+        instructorId,
+      );
+
+      expect(result).toEqual({ lectureId, enrollmentId });
+      expect(
+        mockLectureEnrollmentsRepo.removeByLectureIdAndEnrollmentId,
+      ).toHaveBeenCalledWith(lectureId, enrollmentId);
+    });
+
+    it('실패: 강의가 존재하지 않으면 NotFoundException을 던진다', async () => {
+      mockLecturesRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        enrollmentsService.removeLectureEnrollment(
+          lectureId,
+          enrollmentId,
+          UserType.INSTRUCTOR,
+          instructorId,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('실패: 수강 정보가 존재하지 않으면 NotFoundException을 던진다', async () => {
+      mockLecturesRepo.findById.mockResolvedValue({
+        ...mockLectures.basic,
+        id: lectureId,
+        instructorId,
+      });
+      mockPermissionService.validateInstructorAccess.mockResolvedValue();
+      mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValue(
+        null,
+      );
+
+      await expect(
+        enrollmentsService.removeLectureEnrollment(
+          lectureId,
+          enrollmentId,
+          UserType.INSTRUCTOR,
+          instructorId,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('실패: 이미 시작된 강의의 수강 정보인 경우 BadRequestException을 던진다', async () => {
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - 1);
+
+      mockLecturesRepo.findById.mockResolvedValue({
+        ...mockLectures.basic,
+        status: LectureStatus.IN_PROGRESS,
+        startAt: pastDate,
+        id: lectureId,
+        instructorId,
+      });
+      mockPermissionService.validateInstructorAccess.mockResolvedValue();
+      mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValue(
+        {
+          id: 'le-1',
+          lectureId,
+          enrollmentId,
+          registeredAt: new Date(),
+          memo: null,
+          enrollment:
+            mockEnrollments.active as unknown as EnrollmentWithRelations,
+        } as Awaited<
+          ReturnType<
+            LectureEnrollmentsRepository['findByLectureIdAndEnrollmentId']
+          >
+        >,
+      );
+
+      await expect(
+        enrollmentsService.removeLectureEnrollment(
+          lectureId,
+          enrollmentId,
+          UserType.INSTRUCTOR,
+          instructorId,
+        ),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

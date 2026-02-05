@@ -4,7 +4,8 @@ region = "ap-northeast-2"
 rds_deletion_protection = false
 rds_skip_final_snapshot = true
 environment = "development"
-db_password             = ""
+db_password             = "" #마스터용
+app_db_password             = "" # 서비스용
 # dev용
 frontend_origin = "http://localhost:3000"
 # github_pat 은 SSM PARAMETER_STORE 로 관리

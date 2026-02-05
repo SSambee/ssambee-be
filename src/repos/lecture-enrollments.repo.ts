@@ -237,4 +237,21 @@ export class LectureEnrollmentsRepository {
       where: { id },
     });
   }
+
+  /** 강의 ID와 Enrollment ID로 수강생 삭제 (Hard Delete) */
+  async removeByLectureIdAndEnrollmentId(
+    lectureId: string,
+    enrollmentId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return await client.lectureEnrollment.delete({
+      where: {
+        lectureId_enrollmentId: {
+          lectureId,
+          enrollmentId,
+        },
+      },
+    });
+  }
 }

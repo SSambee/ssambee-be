@@ -143,4 +143,25 @@ export class LecturesController {
       next(error);
     }
   };
+
+  /** 단순 강의 리스트 조회 핸들러 */
+  getLectureSimpleList = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const instructorId = getProfileIdOrThrow(req);
+
+      const lectures =
+        await this.lecturesService.getLectureSimpleList(instructorId);
+
+      return successResponse(res, {
+        data: lectures,
+        message: '단순 강의 리스트 조회 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

@@ -42,6 +42,9 @@ mgmtLecturesRouter.get(
   lecturesController.getLectures,
 );
 
+/** 단순 강의 리스트 조회 (드롭다운 용) */
+mgmtLecturesRouter.get('/simplelist', lecturesController.getLectureSimpleList);
+
 /** 강의 개별 조회 */
 mgmtLecturesRouter.get(
   '/:id',
@@ -109,6 +112,13 @@ mgmtLecturesRouter.get(
   validate(lectureIdParamSchema, 'params'),
   validate(getLecturesQuerySchema, 'query'),
   container.enrollmentsController.getEnrollmentsByLectureId,
+);
+
+/** 해당 강의 수강생 삭제 (강의에서만 제외) */
+mgmtLecturesRouter.delete(
+  '/:lectureId/enrollments/:enrollmentId',
+  validate(lectureEnrollmentParamSchema, 'params'),
+  container.enrollmentsController.removeLectureEnrollment,
 );
 
 /** 해당 강의 수강생 단체 출결 등록 */
