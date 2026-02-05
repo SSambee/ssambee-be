@@ -28,13 +28,13 @@ import type {
 import {
   mockInstructor,
   mockLectures,
-} from '../test/fixtures/lectures.fixture.js';
+} from '../test/fixtures/lectures.fixture';
 import {
   mockExams,
   mockExamWithQuestions,
   createExamRequests,
   updateExamRequests,
-} from '../test/fixtures/exams.fixture.js';
+} from '../test/fixtures/exams.fixture';
 
 describe('ExamsService - @unit #critical', () => {
   let examsService: ExamsService;
@@ -77,6 +77,8 @@ describe('ExamsService - @unit #critical', () => {
       const exams = [
         {
           ...mockExams.basic,
+          subject: null,
+          description: null,
           lecture: { title: mockLecture.title },
         },
       ];
@@ -191,6 +193,8 @@ describe('ExamsService - @unit #critical', () => {
       );
       mockExamsRepo.createWithQuestions.mockResolvedValue({
         ...mockExams.basic,
+        subject: null,
+        description: null,
         ...createDto,
         questions: [],
       } as Awaited<ReturnType<typeof mockExamsRepo.createWithQuestions>>);
@@ -242,9 +246,10 @@ describe('ExamsService - @unit #critical', () => {
         Awaited<ReturnType<typeof mockLecturesRepo.findById>>
       >;
       const updateDto = updateExamRequests.withQuestions;
-      const existingQuestions = [{ id: 'q1' }, { id: 'q3' }] as Awaited<
-        ReturnType<typeof mockExamsRepo.findQuestionsByExamId>
-      >;
+      const existingQuestions = [
+        { id: 'q1', questionNumber: 1 },
+        { id: 'q3', questionNumber: 3 },
+      ] as Awaited<ReturnType<typeof mockExamsRepo.findQuestionsByExamId>>;
 
       mockExamsRepo.findById.mockResolvedValue(exam);
       mockLecturesRepo.findById.mockResolvedValue(lectureDetail);
@@ -394,7 +399,12 @@ describe('ExamsService - @unit #critical', () => {
     it('강사가 조회를 요청할 때, 본인의 시험 목록이 반환된다', async () => {
       // Arrange
       const exams = [
-        { ...mockExams.basic, lecture: { title: 'Math' } },
+        {
+          ...mockExams.basic,
+          subject: null,
+          description: null,
+          lecture: { title: 'Math' },
+        },
       ] as ExamDetailWithEnrollments[];
       mockPermissionService.getEffectiveInstructorId.mockResolvedValue(
         mockProfileId,
@@ -421,7 +431,12 @@ describe('ExamsService - @unit #critical', () => {
       // Arrange
       const mockAssistantId = 'assistant-1';
       const exams = [
-        { ...mockExams.basic, lecture: { title: 'Math' } },
+        {
+          ...mockExams.basic,
+          subject: null,
+          description: null,
+          lecture: { title: 'Math' },
+        },
       ] as ExamDetailWithEnrollments[];
       mockPermissionService.getEffectiveInstructorId.mockResolvedValue(
         mockProfileId,

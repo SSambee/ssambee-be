@@ -16,10 +16,7 @@ const questionCreateSchema = z.object({
   correctAnswer: z.string().min(1, '정답은 필수입니다.'),
 });
 
-/** 문항 스키마 (수정용 - id 있으면 Update, 없으면 Create) */
-export const questionUpsertSchema = questionCreateSchema.extend({
-  id: z.string().optional(),
-});
+export const questionUpsertSchema = questionCreateSchema;
 
 export type QuestionUpsertDto = z.infer<typeof questionUpsertSchema>;
 
