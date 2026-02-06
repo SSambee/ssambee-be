@@ -5,12 +5,14 @@ import {
 } from '../err/http.exception.js';
 import { AssistantRepository } from '../repos/assistant.repo.js';
 import { ParentChildLinkRepository } from '../repos/parent-child-link.repo.js';
+import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 import type { Enrollment } from '../generated/prisma/client.js';
 
 export class PermissionService {
   constructor(
     private readonly assistantRepository: AssistantRepository,
     private readonly parentChildLinkRepository: ParentChildLinkRepository,
+    private readonly lectureEnrollmentsRepository: LectureEnrollmentsRepository,
   ) {}
 
   /** 강사/조교 쓰기 권한 체크 */
@@ -126,5 +128,46 @@ export class PermissionService {
       userType,
       profileId,
     );
+  }
+
+  /** 강의 읽기 권한 체크 (강사/조교/학생/학부모) */
+  async validateLectureReadAccess(
+    lectureId: string,
+    lecture: { instructorId: string },
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 강사/조교: 해당 강의 담당자인지 확인
+    if (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) {
+      await this.validateInstructorAccess(
+        lecture.instructorId,
+        userType,
+        profileId,
+      );
+      return;
+    }
+
+    // 학생: 수강 여부 확인
+    if (userType === UserType.STUDENT) {
+      const isEnrolled =
+        await this.lectureEnrollmentsRepository.existsByLectureIdAndStudentId(
+          lectureId,
+          profileId,
+        );
+      if (!isEnrolled) {
+        throw new ForbiddenException('수강 중인 강의가 아닙니다.');
+      }
+      return;
+    }
+
+    // 학부모: 자녀의 수강 여부 확인
+    if (userType === UserType.PARENT) {
+      // TODO: 학부모 자녀 수강 여부 확인 로직 추가
+      // 현재는 학부모 링크 ID를 통한 직접 조회가 필요하므로 추후 구현
+      // 임시로 통과 처리 (프로토타입)
+      return;
+    }
+
+    throw new ForbiddenException('접근 권한이 없습니다.');
   }
 }
