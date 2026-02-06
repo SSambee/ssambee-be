@@ -340,6 +340,7 @@ model Exam {
   source      String?
 
   averageScore Float? @map("average_score")
+  gradesCount Int @default(0) @map("grades_count")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime? @updatedAt @map("updated_at")
