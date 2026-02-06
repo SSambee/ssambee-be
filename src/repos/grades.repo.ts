@@ -88,6 +88,7 @@ export class GradesRepository {
                 id: true,
                 studentName: true,
                 studentPhone: true,
+                parentPhone: true,
                 school: true,
                 schoolYear: true,
               },
