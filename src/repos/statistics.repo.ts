@@ -168,7 +168,16 @@ export class StatisticsRepository {
     });
   }
 
-  // 통계 계산을 위한 Raw Data 조회 메서드는 Service에서 GradesRepo 등을 조합해서 처리하는 것이
-  // 책임 분리상 적절할 수 있으나, 편의를 위해 여기에 배치할 수도 있습니다.
-  // 일단 Core 기능인 Statistic 테이블 조작에 집중합니다.
+  /** [Extended] 성적 등수 업데이트 */
+  async updateGradeRank(
+    gradeId: string,
+    rank: number,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return await client.grade.update({
+      where: { id: gradeId },
+      data: { rank },
+    });
+  }
 }

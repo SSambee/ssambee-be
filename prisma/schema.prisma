@@ -339,6 +339,9 @@ model Exam {
   cutoffScore Int     @default(0) @map("cutoff_score")
   source      String?
 
+  averageScore Float? @map("average_score")
+  gradesCount Int @default(0) @map("grades_count")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime? @updatedAt @map("updated_at")
 
@@ -438,6 +441,7 @@ model Grade {
   lectureEnrollmentId String @map("lecture_enrollment_id")
 
   score  Int
+  rank   Int?
   isPass Boolean @default(true) @map("is_pass")
 
   createdAt DateTime @default(now()) @map("created_at")

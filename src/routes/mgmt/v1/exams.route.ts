@@ -67,6 +67,13 @@ mgmtExamsRouter.get(
     container.gradesController.getStudentGradeWithAnswers(req, res, next),
 );
 
+/** [NEW] 성적표 리포트 조회 */
+mgmtExamsRouter.get(
+  '/:examId/grades/lectureEnrollments/:lectureEnrollmentId/report',
+  validate(examAndEnrollmentParamSchema, 'params'),
+  (req, res, next) => container.gradesController.getGradeReport(req, res, next),
+);
+
 /** 통계 산출 및 저장 */
 mgmtExamsRouter.post(
   '/:examId/statistics',

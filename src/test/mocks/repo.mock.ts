@@ -109,6 +109,7 @@ export const createMockLectureEnrollmentsRepository = () =>
     'findManyByLectureIdWithEnrollments',
     'findById',
     'removeByLectureIdAndEnrollmentId',
+    'findByIdWithGrades',
   ]);
 
 /** Mock AttendancesRepository 생성 */
@@ -120,6 +121,7 @@ export const createMockAttendancesRepository = () =>
     'findByEnrollmentId',
     'update',
     'findByLectureEnrollmentId',
+    'getAttendanceStatsByLectureEnrollment',
   ]);
 
 /** Mock ExamsRepository 생성 */
@@ -138,6 +140,7 @@ export const createMockExamsRepository = () =>
     'findByIdWithEnrollments',
     'findByInstructorId',
     'delete',
+    'updateStatistics',
   ]);
 
 /** Mock GradesRepository 생성 */
@@ -151,6 +154,7 @@ export const createMockGradesRepository = () =>
     'findByIdWithDetails',
     'findByLectureEnrollmentId',
     'findGradeWithDetailsByExamAndEnrollment',
+    'findGradeReportByExamAndEnrollment',
   ]);
 
 /** Mock ClinicsRepository 생성 */
@@ -174,6 +178,7 @@ export const createMockStatisticsRepository = () =>
     'getExamSummary',
     'getStudentCorrectCounts',
     'getStudentGradesWithInfo',
+    'updateGradeRank',
   ]);
 
 /** Mock MaterialsRepository 생성 */

@@ -10,6 +10,7 @@ import {
   createMockExamsRepository,
   createMockLecturesRepository,
   createMockLectureEnrollmentsRepository,
+  createMockAttendancesRepository,
 } from '../test/mocks/repo.mock.js';
 import { createMockPermissionService } from '../test/mocks/services.mock.js';
 import { createMockPrisma } from '../test/mocks/prisma.mock.js';
@@ -25,6 +26,7 @@ import type { GradesRepository } from '../repos/grades.repo.js';
 import type { ExamsRepository } from '../repos/exams.repo.js';
 import type { LecturesRepository } from '../repos/lectures.repo.js';
 import type { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
+import type { AttendancesRepository } from '../repos/attendances.repo.js';
 import type { PermissionService } from './permission.service.js';
 import type { PrismaClient, Prisma } from '../generated/prisma/client.js';
 
@@ -33,7 +35,9 @@ describe('GradesService - @unit #critical', () => {
   let mockGradesRepo: jest.Mocked<GradesRepository>;
   let mockExamsRepo: jest.Mocked<ExamsRepository>;
   let mockLecturesRepo: jest.Mocked<LecturesRepository>;
+
   let mockLectureEnrollmentsRepo: jest.Mocked<LectureEnrollmentsRepository>;
+  let mockAttendancesRepo: jest.Mocked<AttendancesRepository>;
   let mockPermissionService: jest.Mocked<PermissionService>;
   let mockPrisma: jest.Mocked<PrismaClient>;
 
@@ -47,7 +51,9 @@ describe('GradesService - @unit #critical', () => {
     mockGradesRepo = createMockGradesRepository();
     mockExamsRepo = createMockExamsRepository();
     mockLecturesRepo = createMockLecturesRepository();
+
     mockLectureEnrollmentsRepo = createMockLectureEnrollmentsRepository();
+    mockAttendancesRepo = createMockAttendancesRepository();
     mockPermissionService = createMockPermissionService();
     mockPrisma = createMockPrisma() as unknown as jest.Mocked<PrismaClient>;
 
@@ -61,6 +67,7 @@ describe('GradesService - @unit #critical', () => {
       mockExamsRepo,
       mockLecturesRepo,
       mockLectureEnrollmentsRepo,
+      mockAttendancesRepo,
       mockPermissionService,
       mockPrisma,
     );
@@ -488,6 +495,120 @@ describe('GradesService - @unit #critical', () => {
       await expect(
         gradesService.getStudentGradeWithAnswers(
           mockExam.id,
+          'le-1',
+          mockUserType,
+          mockProfileId,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('[리포트] getGradeReport', () => {
+    it('유효한 요청에 대해 성적 리포트 정보를 반환한다', async () => {
+      // Arrange
+      const mockGradeReportData = {
+        score: 90,
+        rank: 5,
+        isPass: true,
+        exam: {
+          title: '기말고사',
+          examDate: new Date('2024-06-20'),
+          description: '1학기 기말고사',
+          category: '정기고사',
+          gradesCount: 100,
+          averageScore: 75.5,
+          questions: [
+            {
+              id: 'q1',
+              questionNumber: 1,
+              content: 'Q1',
+              source: 'EBS',
+              category: '유형1',
+              statistic: { correctRate: 80.0 },
+            },
+          ],
+        },
+        lectureEnrollment: {
+          enrollment: {
+            studentName: '김철수',
+          },
+          lecture: {
+            title: '수학 심화반',
+            instructorId: 'inst-1',
+            instructor: {
+              user: { name: '이강사' },
+              academy: '서울학원',
+              subject: '수학',
+            },
+          },
+          studentAnswers: [
+            {
+              questionId: 'q1',
+              isCorrect: true,
+            },
+          ],
+          grades: [
+            {
+              id: 'prev-grade-1',
+              score: 85,
+              exam: {
+                id: 'prev-exam-1',
+                title: '중간고사',
+                examDate: new Date('2024-04-20'),
+                createdAt: new Date('2024-04-20'),
+              },
+            },
+          ],
+        },
+      };
+
+      mockGradesRepo.findGradeReportByExamAndEnrollment.mockResolvedValue(
+        mockGradeReportData as unknown as Awaited<
+          ReturnType<typeof mockGradesRepo.findGradeReportByExamAndEnrollment>
+        >,
+      );
+      mockAttendancesRepo.getAttendanceStatsByLectureEnrollment.mockResolvedValue(
+        {
+          totalCount: 10,
+          absentCount: 1,
+        },
+      );
+
+      // Act
+      const result = await gradesService.getGradeReport(
+        'exam-1',
+        'le-1',
+        mockUserType,
+        mockProfileId,
+      );
+
+      // Assert
+      expect(
+        mockGradesRepo.findGradeReportByExamAndEnrollment,
+      ).toHaveBeenCalledWith('exam-1', 'le-1');
+      expect(
+        mockPermissionService.validateInstructorAccess,
+      ).toHaveBeenCalledWith('inst-1', mockUserType, mockProfileId);
+      expect(
+        mockAttendancesRepo.getAttendanceStatsByLectureEnrollment,
+      ).toHaveBeenCalledWith('le-1');
+
+      expect(result.instructor.name).toBe('이강사');
+      expect(result.enrollment.name).toBe('김철수');
+      expect(result.exam.title).toBe('기말고사');
+      expect(result.grade.score).toBe(90);
+      expect(result.attendanceRate).toBe(90.0); // (10-1)/10 * 100
+      expect(result.questions).toHaveLength(1);
+      expect(result.questions[0].wrongRate).toBe(20.0); // 100 - 80.0
+      expect(result.recentGrades).toHaveLength(1);
+    });
+
+    it('성적 정보가 없을 때, NotFoundException을 던진다', async () => {
+      mockGradesRepo.findGradeReportByExamAndEnrollment.mockResolvedValue(null);
+
+      await expect(
+        gradesService.getGradeReport(
+          'exam-1',
           'le-1',
           mockUserType,
           mockProfileId,

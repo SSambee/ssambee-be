@@ -9,6 +9,7 @@ import { GradesRepository } from '../repos/grades.repo.js';
 import { ExamsRepository } from '../repos/exams.repo.js';
 import { LecturesRepository } from '../repos/lectures.repo.js';
 import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
+import { AttendancesRepository } from '../repos/attendances.repo.js';
 import { PermissionService } from './permission.service.js';
 import type { SubmitGradingDto } from '../validations/grades.validation.js';
 
@@ -18,6 +19,7 @@ export class GradesService {
     private readonly examsRepo: ExamsRepository,
     private readonly lecturesRepo: LecturesRepository,
     private readonly lectureEnrollmentsRepo: LectureEnrollmentsRepository,
+    private readonly attendancesRepo: AttendancesRepository,
     private readonly permissionService: PermissionService,
     private readonly prisma: PrismaClient,
   ) {}
@@ -387,6 +389,106 @@ export class GradesService {
       isPass: gradeWithDetails.isPass,
       examTitle: gradeWithDetails.exam.title,
       questions: questionResults,
+    };
+  }
+
+  /** [NEW] 성적표 리포트 조회 (관리자용) */
+  async getGradeReport(
+    examId: string,
+    lectureEnrollmentId: string,
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 1. 상세 리포트 데이터 조회
+    const gradeData = await this.gradesRepo.findGradeReportByExamAndEnrollment(
+      examId,
+      lectureEnrollmentId,
+    );
+
+    if (!gradeData) {
+      throw new NotFoundException('해당 성적 정보를 찾을 수 없습니다.');
+    }
+
+    const { exam, lectureEnrollment } = gradeData;
+    const { lecture, enrollment, studentAnswers } = lectureEnrollment;
+
+    // 2. 권한 검증 (강사/조교)
+    await this.permissionService.validateInstructorAccess(
+      lecture.instructorId,
+      userType,
+      profileId,
+    );
+
+    // 3. 출석률 계산
+    const { totalCount, absentCount } =
+      await this.attendancesRepo.getAttendanceStatsByLectureEnrollment(
+        lectureEnrollmentId,
+      );
+
+    let attendanceRate = 0;
+    if (totalCount > 0) {
+      attendanceRate = ((totalCount - absentCount) / totalCount) * 100;
+    }
+    // 소수점 첫째자리 반올림
+    attendanceRate = Math.round(attendanceRate * 10) / 10;
+
+    // 4. 데이터 가공
+
+    // 4-1. 문항별 상세 정보
+    const answerMap = new Map(studentAnswers.map((a) => [a.questionId, a]));
+    const questionsWithStats = exam.questions.map((q) => {
+      const studentAnswer = answerMap.get(q.id);
+      const isCorrect = studentAnswer?.isCorrect ?? false;
+      // 정답률이 있으면 오답률 = 100 - 정답률
+      const correctRate = q.statistic?.correctRate ?? 0;
+      const wrongRate = parseFloat((100 - correctRate).toFixed(1));
+
+      return {
+        questionNumber: q.questionNumber,
+        content: q.content,
+        source: q.source,
+        category: q.category,
+        isCorrect,
+        wrongRate,
+      };
+    });
+
+    // 4-2. 최근 시험 이력 (6개)
+    const recentGrades = lectureEnrollment.grades.map((g) => ({
+      gradeId: g.id,
+      examDate: g.exam.examDate ?? g.exam.createdAt,
+      title: g.exam.title,
+      score: g.score,
+    }));
+
+    return {
+      instructor: {
+        name: lecture.instructor.user.name,
+        academy: lecture.instructor.academy,
+        subject: lecture.instructor.subject,
+      },
+      enrollment: {
+        name: enrollment.studentName,
+      },
+      exam: {
+        title: exam.title,
+        examDate: exam.examDate,
+        description: exam.description,
+        category: exam.category,
+        gradesCount: exam.gradesCount,
+        averageScore: exam.averageScore || 0,
+      },
+      grade: {
+        score: gradeData.score,
+        rank: gradeData.rank || 0,
+        isPass: gradeData.isPass,
+      },
+      lecture: {
+        title: lecture.title,
+      },
+      recentGrades,
+      attendanceRate,
+      questions: questionsWithStats,
     };
   }
 }

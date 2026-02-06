@@ -54,6 +54,8 @@ import { MaterialsRepository } from '../repos/materials.repo.js';
 import { FileStorageService } from '../services/filestorage.service.js';
 import { MaterialsService } from '../services/materials.service.js';
 import { MaterialsController } from '../controllers/materials.controller.js';
+import { LectureEnrollmentsService } from '../services/lecture-enrollments.service.js';
+import { LectureEnrollmentsController } from '../controllers/lecture-enrollments.controller.js';
 
 // 1. Instantiate Repositories
 const instructorRepo = new InstructorRepository(prisma);
@@ -103,6 +105,7 @@ const gradesService = new GradesService(
   examsRepo,
   lecturesRepo,
   lectureEnrollmentsRepo,
+  attendancesRepo,
   permissionService,
   prisma,
 );
@@ -111,6 +114,7 @@ const statisticsService = new StatisticsService(
   statisticsRepo,
   examsRepo,
   lecturesRepo,
+  gradesRepo,
   permissionService,
   prisma,
 );
@@ -161,6 +165,14 @@ const attendancesService = new AttendancesService(
   prisma,
 );
 
+const lectureEnrollmentsService = new LectureEnrollmentsService(
+  lectureEnrollmentsRepo,
+  gradesRepo,
+  statisticsRepo,
+  permissionService,
+  prisma,
+);
+
 const fileStorageService = new FileStorageService();
 const materialsService = new MaterialsService(
   materialsRepo,
@@ -185,6 +197,9 @@ const gradesController = new GradesController(gradesService);
 const statisticsController = new StatisticsController(statisticsService);
 const clinicsController = new ClinicsController(clinicsService);
 const materialsController = new MaterialsController(materialsService);
+const lectureEnrollmentsController = new LectureEnrollmentsController(
+  lectureEnrollmentsService,
+);
 
 // 4. Create Middlewares (Inject Services)
 const requireAuth = createRequireAuth(authService);
@@ -207,6 +222,7 @@ export const container = {
   statisticsService,
   clinicsService,
   materialsService,
+  lectureEnrollmentsService,
   // Controllers
   authController,
   lecturesController,
@@ -218,6 +234,7 @@ export const container = {
   statisticsController,
   clinicsController,
   materialsController,
+  lectureEnrollmentsController,
   // Middlewares
   requireAuth,
   optionalAuth,
