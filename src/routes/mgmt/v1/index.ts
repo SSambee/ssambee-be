@@ -21,3 +21,7 @@ mgmtV1Router.use('/exams', mgmtExamsRouter);
 /** 클리닉 라우트 */
 import { mgmtClinicsRouter } from './clinics.route.js';
 mgmtV1Router.use('/clinics', mgmtClinicsRouter);
+
+/** 자료 라우터 (경로 자체 포함) */
+import { mgmtMaterialsRouter } from './materials.route.js';
+mgmtV1Router.use('/materials', mgmtMaterialsRouter);
