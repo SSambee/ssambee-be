@@ -260,6 +260,11 @@ export class ClinicsService {
           school: clinic.lectureEnrollment.enrollment.school,
           schoolYear: clinic.lectureEnrollment.enrollment.schoolYear,
           phone: clinic.lectureEnrollment.enrollment.studentPhone,
+          parentPhone: clinic.lectureEnrollment.enrollment.parentPhone,
+        },
+        lecture: {
+          id: clinic.lecture.id,
+          title: clinic.lecture.title,
         },
         exam: {
           id: clinic.exam.id,

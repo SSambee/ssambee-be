@@ -133,6 +133,12 @@ export class ClinicsRepository {
     return await client.clinic.findMany({
       where,
       include: {
+        lecture: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
         lectureEnrollment: {
           include: {
             enrollment: {
@@ -142,6 +148,7 @@ export class ClinicsRepository {
                 school: true,
                 schoolYear: true,
                 studentPhone: true,
+                parentPhone: true,
               },
             },
           },
