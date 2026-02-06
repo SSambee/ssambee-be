@@ -333,6 +333,10 @@ describe('ClinicsService - @unit #critical', () => {
       // Assert
       expect(result).toHaveLength(1);
       expect(result[0].exam.score).toBe(70);
+      expect(result[0].lecture.title).toBe(mockLectures.basic.title);
+      expect(result[0].student.parentPhone).toBe(
+        mockClinicWithRelations.lectureEnrollment.enrollment.parentPhone,
+      );
       expect(mockClinicsRepo.findByInstructor).toHaveBeenCalledWith(
         profileId,
         {},

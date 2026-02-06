@@ -48,7 +48,12 @@ export const mockClinicWithRelations = {
       school: mockEnrollments.active.school,
       schoolYear: mockEnrollments.active.schoolYear,
       studentPhone: mockEnrollments.active.studentPhone,
+      parentPhone: mockEnrollments.active.parentPhone,
     },
+  },
+  lecture: {
+    id: mockLectures.basic.id,
+    title: mockLectures.basic.title,
   },
   exam: {
     id: mockExams.basic.id,

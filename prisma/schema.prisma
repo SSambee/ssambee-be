@@ -492,8 +492,7 @@ model Clinic {
 
   // 기존 ClinicTarget 필드 통합
   lectureEnrollmentId       String @map("lecture_enrollment_id")
-  status             String @default("PENDING") // PENDING, COMPLETED
-  notificationStatus String @default("READY") @map("notification_status")
+  status             String @default("PENDING") // PENDING, SENT, COMPLETED
   memo               String? @db.Text
 
   createdAt DateTime @default(now()) @map("created_at")

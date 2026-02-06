@@ -80,6 +80,17 @@ export class ExamsRepository {
             title: true,
           },
         },
+        _count: {
+          select: {
+            clinics: {
+              where: {
+                status: {
+                  not: 'COMPLETED',
+                },
+              },
+            },
+          },
+        },
       },
       orderBy: { title: 'asc' },
     });
@@ -97,6 +108,17 @@ export class ExamsRepository {
         lecture: {
           select: {
             title: true,
+          },
+        },
+        _count: {
+          select: {
+            clinics: {
+              where: {
+                status: {
+                  not: 'COMPLETED',
+                },
+              },
+            },
           },
         },
       },

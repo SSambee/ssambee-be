@@ -32,9 +32,12 @@ export class ExamsService {
     const exams = await this.examsRepo.findByInstructorId(
       effectiveInstructorId,
     );
-    return exams.map(({ lecture, ...exam }) => ({
+    return exams.map(({ lecture, _count, ...exam }) => ({
       ...exam,
       lectureTitle: lecture.title,
+      hasClinic:
+        exam.gradingStatus === GradingStatus.COMPLETED &&
+        (_count?.clinics ?? 0) > 0,
     }));
   }
 
@@ -59,9 +62,12 @@ export class ExamsService {
 
     // 3. 시험 목록 조회
     const exams = await this.examsRepo.findByLectureId(lectureId);
-    return exams.map(({ lecture, ...exam }) => ({
+    return exams.map(({ lecture, _count, ...exam }) => ({
       ...exam,
       lectureTitle: lecture.title,
+      hasClinic:
+        exam.gradingStatus === GradingStatus.COMPLETED &&
+        (_count?.clinics ?? 0) > 0,
     }));
   }
 

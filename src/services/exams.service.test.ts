@@ -74,9 +74,11 @@ describe('ExamsService - @unit #critical', () => {
       const exams = [
         {
           ...mockExams.basic,
+          gradingStatus: GradingStatus.PENDING,
           subject: null,
           description: null,
           lecture: { title: mockLecture.title },
+          _count: { clinics: 1 },
         },
       ];
       mockLecturesRepo.findById.mockResolvedValue(
@@ -104,9 +106,35 @@ describe('ExamsService - @unit #critical', () => {
       expect(result).toEqual([
         {
           ...mockExams.basic,
+          gradingStatus: GradingStatus.PENDING,
           lectureTitle: mockLecture.title,
+          hasClinic: false, // PENDING이므로 false
         },
       ]);
+    });
+
+    it('시험이 COMPLETED 상태이고 미완료 클리닉이 있으면 hasClinic이 true로 반환된다', async () => {
+      // Arrange
+      const exams = [
+        {
+          ...mockExams.basic,
+          gradingStatus: GradingStatus.COMPLETED,
+          lecture: { title: mockLecture.title },
+          _count: { clinics: 1 },
+        },
+      ];
+      mockLecturesRepo.findById.mockResolvedValue(mockLecture);
+      mockExamsRepo.findByLectureId.mockResolvedValue(exams);
+
+      // Act
+      const result = await examsService.getExamsByLectureId(
+        mockLectureId,
+        mockUserType,
+        mockProfileId,
+      );
+
+      // Assert
+      expect(result[0].hasClinic).toBe(true);
     });
 
     it('존재하지 않는 강의의 시험 목록을 요청할 때, NotFoundException을 던진다', async () => {
@@ -348,11 +376,13 @@ describe('ExamsService - @unit #critical', () => {
       const exams = [
         {
           ...mockExams.basic,
+          gradingStatus: GradingStatus.COMPLETED,
           subject: null,
           description: null,
           lecture: { title: 'Math' },
+          _count: { clinics: 2 },
         },
-      ] as ExamDetailWithEnrollments[];
+      ] as Awaited<ReturnType<ExamsRepository['findByInstructorId']>>;
       mockPermissionService.getEffectiveInstructorId.mockResolvedValue(
         mockProfileId,
       );
@@ -371,7 +401,14 @@ describe('ExamsService - @unit #critical', () => {
       expect(mockExamsRepo.findByInstructorId).toHaveBeenCalledWith(
         mockProfileId,
       );
-      expect(result).toEqual([{ ...mockExams.basic, lectureTitle: 'Math' }]);
+      expect(result).toEqual([
+        {
+          ...mockExams.basic,
+          gradingStatus: GradingStatus.COMPLETED,
+          lectureTitle: 'Math',
+          hasClinic: true,
+        },
+      ]);
     });
 
     it('조교가 조회를 요청할 때, 담당 강사의 시험 목록이 반환된다', async () => {
@@ -380,11 +417,13 @@ describe('ExamsService - @unit #critical', () => {
       const exams = [
         {
           ...mockExams.basic,
+          gradingStatus: GradingStatus.PENDING,
           subject: null,
           description: null,
           lecture: { title: 'Math' },
+          _count: { clinics: 0 },
         },
-      ] as ExamDetailWithEnrollments[];
+      ] as Awaited<ReturnType<ExamsRepository['findByInstructorId']>>;
       mockPermissionService.getEffectiveInstructorId.mockResolvedValue(
         mockProfileId,
       );
@@ -403,7 +442,14 @@ describe('ExamsService - @unit #critical', () => {
       expect(mockExamsRepo.findByInstructorId).toHaveBeenCalledWith(
         mockProfileId,
       );
-      expect(result).toEqual([{ ...mockExams.basic, lectureTitle: 'Math' }]);
+      expect(result).toEqual([
+        {
+          ...mockExams.basic,
+          gradingStatus: GradingStatus.PENDING,
+          lectureTitle: 'Math',
+          hasClinic: false,
+        },
+      ]);
     });
   });
 
