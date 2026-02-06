@@ -152,7 +152,6 @@ export const createMockGradesRepository = () =>
     'calculateAverageByExamId',
     'findByIdWithDetails',
     'findByLectureEnrollmentId',
-    'findByLectureEnrollmentId',
     'findGradeWithDetailsByExamAndEnrollment',
     'findGradeReportByExamAndEnrollment',
   ]);
