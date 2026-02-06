@@ -257,6 +257,27 @@ export class LectureEnrollmentsRepository {
     return count > 0;
   }
 
+  /** 학생이 특정 강의에 수강 등록되어 있는지 조회 */
+  async findByLectureIdAndStudentId(
+    lectureId: string,
+    appStudentId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return await client.lectureEnrollment.findFirst({
+      where: {
+        lectureId,
+        enrollment: {
+          appStudentId,
+          deletedAt: null,
+        },
+      },
+      include: {
+        enrollment: true,
+      },
+    });
+  }
+
   /** 강의 ID와 Enrollment ID로 수강생 삭제 (Hard Delete) */
   async removeByLectureIdAndEnrollmentId(
     lectureId: string,
