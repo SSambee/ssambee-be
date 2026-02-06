@@ -30,4 +30,5 @@ export const createMockPermissionService = (): jest.Mocked<PermissionService> =>
     validateStudentAccess: jest.fn(),
     validateChildAccess: jest.fn(),
     validateEnrollmentReadAccess: jest.fn(),
+    validateLectureReadAccess: jest.fn(),
   }) as unknown as jest.Mocked<PermissionService>;
