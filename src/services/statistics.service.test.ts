@@ -346,8 +346,6 @@ describe('StatisticsService - @unit #critical', () => {
       expect(result.studentStats).toHaveLength(3);
       expect(result.studentStats[0].rank).toBe(1);
       expect(result.studentStats[1].rank).toBe(10); // 저장된 등수 사용 확인
-      expect(result.studentStats[0].rank).toBe(1);
-      expect(result.studentStats[1].rank).toBe(10); // 저장된 등수 사용 확인
       expect(result.studentStats[2].rank).toBe(3);
 
       expect(result.examStats.averageScore).toBe(88.5);
