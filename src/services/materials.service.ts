@@ -96,7 +96,7 @@ export class MaterialsService {
   ) {
     const { lectureId } = query;
 
-    // 1. 강의가 지정된 경우 접근 권한 확인
+    // 강의가 지정된 경우 접근 권한 확인
     if (lectureId) {
       const lecture = await this.lecturesRepository.findById(lectureId);
       if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
@@ -114,7 +114,7 @@ export class MaterialsService {
       }
     }
 
-    // 2. 목록 조회
+    // 목록 조회
     const { materials, totalCount } =
       await this.materialsRepository.findMany(query);
 
@@ -153,7 +153,7 @@ export class MaterialsService {
     const material = await this.materialsRepository.findById(materialsId);
     if (!material) throw new NotFoundException('자료를 찾을 수 없습니다.');
 
-    // 1. 소유 강사 ID 식별 (직접 업로드 -> 조교의 강사 -> 강의 담당 강사 순)
+    // 소유 강사 ID 식별 (직접 업로드 -> 조교의 강사 -> 강의 담당 강사 순)
     let ownerInstructorId =
       material.uploaderInstructorId || material.assistant?.instructorId;
 
@@ -168,7 +168,7 @@ export class MaterialsService {
       throw new ForbiddenException('자료 권한을 확인할 수 없습니다.');
     }
 
-    // 2. 권한 검증
+    // 권한 검증
     await this.permissionService.validateInstructorAccess(
       ownerInstructorId,
       userType,
@@ -198,7 +198,7 @@ export class MaterialsService {
     const material = await this.materialsRepository.findById(materialsId);
     if (!material) throw new NotFoundException('자료를 찾을 수 없습니다.');
 
-    // 1. 소유 강사 ID 식별 (직접 업로드 -> 조교의 강사 -> 강의 담당 강사 순)
+    // 소유 강사 ID 식별 (직접 업로드 -> 조교의 강사 -> 강의 담당 강사 순)
     let ownerInstructorId =
       material.uploaderInstructorId || material.assistant?.instructorId;
 
@@ -213,7 +213,7 @@ export class MaterialsService {
       throw new ForbiddenException('자료 권한을 확인할 수 없습니다.');
     }
 
-    // 2. 권한 검증
+    // 권한 검증
     await this.permissionService.validateInstructorAccess(
       ownerInstructorId,
       userType,
@@ -299,7 +299,7 @@ export class MaterialsService {
         profileId,
       );
 
-      // [NEW] 학생인 경우 추가 접근 제어 (게시글 타겟팅 확인)
+      // 학생인 경우 추가 접근 제어 (게시글 타겟팅 확인)
       if (userType === UserType.STUDENT && material.lectureId) {
         const enrollment =
           await this.lectureEnrollmentsRepository.findByLectureIdAndStudentId(
