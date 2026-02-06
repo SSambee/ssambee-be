@@ -4,6 +4,7 @@ import { NotFoundException } from '../err/http.exception.js';
 import { StatisticsRepository } from '../repos/statistics.repo.js';
 import { ExamsRepository } from '../repos/exams.repo.js';
 import { LecturesRepository } from '../repos/lectures.repo.js';
+import { GradesRepository } from '../repos/grades.repo.js';
 import { PermissionService } from './permission.service.js';
 
 export class StatisticsService {
@@ -11,6 +12,7 @@ export class StatisticsService {
     private readonly statisticsRepo: StatisticsRepository,
     private readonly examsRepo: ExamsRepository,
     private readonly lecturesRepo: LecturesRepository,
+    private readonly gradesRepo: GradesRepository,
     private readonly permissionService: PermissionService,
     private readonly prisma: PrismaClient,
   ) {}
@@ -41,23 +43,26 @@ export class StatisticsService {
       return []; // 문항이 없으면 빈 배열 반환
     }
 
-    // 3-2. 분모: 성적 제출자 수 조회
-    const totalSubmissions =
-      await this.statisticsRepo.countGradesByExamId(examId);
-
     // 4. 문항별 통계 계산 및 저장 (Transaction)
     await this.prisma.$transaction(async (tx) => {
+      // 4-0. 분모: 성적 제출자 수 조회
+      const totalSubmissions = await this.statisticsRepo.countGradesByExamId(
+        examId,
+        tx,
+      );
+
+      // 4-1. 결과 배열
       const results = [];
 
       for (const question of questions) {
-        // 4-1. 해당 문항에 대한 학생 답안 조회
+        // 4-2. 해당 문항에 대한 학생 답안 조회
         const answers =
           await this.statisticsRepo.findStudentAnswersByQuestionId(
             question.id,
             tx,
           );
 
-        // 4-2. 정답률 계산
+        // 4-3. 정답률 계산
         // 분모가 0이면 0% 처리
         const correctCount = answers.filter((a) => a.isCorrect).length;
         const correctRate =
@@ -65,7 +70,7 @@ export class StatisticsService {
             ? Number(((correctCount / totalSubmissions) * 100).toFixed(2))
             : 0;
 
-        // 4-3. 선지별 선택률 계산 (객관식인 경우)
+        // 4-4. 선지별 선택률 계산 (객관식인 경우)
         let choiceRates: Record<string, number> | null = null;
         if (question.type === 'MULTIPLE') {
           choiceRates = {};
@@ -87,7 +92,7 @@ export class StatisticsService {
           });
         }
 
-        // 4-4. 저장
+        // 4-5. 저장
         const statistic = await this.statisticsRepo.upsertQuestionStatistic(
           examId,
           question.id,
@@ -100,7 +105,45 @@ export class StatisticsService {
         );
         results.push(statistic);
       }
+
+      // 5. 등수(Rank) 계산 및 저장
+      // 5-1. 해당 시험의 전체 성적 조회 (점수 내림차순)
+      const studentGrades = await this.statisticsRepo.getStudentGradesWithInfo(
+        examId,
+        tx,
+      );
+
+      // 5-2. 등수 계산 및 업데이트
+      let currentRank = 1;
+      for (let i = 0; i < studentGrades.length; i++) {
+        const grade = studentGrades[i];
+        const prevGrade = i > 0 ? studentGrades[i - 1] : null;
+
+        // 동점자 처리
+        if (prevGrade && prevGrade.score !== grade.score) {
+          currentRank = i + 1;
+        }
+
+        // DB 업데이트 (Rank 저장)
+        await this.statisticsRepo.updateGradeRank(grade.id, currentRank, tx);
+      }
+
+      // 6. 전체 통계(평균, 응시자 수) 저장
+      // 6-1. 평균 계산
+      const averageScore = await this.gradesRepo.calculateAverageByExamId(
+        examId,
+        tx,
+      );
+
+      // 6-2. Exam 테이블 업데이트
+      await this.examsRepo.updateStatistics(
+        examId,
+        averageScore,
+        totalSubmissions,
+        tx,
+      );
     });
+
     return await this.getStatistics(examId, userType, profileId);
   }
 
@@ -119,9 +162,8 @@ export class StatisticsService {
     );
 
     // 2. 데이터 병렬 조회 (성능 최적화)
-    const [summary, questionStats, studentGrades, correctCounts, questions] =
+    const [questionStats, studentGrades, correctCounts, questions] =
       await Promise.all([
-        this.statisticsRepo.getExamSummary(examId),
         this.statisticsRepo.findStatisticsByExamId(examId),
         this.statisticsRepo.getStudentGradesWithInfo(examId),
         this.statisticsRepo.getStudentCorrectCounts(examId),
@@ -139,35 +181,29 @@ export class StatisticsService {
       choiceRates: stat.choiceRates as Record<string, number> | null,
     }));
 
-    // 4. 학생 성적 매핑 및 석차 계산
-    const totalExaminees = summary.totalExaminees;
-    let currentRank = 1;
-    const studentStats = [];
+    // 4. 학생 성적 매핑 (이미 저장된 등수 사용)
+    const totalExaminees = exam.gradesCount;
 
     // studentGrades는 이미 score desc 정렬되어 있음
-    for (let i = 0; i < studentGrades.length; i++) {
-      const grade = studentGrades[i];
-      const prevGrade = i > 0 ? studentGrades[i - 1] : null;
-
-      // 동점자 처리: 이전 점수와 다르면 현재 인덱스+1이 새로운 등수
-      if (prevGrade && prevGrade.score !== grade.score) {
-        currentRank = i + 1;
-      }
-
-      studentStats.push({
-        lectureEnrollmentId: grade.lectureEnrollmentId,
-        enrollmentId: grade.lectureEnrollment.enrollment.id,
-        studentName: grade.lectureEnrollment.enrollment.studentName,
-        school: grade.lectureEnrollment.enrollment.school,
-        correctCount: correctCounts[grade.lectureEnrollmentId] ?? 0,
-        score: grade.score,
-        rank: currentRank,
-        totalRank: totalExaminees, // 분모 (예: 5/20등)
-      });
-    }
+    const studentStats = studentGrades.map((grade) => ({
+      lectureEnrollmentId: grade.lectureEnrollmentId,
+      enrollmentId: grade.lectureEnrollment.enrollment.id,
+      studentName: grade.lectureEnrollment.enrollment.studentName,
+      school: grade.lectureEnrollment.enrollment.school,
+      correctCount: correctCounts[grade.lectureEnrollmentId] ?? 0,
+      score: grade.score,
+      rank: grade.rank || 0, // 저장된 등수 사용 (없으면 0)
+      totalRank: totalExaminees, // 분모 (예: 5/20등)
+    }));
 
     return {
-      examStats: summary,
+      examStats: {
+        averageScore: exam.averageScore ?? 0,
+        highestScore: 0, // TODO: 필요시 추가 계산 or DB 저장
+        lowestScore: 0, // TODO: 필요시 추가 계산 or DB 저장
+        totalExaminees: exam.gradesCount,
+        examDate: exam.examDate, // 스키마 변경으로 examDate 필드 직접 사용 가능
+      },
       questionStats: mappedQuestionStats,
       studentStats,
     };

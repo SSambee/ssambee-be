@@ -19,6 +19,7 @@ import {
   createMockStatisticsRepository,
   createMockExamsRepository,
   createMockLecturesRepository,
+  createMockGradesRepository,
 } from '../test/mocks/repo.mock.js';
 import { createMockPermissionService } from '../test/mocks/services.mock.js';
 import { createMockPrisma } from '../test/mocks/prisma.mock.js';
@@ -34,6 +35,7 @@ import type { PrismaClient, Prisma } from '../generated/prisma/client.js';
 import type { StatisticsRepository } from '../repos/statistics.repo.js';
 import type { ExamsRepository } from '../repos/exams.repo.js';
 import type { LecturesRepository } from '../repos/lectures.repo.js';
+import type { GradesRepository } from '../repos/grades.repo.js';
 import type { PermissionService } from './permission.service.js';
 
 describe('StatisticsService - @unit #critical', () => {
@@ -41,6 +43,7 @@ describe('StatisticsService - @unit #critical', () => {
   let mockStatisticsRepo: jest.Mocked<StatisticsRepository>;
   let mockExamsRepo: jest.Mocked<ExamsRepository>;
   let mockLecturesRepo: jest.Mocked<LecturesRepository>;
+  let mockGradesRepo: jest.Mocked<GradesRepository>;
   let mockPermissionService: jest.Mocked<PermissionService>;
   let mockPrisma: jest.Mocked<PrismaClient>;
 
@@ -49,7 +52,9 @@ describe('StatisticsService - @unit #critical', () => {
 
     mockStatisticsRepo = createMockStatisticsRepository();
     mockExamsRepo = createMockExamsRepository();
+    mockExamsRepo = createMockExamsRepository();
     mockLecturesRepo = createMockLecturesRepository();
+    mockGradesRepo = createMockGradesRepository();
     mockPermissionService = createMockPermissionService();
     mockPrisma = createMockPrisma() as unknown as jest.Mocked<PrismaClient>;
 
@@ -62,6 +67,7 @@ describe('StatisticsService - @unit #critical', () => {
       mockStatisticsRepo,
       mockExamsRepo,
       mockLecturesRepo,
+      mockGradesRepo,
       mockPermissionService,
       mockPrisma,
     );
@@ -186,7 +192,21 @@ describe('StatisticsService - @unit #critical', () => {
         mockCorrectCounts,
       );
 
-      // Act
+      mockGradesRepo.calculateAverageByExamId.mockResolvedValue(85.5);
+      mockExamsRepo.updateStatistics.mockResolvedValue({
+        ...mockExams.basic,
+        averageScore: 85.5,
+        gradesCount: 10,
+      } as unknown as Awaited<
+        ReturnType<typeof mockExamsRepo.updateStatistics>
+      >);
+
+      // getStatistics 호출을 위한 Mock 설정 (findById)
+      mockExamsRepo.findById.mockResolvedValue({
+        ...mockExams.basic,
+        averageScore: 85.5,
+        gradesCount: 10,
+      } as unknown as Awaited<ReturnType<typeof mockExamsRepo.findById>>);
       const result = await statisticsService.calculateAndSaveStatistics(
         examId,
         userType,
@@ -207,7 +227,24 @@ describe('StatisticsService - @unit #critical', () => {
         }),
         expect.anything(),
       );
+
+      // 등수 계산 및 저장 검증
+      expect(mockStatisticsRepo.updateGradeRank).toHaveBeenCalledTimes(
+        mockStudentGrades.length,
+      );
       expect(result).toBeDefined();
+
+      // updateStatistics 호출 검증
+      expect(mockGradesRepo.calculateAverageByExamId).toHaveBeenCalledWith(
+        examId,
+        expect.anything(),
+      );
+      expect(mockExamsRepo.updateStatistics).toHaveBeenCalledWith(
+        examId,
+        85.5,
+        totalSubmissions,
+        expect.anything(),
+      );
     });
   });
 
@@ -241,36 +278,46 @@ describe('StatisticsService - @unit #critical', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('통계 정보를 조회할 때, 시험 요약 정보와 학생별 성적 및 석차 정보를 산출하여 반환한다', async () => {
+    it('통계 정보를 조회할 때, 저장된 등수 정보를 사용하여 반환한다', async () => {
       // Arrange
+      // 저장된 rank가 있는 데이터 준비
       const studentGrades = [
         {
+          id: 'g-1',
           lectureEnrollmentId: 'le-1',
           score: 100,
-          lectureEnrollment: { enrollment: { studentName: 'S1', school: 'A' } },
+          rank: 1, // 저장된 1등
+          lectureEnrollment: {
+            enrollment: { id: 'e-1', studentName: 'S1', school: 'A' },
+          },
         },
         {
+          id: 'g-2',
           lectureEnrollmentId: 'le-2',
           score: 100,
-          lectureEnrollment: { enrollment: { studentName: 'S2', school: 'B' } },
-        }, // 동점
+          rank: 10, // 점수는 같지만 저장된 등수가 10등이라면 그대로 10등 반환해야 함 (실시간 계산 아님을 증명)
+          lectureEnrollment: {
+            enrollment: { id: 'e-2', studentName: 'S2', school: 'B' },
+          },
+        },
         {
+          id: 'g-3',
           lectureEnrollmentId: 'le-3',
           score: 90,
-          lectureEnrollment: { enrollment: { studentName: 'S3', school: 'C' } },
-        }, // 3등
+          rank: 3,
+          lectureEnrollment: {
+            enrollment: { id: 'e-3', studentName: 'S3', school: 'C' },
+          },
+        },
       ];
       const correctCounts = { 'le-1': 10, 'le-2': 10, 'le-3': 9 };
-      const summary = { ...mockExamSummary, totalExaminees: 3 };
 
-      mockExamsRepo.findById.mockResolvedValue(
-        mockExams.basic as Awaited<ReturnType<typeof mockExamsRepo.findById>>,
-      );
-      mockStatisticsRepo.getExamSummary.mockResolvedValue(
-        summary as Awaited<
-          ReturnType<typeof mockStatisticsRepo.getExamSummary>
-        >,
-      );
+      mockExamsRepo.findById.mockResolvedValue({
+        ...mockExams.basic,
+        averageScore: 88.5,
+        gradesCount: 3,
+      } as unknown as Awaited<ReturnType<typeof mockExamsRepo.findById>>);
+
       mockStatisticsRepo.findStatisticsByExamId.mockResolvedValue([
         mockQuestionStats.q1,
       ] as Awaited<
@@ -298,8 +345,11 @@ describe('StatisticsService - @unit #critical', () => {
       // Assert
       expect(result.studentStats).toHaveLength(3);
       expect(result.studentStats[0].rank).toBe(1);
-      expect(result.studentStats[1].rank).toBe(1); // 동점자 처리
-      expect(result.studentStats[2].rank).toBe(3); // 3번째 학생은 3등
+      expect(result.studentStats[1].rank).toBe(10); // 저장된 등수 사용 확인
+      expect(result.studentStats[2].rank).toBe(3);
+
+      expect(result.examStats.averageScore).toBe(88.5);
+      expect(result.examStats.totalExaminees).toBe(3);
     });
   });
 });
