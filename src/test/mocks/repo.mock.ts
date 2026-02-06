@@ -173,4 +173,5 @@ export const createMockStatisticsRepository = () =>
     'getExamSummary',
     'getStudentCorrectCounts',
     'getStudentGradesWithInfo',
+    'updateGradeRank',
   ]);

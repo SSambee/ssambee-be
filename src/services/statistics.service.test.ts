@@ -207,6 +207,11 @@ describe('StatisticsService - @unit #critical', () => {
         }),
         expect.anything(),
       );
+
+      // 등수 계산 및 저장 검증
+      expect(mockStatisticsRepo.updateGradeRank).toHaveBeenCalledTimes(
+        mockStudentGrades.length,
+      );
       expect(result).toBeDefined();
     });
   });
@@ -241,24 +246,37 @@ describe('StatisticsService - @unit #critical', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('통계 정보를 조회할 때, 시험 요약 정보와 학생별 성적 및 석차 정보를 산출하여 반환한다', async () => {
+    it('통계 정보를 조회할 때, 저장된 등수 정보를 사용하여 반환한다', async () => {
       // Arrange
+      // 저장된 rank가 있는 데이터 준비
       const studentGrades = [
         {
+          id: 'g-1',
           lectureEnrollmentId: 'le-1',
           score: 100,
-          lectureEnrollment: { enrollment: { studentName: 'S1', school: 'A' } },
+          rank: 1, // 저장된 1등
+          lectureEnrollment: {
+            enrollment: { id: 'e-1', studentName: 'S1', school: 'A' },
+          },
         },
         {
+          id: 'g-2',
           lectureEnrollmentId: 'le-2',
           score: 100,
-          lectureEnrollment: { enrollment: { studentName: 'S2', school: 'B' } },
-        }, // 동점
+          rank: 10, // 점수는 같지만 저장된 등수가 10등이라면 그대로 10등 반환해야 함 (실시간 계산 아님을 증명)
+          lectureEnrollment: {
+            enrollment: { id: 'e-2', studentName: 'S2', school: 'B' },
+          },
+        },
         {
+          id: 'g-3',
           lectureEnrollmentId: 'le-3',
           score: 90,
-          lectureEnrollment: { enrollment: { studentName: 'S3', school: 'C' } },
-        }, // 3등
+          rank: 3,
+          lectureEnrollment: {
+            enrollment: { id: 'e-3', studentName: 'S3', school: 'C' },
+          },
+        },
       ];
       const correctCounts = { 'le-1': 10, 'le-2': 10, 'le-3': 9 };
       const summary = { ...mockExamSummary, totalExaminees: 3 };
@@ -298,8 +316,8 @@ describe('StatisticsService - @unit #critical', () => {
       // Assert
       expect(result.studentStats).toHaveLength(3);
       expect(result.studentStats[0].rank).toBe(1);
-      expect(result.studentStats[1].rank).toBe(1); // 동점자 처리
-      expect(result.studentStats[2].rank).toBe(3); // 3번째 학생은 3등
+      expect(result.studentStats[1].rank).toBe(10); // 저장된 등수 사용 확인
+      expect(result.studentStats[2].rank).toBe(3);
     });
   });
 });

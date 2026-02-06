@@ -47,6 +47,7 @@ export class StatisticsService {
 
     // 4. 문항별 통계 계산 및 저장 (Transaction)
     await this.prisma.$transaction(async (tx) => {
+      // 4-0. 결과 배열
       const results = [];
 
       for (const question of questions) {
@@ -100,7 +101,30 @@ export class StatisticsService {
         );
         results.push(statistic);
       }
+
+      // 5. 등수(Rank) 계산 및 저장
+      // 5-1. 해당 시험의 전체 성적 조회 (점수 내림차순)
+      const studentGrades = await this.statisticsRepo.getStudentGradesWithInfo(
+        examId,
+        tx,
+      );
+
+      // 5-2. 등수 계산 및 업데이트
+      let currentRank = 1;
+      for (let i = 0; i < studentGrades.length; i++) {
+        const grade = studentGrades[i];
+        const prevGrade = i > 0 ? studentGrades[i - 1] : null;
+
+        // 동점자 처리
+        if (prevGrade && prevGrade.score !== grade.score) {
+          currentRank = i + 1;
+        }
+
+        // DB 업데이트 (Rank 저장)
+        await this.statisticsRepo.updateGradeRank(grade.id, currentRank, tx);
+      }
     });
+
     return await this.getStatistics(examId, userType, profileId);
   }
 
@@ -139,32 +163,20 @@ export class StatisticsService {
       choiceRates: stat.choiceRates as Record<string, number> | null,
     }));
 
-    // 4. 학생 성적 매핑 및 석차 계산
+    // 4. 학생 성적 매핑 (이미 저장된 등수 사용)
     const totalExaminees = summary.totalExaminees;
-    let currentRank = 1;
-    const studentStats = [];
 
     // studentGrades는 이미 score desc 정렬되어 있음
-    for (let i = 0; i < studentGrades.length; i++) {
-      const grade = studentGrades[i];
-      const prevGrade = i > 0 ? studentGrades[i - 1] : null;
-
-      // 동점자 처리: 이전 점수와 다르면 현재 인덱스+1이 새로운 등수
-      if (prevGrade && prevGrade.score !== grade.score) {
-        currentRank = i + 1;
-      }
-
-      studentStats.push({
-        lectureEnrollmentId: grade.lectureEnrollmentId,
-        enrollmentId: grade.lectureEnrollment.enrollment.id,
-        studentName: grade.lectureEnrollment.enrollment.studentName,
-        school: grade.lectureEnrollment.enrollment.school,
-        correctCount: correctCounts[grade.lectureEnrollmentId] ?? 0,
-        score: grade.score,
-        rank: currentRank,
-        totalRank: totalExaminees, // 분모 (예: 5/20등)
-      });
-    }
+    const studentStats = studentGrades.map((grade) => ({
+      lectureEnrollmentId: grade.lectureEnrollmentId,
+      enrollmentId: grade.lectureEnrollment.enrollment.id,
+      studentName: grade.lectureEnrollment.enrollment.studentName,
+      school: grade.lectureEnrollment.enrollment.school,
+      correctCount: correctCounts[grade.lectureEnrollmentId] ?? 0,
+      score: grade.score,
+      rank: grade.rank || 0, // 저장된 등수 사용 (없으면 0)
+      totalRank: totalExaminees, // 분모 (예: 5/20등)
+    }));
 
     return {
       examStats: summary,
