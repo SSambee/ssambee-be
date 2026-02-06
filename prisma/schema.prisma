@@ -554,6 +554,14 @@ model Material {
   fileUrl String @map("file_url")
   type    String @default("ETC")
 
+  // New fields
+  description         String?  @db.Text              // 소개/세부 내용
+  subject             String?                        // 과목
+  externalDownloadUrl String?  @map("external_download_url") // 외부 다운로드 링크
+
+  // Soft Delete
+  deletedAt           DateTime? @map("deleted_at")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime? @updatedAt @map("updated_at")
 
@@ -565,6 +573,7 @@ model Material {
   commentAttachments      CommentAttachment[]
 
   @@index([lectureId])
+  @@index([deletedAt])
   @@map("materials")
 }
 
