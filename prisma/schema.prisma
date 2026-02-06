@@ -438,6 +438,7 @@ model Grade {
   lectureEnrollmentId String @map("lecture_enrollment_id")
 
   score  Int
+  rank   Int?
   isPass Boolean @default(true) @map("is_pass")
 
   createdAt DateTime @default(now()) @map("created_at")
