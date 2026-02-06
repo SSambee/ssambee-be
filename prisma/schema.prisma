@@ -115,6 +115,9 @@ model Instructor {
   //updatedGradeLogs GradeLog[]
   clinics      Clinic[]
 
+  // [Assistant] 조교에 지시한 업무 요청
+  assistantOrders AssistantOrder[]
+
   @@map("instructors")
 }
 
@@ -127,6 +130,10 @@ model Assistant {
 
   signupCode String? @map("signup_code")
   contract   String?
+  memo       String?
+
+  signStatus String @default("PENDING") @map("sign_status")
+  attendanceStatus String @default("PENDING") @map("attendance_status")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime? @updatedAt @map("updated_at")
@@ -136,6 +143,9 @@ model Assistant {
   comments          Comment[]
   uploadedMaterials Material[]       @relation("AssistantUploads")
   authoredPosts     InstructorPost[]
+
+  // [Assistant] 조교가 받은 업무 요청
+  assistantOrders AssistantOrder[]
 
   // [Audit] 조교가 성적을 수정한 경우 기록
   //updatedGradeLogs GradeLog[]
@@ -570,6 +580,27 @@ model Material {
 
   @@index([lectureId])
   @@map("materials")
+}
+
+model AssistantOrder {
+  id String @id @default(cuid(2))
+
+  assistantId String @map("assistant_id")
+  assistant   Assistant @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+
+  instructorId String @map("instructor_id")
+  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  lectureId String @map("lecture_id")
+  materialId String? @map("material_id")
+
+  memo      String?
+  status    String @default("PENDING")
+  priority  String @default("NORMAL")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+  deadlinedAt DateTime? @map("deadlined_at")
 }
 
 // --------------------------------------------------------
