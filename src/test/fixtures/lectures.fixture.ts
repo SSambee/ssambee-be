@@ -123,6 +123,7 @@ export const mockLectures: Record<string, LectureDetail> = {
         source: null,
         subject: null,
         description: null,
+        averageScore: null,
         updatedAt: new Date(),
         createdAt: new Date(),
         gradingStatus: 'PENDING',

@@ -339,6 +339,8 @@ model Exam {
   cutoffScore Int     @default(0) @map("cutoff_score")
   source      String?
 
+  averageScore Float? @map("average_score")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime? @updatedAt @map("updated_at")
 
