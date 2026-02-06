@@ -120,6 +120,7 @@ export const createMockAttendancesRepository = () =>
     'findByEnrollmentId',
     'update',
     'findByLectureEnrollmentId',
+    'getAttendanceStatsByLectureEnrollment',
   ]);
 
 /** Mock ExamsRepository 생성 */
@@ -151,7 +152,9 @@ export const createMockGradesRepository = () =>
     'calculateAverageByExamId',
     'findByIdWithDetails',
     'findByLectureEnrollmentId',
+    'findByLectureEnrollmentId',
     'findGradeWithDetailsByExamAndEnrollment',
+    'findGradeReportByExamAndEnrollment',
   ]);
 
 /** Mock ClinicsRepository 생성 */

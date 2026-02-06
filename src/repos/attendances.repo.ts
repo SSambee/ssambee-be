@@ -82,4 +82,25 @@ export class AttendancesRepository {
       data,
     });
   }
+  // 출석 통계 조회 (총 출석 수, 결석 수)
+  async getAttendanceStatsByLectureEnrollment(
+    lectureEnrollmentId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+
+    const [totalCount, absentCount] = await Promise.all([
+      client.attendance.count({
+        where: { lectureEnrollmentId },
+      }),
+      client.attendance.count({
+        where: {
+          lectureEnrollmentId,
+          status: 'ABSENT',
+        },
+      }),
+    ]);
+
+    return { totalCount, absentCount };
+  }
 }

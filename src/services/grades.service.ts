@@ -9,6 +9,7 @@ import { GradesRepository } from '../repos/grades.repo.js';
 import { ExamsRepository } from '../repos/exams.repo.js';
 import { LecturesRepository } from '../repos/lectures.repo.js';
 import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
+import { AttendancesRepository } from '../repos/attendances.repo.js';
 import { PermissionService } from './permission.service.js';
 import type { SubmitGradingDto } from '../validations/grades.validation.js';
 
@@ -18,6 +19,7 @@ export class GradesService {
     private readonly examsRepo: ExamsRepository,
     private readonly lecturesRepo: LecturesRepository,
     private readonly lectureEnrollmentsRepo: LectureEnrollmentsRepository,
+    private readonly attendancesRepo: AttendancesRepository,
     private readonly permissionService: PermissionService,
     private readonly prisma: PrismaClient,
   ) {}
@@ -387,6 +389,119 @@ export class GradesService {
       isPass: gradeWithDetails.isPass,
       examTitle: gradeWithDetails.exam.title,
       questions: questionResults,
+    };
+  }
+
+  /** [NEW] 성적표 리포트 조회 (관리자용) */
+  async getGradeReport(
+    examId: string,
+    lectureEnrollmentId: string,
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 1. 상세 리포트 데이터 조회
+    const gradeData = await this.gradesRepo.findGradeReportByExamAndEnrollment(
+      examId,
+      lectureEnrollmentId,
+    );
+
+    if (!gradeData) {
+      throw new NotFoundException('해당 성적 정보를 찾을 수 없습니다.');
+    }
+
+    const { exam, lectureEnrollment } = gradeData;
+    const { lecture, enrollment, studentAnswers } = lectureEnrollment;
+
+    // 2. 권한 검증 (강사/조교)
+    await this.permissionService.validateInstructorAccess(
+      lecture.instructor.user.name
+        ? lecture.instructorId
+        : lecture.instructorId, // instructorId 접근 필요
+      userType,
+      profileId,
+    );
+    // Note: 위 코드에서 instructorId는 lecture 객체 top-level에 포함되어 있지 않으므로 include 수정 필요할 수도 있음.
+    // 하지만 findGradeReportByExamAndEnrollment에서 lecture include 시 instructorId를 가져오지 않았음.
+    // 따라서 validateInstructorAccess를 위해 instructorId가 필요한데,
+    // 현재 쿼리에서는 lecture.instructor만 가져오고 있음.
+    // => Repo 수정이 번거로우니, 그냥 lecture.instructorId를 가져오도록 Repo를 수정하거나,
+    // 일단 lectureId로 강사를 다시 조회하거나...
+    // Repo에서 lecture.instructorId는 기본적으로 가져올 것 같지만 (relation이니까),
+    // include: { instructor: { select: ... } } 이렇게 하면 instructor 객체만 가져옴.
+    // lecture 필드 자체는 이미 로드되었으니 lecture.instructorId가 있을 것임. (Prisma 기본 동작 확인 필요)
+    // Prisma에서 include를 쓰면 relation이 로드되지만, 스칼라 필드인 instructorId는 기본적으로 포함됨.
+    // 단, select를 쓰지 않았으므로 lecture 모델의 모든 스칼라 필드(instructorId 포함)는 로드됨. Ok.
+
+    // 3. 출석률 계산
+    const { totalCount, absentCount } =
+      await this.attendancesRepo.getAttendanceStatsByLectureEnrollment(
+        lectureEnrollmentId,
+      );
+
+    let attendanceRate = 0;
+    if (totalCount > 0) {
+      attendanceRate = ((totalCount - absentCount) / totalCount) * 100;
+    }
+    // 소수점 첫째자리 반올림
+    attendanceRate = Math.round(attendanceRate * 10) / 10;
+
+    // 4. 데이터 가공
+
+    // 4-1. 문항별 상세 정보
+    const answerMap = new Map(studentAnswers.map((a) => [a.questionId, a]));
+    const questionsWithStats = exam.questions.map((q) => {
+      const studentAnswer = answerMap.get(q.id);
+      const isCorrect = studentAnswer?.isCorrect ?? false;
+      // 정답률이 있으면 오답률 = 100 - 정답률
+      const correctRate = q.statistic?.correctRate ?? 0;
+      const wrongRate = parseFloat((100 - correctRate).toFixed(1));
+
+      return {
+        questionNumber: q.questionNumber,
+        content: q.content,
+        source: q.source,
+        category: q.category,
+        isCorrect,
+        wrongRate,
+      };
+    });
+
+    // 4-2. 최근 시험 이력 (6개)
+    const recentGrades = lectureEnrollment.grades.map((g) => ({
+      gradeId: g.id,
+      examDate: g.exam.examDate ?? g.exam.createdAt,
+      title: g.exam.title, // 프론트엔드 요청사항엔 없었으나 유용할듯
+      score: g.score,
+    }));
+
+    return {
+      instructor: {
+        name: lecture.instructor.user.name,
+        academy: lecture.instructor.academy,
+        subject: lecture.instructor.subject,
+      },
+      enrollment: {
+        name: enrollment.studentName,
+      },
+      exam: {
+        title: exam.title,
+        examDate: exam.examDate,
+        description: exam.description,
+        category: exam.category,
+        gradesCount: exam.gradesCount,
+        averageScore: exam.averageScore || 0,
+      },
+      grade: {
+        score: gradeData.score,
+        rank: gradeData.rank || 0,
+        isClinic: !gradeData.isPass, // Pass 못하면 클리닉 (혹은 별도 로직)
+      },
+      lecture: {
+        title: lecture.title,
+      },
+      recentGrades,
+      attendanceRate,
+      questions: questionsWithStats,
     };
   }
 }

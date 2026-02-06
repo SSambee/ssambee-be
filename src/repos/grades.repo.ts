@@ -247,4 +247,70 @@ export class GradesRepository {
     });
     return aggregate._avg.score || 0;
   }
+  /** [NEW] 성적표 리포트용 데이터 조회 */
+  async findGradeReportByExamAndEnrollment(
+    examId: string,
+    lectureEnrollmentId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+
+    return await client.grade.findUnique({
+      where: {
+        examId_lectureEnrollmentId: {
+          examId,
+          lectureEnrollmentId,
+        },
+      },
+      include: {
+        exam: {
+          include: {
+            questions: {
+              include: {
+                statistic: true,
+              },
+              orderBy: { questionNumber: 'asc' },
+            },
+          },
+        },
+        lectureEnrollment: {
+          include: {
+            enrollment: true,
+            lecture: {
+              include: {
+                instructor: {
+                  select: {
+                    user: { select: { name: true } },
+                    academy: true,
+                    subject: true,
+                  },
+                },
+              },
+            },
+            studentAnswers: {
+              where: {
+                question: { examId },
+              },
+            },
+            grades: {
+              include: {
+                exam: {
+                  select: {
+                    id: true,
+                    title: true,
+                    examDate: true,
+                    createdAt: true,
+                  },
+                },
+              },
+              orderBy: {
+                exam: { createdAt: 'desc' },
+              },
+              take: 6,
+            },
+          },
+        },
+      },
+    });
+  }
 }
