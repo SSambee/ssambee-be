@@ -282,10 +282,11 @@ export class LectureEnrollmentsRepository {
           include: {
             exam: {
               select: {
-                id: true,
                 title: true,
-                subject: true,
                 examDate: true,
+                subject: true,
+                averageScore: true,
+                gradesCount: true,
               },
             },
           },

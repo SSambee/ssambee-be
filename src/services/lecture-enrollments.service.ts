@@ -36,30 +36,27 @@ export class LectureEnrollmentsService {
       profileId,
     );
 
-    // 3. 각 성적별 평균 및 응시자 수 조회 (병렬 처리)
-    const gradesWithStats = await Promise.all(
-      lectureEnrollment.grades.map(async (grade) => {
-        const [average, totalExaminees] = await Promise.all([
-          this.gradesRepo.calculateAverageByExamId(grade.examId),
-          this.statisticsRepo.countGradesByExamId(grade.examId),
-        ]);
+    // 3. 각 성적별 평균 및 응시자 수 조회
+    const gradesWithStats = lectureEnrollment.grades.map((grade) => {
+      // 저장된 통계값 사용 (없으면 기본값 0)
+      const average = grade.exam.averageScore ?? 0;
+      const totalExaminees = grade.exam.gradesCount;
 
-        return {
-          exam: {
-            title: grade.exam.title,
-            examDate: grade.exam.examDate,
-            subject: grade.exam.subject,
-            // 소수점 첫째자리 반올림
-            average: Math.round(average * 10) / 10,
-            totalExaminees,
-          },
-          grade: {
-            score: grade.score,
-            rank: grade.rank || 0,
-          },
-        };
-      }),
-    );
+      return {
+        exam: {
+          title: grade.exam.title,
+          examDate: grade.exam.examDate,
+          subject: grade.exam.subject,
+          // 소수점 첫째자리 반올림
+          average: Math.round(average * 10) / 10,
+          totalExaminees,
+        },
+        grade: {
+          score: grade.score,
+          rank: grade.rank || 0,
+        },
+      };
+    });
 
     // 4. 응답 구조화
     return {

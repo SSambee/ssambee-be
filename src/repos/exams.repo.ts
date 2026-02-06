@@ -247,6 +247,23 @@ export class ExamsRepository {
     });
   }
 
+  /** 통계 정보(평균점수, 응시자 수) 업데이트 */
+  async updateStatistics(
+    id: string,
+    averageScore: number,
+    gradesCount: number,
+    tx?: Prisma.TransactionClient,
+  ): Promise<Exam> {
+    const client = tx ?? this.prisma;
+    return await client.exam.update({
+      where: { id },
+      data: {
+        averageScore,
+        gradesCount,
+      },
+    });
+  }
+
   // --- Question CRUD methods ---
 
   /** 문항 생성 */

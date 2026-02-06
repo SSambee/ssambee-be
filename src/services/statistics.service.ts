@@ -4,6 +4,7 @@ import { NotFoundException } from '../err/http.exception.js';
 import { StatisticsRepository } from '../repos/statistics.repo.js';
 import { ExamsRepository } from '../repos/exams.repo.js';
 import { LecturesRepository } from '../repos/lectures.repo.js';
+import { GradesRepository } from '../repos/grades.repo.js';
 import { PermissionService } from './permission.service.js';
 
 export class StatisticsService {
@@ -11,6 +12,7 @@ export class StatisticsService {
     private readonly statisticsRepo: StatisticsRepository,
     private readonly examsRepo: ExamsRepository,
     private readonly lecturesRepo: LecturesRepository,
+    private readonly gradesRepo: GradesRepository,
     private readonly permissionService: PermissionService,
     private readonly prisma: PrismaClient,
   ) {}
@@ -123,6 +125,21 @@ export class StatisticsService {
         // DB 업데이트 (Rank 저장)
         await this.statisticsRepo.updateGradeRank(grade.id, currentRank, tx);
       }
+
+      // 6. 전체 통계(평균, 응시자 수) 저장
+      // 6-1. 평균 계산
+      const averageScore = await this.gradesRepo.calculateAverageByExamId(
+        examId,
+        tx,
+      );
+
+      // 6-2. Exam 테이블 업데이트
+      await this.examsRepo.updateStatistics(
+        examId,
+        averageScore,
+        totalSubmissions,
+        tx,
+      );
     });
 
     return await this.getStatistics(examId, userType, profileId);
@@ -143,9 +160,8 @@ export class StatisticsService {
     );
 
     // 2. 데이터 병렬 조회 (성능 최적화)
-    const [summary, questionStats, studentGrades, correctCounts, questions] =
+    const [questionStats, studentGrades, correctCounts, questions] =
       await Promise.all([
-        this.statisticsRepo.getExamSummary(examId),
         this.statisticsRepo.findStatisticsByExamId(examId),
         this.statisticsRepo.getStudentGradesWithInfo(examId),
         this.statisticsRepo.getStudentCorrectCounts(examId),
@@ -164,7 +180,7 @@ export class StatisticsService {
     }));
 
     // 4. 학생 성적 매핑 (이미 저장된 등수 사용)
-    const totalExaminees = summary.totalExaminees;
+    const totalExaminees = exam.gradesCount;
 
     // studentGrades는 이미 score desc 정렬되어 있음
     const studentStats = studentGrades.map((grade) => ({
@@ -179,7 +195,13 @@ export class StatisticsService {
     }));
 
     return {
-      examStats: summary,
+      examStats: {
+        averageScore: exam.averageScore ?? 0,
+        highestScore: 0, // TODO: 필요시 추가 계산 or DB 저장
+        lowestScore: 0, // TODO: 필요시 추가 계산 or DB 저장
+        totalExaminees: exam.gradesCount,
+        examDate: exam.examDate, // 스키마 변경으로 examDate 필드 직접 사용 가능
+      },
       questionStats: mappedQuestionStats,
       studentStats,
     };

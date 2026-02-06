@@ -19,6 +19,7 @@ import {
   createMockStatisticsRepository,
   createMockExamsRepository,
   createMockLecturesRepository,
+  createMockGradesRepository,
 } from '../test/mocks/repo.mock.js';
 import { createMockPermissionService } from '../test/mocks/services.mock.js';
 import { createMockPrisma } from '../test/mocks/prisma.mock.js';
@@ -34,6 +35,7 @@ import type { PrismaClient, Prisma } from '../generated/prisma/client.js';
 import type { StatisticsRepository } from '../repos/statistics.repo.js';
 import type { ExamsRepository } from '../repos/exams.repo.js';
 import type { LecturesRepository } from '../repos/lectures.repo.js';
+import type { GradesRepository } from '../repos/grades.repo.js';
 import type { PermissionService } from './permission.service.js';
 
 describe('StatisticsService - @unit #critical', () => {
@@ -41,6 +43,7 @@ describe('StatisticsService - @unit #critical', () => {
   let mockStatisticsRepo: jest.Mocked<StatisticsRepository>;
   let mockExamsRepo: jest.Mocked<ExamsRepository>;
   let mockLecturesRepo: jest.Mocked<LecturesRepository>;
+  let mockGradesRepo: jest.Mocked<GradesRepository>;
   let mockPermissionService: jest.Mocked<PermissionService>;
   let mockPrisma: jest.Mocked<PrismaClient>;
 
@@ -49,7 +52,9 @@ describe('StatisticsService - @unit #critical', () => {
 
     mockStatisticsRepo = createMockStatisticsRepository();
     mockExamsRepo = createMockExamsRepository();
+    mockExamsRepo = createMockExamsRepository();
     mockLecturesRepo = createMockLecturesRepository();
+    mockGradesRepo = createMockGradesRepository();
     mockPermissionService = createMockPermissionService();
     mockPrisma = createMockPrisma() as unknown as jest.Mocked<PrismaClient>;
 
@@ -62,6 +67,7 @@ describe('StatisticsService - @unit #critical', () => {
       mockStatisticsRepo,
       mockExamsRepo,
       mockLecturesRepo,
+      mockGradesRepo,
       mockPermissionService,
       mockPrisma,
     );
@@ -186,7 +192,21 @@ describe('StatisticsService - @unit #critical', () => {
         mockCorrectCounts,
       );
 
-      // Act
+      mockGradesRepo.calculateAverageByExamId.mockResolvedValue(85.5);
+      mockExamsRepo.updateStatistics.mockResolvedValue({
+        ...mockExams.basic,
+        averageScore: 85.5,
+        gradesCount: 10,
+      } as unknown as Awaited<
+        ReturnType<typeof mockExamsRepo.updateStatistics>
+      >);
+
+      // getStatistics 호출을 위한 Mock 설정 (findById)
+      mockExamsRepo.findById.mockResolvedValue({
+        ...mockExams.basic,
+        averageScore: 85.5,
+        gradesCount: 10,
+      } as unknown as Awaited<ReturnType<typeof mockExamsRepo.findById>>);
       const result = await statisticsService.calculateAndSaveStatistics(
         examId,
         userType,
@@ -213,6 +233,18 @@ describe('StatisticsService - @unit #critical', () => {
         mockStudentGrades.length,
       );
       expect(result).toBeDefined();
+
+      // updateStatistics 호출 검증
+      expect(mockGradesRepo.calculateAverageByExamId).toHaveBeenCalledWith(
+        examId,
+        expect.anything(),
+      );
+      expect(mockExamsRepo.updateStatistics).toHaveBeenCalledWith(
+        examId,
+        85.5,
+        totalSubmissions,
+        expect.anything(),
+      );
     });
   });
 
@@ -279,16 +311,13 @@ describe('StatisticsService - @unit #critical', () => {
         },
       ];
       const correctCounts = { 'le-1': 10, 'le-2': 10, 'le-3': 9 };
-      const summary = { ...mockExamSummary, totalExaminees: 3 };
 
-      mockExamsRepo.findById.mockResolvedValue(
-        mockExams.basic as Awaited<ReturnType<typeof mockExamsRepo.findById>>,
-      );
-      mockStatisticsRepo.getExamSummary.mockResolvedValue(
-        summary as Awaited<
-          ReturnType<typeof mockStatisticsRepo.getExamSummary>
-        >,
-      );
+      mockExamsRepo.findById.mockResolvedValue({
+        ...mockExams.basic,
+        averageScore: 88.5,
+        gradesCount: 3,
+      } as unknown as Awaited<ReturnType<typeof mockExamsRepo.findById>>);
+
       mockStatisticsRepo.findStatisticsByExamId.mockResolvedValue([
         mockQuestionStats.q1,
       ] as Awaited<
@@ -317,7 +346,12 @@ describe('StatisticsService - @unit #critical', () => {
       expect(result.studentStats).toHaveLength(3);
       expect(result.studentStats[0].rank).toBe(1);
       expect(result.studentStats[1].rank).toBe(10); // 저장된 등수 사용 확인
+      expect(result.studentStats[0].rank).toBe(1);
+      expect(result.studentStats[1].rank).toBe(10); // 저장된 등수 사용 확인
       expect(result.studentStats[2].rank).toBe(3);
+
+      expect(result.examStats.averageScore).toBe(88.5);
+      expect(result.examStats.totalExaminees).toBe(3);
     });
   });
 });

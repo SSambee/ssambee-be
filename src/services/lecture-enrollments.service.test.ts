@@ -83,6 +83,8 @@ describe('LectureEnrollmentsService - @unit', () => {
               title: '시험 1',
               examDate: new Date(),
               subject: 'MATH',
+              averageScore: 85.5,
+              gradesCount: 30,
             },
           },
         ],
@@ -93,8 +95,7 @@ describe('LectureEnrollmentsService - @unit', () => {
           ReturnType<LectureEnrollmentsRepository['findByIdWithGrades']>
         >,
       );
-      mockGradesRepo.calculateAverageByExamId.mockResolvedValue(85.5);
-      mockStatisticsRepo.countGradesByExamId.mockResolvedValue(30);
+      // mockGradesRepo.calculateAverageByExamId, mockStatisticsRepo.countGradesByExamId 호출 제거됨
 
       // Act
       const result = await service.getLectureEnrollmentDetail(
@@ -110,12 +111,10 @@ describe('LectureEnrollmentsService - @unit', () => {
       expect(
         mockPermissionService.validateInstructorAccess,
       ).toHaveBeenCalledWith('instr_1', mockUserType, mockProfileId);
-      expect(mockGradesRepo.calculateAverageByExamId).toHaveBeenCalledWith(
-        'exam_1',
-      );
-      expect(mockStatisticsRepo.countGradesByExamId).toHaveBeenCalledWith(
-        'exam_1',
-      );
+
+      // 불필요한 호출 제거 검증
+      expect(mockGradesRepo.calculateAverageByExamId).not.toHaveBeenCalled();
+      expect(mockStatisticsRepo.countGradesByExamId).not.toHaveBeenCalled();
 
       expect(result.lecture.title).toBe('강의 제목');
       expect(result.grades[0].exam.average).toBe(85.5);

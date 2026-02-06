@@ -107,6 +107,7 @@ const statisticsService = new StatisticsService(
   statisticsRepo,
   examsRepo,
   lecturesRepo,
+  gradesRepo,
   permissionService,
   prisma,
 );
