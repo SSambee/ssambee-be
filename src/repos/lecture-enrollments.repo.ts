@@ -254,4 +254,44 @@ export class LectureEnrollmentsRepository {
       },
     });
   }
+
+  /** [NEW] 강의수강생 상세 조회 (성적 포함) */
+  async findByIdWithGrades(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    return await client.lectureEnrollment.findUnique({
+      where: { id },
+      include: {
+        lecture: {
+          include: {
+            instructor: {
+              select: {
+                user: { select: { name: true } },
+              },
+            },
+          },
+        },
+        enrollment: {
+          select: {
+            id: true,
+            studentName: true,
+            school: true,
+            status: true,
+          },
+        },
+        grades: {
+          include: {
+            exam: {
+              select: {
+                id: true,
+                title: true,
+                subject: true,
+                examDate: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+  }
 }
