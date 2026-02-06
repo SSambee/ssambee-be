@@ -414,23 +414,10 @@ export class GradesService {
 
     // 2. 권한 검증 (강사/조교)
     await this.permissionService.validateInstructorAccess(
-      lecture.instructor.user.name
-        ? lecture.instructorId
-        : lecture.instructorId, // instructorId 접근 필요
+      lecture.instructorId,
       userType,
       profileId,
     );
-    // Note: 위 코드에서 instructorId는 lecture 객체 top-level에 포함되어 있지 않으므로 include 수정 필요할 수도 있음.
-    // 하지만 findGradeReportByExamAndEnrollment에서 lecture include 시 instructorId를 가져오지 않았음.
-    // 따라서 validateInstructorAccess를 위해 instructorId가 필요한데,
-    // 현재 쿼리에서는 lecture.instructor만 가져오고 있음.
-    // => Repo 수정이 번거로우니, 그냥 lecture.instructorId를 가져오도록 Repo를 수정하거나,
-    // 일단 lectureId로 강사를 다시 조회하거나...
-    // Repo에서 lecture.instructorId는 기본적으로 가져올 것 같지만 (relation이니까),
-    // include: { instructor: { select: ... } } 이렇게 하면 instructor 객체만 가져옴.
-    // lecture 필드 자체는 이미 로드되었으니 lecture.instructorId가 있을 것임. (Prisma 기본 동작 확인 필요)
-    // Prisma에서 include를 쓰면 relation이 로드되지만, 스칼라 필드인 instructorId는 기본적으로 포함됨.
-    // 단, select를 쓰지 않았으므로 lecture 모델의 모든 스칼라 필드(instructorId 포함)는 로드됨. Ok.
 
     // 3. 출석률 계산
     const { totalCount, absentCount } =
@@ -470,7 +457,7 @@ export class GradesService {
     const recentGrades = lectureEnrollment.grades.map((g) => ({
       gradeId: g.id,
       examDate: g.exam.examDate ?? g.exam.createdAt,
-      title: g.exam.title, // 프론트엔드 요청사항엔 없었으나 유용할듯
+      title: g.exam.title,
       score: g.score,
     }));
 
@@ -494,7 +481,7 @@ export class GradesService {
       grade: {
         score: gradeData.score,
         rank: gradeData.rank || 0,
-        isClinic: !gradeData.isPass, // Pass 못하면 클리닉 (혹은 별도 로직)
+        isPass: gradeData.isPass,
       },
       lecture: {
         title: lecture.title,

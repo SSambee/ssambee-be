@@ -248,6 +248,7 @@ export class GradesRepository {
     });
     return aggregate._avg.score || 0;
   }
+
   /** [NEW] 성적표 리포트용 데이터 조회 */
   async findGradeReportByExamAndEnrollment(
     examId: string,

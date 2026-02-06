@@ -43,24 +43,26 @@ export class StatisticsService {
       return []; // 문항이 없으면 빈 배열 반환
     }
 
-    // 3-2. 분모: 성적 제출자 수 조회
-    const totalSubmissions =
-      await this.statisticsRepo.countGradesByExamId(examId);
-
     // 4. 문항별 통계 계산 및 저장 (Transaction)
     await this.prisma.$transaction(async (tx) => {
-      // 4-0. 결과 배열
+      // 4-0. 분모: 성적 제출자 수 조회
+      const totalSubmissions = await this.statisticsRepo.countGradesByExamId(
+        examId,
+        tx,
+      );
+
+      // 4-1. 결과 배열
       const results = [];
 
       for (const question of questions) {
-        // 4-1. 해당 문항에 대한 학생 답안 조회
+        // 4-2. 해당 문항에 대한 학생 답안 조회
         const answers =
           await this.statisticsRepo.findStudentAnswersByQuestionId(
             question.id,
             tx,
           );
 
-        // 4-2. 정답률 계산
+        // 4-3. 정답률 계산
         // 분모가 0이면 0% 처리
         const correctCount = answers.filter((a) => a.isCorrect).length;
         const correctRate =
@@ -68,7 +70,7 @@ export class StatisticsService {
             ? Number(((correctCount / totalSubmissions) * 100).toFixed(2))
             : 0;
 
-        // 4-3. 선지별 선택률 계산 (객관식인 경우)
+        // 4-4. 선지별 선택률 계산 (객관식인 경우)
         let choiceRates: Record<string, number> | null = null;
         if (question.type === 'MULTIPLE') {
           choiceRates = {};
@@ -90,7 +92,7 @@ export class StatisticsService {
           });
         }
 
-        // 4-4. 저장
+        // 4-5. 저장
         const statistic = await this.statisticsRepo.upsertQuestionStatistic(
           examId,
           question.id,
