@@ -1,6 +1,9 @@
 import { MaterialsService } from '../../src/services/materials.service.js';
 import { FileStorageService } from '../../src/services/filestorage.service.js';
-import { MaterialType } from '../../src/constants/materials.constant.js';
+import {
+  MaterialType,
+  FrontendMaterialType,
+} from '../../src/constants/materials.constant.js';
 import { UserType } from '../../src/constants/auth.constant.js';
 import {
   BadRequestException,
@@ -16,8 +19,11 @@ import {
   mockLectures,
   mockMaterials,
   mockInstructor,
-  mockMaterialRequest,
 } from '../test/fixtures/index.js';
+import {
+  UploadMaterialDto,
+  GetMaterialsQueryDto,
+} from '../../src/validations/materials.validation.js';
 
 describe('MaterialsService', () => {
   let service: MaterialsService;
@@ -54,7 +60,11 @@ describe('MaterialsService', () => {
   describe('uploadMaterial', () => {
     it('유효한 YouTube 링크를 업로드하면 성공해야 한다', async () => {
       // Arrange
-      const dto = mockMaterialRequest.video;
+      const dto: UploadMaterialDto = {
+        title: 'Video',
+        type: FrontendMaterialType.VIDEO,
+        youtubeUrl: 'https://youtube.com/watch?v=123',
+      };
       const mockLecture = mockLectures.basic;
       const mockMaterial = mockMaterials.video;
 
@@ -81,8 +91,9 @@ describe('MaterialsService', () => {
     });
 
     it('잘못된 YouTube 링크인 경우 에러를 던져야 한다', async () => {
-      const dto = {
-        ...mockMaterialRequest.video,
+      const dto: UploadMaterialDto = {
+        title: 'Video',
+        type: FrontendMaterialType.VIDEO,
         youtubeUrl: 'https://invalid-url.com',
       };
 
@@ -100,7 +111,10 @@ describe('MaterialsService', () => {
     });
 
     it('파일 업로드 시 S3 업로드를 호출해야 한다', async () => {
-      const dto = mockMaterialRequest.upload;
+      const dto: UploadMaterialDto = {
+        title: 'File',
+        type: FrontendMaterialType.PAPER,
+      };
       const s3Url = 'https://s3.aws.com/test.pdf';
       const mockFile = {
         originalname: 'test.pdf',
@@ -133,7 +147,10 @@ describe('MaterialsService', () => {
     });
 
     it('강의 ID 없이 업로드하면(라이브러리) 성공해야 한다', async () => {
-      const dto = mockMaterialRequest.upload;
+      const dto: UploadMaterialDto = {
+        title: 'Lib',
+        type: FrontendMaterialType.PAPER,
+      };
       const mockFile = {
         originalname: 'lib.pdf',
         buffer: Buffer.from('lib-buffer'),
@@ -165,7 +182,11 @@ describe('MaterialsService', () => {
 
   describe('getMaterials', () => {
     it('강의 자료 목록을 조회해야 한다', async () => {
-      const query = { page: 1, limit: 10, lectureId: mockLectures.basic.id };
+      const query: GetMaterialsQueryDto & { lectureId: string } = {
+        page: 1,
+        limit: 10,
+        lectureId: mockLectures.basic.id,
+      };
       lecturesRepo.findById.mockResolvedValue(mockLectures.basic);
 
       materialsRepo.findMany.mockResolvedValue({
@@ -229,6 +250,7 @@ describe('MaterialsService', () => {
       const mockMaterial = {
         ...mockMaterials.basic,
         instructor: { user: { name: '이강사' } },
+        lecture: { title: '강의' },
       };
       const mockLecture = mockLectures.basic;
 

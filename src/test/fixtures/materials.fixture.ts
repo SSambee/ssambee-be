@@ -24,6 +24,9 @@ export const mockMaterials = {
       },
     },
     assistant: null,
+    lecture: {
+      title: mockLectures.basic.title,
+    },
   },
 
   video: {
@@ -46,6 +49,9 @@ export const mockMaterials = {
       },
     },
     assistant: null,
+    lecture: {
+      title: mockLectures.basic.title,
+    },
   },
 
   exam: {
@@ -68,6 +74,9 @@ export const mockMaterials = {
       },
     },
     assistant: null,
+    lecture: {
+      title: mockLectures.basic.title,
+    },
   },
 };
 
