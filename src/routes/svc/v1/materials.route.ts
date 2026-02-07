@@ -9,6 +9,7 @@ const {
   materialsController,
   requireAuth,
   requireStudent, // 학생 전용? 학부모도 포함되어야 하는데...
+  // 통합 미들웨어 requireStudentOrParent 추가 예정
 } = container;
 
 svcMaterialsRouter.use(requireAuth);
