@@ -61,6 +61,10 @@ export class MaterialsService {
         (file as Express.MulterS3.File).location ||
         (file as Express.MulterS3.File).key;
 
+      if (!fileUrl) {
+        throw new BadRequestException('파일 업로드 처리에 실패했습니다.');
+      }
+
       // fallback
       if (!fileUrl.startsWith('http')) {
         const bucket = config.AWS_S3_BUCKET;
