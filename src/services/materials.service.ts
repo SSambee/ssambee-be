@@ -1,3 +1,5 @@
+import path from 'path';
+import { randomUUID } from 'crypto';
 import {
   BadRequestException,
   ForbiddenException,
@@ -14,7 +16,6 @@ import {
   UpdateMaterialDto,
   GetMaterialsQueryDto,
 } from '../validations/materials.validation.js';
-import { config } from '../config/env.config.js';
 
 import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 
@@ -57,20 +58,15 @@ export class MaterialsService {
       if (!file) {
         throw new BadRequestException('파일 업로드가 필요합니다.');
       }
-      fileUrl =
-        (file as Express.MulterS3.File).location ||
-        (file as Express.MulterS3.File).key;
 
-      if (!fileUrl) {
-        throw new BadRequestException('파일 업로드 처리에 실패했습니다.');
-      }
+      const randomId = randomUUID();
+      const ext = path.extname(file.originalname);
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const key = `materials/${year}/${month}/${randomId}${ext}`;
 
-      // fallback
-      if (!fileUrl.startsWith('http')) {
-        const bucket = config.AWS_S3_BUCKET;
-        const region = config.AWS_REGION;
-        fileUrl = `https://${bucket}.s3.${region}.amazonaws.com/${fileUrl}`;
-      }
+      fileUrl = await this.fileStorageService.upload(file, key);
     }
 
     const uploader = {
