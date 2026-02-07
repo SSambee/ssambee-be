@@ -168,4 +168,12 @@ export class PermissionService {
 
     throw new ForbiddenException('접근 권한이 없습니다.');
   }
+
+  /** Assistant ID로 Instructor ID 조회 */
+  async getInstructorIdByAssistantId(
+    assistantId: string,
+  ): Promise<string | null> {
+    const assistant = await this.assistantRepository.findById(assistantId);
+    return assistant?.instructorId || null;
+  }
 }
