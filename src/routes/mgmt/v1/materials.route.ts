@@ -39,7 +39,7 @@ mgmtMaterialsRouter.get(
 /** 자료 상세 조회 */
 mgmtMaterialsRouter.get(
   '/:materialsId',
-  validate(getMaterialsQuerySchema, 'query'),
+  validate(materialParamsSchema, 'params'),
   materialsController.getMaterialDetail,
 );
 
