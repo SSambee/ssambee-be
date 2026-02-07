@@ -1,0 +1,62 @@
+import { Router } from 'express';
+import { container } from '../../../config/container.config.js';
+import { validate } from '../../../middlewares/validate.middleware.js';
+import {
+  createStudentPostSchema,
+  updateStudentPostStatusSchema,
+  getStudentPostsQuerySchema,
+  studentPostParamsSchema,
+} from '../../../validations/student-posts.validation.js';
+import { createCommentSchema } from '../../../validations/comments.validation.js';
+
+export const svcStudentPostsRouter = Router();
+
+// TODO: requireStudentOrParent 미들웨어 필요. 현재는 requireStudent만 사용
+// const { requireStudentOrParent } = createRoleMiddlewares(); 같은 형태가 이상적
+
+const {
+  studentPostsController,
+  commentsController,
+  requireAuth,
+  requireStudent,
+} = container;
+
+svcStudentPostsRouter.use(requireAuth);
+svcStudentPostsRouter.use(requireStudent); // 학부모 추가 필요
+
+/** 질문 생성 */
+svcStudentPostsRouter.post(
+  '/',
+  validate(createStudentPostSchema, 'body'),
+  studentPostsController.createPost,
+);
+
+/** 내 질문 목록 조회 */
+svcStudentPostsRouter.get(
+  '/',
+  validate(getStudentPostsQuerySchema, 'query'),
+  studentPostsController.getPostList,
+);
+
+/** 질문 상세 조회 */
+svcStudentPostsRouter.get(
+  '/:postId',
+  validate(studentPostParamsSchema, 'params'),
+  studentPostsController.getPostDetail,
+);
+
+/** 질문 상태 변경 (학생이 해결 완료 처리) */
+svcStudentPostsRouter.patch(
+  '/:postId/status',
+  validate(studentPostParamsSchema, 'params'),
+  validate(updateStudentPostStatusSchema, 'body'),
+  studentPostsController.updateStatus,
+);
+
+// 학생/학부모도 본인 질문에 추가 댓글(재질문) 가능
+svcStudentPostsRouter.post(
+  '/:postId/comments',
+  validate(studentPostParamsSchema, 'params'),
+  validate(createCommentSchema, 'body'),
+  commentsController.createComment,
+);
