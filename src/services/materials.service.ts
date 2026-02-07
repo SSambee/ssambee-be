@@ -244,14 +244,15 @@ export class MaterialsService {
       const lecture = await this.lecturesRepository.findById(
         material.lectureId,
       );
-      if (lecture) {
-        await this.permissionService.validateLectureReadAccess(
-          material.lectureId,
-          { instructorId: lecture.instructorId },
-          userType,
-          profileId,
-        );
-      }
+
+      if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
+
+      await this.permissionService.validateLectureReadAccess(
+        material.lectureId,
+        { instructorId: lecture.instructorId },
+        userType,
+        profileId,
+      );
     } else {
       // 라이브러리(강의 미지정) 자료: 학생/학부모는 접근 불가
       // 기획에 따라 변동 가능
