@@ -101,14 +101,18 @@ export class MaterialsRepository {
     });
   }
 
-  /** [NEW] 학생의 자료 접근 권한 확인 (게시글 타겟팅 기준) */
+  /** 학생의 자료 접근 권한 확인 (게시글 타겟팅 기준) */
   async isAccessibleByStudent(
     materialId: string,
     enrollmentId: string,
+    lectureId?: string,
   ): Promise<boolean> {
-    // 1. 자료가 게시글에 첨부되어 있는지 확인
+    // 자료가 게시글에 첨부되어 있는지 확인
     const attachments = await this.prisma.instructorPostAttachment.findMany({
-      where: { materialId },
+      where: {
+        materialId,
+        ...(lectureId && { instructorPost: { lectureId } }),
+      },
       include: {
         instructorPost: {
           include: {
@@ -120,10 +124,10 @@ export class MaterialsRepository {
       },
     });
 
-    // 2. 첨부된 게시글이 없으면 → 일반 강의 자료로 간주 (수강 중이면 접근 가능)
+    // 첨부된 게시글이 없으면 → 일반 강의 자료로 간주 (수강 중이면 접근 가능)
     if (attachments.length === 0) return true;
 
-    // 3. 첨부된 게시글 중 하나라도 접근 가능한지 확인
+    // 첨부된 게시글 중 하나라도 접근 가능한지 확인
     // (LECTURE/GLOBAL 스코프거나, SELECTED 스코프이면서 타겟에 포함되어 있어야 함)
     return attachments.some((att) => {
       const post = att.instructorPost;
