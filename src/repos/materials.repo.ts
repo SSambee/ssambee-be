@@ -18,6 +18,9 @@ export class MaterialsRepository {
     return client.material.findFirst({
       where: { id, deletedAt: null },
       include: {
+        lecture: {
+          select: { title: true },
+        },
         instructor: {
           select: { user: { select: { name: true } } },
         },
@@ -62,6 +65,9 @@ export class MaterialsRepository {
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
+          lecture: {
+            select: { title: true },
+          },
           instructor: {
             select: { user: { select: { name: true } } },
           },

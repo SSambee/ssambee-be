@@ -28,7 +28,7 @@ export class MaterialsController {
       const userType = user.userType as UserType;
 
       const result = await this.materialsService.uploadMaterial(
-        lectureId, // undefined일 수 있음 (Global Library)
+        lectureId || undefined, // undefined일 수 있음 (Global Library)
         data,
         file,
         userType,

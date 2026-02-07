@@ -1,5 +1,6 @@
 import path from 'path';
 import { randomUUID } from 'crypto';
+import { format } from 'date-fns';
 import {
   BadRequestException,
   ForbiddenException,
@@ -118,17 +119,32 @@ export class MaterialsService {
     const { materials, totalCount } =
       await this.materialsRepository.findMany(query);
 
-    const mappedMaterials = materials.map((m) => ({
-      id: m.id,
-      title: m.title,
-      type: m.type,
-      uploaderName:
-        m.instructor?.user.name || m.assistant?.user.name || '알 수 없음',
-      createdAt: m.createdAt,
-      // URL은 직접 노출하지 않거나, VIDEO_LINK인 경우만 노출
-      isYoutube: m.type === MaterialType.VIDEO_LINK,
-      lectureId: m.lectureId,
-    }));
+    const mappedMaterials = materials.map((m) => {
+      // MaterialType Mapping
+      let type = 'OTHER';
+      if (m.type === MaterialType.EXAM_PAPER) type = 'PAPER';
+      else if (m.type === MaterialType.VIDEO_LINK) type = 'VIDEO';
+      else if (m.type === MaterialType.INSTRUCTOR_REQUEST) type = 'REQUEST';
+
+      const isVideo = m.type === MaterialType.VIDEO_LINK;
+      const downloadUrl = `/api/mgmt/v1/materials/${m.id}/download`; // 다운로드 URL (프론트에서 이 경로로 호출)
+
+      return {
+        id: m.id,
+        title: m.title,
+        description: m.description, // description 추가
+        writer:
+          m.instructor?.user.name || m.assistant?.user.name || '알 수 없음', // writer <- uploaderName
+        date: format(m.createdAt, 'yyyy-MM-dd'), // date <- createdAt
+        type: type, // type 매핑
+        classId: m.lectureId, // classId <- lectureId
+        className: m.lecture?.title, // className <- lecture.title (Repository에서 가져옴)
+        // file: 비디오가 아니면 { name, url } 반환
+        file: !isVideo ? { name: m.title, url: downloadUrl } : undefined,
+        // link: 비디오면 fileUrl 반환
+        link: isVideo ? m.fileUrl : undefined,
+      };
+    });
 
     return {
       materials: mappedMaterials,
@@ -257,22 +273,30 @@ export class MaterialsService {
       }
     }
 
+    // MaterialType Mapping
+    let type = 'OTHER';
+    if (material.type === MaterialType.EXAM_PAPER) type = 'PAPER';
+    else if (material.type === MaterialType.VIDEO_LINK) type = 'VIDEO';
+    else if (material.type === MaterialType.INSTRUCTOR_REQUEST)
+      type = 'REQUEST';
+
+    const isVideo = material.type === MaterialType.VIDEO_LINK;
+    const downloadUrl = `/api/mgmt/v1/materials/${material.id}/download`;
+
     return {
+      id: material.id,
       title: material.title,
-      type: material.type,
       description: material.description,
-      subject: material.subject,
-      fileUrl:
-        material.type === MaterialType.VIDEO_LINK
-          ? material.fileUrl
-          : undefined,
-      externalDownloadUrl: material.externalDownloadUrl,
-      uploaderName:
+      writer:
         material.instructor?.user.name ||
         material.assistant?.user.name ||
         '알 수 없음',
-      createdAt: material.createdAt,
-      updatedAt: material.updatedAt,
+      date: format(material.createdAt, 'yyyy-MM-dd'),
+      type: type,
+      classId: material.lectureId,
+      className: material.lecture?.title,
+      file: !isVideo ? { name: material.title, url: downloadUrl } : undefined,
+      link: isVideo ? material.fileUrl : undefined,
     };
   }
 

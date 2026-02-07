@@ -181,6 +181,9 @@ describe('MaterialsService', () => {
 
       expect(result.materials).toHaveLength(1);
       expect(result.pagination.totalCount).toBe(1);
+      expect(result.materials[0]).toHaveProperty('writer');
+      expect(result.materials[0]).toHaveProperty('date');
+      expect(result.materials[0]).toHaveProperty('className');
     });
   });
 
@@ -239,7 +242,7 @@ describe('MaterialsService', () => {
       );
 
       expect(result.title).toBe(mockMaterial.title);
-      expect(result.uploaderName).toBe('이강사');
+      expect(result.writer).toBe('이강사');
     });
 
     it('학생이 수강하지 않는 강의의 자료를 조회하면 에러가 발생해야 한다', async () => {
