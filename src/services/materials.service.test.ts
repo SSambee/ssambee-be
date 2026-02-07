@@ -104,10 +104,11 @@ describe('MaterialsService', () => {
       const s3Url = 'https://s3.aws.com/test.pdf';
       const mockFile = {
         originalname: 'test.pdf',
-        buffer: Buffer.from(''),
-        location: s3Url,
-        key: 'materials/test.pdf',
+        buffer: Buffer.from('test-buffer'),
+        mimetype: 'application/pdf',
       } as unknown as Express.Multer.File;
+
+      fileStorageService.upload.mockResolvedValue(s3Url);
 
       lecturesRepo.findById.mockResolvedValue(mockLectures.basic);
 
@@ -119,8 +120,10 @@ describe('MaterialsService', () => {
         mockInstructor.id,
       );
 
-      // fileStorageService.upload is no longer called in the service
-      // expect(fileStorageService.upload).toHaveBeenCalled();
+      expect(fileStorageService.upload).toHaveBeenCalledWith(
+        mockFile,
+        expect.stringMatching(/^materials\/\d{4}\/\d{2}\/.*\.pdf$/),
+      );
 
       expect(materialsRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -133,10 +136,11 @@ describe('MaterialsService', () => {
       const dto = mockMaterialRequest.upload;
       const mockFile = {
         originalname: 'lib.pdf',
-        buffer: Buffer.from(''),
-        location: 'https://s3.aws.com/lib.pdf',
-        key: 'materials/lib.pdf',
+        buffer: Buffer.from('lib-buffer'),
+        mimetype: 'application/pdf',
       } as unknown as Express.Multer.File;
+
+      fileStorageService.upload.mockResolvedValue('https://s3.aws.com/lib.pdf');
 
       await service.uploadMaterial(
         undefined,
@@ -147,6 +151,9 @@ describe('MaterialsService', () => {
       );
 
       expect(lecturesRepo.findById).not.toHaveBeenCalled();
+
+      expect(fileStorageService.upload).toHaveBeenCalled();
+
       expect(materialsRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           lectureId: null,
