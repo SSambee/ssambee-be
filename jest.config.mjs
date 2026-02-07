@@ -9,22 +9,25 @@ const config = {
     '!src/**/*.test.ts',
     '!src/**/*.spec.ts',
     '!src/app.ts',
-    '!src/test/**/*.ts'
+    '!src/test/**/*.ts',
   ],
-transform: {
-    '^.+\\.(t|j)s$': ['@swc/jest', {
-      // tsconfig.test.json의 내용을 SWC가 이해할 수 있게 설정
-      jsc: {
-        parser: {
-          syntax: 'typescript',
-          decorators: true, // 필요한 경우
+  transform: {
+    '^.+\\.(t|j)s$': [
+      '@swc/jest',
+      {
+        // tsconfig.test.json의 내용을 SWC가 이해할 수 있게 설정
+        jsc: {
+          parser: {
+            syntax: 'typescript',
+            decorators: true, // 필요한 경우
+          },
+          target: 'es2022',
         },
-        target: 'es2022',
       },
-    }]
+    ],
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(better-auth|better-call|@faker-js)/)'
+    'node_modules/(?!(better-auth|better-call|@faker-js)/)',
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',

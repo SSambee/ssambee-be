@@ -25,3 +25,7 @@ mgmtV1Router.use('/clinics', mgmtClinicsRouter);
 /** 강의수강생 라우트 */
 import { mgmtLectureEnrollmentsRouter } from './lecture-enrollments.route.js';
 mgmtV1Router.use('/lectureEnrollments', mgmtLectureEnrollmentsRouter);
+
+/** 조교 가입 코드 라우트 */
+import { mgmtAssistantCodesRouter } from './assistant-codes.route.js';
+mgmtV1Router.use('/assistant-codes', mgmtAssistantCodesRouter);
