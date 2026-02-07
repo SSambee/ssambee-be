@@ -5,6 +5,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { s3Client, bucketName } from '../middlewares/multer.middleware.js';
+import { config } from '../config/env.config.js';
 
 export class FileStorageService {
   // Shared client uses Singleton pattern from middleware
@@ -28,7 +29,7 @@ export class FileStorageService {
 
     // URL 반환 시: `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`
     // 하지만 보통 DB에는 Key나 전체 URL을 저장. 여기서는 URL 포맷으로 저장한다고 가정.
-    return `https://${bucketName}.s3.amazonaws.com/${key}`;
+    return `https://${bucketName}.s3.${config.AWS_REGION}.amazonaws.com/${key}`;
   }
 
   /**
