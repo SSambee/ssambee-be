@@ -6,7 +6,12 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '../err/http.exception.js';
-import { MaterialType } from '../constants/materials.constant.js';
+import {
+  MaterialType,
+  toBackendMaterialType,
+  toFrontendMaterialType,
+  FrontendMaterialType,
+} from '../constants/materials.constant.js';
 import { UserType } from '../constants/auth.constant.js';
 import { MaterialsRepository } from '../repos/materials.repo.js';
 import { LecturesRepository } from '../repos/lectures.repo.js';
@@ -50,7 +55,9 @@ export class MaterialsService {
 
     let fileUrl: string;
 
-    if (data.type === MaterialType.VIDEO_LINK) {
+    const backendType = toBackendMaterialType[data.type];
+
+    if (backendType === MaterialType.VIDEO_LINK) {
       if (!data.youtubeUrl) {
         throw new BadRequestException('동영상 링크가 필요합니다.');
       }
@@ -81,7 +88,7 @@ export class MaterialsService {
       lectureId: lectureId || null,
       title: data.title,
       fileUrl,
-      type: data.type,
+      type: backendType,
       description: data.description,
       subject: data.subject,
       externalDownloadUrl: data.externalDownloadUrl,
@@ -91,7 +98,10 @@ export class MaterialsService {
 
   /** 자료 목록 조회 */
   async getMaterials(
-    query: GetMaterialsQueryDto & { lectureId?: string },
+    query: GetMaterialsQueryDto & {
+      lectureId?: string;
+      type?: FrontendMaterialType;
+    },
     userType: UserType,
     profileId: string,
   ) {
@@ -115,16 +125,19 @@ export class MaterialsService {
       }
     }
 
+    const queryWithBackendType = {
+      ...query,
+      type: query.type ? toBackendMaterialType[query.type] : undefined,
+    };
+
     // 목록 조회
     const { materials, totalCount } =
-      await this.materialsRepository.findMany(query);
+      await this.materialsRepository.findMany(queryWithBackendType);
 
     const mappedMaterials = materials.map((m) => {
       // MaterialType Mapping
-      let type = 'OTHER';
-      if (m.type === MaterialType.EXAM_PAPER) type = 'PAPER';
-      else if (m.type === MaterialType.VIDEO_LINK) type = 'VIDEO';
-      else if (m.type === MaterialType.INSTRUCTOR_REQUEST) type = 'REQUEST';
+      const type =
+        toFrontendMaterialType[m.type as MaterialType] || ('OTHER' as const);
 
       const isVideo = m.type === MaterialType.VIDEO_LINK;
       const downloadUrl = `/api/mgmt/v1/materials/${m.id}/download`; // 다운로드 URL (프론트에서 이 경로로 호출)
@@ -274,11 +287,9 @@ export class MaterialsService {
     }
 
     // MaterialType Mapping
-    let type = 'OTHER';
-    if (material.type === MaterialType.EXAM_PAPER) type = 'PAPER';
-    else if (material.type === MaterialType.VIDEO_LINK) type = 'VIDEO';
-    else if (material.type === MaterialType.INSTRUCTOR_REQUEST)
-      type = 'REQUEST';
+    const type =
+      toFrontendMaterialType[material.type as MaterialType] ||
+      ('OTHER' as const);
 
     const isVideo = material.type === MaterialType.VIDEO_LINK;
     const downloadUrl = `/api/mgmt/v1/materials/${material.id}/download`;
