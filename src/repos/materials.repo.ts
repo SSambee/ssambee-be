@@ -8,13 +8,14 @@ export class MaterialsRepository {
     data: Prisma.MaterialUncheckedCreateInput,
     tx?: Prisma.TransactionClient,
   ) {
-    const client = tx || this.prisma;
+    const client = tx ?? this.prisma;
     return client.material.create({ data });
   }
 
   /** ID로 단일 조회 (업로더 정보 포함, 삭제되지 않은 것만) */
-  async findById(id: string) {
-    return this.prisma.material.findFirst({
+  async findById(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    return client.material.findFirst({
       where: { id, deletedAt: null },
       include: {
         instructor: {
@@ -31,13 +32,17 @@ export class MaterialsRepository {
   }
 
   /** 자료 목록 조회 (페이지네이션, 삭제되지 않은 것만) */
-  async findMany(params: {
-    lectureId?: string;
-    page: number;
-    limit: number;
-    type?: string;
-    search?: string;
-  }) {
+  async findMany(
+    params: {
+      lectureId?: string;
+      page: number;
+      limit: number;
+      type?: string;
+      search?: string;
+    },
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
     const { lectureId, page, limit, type, search } = params;
     const skip = (page - 1) * limit;
 
@@ -51,7 +56,7 @@ export class MaterialsRepository {
     };
 
     const [materials, totalCount] = await Promise.all([
-      this.prisma.material.findMany({
+      client.material.findMany({
         where,
         skip,
         take: limit,
@@ -65,38 +70,46 @@ export class MaterialsRepository {
           },
         },
       }),
-      this.prisma.material.count({ where }),
+      client.material.count({ where }),
     ]);
 
     return { materials, totalCount };
   }
 
   /** ID 목록으로 다건 조회 (삭제되지 않은 것만) */
-  async findByIds(ids: string[]) {
-    return this.prisma.material.findMany({
+  async findByIds(ids: string[], tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    return client.material.findMany({
       where: { id: { in: ids }, deletedAt: null },
     });
   }
 
   /** 자료 수정 */
-  async update(id: string, data: Prisma.MaterialUpdateInput) {
-    return this.prisma.material.updateMany({
+  async update(
+    id: string,
+    data: Prisma.MaterialUpdateInput,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return client.material.updateMany({
       where: { id, deletedAt: null },
       data,
     });
   }
 
   /** 자료 삭제 (Soft Delete) */
-  async softDelete(id: string) {
-    return this.prisma.material.updateMany({
+  async softDelete(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    return client.material.updateMany({
       where: { id, deletedAt: null },
       data: { deletedAt: new Date() },
     });
   }
 
   /** 영구 삭제 (관리자용 또는 필요시) */
-  async delete(id: string) {
-    return this.prisma.material.delete({
+  async delete(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    return client.material.delete({
       where: { id },
     });
   }
@@ -106,9 +119,11 @@ export class MaterialsRepository {
     materialId: string,
     enrollmentId: string,
     lectureId?: string,
+    tx?: Prisma.TransactionClient,
   ): Promise<boolean> {
+    const client = tx ?? this.prisma;
     // 자료가 게시글에 첨부되어 있는지 확인
-    const attachments = await this.prisma.instructorPostAttachment.findMany({
+    const attachments = await client.instructorPostAttachment.findMany({
       where: {
         materialId,
         ...(lectureId && { instructorPost: { lectureId } }),
