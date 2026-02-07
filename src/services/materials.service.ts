@@ -324,6 +324,7 @@ export class MaterialsService {
             await this.materialsRepository.isAccessibleByStudent(
               materialsId,
               enrollment.enrollmentId,
+              material.lectureId,
             );
           if (!isAccessible) {
             throw new ForbiddenException('해당 자료에 접근 권한이 없습니다.');
