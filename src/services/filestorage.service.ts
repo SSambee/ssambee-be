@@ -77,10 +77,14 @@ export class FileStorageService {
         ? urlObj.pathname.slice(1)
         : urlObj.pathname;
     } catch (e: unknown) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error(e);
-      }
-      return url;
+      const errorMessage =
+        e instanceof Error ? e.message : 'Unknown URL Parse Error';
+      // 운영 환경에서도 알 수 있게 경고 로그 출력
+      console.error(
+        `[FileStorageService] 유효하지 않은 URL 입력됨: "${url}" - 원인: ${errorMessage}`,
+      );
+      // 진행을 막기 위해 에러를 다시 던짐
+      throw new Error(`파일 키 추출 실패: ${errorMessage}`);
     }
   }
 }
