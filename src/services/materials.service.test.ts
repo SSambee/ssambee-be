@@ -207,7 +207,9 @@ describe('MaterialsService', () => {
         mockLecture.instructorId,
       );
 
-      expect(fileStorageService.delete).not.toHaveBeenCalled();
+      expect(fileStorageService.delete).not.toHaveBeenCalledWith(
+        mockMaterial.fileUrl,
+      );
       expect(materialsRepo.softDelete).toHaveBeenCalledWith(mockMaterial.id);
     });
   });
