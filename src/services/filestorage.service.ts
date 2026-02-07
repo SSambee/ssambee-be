@@ -1,11 +1,6 @@
-import {
-  PutObjectCommand,
-  DeleteObjectCommand,
-  GetObjectCommand,
-} from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { s3Client, bucketName } from '../middlewares/multer.middleware.js';
-import { config } from '../config/env.config.js';
 
 export class FileStorageService {
   // Shared client uses Singleton pattern from middleware
@@ -13,22 +8,25 @@ export class FileStorageService {
 
   /**
    * 파일 업로드
+   * ! 이부분은 나중에 S3 업로드 전에 이미지 리사이징 같은 가공이 필요할시 multer-s3대신 multer.memoryStorage를 사용해야합니다.
+   * > MaterialsService에서는 multer-s3를 사용하고 있습니다. 이 미들웨어는 파일이 서버에 도착하는 즉시 S3에 업로드한다.
+   * > 이미 테스트 코드에서도 이 메서드를 호출하지않는다고 주석이 달려있습니다.
    * @param file Multer File 객체
    * @param key 저장할 경로 (예: materials/uuid-filename.pdf)
    * @returns 업로드된 파일의 S3 URL (혹은 Key)
    */
-  async upload(file: Express.Multer.File, key: string): Promise<string> {
-    const command = new PutObjectCommand({
-      Bucket: bucketName,
-      Key: key,
-      Body: file.buffer,
-      ContentType: file.mimetype,
-    });
+  // async upload(file: Express.Multer.File, key: string): Promise<string> {
+  //   const command = new PutObjectCommand({
+  //     Bucket: bucketName,
+  //     Key: key,
+  //     Body: file.buffer,
+  //     ContentType: file.mimetype,
+  //   });
 
-    await s3Client.send(command);
+  //   await s3Client.send(command);
 
-    return `https://${bucketName}.s3.${config.AWS_REGION}.amazonaws.com/${key}`;
-  }
+  //   return `https://${bucketName}.s3.${config.AWS_REGION}.amazonaws.com/${key}`;
+  // }
 
   /**
    * 다운로드용 Presigned URL 생성
