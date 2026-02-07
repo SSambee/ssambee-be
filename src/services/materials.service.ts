@@ -154,14 +154,6 @@ export class MaterialsService {
     userType: UserType,
     profileId: string,
   ) {
-    const result = await this.materialsRepository.update(materialsId, data);
-
-    if (result.count === 0) {
-      throw new NotFoundException(
-        '수정할 자료를 찾을 수 없거나 이미 삭제되었습니다.',
-      );
-    }
-
     const material = await this.materialsRepository.findById(materialsId);
     if (!material) throw new NotFoundException('자료를 찾을 수 없습니다.');
 
