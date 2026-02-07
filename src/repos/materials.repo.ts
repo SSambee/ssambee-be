@@ -88,8 +88,8 @@ export class MaterialsRepository {
 
   /** 자료 삭제 (Soft Delete) */
   async softDelete(id: string) {
-    return this.prisma.material.update({
-      where: { id },
+    return this.prisma.material.updateMany({
+      where: { id, deletedAt: null },
       data: { deletedAt: new Date() },
     });
   }
