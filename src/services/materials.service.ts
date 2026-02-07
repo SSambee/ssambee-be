@@ -140,7 +140,10 @@ export class MaterialsService {
         toFrontendMaterialType[m.type as MaterialType] || ('OTHER' as const);
 
       const isVideo = m.type === MaterialType.VIDEO_LINK;
-      const downloadUrl = `/api/mgmt/v1/materials/${m.id}/download`; // 다운로드 URL (프론트에서 이 경로로 호출)
+      const isManagement =
+        userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT;
+      const basePath = isManagement ? '/api/mgmt/v1' : '/api/svc/v1';
+      const downloadUrl = `${basePath}/materials/${m.id}/download`; // 다운로드 URL (프론트에서 이 경로로 호출)
 
       return {
         id: m.id,
@@ -292,7 +295,10 @@ export class MaterialsService {
       ('OTHER' as const);
 
     const isVideo = material.type === MaterialType.VIDEO_LINK;
-    const downloadUrl = `/api/mgmt/v1/materials/${material.id}/download`;
+    const isManagement =
+      userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT;
+    const basePath = isManagement ? '/api/mgmt/v1' : '/api/svc/v1';
+    const downloadUrl = `${basePath}/materials/${material.id}/download`;
 
     return {
       id: material.id,
