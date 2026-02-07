@@ -104,7 +104,6 @@ export class MaterialsController {
   updateMaterial = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { materialsId } = req.params;
-      console.log(materialsId);
       const data = req.body as UpdateMaterialDto;
 
       const profileId = getProfileIdOrThrow(req);
