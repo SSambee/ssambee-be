@@ -80,8 +80,8 @@ export class MaterialsRepository {
 
   /** 자료 수정 */
   async update(id: string, data: Prisma.MaterialUpdateInput) {
-    return this.prisma.material.update({
-      where: { id },
+    return this.prisma.material.updateMany({
+      where: { id, deletedAt: null },
       data,
     });
   }
