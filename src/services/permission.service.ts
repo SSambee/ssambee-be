@@ -163,9 +163,7 @@ export class PermissionService {
     // 학부모: 자녀의 수강 여부 확인
     if (userType === UserType.PARENT) {
       // TODO: 학부모 자녀 수강 여부 확인 로직 추가
-      // 현재는 학부모 링크 ID를 통한 직접 조회가 필요하므로 추후 구현
-      // 임시로 통과 처리 (프로토타입)
-      return;
+      throw new ForbiddenException('학부모 접근은 아직 지원되지 않습니다.');
     }
 
     throw new ForbiddenException('접근 권한이 없습니다.');
