@@ -17,6 +17,7 @@ export class StudentPostsRepository {
       include: {
         enrollment: {
           select: {
+            appStudentId: true, // Permission check용
             studentName: true,
             appStudent: { select: { user: { select: { name: true } } } },
             appParentLink: { select: { name: true } },

@@ -52,7 +52,10 @@ export class InstructorPostsRepository {
         targets: {
           include: {
             enrollment: {
-              select: { studentName: true },
+              select: {
+                appStudentId: true, // Permission check용
+                studentName: true,
+              },
             },
           },
         },
