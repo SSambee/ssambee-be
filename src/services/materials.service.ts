@@ -46,6 +46,8 @@ export class MaterialsService {
     userType: UserType,
     profileId: string,
   ) {
+    let ownerInstructorId: string;
+    
     if (lectureId) {
       const lecture = await this.lecturesRepository.findById(lectureId);
       if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
@@ -55,6 +57,20 @@ export class MaterialsService {
         userType,
         profileId,
       );
+      
+      // 강의 담당 강사 ID 설정
+      ownerInstructorId = lecture.instructorId;
+    } else {
+      // 라이브러리 업로드인 경우 현재 사용자의 강사 ID 사용
+      if (userType === UserType.INSTRUCTOR) {
+        ownerInstructorId = profileId;
+      } else if (userType === UserType.ASSISTANT) {
+        const instructorId = await this.permissionService.getInstructorIdByAssistantId(profileId);
+        if (!instructorId) throw new ForbiddenException('강사 정보를 찾을 수 없습니다.');
+        ownerInstructorId = instructorId;
+      } else {
+        throw new ForbiddenException('자료 업로드 권한이 없습니다.');
+      }
     }
 
     let fileUrl: string;
@@ -81,7 +97,6 @@ export class MaterialsService {
       fileUrl = await this.fileStorageService.upload(file, key);
     }
 
-    let ownerInstructorId: string;
     let authorName: string;
     let authorRole: string;
 
@@ -89,30 +104,16 @@ export class MaterialsService {
       const instructor = await this.instructorRepository.findById(profileId);
       if (!instructor)
         throw new NotFoundException('강사 정보를 찾을 수 없습니다.');
-      ownerInstructorId = instructor.id;
       authorName = instructor.user.name;
       authorRole = UserType.INSTRUCTOR;
     } else if (userType === UserType.ASSISTANT) {
       const assistant = await this.assistantRepository.findById(profileId);
       if (!assistant)
         throw new NotFoundException('조교 정보를 찾을 수 없습니다.');
-      ownerInstructorId = assistant.instructorId;
       authorName = assistant.user.name;
       authorRole = UserType.ASSISTANT;
     } else {
       throw new ForbiddenException('자료 업로드 권한이 없습니다.');
-    }
-
-    // 강의 자료인 경우 강의 담당 강사와 현재 강사(또는 조교의 강사)가 일치하는지 확인
-    if (lectureId) {
-      const lecture = await this.lecturesRepository.findById(lectureId);
-      if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
-
-      if (lecture.instructorId !== ownerInstructorId) {
-        throw new ForbiddenException(
-          '해당 강의의 자료를 업로드할 권한이 없습니다.',
-        );
-      }
     }
 
     return this.materialsRepository.create({
