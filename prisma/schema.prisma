@@ -39,7 +39,7 @@ model AppParent {
   id     String @id @default(uuid(7))
   userId String @unique @map("user_id")
 
-  phoneNumber String   @unique @map("phone_number")
+  phoneNumber String   @unique @map("phone_number") 
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -88,7 +88,7 @@ model Instructor {
   id     String @id @default(uuid(7))
   userId String @unique @map("user_id")
 
-  phoneNumber String  @map("phone_number")
+  phoneNumber String  @unique @map("phone_number")
   subject     String?
   academy     String?
 
@@ -125,7 +125,7 @@ model Assistant {
   instructorId String @map("instructor_id")
 
   name        String
-  phoneNumber String @map("phone_number")
+  phoneNumber String? @unique @map("phone_number")
 
   signupCode String? @map("signup_code")
   contract   String?
