@@ -203,6 +203,7 @@ const materialsService = new MaterialsService(
 const instructorPostsService = new InstructorPostsService(
   instructorPostsRepo,
   lecturesRepo,
+  materialsRepo,
   permissionService,
 );
 const studentPostsService = new StudentPostsService(

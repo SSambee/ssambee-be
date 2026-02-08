@@ -7,6 +7,7 @@ import { PostScope, TargetRole } from '../constants/posts.constant.js';
 import { UserType } from '../constants/auth.constant.js';
 import { InstructorPostsRepository } from '../repos/instructor-posts.repo.js';
 import { LecturesRepository } from '../repos/lectures.repo.js';
+import { MaterialsRepository } from '../repos/materials.repo.js';
 import { PermissionService } from './permission.service.js';
 import {
   CreateInstructorPostDto,
@@ -18,8 +19,36 @@ export class InstructorPostsService {
   constructor(
     private readonly instructorPostsRepository: InstructorPostsRepository,
     private readonly lecturesRepository: LecturesRepository,
+    private readonly materialsRepository: MaterialsRepository,
     private readonly permissionService: PermissionService,
   ) {}
+
+  /** 자료 소유권 검증 */
+  private async validateMaterialOwnership(
+    materialIds: string[],
+    instructorId: string,
+  ) {
+    if (!materialIds || materialIds.length === 0) return;
+
+    const materials = await this.materialsRepository.findByIds(materialIds);
+
+    // 존재하지 않는 자료 확인
+    if (materials.length !== materialIds.length) {
+      const foundIds = materials.map((m) => m.id);
+      const missingIds = materialIds.filter((id) => !foundIds.includes(id));
+      throw new NotFoundException(
+        `자료를 찾을 수 없습니다: ${missingIds.join(', ')}`,
+      );
+    }
+
+    // 소유권 확인 (모든 자료가 해당 강사의 라이브러리에 속해야 함)
+    const unauthorizedMaterials = materials.filter(
+      (m) => m.instructorId !== instructorId,
+    );
+    if (unauthorizedMaterials.length > 0) {
+      throw new ForbiddenException('다른 강사의 자료는 첨부할 수 없습니다.');
+    }
+  }
 
   /** 강사 공지 생성 */
   async createPost(
@@ -56,7 +85,12 @@ export class InstructorPostsService {
       throw new BadRequestException('선택 공지는 대상 학생 지정이 필수입니다.');
     }
 
-    // 4. 생성
+    // 4. 자료 소유권 검증
+    if (data.materialIds && data.materialIds.length > 0) {
+      await this.validateMaterialOwnership(data.materialIds, instructorId);
+    }
+
+    // 5. 생성
     return this.instructorPostsRepository.create({
       title: data.title,
       content: data.content,

@@ -9,12 +9,25 @@ export class CommentsRepository {
   ) {
     const { materialIds, ...commentData } = data;
 
+    // materialIds가 있으면 Material 정보를 조회하여 filename 포함
+    let attachmentsData: { materialId: string; filename: string }[] | undefined;
+    if (materialIds?.length) {
+      const materials = await this.prisma.material.findMany({
+        where: { id: { in: materialIds } },
+        select: { id: true, title: true },
+      });
+      attachmentsData = materials.map((m) => ({
+        materialId: m.id,
+        filename: m.title,
+      }));
+    }
+
     return this.prisma.comment.create({
       data: {
         ...commentData,
-        attachments: materialIds?.length
+        attachments: attachmentsData?.length
           ? {
-              create: materialIds.map((id) => ({ materialId: id })),
+              create: attachmentsData,
             }
           : undefined,
       },

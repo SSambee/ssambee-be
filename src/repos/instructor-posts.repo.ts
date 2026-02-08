@@ -15,13 +15,26 @@ export class InstructorPostsRepository {
     const client = tx || this.prisma;
     const { materialIds, targetEnrollmentIds, ...postData } = data;
 
+    // materialIds가 있으면 Material 정보를 조회하여 filename 포함
+    let attachmentsData: { materialId: string; filename: string }[] | undefined;
+    if (materialIds?.length) {
+      const materials = await client.material.findMany({
+        where: { id: { in: materialIds } },
+        select: { id: true, title: true },
+      });
+      attachmentsData = materials.map((m) => ({
+        materialId: m.id,
+        filename: m.title,
+      }));
+    }
+
     return client.instructorPost.create({
       data: {
         ...postData,
         // 첨부파일 연결
-        attachments: materialIds?.length
+        attachments: attachmentsData?.length
           ? {
-              create: materialIds.map((id) => ({ materialId: id })),
+              create: attachmentsData,
             }
           : undefined,
         // 타겟 학생 연결 (SELECTED 스코프일 때)
@@ -145,10 +158,17 @@ export class InstructorPostsRepository {
 
   /** 첨부파일 추가 */
   async addAttachments(postId: string, materialIds: string[]) {
+    // Material 정보를 조회하여 filename 포함
+    const materials = await this.prisma.material.findMany({
+      where: { id: { in: materialIds } },
+      select: { id: true, title: true },
+    });
+
     return this.prisma.instructorPostAttachment.createMany({
-      data: materialIds.map((materialId) => ({
+      data: materials.map((m) => ({
         instructorPostId: postId,
-        materialId,
+        materialId: m.id,
+        filename: m.title,
       })),
       skipDuplicates: true,
     });
