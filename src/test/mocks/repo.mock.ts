@@ -40,6 +40,7 @@ export const createMockAssistantRepository = () =>
     'findById',
     'findByPhoneNumber',
     'create',
+    'findAllByInstructorId',
   ]);
 
 /** Mock ParentRepository 생성 */
