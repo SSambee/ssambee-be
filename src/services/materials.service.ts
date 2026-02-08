@@ -1,12 +1,22 @@
+import path from 'path';
+import { randomUUID } from 'crypto';
+import { format } from 'date-fns';
 import {
   BadRequestException,
   ForbiddenException,
   NotFoundException,
 } from '../err/http.exception.js';
-import { MaterialType } from '../constants/materials.constant.js';
+import {
+  MaterialType,
+  toBackendMaterialType,
+  toFrontendMaterialType,
+  FrontendMaterialType,
+} from '../constants/materials.constant.js';
 import { UserType } from '../constants/auth.constant.js';
 import { MaterialsRepository } from '../repos/materials.repo.js';
 import { LecturesRepository } from '../repos/lectures.repo.js';
+import { InstructorRepository } from '../repos/instructor.repo.js';
+import { AssistantRepository } from '../repos/assistant.repo.js';
 import { PermissionService } from './permission.service.js';
 import { FileStorageService } from './filestorage.service.js';
 import {
@@ -14,7 +24,6 @@ import {
   UpdateMaterialDto,
   GetMaterialsQueryDto,
 } from '../validations/materials.validation.js';
-import { config } from '../config/env.config.js';
 
 import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 
@@ -23,6 +32,8 @@ export class MaterialsService {
     private readonly materialsRepository: MaterialsRepository,
     private readonly lecturesRepository: LecturesRepository,
     private readonly lectureEnrollmentsRepository: LectureEnrollmentsRepository,
+    private readonly instructorRepository: InstructorRepository,
+    private readonly assistantRepository: AssistantRepository,
     private readonly fileStorageService: FileStorageService,
     private readonly permissionService: PermissionService,
   ) {}
@@ -48,7 +59,9 @@ export class MaterialsService {
 
     let fileUrl: string;
 
-    if (data.type === MaterialType.VIDEO_LINK) {
+    const backendType = toBackendMaterialType[data.type];
+
+    if (backendType === MaterialType.VIDEO_LINK) {
       if (!data.youtubeUrl) {
         throw new BadRequestException('동영상 링크가 필요합니다.');
       }
@@ -57,44 +70,71 @@ export class MaterialsService {
       if (!file) {
         throw new BadRequestException('파일 업로드가 필요합니다.');
       }
-      fileUrl =
-        (file as Express.MulterS3.File).location ||
-        (file as Express.MulterS3.File).key;
 
-      if (!fileUrl) {
-        throw new BadRequestException('파일 업로드 처리에 실패했습니다.');
-      }
+      const randomId = randomUUID();
+      const ext = path.extname(file.originalname);
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const key = `materials/${year}/${month}/${randomId}${ext}`;
 
-      // fallback
-      if (!fileUrl.startsWith('http')) {
-        const bucket = config.AWS_S3_BUCKET;
-        const region = config.AWS_REGION;
-        fileUrl = `https://${bucket}.s3.${region}.amazonaws.com/${fileUrl}`;
+      fileUrl = await this.fileStorageService.upload(file, key);
+    }
+
+    let ownerInstructorId: string;
+    let authorName: string;
+    let authorRole: string;
+
+    if (userType === UserType.INSTRUCTOR) {
+      const instructor = await this.instructorRepository.findById(profileId);
+      if (!instructor)
+        throw new NotFoundException('강사 정보를 찾을 수 없습니다.');
+      ownerInstructorId = instructor.id;
+      authorName = instructor.user.name;
+      authorRole = UserType.INSTRUCTOR;
+    } else if (userType === UserType.ASSISTANT) {
+      const assistant = await this.assistantRepository.findById(profileId);
+      if (!assistant)
+        throw new NotFoundException('조교 정보를 찾을 수 없습니다.');
+      ownerInstructorId = assistant.instructorId;
+      authorName = assistant.user.name;
+      authorRole = UserType.ASSISTANT;
+    } else {
+      throw new ForbiddenException('자료 업로드 권한이 없습니다.');
+    }
+
+    // 강의 자료인 경우 강의 담당 강사와 현재 강사(또는 조교의 강사)가 일치하는지 확인
+    if (lectureId) {
+      const lecture = await this.lecturesRepository.findById(lectureId);
+      if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
+
+      if (lecture.instructorId !== ownerInstructorId) {
+        throw new ForbiddenException(
+          '해당 강의의 자료를 업로드할 권한이 없습니다.',
+        );
       }
     }
 
-    const uploader = {
-      uploaderInstructorId:
-        userType === UserType.INSTRUCTOR ? profileId : undefined,
-      uploaderAssistantId:
-        userType === UserType.ASSISTANT ? profileId : undefined,
-    };
-
     return this.materialsRepository.create({
+      instructorId: ownerInstructorId,
       lectureId: lectureId || null,
       title: data.title,
       fileUrl,
-      type: data.type,
+      type: backendType,
       description: data.description,
       subject: data.subject,
       externalDownloadUrl: data.externalDownloadUrl,
-      ...uploader,
+      authorName,
+      authorRole,
     });
   }
 
   /** 자료 목록 조회 */
   async getMaterials(
-    query: GetMaterialsQueryDto & { lectureId?: string },
+    query: GetMaterialsQueryDto & {
+      lectureId?: string;
+      type?: FrontendMaterialType;
+    },
     userType: UserType,
     profileId: string,
   ) {
@@ -118,21 +158,41 @@ export class MaterialsService {
       }
     }
 
+    const queryWithBackendType = {
+      ...query,
+      type: query.type ? toBackendMaterialType[query.type] : undefined,
+    };
+
     // 목록 조회
     const { materials, totalCount } =
-      await this.materialsRepository.findMany(query);
+      await this.materialsRepository.findMany(queryWithBackendType);
 
-    const mappedMaterials = materials.map((m) => ({
-      id: m.id,
-      title: m.title,
-      type: m.type,
-      uploaderName:
-        m.instructor?.user.name || m.assistant?.user.name || '알 수 없음',
-      createdAt: m.createdAt,
-      // URL은 직접 노출하지 않거나, VIDEO_LINK인 경우만 노출
-      isYoutube: m.type === MaterialType.VIDEO_LINK,
-      lectureId: m.lectureId,
-    }));
+    const mappedMaterials = materials.map((m) => {
+      // MaterialType Mapping
+      const type =
+        toFrontendMaterialType[m.type as MaterialType] || ('OTHER' as const);
+
+      const isVideo = m.type === MaterialType.VIDEO_LINK;
+      const isManagement =
+        userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT;
+      const basePath = isManagement ? '/api/mgmt/v1' : '/api/svc/v1';
+      const downloadUrl = `${basePath}/materials/${m.id}/download`; // 다운로드 URL (프론트에서 이 경로로 호출)
+
+      return {
+        id: m.id,
+        title: m.title,
+        description: m.description, // description 추가
+        writer: m.authorName || '알 수 없음', // writer <- authorName
+        date: format(m.createdAt, 'yyyy-MM-dd'), // date <- createdAt
+        type: type, // type 매핑
+        classId: m.lectureId, // classId <- lectureId
+        className: m.lecture?.title, // className <- lecture.title (Repository에서 가져옴)
+        // file: 비디오가 아니면 { name, url } 반환
+        file: !isVideo ? { name: m.title, url: downloadUrl } : undefined,
+        // link: 비디오면 fileUrl 반환
+        link: isVideo ? m.fileUrl : undefined,
+      };
+    });
 
     return {
       materials: mappedMaterials,
@@ -154,35 +214,11 @@ export class MaterialsService {
     userType: UserType,
     profileId: string,
   ) {
-    const result = await this.materialsRepository.update(materialsId, data);
-
-    if (result.count === 0) {
-      throw new NotFoundException(
-        '수정할 자료를 찾을 수 없거나 이미 삭제되었습니다.',
-      );
-    }
-
     const material = await this.materialsRepository.findById(materialsId);
     if (!material) throw new NotFoundException('자료를 찾을 수 없습니다.');
-
-    // 소유 강사 ID 식별 (직접 업로드 -> 조교의 강사 -> 강의 담당 강사 순)
-    let ownerInstructorId =
-      material.uploaderInstructorId || material.assistant?.instructorId;
-
-    if (!ownerInstructorId && material.lectureId) {
-      const lecture = await this.lecturesRepository.findById(
-        material.lectureId,
-      );
-      ownerInstructorId = lecture?.instructorId;
-    }
-
-    if (!ownerInstructorId) {
-      throw new ForbiddenException('자료 권한을 확인할 수 없습니다.');
-    }
-
-    // 권한 검증
+    // 권한 검증: 자료의 소유 강사 ID로 확인
     await this.permissionService.validateInstructorAccess(
-      ownerInstructorId,
+      material.instructorId,
       userType,
       profileId,
     );
@@ -210,24 +246,9 @@ export class MaterialsService {
     const material = await this.materialsRepository.findById(materialsId);
     if (!material) throw new NotFoundException('자료를 찾을 수 없습니다.');
 
-    // 소유 강사 ID 식별 (직접 업로드 -> 조교의 강사 -> 강의 담당 강사 순)
-    let ownerInstructorId =
-      material.uploaderInstructorId || material.assistant?.instructorId;
-
-    if (!ownerInstructorId && material.lectureId) {
-      const lecture = await this.lecturesRepository.findById(
-        material.lectureId,
-      );
-      ownerInstructorId = lecture?.instructorId;
-    }
-
-    if (!ownerInstructorId) {
-      throw new ForbiddenException('자료 권한을 확인할 수 없습니다.');
-    }
-
-    // 권한 검증
+    // 권한 검증: 자료의 소유 강사 ID로 확인
     await this.permissionService.validateInstructorAccess(
-      ownerInstructorId,
+      material.instructorId,
       userType,
       profileId,
     );
@@ -269,22 +290,28 @@ export class MaterialsService {
       }
     }
 
+    // MaterialType Mapping
+    const type =
+      toFrontendMaterialType[material.type as MaterialType] ||
+      ('OTHER' as const);
+
+    const isVideo = material.type === MaterialType.VIDEO_LINK;
+    const isManagement =
+      userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT;
+    const basePath = isManagement ? '/api/mgmt/v1' : '/api/svc/v1';
+    const downloadUrl = `${basePath}/materials/${material.id}/download`;
+
     return {
+      id: material.id,
       title: material.title,
-      type: material.type,
       description: material.description,
-      subject: material.subject,
-      fileUrl:
-        material.type === MaterialType.VIDEO_LINK
-          ? material.fileUrl
-          : undefined,
-      externalDownloadUrl: material.externalDownloadUrl,
-      uploaderName:
-        material.instructor?.user.name ||
-        material.assistant?.user.name ||
-        '알 수 없음',
-      createdAt: material.createdAt,
-      updatedAt: material.updatedAt,
+      writer: material.authorName || '보조 강사',
+      date: format(material.createdAt, 'yyyy-MM-dd'),
+      type: type,
+      classId: material.lectureId,
+      className: material.lecture?.title,
+      file: !isVideo ? { name: material.title, url: downloadUrl } : undefined,
+      link: isVideo ? material.fileUrl : undefined,
     };
   }
 
@@ -319,15 +346,17 @@ export class MaterialsService {
             material.lectureId,
             profileId,
           );
-        if (enrollment) {
-          const isAccessible =
-            await this.materialsRepository.isAccessibleByStudent(
-              materialsId,
-              enrollment.enrollmentId,
-            );
-          if (!isAccessible) {
-            throw new ForbiddenException('해당 자료에 접근 권한이 없습니다.');
-          }
+        if (!enrollment) {
+          throw new ForbiddenException('해당 자료에 접근 권한이 없습니다.');
+        }
+        const isAccessible =
+          await this.materialsRepository.isAccessibleByStudent(
+            materialsId,
+            enrollment.enrollmentId,
+            material.lectureId,
+          );
+        if (!isAccessible) {
+          throw new ForbiddenException('해당 자료에 접근 권한이 없습니다.');
         }
       }
     } else {

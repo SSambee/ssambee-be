@@ -1,9 +1,6 @@
 import { Request } from 'express';
 import multer, { FileFilterCallback } from 'multer';
-import multerS3 from 'multer-s3';
 import { S3Client } from '@aws-sdk/client-s3';
-import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import { BadRequestException } from '../err/http.exception.js';
 import { config } from '../config/env.config.js';
 
@@ -17,25 +14,8 @@ export const s3Client = new S3Client({
   },
 });
 
-/**
- * storage setting: multerS3
- */
-const storage = multerS3({
-  s3: s3Client,
-  bucket: bucketName,
-  contentType: multerS3.AUTO_CONTENT_TYPE,
-  key: (_req, file, done) => {
-    const randomId = uuidv4();
-    const ext = path.extname(file.originalname);
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-
-    // 요구사항: materials/년도/월/uuid.ext
-    const filename = `materials/${year}/${month}/${randomId}${ext}`;
-    done(null, filename);
-  },
-});
+// storage setting: memoryStorage
+const storage = multer.memoryStorage();
 
 /** 파일 필터링 */
 const fileFilter = (

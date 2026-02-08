@@ -7,8 +7,9 @@ export const mockMaterials = {
   basic: {
     id: faker.string.uuid(),
     lectureId: mockLectures.basic.id,
-    uploaderInstructorId: mockInstructor.id,
-    uploaderAssistantId: null,
+    instructorId: mockInstructor.id,
+    authorName: '이강사',
+    authorRole: 'INSTRUCTOR',
     title: faker.commerce.productName(),
     fileUrl: faker.internet.url(),
     type: MaterialType.REFERENCE,
@@ -18,19 +19,17 @@ export const mockMaterials = {
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
-    instructor: {
-      user: {
-        name: '이강사',
-      },
+    lecture: {
+      title: mockLectures.basic.title,
     },
-    assistant: null,
   },
 
   video: {
     id: faker.string.uuid(),
     lectureId: mockLectures.basic.id,
-    uploaderInstructorId: mockInstructor.id,
-    uploaderAssistantId: null,
+    instructorId: mockInstructor.id,
+    authorName: '이강사',
+    authorRole: 'INSTRUCTOR',
     title: '유튜브 영상 자료',
     fileUrl: 'https://youtube.com/watch?v=mock-video-id',
     type: MaterialType.VIDEO_LINK,
@@ -40,19 +39,17 @@ export const mockMaterials = {
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
-    instructor: {
-      user: {
-        name: '이강사',
-      },
+    lecture: {
+      title: mockLectures.basic.title,
     },
-    assistant: null,
   },
 
   exam: {
     id: faker.string.uuid(),
     lectureId: mockLectures.basic.id,
-    uploaderInstructorId: mockInstructor.id,
-    uploaderAssistantId: null,
+    instructorId: mockInstructor.id,
+    authorName: '이강사',
+    authorRole: 'INSTRUCTOR',
     title: '시험지 자료',
     fileUrl: 'https://s3.aws.com/exams/mock-exam.pdf',
     type: MaterialType.EXAM_PAPER,
@@ -62,12 +59,9 @@ export const mockMaterials = {
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
-    instructor: {
-      user: {
-        name: '이강사',
-      },
+    lecture: {
+      title: mockLectures.basic.title,
     },
-    assistant: null,
   },
 };
 

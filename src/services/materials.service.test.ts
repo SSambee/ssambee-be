@@ -1,6 +1,9 @@
 import { MaterialsService } from '../../src/services/materials.service.js';
 import { FileStorageService } from '../../src/services/filestorage.service.js';
-import { MaterialType } from '../../src/constants/materials.constant.js';
+import {
+  MaterialType,
+  FrontendMaterialType,
+} from '../../src/constants/materials.constant.js';
 import { UserType } from '../../src/constants/auth.constant.js';
 import {
   BadRequestException,
@@ -10,14 +13,19 @@ import {
   createMockMaterialsRepository,
   createMockLecturesRepository,
   createMockLectureEnrollmentsRepository,
+  createMockInstructorRepository,
+  createMockAssistantRepository,
 } from '../test/mocks/repo.mock.js';
 import { createMockPermissionService } from '../test/mocks/services.mock.js';
 import {
   mockLectures,
   mockMaterials,
   mockInstructor,
-  mockMaterialRequest,
 } from '../test/fixtures/index.js';
+import {
+  UploadMaterialDto,
+  GetMaterialsQueryDto,
+} from '../../src/validations/materials.validation.js';
 
 describe('MaterialsService', () => {
   let service: MaterialsService;
@@ -26,6 +34,8 @@ describe('MaterialsService', () => {
   let lectureEnrollmentsRepo: ReturnType<
     typeof createMockLectureEnrollmentsRepository
   >;
+  let adminRepo: ReturnType<typeof createMockInstructorRepository>;
+  let assistantRepo: ReturnType<typeof createMockAssistantRepository>;
   let fileStorageService: jest.Mocked<FileStorageService>;
   let permissionService: ReturnType<typeof createMockPermissionService>;
 
@@ -33,6 +43,8 @@ describe('MaterialsService', () => {
     materialsRepo = createMockMaterialsRepository();
     lecturesRepo = createMockLecturesRepository();
     lectureEnrollmentsRepo = createMockLectureEnrollmentsRepository();
+    adminRepo = createMockInstructorRepository();
+    assistantRepo = createMockAssistantRepository();
 
     fileStorageService = {
       upload: jest.fn(),
@@ -46,6 +58,8 @@ describe('MaterialsService', () => {
       materialsRepo,
       lecturesRepo,
       lectureEnrollmentsRepo,
+      adminRepo,
+      assistantRepo,
       fileStorageService,
       permissionService,
     );
@@ -54,12 +68,20 @@ describe('MaterialsService', () => {
   describe('uploadMaterial', () => {
     it('유효한 YouTube 링크를 업로드하면 성공해야 한다', async () => {
       // Arrange
-      const dto = mockMaterialRequest.video;
+      const dto: UploadMaterialDto = {
+        title: 'Video',
+        type: FrontendMaterialType.VIDEO,
+        youtubeUrl: 'https://youtube.com/watch?v=123',
+      };
       const mockLecture = mockLectures.basic;
       const mockMaterial = mockMaterials.video;
 
       lecturesRepo.findById.mockResolvedValue(mockLecture);
       materialsRepo.create.mockResolvedValue(mockMaterial);
+      adminRepo.findById.mockResolvedValue({
+        id: mockInstructor.id,
+        user: { name: '이강사' },
+      });
 
       // Act
       await service.uploadMaterial(
@@ -76,13 +98,17 @@ describe('MaterialsService', () => {
         expect.objectContaining({
           type: MaterialType.VIDEO_LINK,
           fileUrl: dto.youtubeUrl,
+          authorName: '이강사',
+          authorRole: UserType.INSTRUCTOR,
+          instructorId: mockInstructor.id,
         }),
       );
     });
 
     it('잘못된 YouTube 링크인 경우 에러를 던져야 한다', async () => {
-      const dto = {
-        ...mockMaterialRequest.video,
+      const dto: UploadMaterialDto = {
+        title: 'Video',
+        type: FrontendMaterialType.VIDEO,
         youtubeUrl: 'https://invalid-url.com',
       };
 
@@ -100,16 +126,24 @@ describe('MaterialsService', () => {
     });
 
     it('파일 업로드 시 S3 업로드를 호출해야 한다', async () => {
-      const dto = mockMaterialRequest.upload;
+      const dto: UploadMaterialDto = {
+        title: 'File',
+        type: FrontendMaterialType.PAPER,
+      };
       const s3Url = 'https://s3.aws.com/test.pdf';
       const mockFile = {
         originalname: 'test.pdf',
-        buffer: Buffer.from(''),
-        location: s3Url,
-        key: 'materials/test.pdf',
+        buffer: Buffer.from('test-buffer'),
+        mimetype: 'application/pdf',
       } as unknown as Express.Multer.File;
 
+      fileStorageService.upload.mockResolvedValue(s3Url);
+
       lecturesRepo.findById.mockResolvedValue(mockLectures.basic);
+      adminRepo.findById.mockResolvedValue({
+        id: mockInstructor.id,
+        user: { name: '이강사' },
+      });
 
       await service.uploadMaterial(
         mockLectures.basic.id,
@@ -119,24 +153,35 @@ describe('MaterialsService', () => {
         mockInstructor.id,
       );
 
-      // fileStorageService.upload is no longer called in the service
-      // expect(fileStorageService.upload).toHaveBeenCalled();
+      expect(fileStorageService.upload).toHaveBeenCalledWith(
+        mockFile,
+        expect.stringMatching(/^materials\/\d{4}\/\d{2}\/.*\.pdf$/),
+      );
 
       expect(materialsRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           fileUrl: s3Url,
+          authorName: '이강사',
         }),
       );
     });
 
     it('강의 ID 없이 업로드하면(라이브러리) 성공해야 한다', async () => {
-      const dto = mockMaterialRequest.upload;
+      const dto: UploadMaterialDto = {
+        title: 'Lib',
+        type: FrontendMaterialType.PAPER,
+      };
       const mockFile = {
         originalname: 'lib.pdf',
-        buffer: Buffer.from(''),
-        location: 'https://s3.aws.com/lib.pdf',
-        key: 'materials/lib.pdf',
+        buffer: Buffer.from('lib-buffer'),
+        mimetype: 'application/pdf',
       } as unknown as Express.Multer.File;
+
+      fileStorageService.upload.mockResolvedValue('https://s3.aws.com/lib.pdf');
+      adminRepo.findById.mockResolvedValue({
+        id: mockInstructor.id,
+        user: { name: '이강사' },
+      });
 
       await service.uploadMaterial(
         undefined,
@@ -147,6 +192,9 @@ describe('MaterialsService', () => {
       );
 
       expect(lecturesRepo.findById).not.toHaveBeenCalled();
+
+      expect(fileStorageService.upload).toHaveBeenCalled();
+
       expect(materialsRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           lectureId: null,
@@ -158,7 +206,11 @@ describe('MaterialsService', () => {
 
   describe('getMaterials', () => {
     it('강의 자료 목록을 조회해야 한다', async () => {
-      const query = { page: 1, limit: 10, lectureId: mockLectures.basic.id };
+      const query: GetMaterialsQueryDto & { lectureId: string } = {
+        page: 1,
+        limit: 10,
+        lectureId: mockLectures.basic.id,
+      };
       lecturesRepo.findById.mockResolvedValue(mockLectures.basic);
 
       materialsRepo.findMany.mockResolvedValue({
@@ -174,6 +226,10 @@ describe('MaterialsService', () => {
 
       expect(result.materials).toHaveLength(1);
       expect(result.pagination.totalCount).toBe(1);
+      expect(result.materials[0].file?.url).toContain('/api/mgmt/v1/materials');
+      expect(result.materials[0]).toHaveProperty('writer');
+      expect(result.materials[0]).toHaveProperty('date');
+      expect(result.materials[0]).toHaveProperty('className');
     });
   });
 
@@ -218,7 +274,8 @@ describe('MaterialsService', () => {
     it('자료 상세 정보를 반환해야 한다', async () => {
       const mockMaterial = {
         ...mockMaterials.basic,
-        instructor: { user: { name: '이강사' } },
+        authorName: '이강사',
+        lecture: { title: '강의' },
       };
       const mockLecture = mockLectures.basic;
 
@@ -232,7 +289,8 @@ describe('MaterialsService', () => {
       );
 
       expect(result.title).toBe(mockMaterial.title);
-      expect(result.uploaderName).toBe('이강사');
+      expect(result.writer).toBe('이강사');
+      expect(result.file?.url).toContain('/api/mgmt/v1/materials');
     });
 
     it('학생이 수강하지 않는 강의의 자료를 조회하면 에러가 발생해야 한다', async () => {

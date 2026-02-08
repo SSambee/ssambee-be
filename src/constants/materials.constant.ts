@@ -7,3 +7,32 @@ export const MaterialType = {
 } as const;
 
 export type MaterialType = (typeof MaterialType)[keyof typeof MaterialType];
+
+export const FrontendMaterialType = {
+  PAPER: 'PAPER',
+  VIDEO: 'VIDEO',
+  REQUEST: 'REQUEST',
+  OTHER: 'OTHER',
+} as const;
+
+export type FrontendMaterialType =
+  (typeof FrontendMaterialType)[keyof typeof FrontendMaterialType];
+
+export const toBackendMaterialType: Record<FrontendMaterialType, MaterialType> =
+  {
+    [FrontendMaterialType.PAPER]: MaterialType.EXAM_PAPER,
+    [FrontendMaterialType.VIDEO]: MaterialType.VIDEO_LINK,
+    [FrontendMaterialType.REQUEST]: MaterialType.INSTRUCTOR_REQUEST,
+    [FrontendMaterialType.OTHER]: MaterialType.ETC,
+  };
+
+export const toFrontendMaterialType: Record<
+  MaterialType,
+  FrontendMaterialType
+> = {
+  [MaterialType.EXAM_PAPER]: FrontendMaterialType.PAPER,
+  [MaterialType.VIDEO_LINK]: FrontendMaterialType.VIDEO,
+  [MaterialType.INSTRUCTOR_REQUEST]: FrontendMaterialType.REQUEST,
+  [MaterialType.ETC]: FrontendMaterialType.OTHER,
+  [MaterialType.REFERENCE]: FrontendMaterialType.OTHER, // 매핑되지 않은 것은 OTHER로 처리
+};
