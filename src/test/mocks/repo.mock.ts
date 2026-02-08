@@ -12,6 +12,7 @@ import { GradesRepository } from '../../repos/grades.repo.js';
 import { ClinicsRepository } from '../../repos/clinics.repo.js';
 import { StatisticsRepository } from '../../repos/statistics.repo.js';
 import type { LectureEnrollmentsRepository } from '../../repos/lecture-enrollments.repo.js';
+import type { MaterialsRepository } from '../../repos/materials.repo.js';
 import { createAutoMock } from './create-mock.util.js';
 
 /** Mock InstructorRepository 생성 */
@@ -178,4 +179,17 @@ export const createMockStatisticsRepository = () =>
     'getStudentCorrectCounts',
     'getStudentGradesWithInfo',
     'updateGradeRank',
+  ]);
+
+/** Mock MaterialsRepository 생성 */
+export const createMockMaterialsRepository = () =>
+  createAutoMock<MaterialsRepository>([
+    'create',
+    'findById',
+    'findMany',
+    'findByIds',
+    'update',
+    'softDelete',
+    'delete',
+    'isAccessibleByStudent',
   ]);

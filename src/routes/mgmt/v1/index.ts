@@ -25,3 +25,7 @@ mgmtV1Router.use('/clinics', mgmtClinicsRouter);
 /** 강의수강생 라우트 */
 import { mgmtLectureEnrollmentsRouter } from './lecture-enrollments.route.js';
 mgmtV1Router.use('/lectureEnrollments', mgmtLectureEnrollmentsRouter);
+
+/** 자료 라우터 (경로 자체 포함) */
+import { mgmtMaterialsRouter } from './materials.route.js';
+mgmtV1Router.use('/materials', mgmtMaterialsRouter);

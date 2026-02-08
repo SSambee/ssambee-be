@@ -13,6 +13,8 @@ const envSchema = z.object({
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.string().url(),
   SENTRY_DSN: z.string(),
+  AWS_REGION: z.string().default('ap-northeast-2'),
+  AWS_S3_BUCKET: z.string().default('eduops-dev'),
 });
 
 const parseEnvironment = () => {
@@ -25,6 +27,8 @@ const parseEnvironment = () => {
       BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
       BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
       SENTRY_DSN: process.env.SENTRY_DSN,
+      AWS_REGION: process.env.AWS_REGION,
+      AWS_S3_BUCKET: process.env.AWS_S3_BUCKET,
     });
   } catch (err) {
     if (err instanceof z.ZodError) {

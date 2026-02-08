@@ -50,6 +50,10 @@ import { ClinicsRepository } from '../repos/clinics.repo.js';
 import { ClinicsService } from '../services/clinics.service.js';
 import { ClinicsController } from '../controllers/clinics.controller.js';
 
+import { MaterialsRepository } from '../repos/materials.repo.js';
+import { FileStorageService } from '../services/filestorage.service.js';
+import { MaterialsService } from '../services/materials.service.js';
+import { MaterialsController } from '../controllers/materials.controller.js';
 import { LectureEnrollmentsService } from '../services/lecture-enrollments.service.js';
 import { LectureEnrollmentsController } from '../controllers/lecture-enrollments.controller.js';
 
@@ -64,6 +68,7 @@ const examsRepo = new ExamsRepository(prisma);
 const gradesRepo = new GradesRepository(prisma);
 const statisticsRepo = new StatisticsRepository(prisma);
 const clinicsRepo = new ClinicsRepository(prisma);
+const materialsRepo = new MaterialsRepository(prisma);
 
 const lecturesRepo = new LecturesRepository(prisma);
 const enrollmentsRepo = new EnrollmentsRepository(prisma);
@@ -85,6 +90,7 @@ const authService = new AuthService(
 const permissionService = new PermissionService(
   assistantRepo,
   parentChildLinkRepo,
+  lectureEnrollmentsRepo,
 );
 
 const examsService = new ExamsService(
@@ -167,6 +173,17 @@ const lectureEnrollmentsService = new LectureEnrollmentsService(
   prisma,
 );
 
+const fileStorageService = new FileStorageService();
+const materialsService = new MaterialsService(
+  materialsRepo,
+  lecturesRepo,
+  lectureEnrollmentsRepo,
+  instructorRepo,
+  assistantRepo,
+  fileStorageService,
+  permissionService,
+);
+
 // 3. Instantiate Controllers (Inject Services)
 const authController = new AuthController(authService);
 const lecturesController = new LecturesController(lecturesService);
@@ -181,6 +198,7 @@ const examsController = new ExamsController(examsService);
 const gradesController = new GradesController(gradesService);
 const statisticsController = new StatisticsController(statisticsService);
 const clinicsController = new ClinicsController(clinicsService);
+const materialsController = new MaterialsController(materialsService);
 const lectureEnrollmentsController = new LectureEnrollmentsController(
   lectureEnrollmentsService,
 );
@@ -205,6 +223,7 @@ export const container = {
   parentsService,
   statisticsService,
   clinicsService,
+  materialsService,
   lectureEnrollmentsService,
   // Controllers
   authController,
@@ -216,6 +235,7 @@ export const container = {
   gradesController,
   statisticsController,
   clinicsController,
+  materialsController,
   lectureEnrollmentsController,
   // Middlewares
   requireAuth,
