@@ -132,7 +132,7 @@ model Assistant {
   contract   String?
   memo       String?
 
-  isSigned         Boolean @default(false) @map("is_signed")
+  signStatus         String @default("PENDING") @map("sign_status") // PENDING(미서명), SIGNED(서명), EXPIRED(만료)
   attendanceStatus String  @default("PENDING") @map("attendance_status") // PENDING(근무전), ATTENDED(근무중), ABSENT(결근), VACATION(휴가)
 
   createdAt DateTime @default(now()) @map("created_at")
