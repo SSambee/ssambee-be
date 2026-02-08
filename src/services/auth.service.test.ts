@@ -159,6 +159,13 @@ describe('AuthService - @unit #critical', () => {
         expect(mockAssistantCodeRepo.findValidCode).toHaveBeenCalledWith(
           signUpRequests.assistant.signupCode,
         );
+        // Verify name is saved to Assistant table
+        expect(mockAssistantRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            name: signUpRequests.assistant.name,
+          }),
+          expect.anything(), // Transaction client
+        );
       });
 
       it('조교가 조교 코드 없이 회원가입을 요청할 때, BadRequestException을 던진다', async () => {
