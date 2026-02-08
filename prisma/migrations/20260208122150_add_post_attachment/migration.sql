@@ -38,5 +38,14 @@ CREATE TABLE "student_post_attachments" (
     CONSTRAINT "student_post_attachments_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateIndex
+CREATE INDEX "student_post_attachments_student_post_id_idx" ON "student_post_attachments"("student_post_id");
+
+-- CreateIndex
+CREATE INDEX "comment_attachments_comment_id_idx" ON "comment_attachments"("comment_id");
+
+-- CreateIndex
+CREATE INDEX "instructor_post_attachments_instructor_post_id_idx" ON "instructor_post_attachments"("instructor_post_id");
+
 -- AddForeignKey
 ALTER TABLE "student_post_attachments" ADD CONSTRAINT "student_post_attachments_student_post_id_fkey" FOREIGN KEY ("student_post_id") REFERENCES "student_posts"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -79,7 +79,7 @@ describe('MaterialsService', () => {
       lecturesRepo.findById.mockResolvedValue(mockLecture);
       materialsRepo.create.mockResolvedValue(mockMaterial);
       adminRepo.findById.mockResolvedValue({
-        id: mockInstructor.id,
+        ...mockInstructor,
         user: { name: '이강사' },
       });
 
@@ -141,7 +141,7 @@ describe('MaterialsService', () => {
 
       lecturesRepo.findById.mockResolvedValue(mockLectures.basic);
       adminRepo.findById.mockResolvedValue({
-        id: mockInstructor.id,
+        ...mockInstructor,
         user: { name: '이강사' },
       });
 
@@ -179,7 +179,7 @@ describe('MaterialsService', () => {
 
       fileStorageService.upload.mockResolvedValue('https://s3.aws.com/lib.pdf');
       adminRepo.findById.mockResolvedValue({
-        id: mockInstructor.id,
+        ...mockInstructor,
         user: { name: '이강사' },
       });
 

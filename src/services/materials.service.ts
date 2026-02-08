@@ -182,7 +182,7 @@ export class MaterialsService {
         id: m.id,
         title: m.title,
         description: m.description, // description 추가
-        writer: m.authorName || '알 수 없음', // writer <- authorName
+        writer: m.authorName || '보조 강사', // writer <- authorName
         date: format(m.createdAt, 'yyyy-MM-dd'), // date <- createdAt
         type: type, // type 매핑
         classId: m.lectureId, // classId <- lectureId
