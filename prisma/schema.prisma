@@ -642,6 +642,7 @@ model InstructorPostAttachment {
   instructorPost InstructorPost @relation(fields: [instructorPostId], references: [id], onDelete: Cascade)
   material       Material?      @relation(fields: [materialId], references: [id], onDelete: Cascade)
 
+  @@index([instructorPostId])
   @@map("instructor_post_attachments")
 }
 
@@ -660,9 +661,10 @@ model StudentPost {
   lectureId    String? @map("lecture_id")
 
   attachments StudentPostAttachment[]
-  enrollment  Enrollment              @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
-  instructor  Instructor              @relation("StudentPostResolver", fields: [instructorId], references: [id], onDelete: Cascade)
-  lecture     Lecture?                @relation(fields: [lectureId], references: [id], onDelete: SetNull)
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  instructor Instructor @relation("StudentPostResolver", fields: [instructorId], references: [id], onDelete: Cascade)
+  lecture    Lecture?   @relation(fields: [lectureId], references: [id], onDelete: SetNull)
 
   comments Comment[]
 
@@ -683,6 +685,7 @@ model StudentPostAttachment {
 
   studentPost StudentPost @relation(fields: [studentPostId], references: [id], onDelete: Cascade)
 
+  @@index([studentPostId])
   @@map("student_post_attachments")
 }
 
@@ -726,6 +729,7 @@ model CommentAttachment {
   comment  Comment   @relation(fields: [commentId], references: [id], onDelete: Cascade)
   material Material? @relation(fields: [materialId], references: [id], onDelete: Cascade)
 
+  @@index([commentId])
   @@map("comment_attachments")
 }
 
