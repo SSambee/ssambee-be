@@ -42,7 +42,18 @@ export class MaterialsRepository {
 
     const where: Prisma.MaterialWhereInput = {
       deletedAt: null,
-      ...(lectureId && { lectureId }),
+      ...(lectureId && {
+        OR: [
+          { lectureId },
+          {
+            instructorPostAttachments: {
+              some: {
+                instructorPost: { lectureId },
+              },
+            },
+          },
+        ],
+      }),
       ...(type && { type }),
       ...(search && {
         title: { contains: search, mode: 'insensitive' },
