@@ -630,13 +630,18 @@ model InstructorPostTarget {
 }
 
 model InstructorPostAttachment {
-  instructorPostId String @map("instructor_post_id")
-  materialId       String @map("material_id")
+  id       String  @id @default(cuid(2))
+  filename String
+  fileUrl  String? @map("file_url")
+
+  instructorPostId String  @map("instructor_post_id")
+  materialId       String? @map("material_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
 
   instructorPost InstructorPost @relation(fields: [instructorPostId], references: [id], onDelete: Cascade)
-  material       Material       @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  material       Material?      @relation(fields: [materialId], references: [id], onDelete: Cascade)
 
-  @@id([instructorPostId, materialId])
   @@map("instructor_post_attachments")
 }
 
@@ -654,9 +659,10 @@ model StudentPost {
   instructorId String  @map("instructor_id")
   lectureId    String? @map("lecture_id")
 
-  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
-  instructor Instructor @relation("StudentPostResolver", fields: [instructorId], references: [id], onDelete: Cascade)
-  lecture    Lecture?   @relation(fields: [lectureId], references: [id], onDelete: SetNull)
+  studentPosts StudentPostAttachment[]
+  enrollment   Enrollment              @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  instructor   Instructor              @relation("StudentPostResolver", fields: [instructorId], references: [id], onDelete: Cascade)
+  lecture      Lecture?                @relation(fields: [lectureId], references: [id], onDelete: SetNull)
 
   comments Comment[]
 
@@ -664,6 +670,20 @@ model StudentPost {
   @@index([instructorId, status])
   @@index([lectureId, createdAt(sort: Desc)])
   @@map("student_posts")
+}
+
+model StudentPostAttachment {
+  id       String  @id @default(cuid(2))
+  filename String
+  fileUrl  String? @map("file_url")
+
+  studentPostId String @map("student_post_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  studentPost StudentPost @relation(fields: [studentPostId], references: [id], onDelete: Cascade)
+
+  @@map("student_post_attachments")
 }
 
 model Comment {
@@ -694,13 +714,18 @@ model Comment {
 }
 
 model CommentAttachment {
-  commentId  String @map("comment_id")
-  materialId String @map("material_id")
+  id       String  @id @default(cuid(2))
+  filename String
+  fileUrl  String? @map("file_url")
 
-  comment  Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
-  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  commentId  String  @map("comment_id")
+  materialId String? @map("material_id")
 
-  @@id([commentId, materialId])
+  createdAt DateTime @default(now()) @map("created_at")
+
+  comment  Comment   @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  material Material? @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
   @@map("comment_attachments")
 }
 
