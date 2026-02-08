@@ -659,10 +659,10 @@ model StudentPost {
   instructorId String  @map("instructor_id")
   lectureId    String? @map("lecture_id")
 
-  studentPosts StudentPostAttachment[]
-  enrollment   Enrollment              @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
-  instructor   Instructor              @relation("StudentPostResolver", fields: [instructorId], references: [id], onDelete: Cascade)
-  lecture      Lecture?                @relation(fields: [lectureId], references: [id], onDelete: SetNull)
+  attachments StudentPostAttachment[]
+  enrollment  Enrollment              @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  instructor  Instructor              @relation("StudentPostResolver", fields: [instructorId], references: [id], onDelete: Cascade)
+  lecture     Lecture?                @relation(fields: [lectureId], references: [id], onDelete: SetNull)
 
   comments Comment[]
 
