@@ -13,6 +13,8 @@ import {
   createMockMaterialsRepository,
   createMockLecturesRepository,
   createMockLectureEnrollmentsRepository,
+  createMockInstructorRepository,
+  createMockAssistantRepository,
 } from '../test/mocks/repo.mock.js';
 import { createMockPermissionService } from '../test/mocks/services.mock.js';
 import {
@@ -32,6 +34,8 @@ describe('MaterialsService', () => {
   let lectureEnrollmentsRepo: ReturnType<
     typeof createMockLectureEnrollmentsRepository
   >;
+  let adminRepo: ReturnType<typeof createMockInstructorRepository>;
+  let assistantRepo: ReturnType<typeof createMockAssistantRepository>;
   let fileStorageService: jest.Mocked<FileStorageService>;
   let permissionService: ReturnType<typeof createMockPermissionService>;
 
@@ -39,6 +43,8 @@ describe('MaterialsService', () => {
     materialsRepo = createMockMaterialsRepository();
     lecturesRepo = createMockLecturesRepository();
     lectureEnrollmentsRepo = createMockLectureEnrollmentsRepository();
+    adminRepo = createMockInstructorRepository();
+    assistantRepo = createMockAssistantRepository();
 
     fileStorageService = {
       upload: jest.fn(),
@@ -52,6 +58,8 @@ describe('MaterialsService', () => {
       materialsRepo,
       lecturesRepo,
       lectureEnrollmentsRepo,
+      adminRepo,
+      assistantRepo,
       fileStorageService,
       permissionService,
     );
@@ -70,6 +78,10 @@ describe('MaterialsService', () => {
 
       lecturesRepo.findById.mockResolvedValue(mockLecture);
       materialsRepo.create.mockResolvedValue(mockMaterial);
+      adminRepo.findById.mockResolvedValue({
+        id: mockInstructor.id,
+        user: { name: '이강사' },
+      });
 
       // Act
       await service.uploadMaterial(
@@ -86,6 +98,9 @@ describe('MaterialsService', () => {
         expect.objectContaining({
           type: MaterialType.VIDEO_LINK,
           fileUrl: dto.youtubeUrl,
+          authorName: '이강사',
+          authorRole: UserType.INSTRUCTOR,
+          instructorId: mockInstructor.id,
         }),
       );
     });
@@ -125,6 +140,10 @@ describe('MaterialsService', () => {
       fileStorageService.upload.mockResolvedValue(s3Url);
 
       lecturesRepo.findById.mockResolvedValue(mockLectures.basic);
+      adminRepo.findById.mockResolvedValue({
+        id: mockInstructor.id,
+        user: { name: '이강사' },
+      });
 
       await service.uploadMaterial(
         mockLectures.basic.id,
@@ -142,6 +161,7 @@ describe('MaterialsService', () => {
       expect(materialsRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           fileUrl: s3Url,
+          authorName: '이강사',
         }),
       );
     });
@@ -158,6 +178,10 @@ describe('MaterialsService', () => {
       } as unknown as Express.Multer.File;
 
       fileStorageService.upload.mockResolvedValue('https://s3.aws.com/lib.pdf');
+      adminRepo.findById.mockResolvedValue({
+        id: mockInstructor.id,
+        user: { name: '이강사' },
+      });
 
       await service.uploadMaterial(
         undefined,
@@ -250,7 +274,7 @@ describe('MaterialsService', () => {
     it('자료 상세 정보를 반환해야 한다', async () => {
       const mockMaterial = {
         ...mockMaterials.basic,
-        instructor: { user: { name: '이강사' } },
+        authorName: '이강사',
         lecture: { title: '강의' },
       };
       const mockLecture = mockLectures.basic;

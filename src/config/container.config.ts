@@ -178,6 +178,8 @@ const materialsService = new MaterialsService(
   materialsRepo,
   lecturesRepo,
   lectureEnrollmentsRepo,
+  instructorRepo,
+  assistantRepo,
   fileStorageService,
   permissionService,
 );

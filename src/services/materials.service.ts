@@ -15,6 +15,8 @@ import {
 import { UserType } from '../constants/auth.constant.js';
 import { MaterialsRepository } from '../repos/materials.repo.js';
 import { LecturesRepository } from '../repos/lectures.repo.js';
+import { InstructorRepository } from '../repos/instructor.repo.js';
+import { AssistantRepository } from '../repos/assistant.repo.js';
 import { PermissionService } from './permission.service.js';
 import { FileStorageService } from './filestorage.service.js';
 import {
@@ -30,6 +32,8 @@ export class MaterialsService {
     private readonly materialsRepository: MaterialsRepository,
     private readonly lecturesRepository: LecturesRepository,
     private readonly lectureEnrollmentsRepository: LectureEnrollmentsRepository,
+    private readonly instructorRepository: InstructorRepository,
+    private readonly assistantRepository: AssistantRepository,
     private readonly fileStorageService: FileStorageService,
     private readonly permissionService: PermissionService,
   ) {}
@@ -77,14 +81,42 @@ export class MaterialsService {
       fileUrl = await this.fileStorageService.upload(file, key);
     }
 
-    const uploader = {
-      uploaderInstructorId:
-        userType === UserType.INSTRUCTOR ? profileId : undefined,
-      uploaderAssistantId:
-        userType === UserType.ASSISTANT ? profileId : undefined,
-    };
+    let ownerInstructorId: string;
+    let authorName: string;
+    let authorRole: string;
+
+    if (userType === UserType.INSTRUCTOR) {
+      const instructor = await this.instructorRepository.findById(profileId);
+      if (!instructor)
+        throw new NotFoundException('강사 정보를 찾을 수 없습니다.');
+      ownerInstructorId = instructor.id;
+      authorName = instructor.user.name;
+      authorRole = UserType.INSTRUCTOR;
+    } else if (userType === UserType.ASSISTANT) {
+      const assistant = await this.assistantRepository.findById(profileId);
+      if (!assistant)
+        throw new NotFoundException('조교 정보를 찾을 수 없습니다.');
+      ownerInstructorId = assistant.instructorId;
+      authorName = assistant.user.name;
+      authorRole = UserType.ASSISTANT;
+    } else {
+      throw new ForbiddenException('자료 업로드 권한이 없습니다.');
+    }
+
+    // 강의 자료인 경우 강의 담당 강사와 현재 강사(또는 조교의 강사)가 일치하는지 확인
+    if (lectureId) {
+      const lecture = await this.lecturesRepository.findById(lectureId);
+      if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
+
+      if (lecture.instructorId !== ownerInstructorId) {
+        throw new ForbiddenException(
+          '해당 강의의 자료를 업로드할 권한이 없습니다.',
+        );
+      }
+    }
 
     return this.materialsRepository.create({
+      instructorId: ownerInstructorId,
       lectureId: lectureId || null,
       title: data.title,
       fileUrl,
@@ -92,7 +124,8 @@ export class MaterialsService {
       description: data.description,
       subject: data.subject,
       externalDownloadUrl: data.externalDownloadUrl,
-      ...uploader,
+      authorName,
+      authorRole,
     });
   }
 
@@ -149,8 +182,7 @@ export class MaterialsService {
         id: m.id,
         title: m.title,
         description: m.description, // description 추가
-        writer:
-          m.instructor?.user.name || m.assistant?.user.name || '알 수 없음', // writer <- uploaderName
+        writer: m.authorName || '알 수 없음', // writer <- authorName
         date: format(m.createdAt, 'yyyy-MM-dd'), // date <- createdAt
         type: type, // type 매핑
         classId: m.lectureId, // classId <- lectureId
@@ -184,25 +216,9 @@ export class MaterialsService {
   ) {
     const material = await this.materialsRepository.findById(materialsId);
     if (!material) throw new NotFoundException('자료를 찾을 수 없습니다.');
-
-    // 소유 강사 ID 식별 (직접 업로드 -> 조교의 강사 -> 강의 담당 강사 순)
-    let ownerInstructorId =
-      material.uploaderInstructorId || material.assistant?.instructorId;
-
-    if (!ownerInstructorId && material.lectureId) {
-      const lecture = await this.lecturesRepository.findById(
-        material.lectureId,
-      );
-      ownerInstructorId = lecture?.instructorId;
-    }
-
-    if (!ownerInstructorId) {
-      throw new ForbiddenException('자료 권한을 확인할 수 없습니다.');
-    }
-
-    // 권한 검증
+    // 권한 검증: 자료의 소유 강사 ID로 확인
     await this.permissionService.validateInstructorAccess(
-      ownerInstructorId,
+      material.instructorId,
       userType,
       profileId,
     );
@@ -230,24 +246,9 @@ export class MaterialsService {
     const material = await this.materialsRepository.findById(materialsId);
     if (!material) throw new NotFoundException('자료를 찾을 수 없습니다.');
 
-    // 소유 강사 ID 식별 (직접 업로드 -> 조교의 강사 -> 강의 담당 강사 순)
-    let ownerInstructorId =
-      material.uploaderInstructorId || material.assistant?.instructorId;
-
-    if (!ownerInstructorId && material.lectureId) {
-      const lecture = await this.lecturesRepository.findById(
-        material.lectureId,
-      );
-      ownerInstructorId = lecture?.instructorId;
-    }
-
-    if (!ownerInstructorId) {
-      throw new ForbiddenException('자료 권한을 확인할 수 없습니다.');
-    }
-
-    // 권한 검증
+    // 권한 검증: 자료의 소유 강사 ID로 확인
     await this.permissionService.validateInstructorAccess(
-      ownerInstructorId,
+      material.instructorId,
       userType,
       profileId,
     );
@@ -304,10 +305,7 @@ export class MaterialsService {
       id: material.id,
       title: material.title,
       description: material.description,
-      writer:
-        material.instructor?.user.name ||
-        material.assistant?.user.name ||
-        '알 수 없음',
+      writer: material.authorName || '보조 강사',
       date: format(material.createdAt, 'yyyy-MM-dd'),
       type: type,
       classId: material.lectureId,

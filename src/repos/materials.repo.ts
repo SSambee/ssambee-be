@@ -21,15 +21,6 @@ export class MaterialsRepository {
         lecture: {
           select: { title: true },
         },
-        instructor: {
-          select: { user: { select: { name: true } } },
-        },
-        assistant: {
-          select: {
-            instructorId: true,
-            user: { select: { name: true } },
-          },
-        },
       },
     });
   }
@@ -67,12 +58,6 @@ export class MaterialsRepository {
         include: {
           lecture: {
             select: { title: true },
-          },
-          instructor: {
-            select: { user: { select: { name: true } } },
-          },
-          assistant: {
-            select: { user: { select: { name: true } } },
           },
         },
       }),
