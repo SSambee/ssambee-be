@@ -311,14 +311,8 @@ export class MaterialsService {
     } else {
       // 라이브러리(강의 미지정) 자료:
       if (userType === UserType.STUDENT || userType === UserType.PARENT) {
-        // 학생/학부모인 경우, 해당 자료가 접근 가능한 게시글에 첨부되어 있는지 확인 필요
-        // (MaterialsRepository.isAccessibleByStudent logic 활용)
-        // 여기서는 간단히 PermissionService 또는 Repository를 통해 광범위하게 체크하거나
-        // 일단 게시글 첨부 여부를 확인.
-        // TODO: 학생의 구체적인 enrollmentId를 알기 어려우므로(강의가 특정되지 않음)
-        // 일단 라이브러리 자료는 기본적으로 차단하되, 게시글 상세 조회를 통해 접근하도록 유도하거나
-        // 전체 접근 권한 로직을 강화해야 함.
-        // 현재는 기획에 따라 라이브러리 직접 접근은 Instructor/Assistant만 허용.
+        // 학생/학부모가 이 라이브러리를 사용할수있을지는 모르겠지만 학생측에서 아마 바로 게시글에 자료를 던져주는 방식으로 구현이된다면
+        // 이 부분은 필요없으므로 알수없는 케이스가 있을수있기에 일단 예외처리하겠습니다.
         throw new ForbiddenException('해당 자료에 직접 접근 권한이 없습니다.');
       }
     }
