@@ -155,7 +155,7 @@ describe('MaterialsService', () => {
 
       expect(fileStorageService.upload).toHaveBeenCalledWith(
         mockFile,
-        expect.stringMatching(/^materials\/\d{4}\/\d{2}\/.*\.pdf$/),
+        expect.stringMatching(/^paper\/\d{4}\/\d{2}\/.*\.pdf$/),
       );
 
       expect(materialsRepo.create).toHaveBeenCalledWith(
@@ -193,7 +193,10 @@ describe('MaterialsService', () => {
 
       expect(lecturesRepo.findById).not.toHaveBeenCalled();
 
-      expect(fileStorageService.upload).toHaveBeenCalled();
+      expect(fileStorageService.upload).toHaveBeenCalledWith(
+        mockFile,
+        expect.stringMatching(/^paper\/\d{4}\/\d{2}\/.*\.pdf$/),
+      );
 
       expect(materialsRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({

@@ -47,7 +47,7 @@ export class MaterialsService {
     profileId: string,
   ) {
     let ownerInstructorId: string;
-    
+
     if (lectureId) {
       const lecture = await this.lecturesRepository.findById(lectureId);
       if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
@@ -57,7 +57,7 @@ export class MaterialsService {
         userType,
         profileId,
       );
-      
+
       // 강의 담당 강사 ID 설정
       ownerInstructorId = lecture.instructorId;
     } else {
@@ -65,8 +65,10 @@ export class MaterialsService {
       if (userType === UserType.INSTRUCTOR) {
         ownerInstructorId = profileId;
       } else if (userType === UserType.ASSISTANT) {
-        const instructorId = await this.permissionService.getInstructorIdByAssistantId(profileId);
-        if (!instructorId) throw new ForbiddenException('강사 정보를 찾을 수 없습니다.');
+        const instructorId =
+          await this.permissionService.getInstructorIdByAssistantId(profileId);
+        if (!instructorId)
+          throw new ForbiddenException('강사 정보를 찾을 수 없습니다.');
         ownerInstructorId = instructorId;
       } else {
         throw new ForbiddenException('자료 업로드 권한이 없습니다.');
@@ -92,7 +94,8 @@ export class MaterialsService {
       const now = new Date();
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, '0');
-      const key = `materials/${year}/${month}/${randomId}${ext}`;
+      const prefix = data.type.toLowerCase();
+      const key = `${prefix}/${year}/${month}/${randomId}${ext}`;
 
       fileUrl = await this.fileStorageService.upload(file, key);
     }
