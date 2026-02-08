@@ -94,9 +94,7 @@ model Instructor {
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime? @updatedAt @map("updated_at")
-
-  // [Safety] 계정 삭제 시 실수 방지를 위한 Soft Delete
-  deletedAt DateTime? @map("deleted_at")
+  deletedAt DateTime? @map("deleted_at") // 회원 탈퇴 요청 시 선 Soft Delete 후 이 날로 부터 1개월 지나면 Hard Delete 및 회원 탈퇴 처리
 
   user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   lectures          Lecture[]
@@ -138,6 +136,7 @@ model Assistant {
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime? @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at") // 회원 탈퇴 처리 시 즉시 탈퇴 후 이 테이블은 Soft Delete, 이 날로 부터 3년 또는 강사 탈퇴 후 Hard Delete
 
   user              User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   instructor        Instructor       @relation(fields: [instructorId], references: [id], onDelete: Cascade)
@@ -184,10 +183,10 @@ model Enrollment {
 
   // [Link] 실제 앱 사용자와의 연결 (학생 본체)
   appStudentId    String?     @map("app_student_id")
-  appStudent      AppStudent? @relation(fields: [appStudentId], references: [id])
+  appStudent      AppStudent? @relation(fields: [appStudentId], references: [id], onDelete: SetNull)
   
   appParentLinkId String?          @map("app_parent_link_id")
-  appParentLink   ParentChildLink? @relation(fields: [appParentLinkId], references: [id])
+  appParentLink   ParentChildLink? @relation(fields: [appParentLinkId], references: [id], onDelete: SetNull)
 
   // [Snapshot & Profile] 학생 기본 정보 (강사가 관리하는 주소록 개념)
   studentName  String @map("student_name")

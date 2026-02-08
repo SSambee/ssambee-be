@@ -3,6 +3,7 @@ import type { Prisma } from '../generated/prisma/client.js';
 
 interface CreateAssistantData {
   userId: string;
+  name: string;
   phoneNumber: string;
   instructorId: string;
   signupCode: string;
@@ -28,5 +29,29 @@ export class AssistantRepository {
   async create(data: CreateAssistantData, tx?: Prisma.TransactionClient) {
     const client = tx ?? this.prisma;
     return client.assistant.create({ data });
+  }
+
+  async findManyByInstructorId(
+    instructorId: string,
+    signStatus?: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    const where: Prisma.AssistantWhereInput = {
+      instructorId,
+      deletedAt: null,
+    };
+
+    if (signStatus) {
+      where.signStatus = signStatus;
+    }
+
+    return client.assistant.findMany({
+      where,
+      include: {
+        user: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 }

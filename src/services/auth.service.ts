@@ -212,6 +212,7 @@ export class AuthService {
       return await this.assistantRepo.create(
         {
           userId,
+          name: data.name || 'Assistant', // name이 없을 경우 기본값 처리 또는 data.name 사용
           phoneNumber: data.phoneNumber,
           instructorId: assistantCode.instructorId,
           signupCode: data.signupCode!,

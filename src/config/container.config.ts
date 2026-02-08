@@ -56,6 +56,9 @@ import { LectureEnrollmentsController } from '../controllers/lecture-enrollments
 import { AssistantCodesService } from '../services/assistant-codes.service.js';
 import { AssistantCodesController } from '../controllers/assistant-codes.controller.js';
 
+import { AssistantsService } from '../services/assistants.service.js';
+import { AssistantsController } from '../controllers/assistants.controller.js';
+
 // 1. Instantiate Repositories
 const instructorRepo = new InstructorRepository(prisma);
 const studentRepo = new StudentRepository(prisma);
@@ -175,6 +178,8 @@ const assistantCodesService = new AssistantCodesService(
   prisma,
 );
 
+const assistantsService = new AssistantsService(assistantRepo);
+
 // 3. Instantiate Controllers (Inject Services)
 const authController = new AuthController(authService);
 const lecturesController = new LecturesController(lecturesService);
@@ -195,6 +200,7 @@ const lectureEnrollmentsController = new LectureEnrollmentsController(
 const assistantCodesController = new AssistantCodesController(
   assistantCodesService,
 );
+const assistantsController = new AssistantsController(assistantsService);
 
 // 4. Create Middlewares (Inject Services)
 const requireAuth = createRequireAuth(authService);
@@ -217,6 +223,7 @@ export const container = {
   statisticsService,
   clinicsService,
   lectureEnrollmentsService,
+  assistantsService,
   // Controllers
   authController,
   lecturesController,
@@ -229,6 +236,7 @@ export const container = {
   clinicsController,
   lectureEnrollmentsController,
   assistantCodesController,
+  assistantsController,
   // Middlewares
   requireAuth,
   optionalAuth,
