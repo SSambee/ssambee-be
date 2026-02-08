@@ -26,6 +26,7 @@ export interface MockProfile {
   userId: string;
   phoneNumber: string;
   createdAt: Date;
+  updatedAt: Date | null;
   [key: string]: unknown;
 }
 
@@ -78,6 +79,7 @@ export const createMockProfile = (
     userId,
     phoneNumber: '010-1234-5678',
     createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-01-01'),
     ...overrides,
   };
 
