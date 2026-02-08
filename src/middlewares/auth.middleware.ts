@@ -1,6 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
-import { UserType } from '../constants/auth.constant.js';
-import type { AuthSession, ProfileBase } from '../types/auth.types.js';
+import { AssistantStatus, UserType } from '../constants/auth.constant.js';
+import type {
+  AuthSession,
+  ProfileBase,
+  ProfileAssistant,
+} from '../types/auth.types.js';
 import {
   UnauthorizedException,
   ForbiddenException,
@@ -58,6 +62,17 @@ export const requireUserType = (...allowedTypes: UserType[]) => {
 
     if (!allowedTypes.includes(req.user.userType)) {
       return next(new ForbiddenException('접근 권한이 없습니다.'));
+    }
+
+    if (req.user.userType === UserType.ASSISTANT) {
+      const assistantProfile = req.profile as unknown as ProfileAssistant;
+      if (assistantProfile?.signStatus !== AssistantStatus.SIGNED) {
+        return next(
+          new ForbiddenException(
+            '접근 권한이 없습니다. 담당자의 승인이 필요합니다.',
+          ),
+        );
+      }
     }
 
     next();

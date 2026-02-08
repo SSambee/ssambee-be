@@ -38,4 +38,11 @@ export interface ProfileBase {
   userId: string;
   phoneNumber: string;
   createdAt: Date;
+  [key: string]: unknown;
+}
+
+export interface ProfileAssistant extends ProfileBase {
+  signStatus: string;
+  assistantStatus: string;
+  [key: string]: unknown;
 }

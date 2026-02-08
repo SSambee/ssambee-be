@@ -17,3 +17,23 @@ export const UserTypeToModel = {
 
 // 인증 쿠키 이름
 export const AUTH_COOKIE_NAME = 'ssambee-auth.session_token';
+
+export const AssistantStatus = {
+  PENDING: 'PENDING',
+  SIGNED: 'SIGNED',
+  REJECTED: 'REJECTED',
+  EXPIRED: 'EXPIRED',
+} as const;
+
+export type AssistantStatus =
+  (typeof AssistantStatus)[keyof typeof AssistantStatus];
+
+export const AssistantAttendanceStatus = {
+  PENDING: 'PENDING',
+  ATTENDED: 'ATTENDED',
+  ABSENT: 'ABSENT',
+  VACATION: 'VACATION',
+} as const;
+
+export type AssistantAttendanceStatus =
+  (typeof AssistantAttendanceStatus)[keyof typeof AssistantAttendanceStatus];
