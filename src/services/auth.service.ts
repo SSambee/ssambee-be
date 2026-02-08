@@ -163,6 +163,14 @@ export class AuthService {
     });
   }
 
+  /** 회원 탈퇴 (Better Auth API 사용) */
+  async withdraw(headers: IncomingHttpHeaders) {
+    return await this.authClient.api.deleteUser({
+      headers: fromNodeHeaders(headers),
+      body: {},
+    });
+  }
+
   /** 세션 조회 */
   async getSession(headers: IncomingHttpHeaders) {
     const session = await this.authClient.api.getSession({

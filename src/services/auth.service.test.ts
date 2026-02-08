@@ -540,4 +540,23 @@ describe('AuthService - @unit #critical', () => {
       });
     });
   });
+
+  describe('AUTH-09: 회원 탈퇴', () => {
+    it('사용자가 회원 탈퇴를 요청할 때, Better Auth의 deleteUser API가 호출된다', async () => {
+      // Arrange
+      const headers = { cookie: 'test-session-cookie' };
+      mockBetterAuth.api.deleteUser.mockResolvedValue({
+        success: true,
+      });
+
+      // Act
+      await authService.withdraw(headers);
+
+      // Assert
+      expect(mockBetterAuth.api.deleteUser).toHaveBeenCalledWith({
+        headers: expect.anything(),
+        body: {},
+      });
+    });
+  });
 });

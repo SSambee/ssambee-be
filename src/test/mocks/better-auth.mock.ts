@@ -6,6 +6,7 @@ export const createMockBetterAuth = () => ({
     signInEmail: jest.fn(),
     signOut: jest.fn(),
     getSession: jest.fn(),
+    deleteUser: jest.fn(),
   },
 });
 
