@@ -121,15 +121,15 @@ export class MaterialsService {
 
     return this.materialsRepository.create({
       instructorId: ownerInstructorId,
-      lectureId: lectureId || null,
+      lectureId: null, // 원본 보존을 위해 무조건 null로 저장 (Library-first)
+      authorName,
+      authorRole,
       title: data.title,
       fileUrl,
       type: backendType,
       description: data.description,
       subject: data.subject,
       externalDownloadUrl: data.externalDownloadUrl,
-      authorName,
-      authorRole,
     });
   }
 
@@ -171,6 +171,21 @@ export class MaterialsService {
     const { materials, totalCount } =
       await this.materialsRepository.findMany(queryWithBackendType);
 
+    // 작성자(Author) 유효성 체크 및 마스킹 데이터 준비
+    const instructorIds = [...new Set(materials.map((m) => m.instructorId))];
+    const assistantsMap = new Map<string, string[]>(); // instructorId -> activeAssistantNames[]
+
+    await Promise.all(
+      instructorIds.map(async (id) => {
+        const assistants =
+          await this.assistantRepository.findAllByInstructorId(id);
+        assistantsMap.set(
+          id,
+          assistants.map((a) => a.user.name),
+        );
+      }),
+    );
+
     const mappedMaterials = materials.map((m) => {
       // MaterialType Mapping
       const type =
@@ -180,20 +195,27 @@ export class MaterialsService {
       const isManagement =
         userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT;
       const basePath = isManagement ? '/api/mgmt/v1' : '/api/svc/v1';
-      const downloadUrl = `${basePath}/materials/${m.id}/download`; // 다운로드 URL (프론트에서 이 경로로 호출)
+      const downloadUrl = `${basePath}/materials/${m.id}/download`;
+
+      // 작성자 마스킹 로직
+      let writer = m.authorName || '보조강사';
+      if (m.authorRole === UserType.ASSISTANT) {
+        const activeNames = assistantsMap.get(m.instructorId) || [];
+        if (!activeNames.includes(m.authorName)) {
+          writer = '보조강사';
+        }
+      }
 
       return {
         id: m.id,
         title: m.title,
-        description: m.description, // description 추가
-        writer: m.authorName || '보조 강사', // writer <- authorName
-        date: format(m.createdAt, 'yyyy-MM-dd'), // date <- createdAt
-        type: type, // type 매핑
-        classId: m.lectureId, // classId <- lectureId
-        className: m.lecture?.title, // className <- lecture.title (Repository에서 가져옴)
-        // file: 비디오가 아니면 { name, url } 반환
+        description: m.description,
+        writer, // 마스킹된 이름 반영
+        date: format(m.createdAt, 'yyyy-MM-dd'),
+        type: type,
+        classId: m.lectureId,
+        className: m.lecture?.title,
         file: !isVideo ? { name: m.title, url: downloadUrl } : undefined,
-        // link: 비디오면 fileUrl 반환
         link: isVideo ? m.fileUrl : undefined,
       };
     });
@@ -287,10 +309,30 @@ export class MaterialsService {
         profileId,
       );
     } else {
-      // 라이브러리(강의 미지정) 자료: 학생/학부모는 접근 불가
-      // 기획에 따라 변동 가능
+      // 라이브러리(강의 미지정) 자료:
       if (userType === UserType.STUDENT || userType === UserType.PARENT) {
-        throw new ForbiddenException('해당 자료에 접근 권한이 없습니다.');
+        // 학생/학부모인 경우, 해당 자료가 접근 가능한 게시글에 첨부되어 있는지 확인 필요
+        // (MaterialsRepository.isAccessibleByStudent logic 활용)
+        // 여기서는 간단히 PermissionService 또는 Repository를 통해 광범위하게 체크하거나
+        // 일단 게시글 첨부 여부를 확인.
+        // TODO: 학생의 구체적인 enrollmentId를 알기 어려우므로(강의가 특정되지 않음)
+        // 일단 라이브러리 자료는 기본적으로 차단하되, 게시글 상세 조회를 통해 접근하도록 유도하거나
+        // 전체 접근 권한 로직을 강화해야 함.
+        // 현재는 기획에 따라 라이브러리 직접 접근은 Instructor/Assistant만 허용.
+        throw new ForbiddenException('해당 자료에 직접 접근 권한이 없습니다.');
+      }
+    }
+
+    // 작성자 마스킹 로직
+    let writer = material.authorName || '보조강사';
+    if (material.authorRole === UserType.ASSISTANT) {
+      const activeAssistants =
+        await this.assistantRepository.findAllByInstructorId(
+          material.instructorId,
+        );
+      const activeNames = activeAssistants.map((a) => a.user.name);
+      if (!activeNames.includes(material.authorName)) {
+        writer = '보조강사';
       }
     }
 
@@ -309,7 +351,7 @@ export class MaterialsService {
       id: material.id,
       title: material.title,
       description: material.description,
-      writer: material.authorName || '보조 강사',
+      writer, // 마스킹된 이름 반영
       date: format(material.createdAt, 'yyyy-MM-dd'),
       type: type,
       classId: material.lectureId,
