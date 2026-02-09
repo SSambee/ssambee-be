@@ -13,6 +13,7 @@ import { ClinicsRepository } from '../../repos/clinics.repo.js';
 import { StatisticsRepository } from '../../repos/statistics.repo.js';
 import type { LectureEnrollmentsRepository } from '../../repos/lecture-enrollments.repo.js';
 import type { MaterialsRepository } from '../../repos/materials.repo.js';
+import type { InstructorPostsRepository } from '../../repos/instructor-posts.repo.js';
 import { createAutoMock } from './create-mock.util.js';
 
 /** Mock InstructorRepository 생성 */
@@ -193,4 +194,16 @@ export const createMockMaterialsRepository = () =>
     'softDelete',
     'delete',
     'isAccessibleByStudent',
+  ]);
+
+/** Mock InstructorPostsRepository 생성 */
+export const createMockInstructorPostsRepository = () =>
+  createAutoMock<InstructorPostsRepository>([
+    'create',
+    'findById',
+    'findMany',
+    'update',
+    'delete',
+    'addAttachments',
+    'removeAttachments',
   ]);
