@@ -1,6 +1,24 @@
 import { Prisma, PrismaClient } from '../generated/prisma/client.js';
 import { PostScope } from '../constants/posts.constant.js';
 
+export type InstructorPostWithDetails = Prisma.InstructorPostGetPayload<{
+  include: {
+    instructor: { select: { user: { select: { name: true } } } };
+    authorAssistant: {
+      select: { user: { select: { name: true } } };
+    };
+    attachments: { include: { material: true } };
+    targets: {
+      include: {
+        enrollment: {
+          select: { appStudentId: true };
+        };
+      };
+    };
+    _count: { select: { comments: true } };
+  };
+}>;
+
 export class InstructorPostsRepository {
   constructor(private readonly prisma: PrismaClient) {}
 

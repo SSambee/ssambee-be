@@ -5,7 +5,10 @@ import {
 } from '../err/http.exception.js';
 import { PostScope, TargetRole } from '../constants/posts.constant.js';
 import { UserType } from '../constants/auth.constant.js';
-import { InstructorPostsRepository } from '../repos/instructor-posts.repo.js';
+import {
+  InstructorPostsRepository,
+  InstructorPostWithDetails,
+} from '../repos/instructor-posts.repo.js';
 import { LecturesRepository } from '../repos/lectures.repo.js';
 import { MaterialsRepository } from '../repos/materials.repo.js';
 import { PermissionService } from './permission.service.js';
@@ -143,7 +146,7 @@ export class InstructorPostsService {
       }
     }
 
-    return this.instructorPostsRepository.findMany({
+    const result = await this.instructorPostsRepository.findMany({
       lectureId: query.lectureId,
       scope: query.scope,
       search: query.search,
@@ -151,6 +154,31 @@ export class InstructorPostsService {
       limit: query.limit,
       instructorId: userType === UserType.STUDENT ? undefined : instructorId,
     });
+
+    // 학생인 경우 접근 권한이 있는 게시글만 필터링 (Global, Lecture, Selected 중 본인 타겟)
+    if (userType === UserType.STUDENT) {
+      const posts = result.posts as InstructorPostWithDetails[];
+      const filteredPosts = posts.filter((post) => {
+        // 유효한 스코프 확인
+        if (!(Object.values(PostScope) as string[]).includes(post.scope))
+          return false;
+
+        // SELECTED인 경우 본인이 타겟 명단에 있는지 확인
+        if (post.scope === PostScope.SELECTED) {
+          return post.targets?.some(
+            (t) => t.enrollment?.appStudentId === profileId,
+          );
+        }
+        return true;
+      });
+
+      return {
+        posts: filteredPosts,
+        totalCount: filteredPosts.length, // 간소화를 위해 필터링된 개수로 응답
+      };
+    }
+
+    return result;
   }
 
   /** 공지 상세 조회 */
