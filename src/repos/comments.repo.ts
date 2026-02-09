@@ -48,10 +48,35 @@ export class CommentsRepository {
   }
 
   /** 댓글 수정 */
-  async update(id: string, data: { content?: string }) {
+  async update(id: string, data: { content?: string; materialIds?: string[] }) {
+    const { materialIds, ...commentData } = data;
+
+    // 첨부파일 업데이트: 기존 첨부 삭제 후 새 첨부 추가
+    if (materialIds !== undefined) {
+      await this.prisma.commentAttachment.deleteMany({
+        where: { commentId: id },
+      });
+
+      if (materialIds.length > 0) {
+        const materials = await this.prisma.material.findMany({
+          where: { id: { in: materialIds } },
+          select: { id: true, title: true },
+        });
+        const attachmentsData = materials.map((m) => ({
+          commentId: id,
+          materialId: m.id,
+          filename: m.title,
+        }));
+
+        await this.prisma.commentAttachment.createMany({
+          data: attachmentsData,
+        });
+      }
+    }
+
     return this.prisma.comment.update({
       where: { id },
-      data,
+      data: commentData,
       include: {
         instructor: { select: { user: { select: { name: true } } } },
         assistant: { select: { user: { select: { name: true } } } },
