@@ -78,8 +78,8 @@ describe('AssistantsService', () => {
       );
     });
 
-    it('should return REJECTED assistants when status is denied', async () => {
-      await service.getAssistantsByInstructor(instructorId, 'denied');
+    it('should return REJECTED assistants when status is rejected', async () => {
+      await service.getAssistantsByInstructor(instructorId, 'rejected');
 
       expect(mockRepo.findManyByInstructorId).toHaveBeenCalledWith(
         instructorId,

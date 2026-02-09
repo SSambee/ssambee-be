@@ -36,7 +36,7 @@ export interface AuthResponse {
 export interface ProfileBase {
   id: string;
   userId: string | null;
-  phoneNumber: string;
+  phoneNumber: string | null;
   createdAt: Date;
   updatedAt: Date | null;
   deletedAt?: Date | null;
@@ -46,6 +46,5 @@ export interface ProfileBase {
 export interface ProfileAssistant extends ProfileBase {
   name?: string;
   signStatus: string;
-  assistantStatus: string;
   [key: string]: unknown;
 }
