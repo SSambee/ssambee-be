@@ -170,8 +170,14 @@ export class InstructorPostsService {
         throw new ForbiddenException('담당 강사의 게시글이 아닙니다.');
       }
     } else if (userType === UserType.STUDENT) {
-      // 1. Global: 모두 허용? (기획 확인 필요, 일단 허용)
-      if (post.scope === PostScope.GLOBAL) return post;
+      // 1. Global: 해당 강사의 강의를 하나라도 수강 중인지 확인
+      if (post.scope === PostScope.GLOBAL) {
+        await this.permissionService.validateInstructorStudentLink(
+          post.instructorId,
+          profileId,
+        );
+        return post;
+      }
 
       // 2. Lecture: 수강 여부 확인
       if (post.scope === PostScope.LECTURE && post.lectureId) {
