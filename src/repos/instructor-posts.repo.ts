@@ -163,7 +163,7 @@ export class InstructorPostsRepository {
   /** 게시글 수정 */
   async update(
     id: string,
-    data: Prisma.InstructorPostUpdateInput & {
+    data: Prisma.InstructorPostUncheckedUpdateInput & {
       materialIds?: string[];
       targetEnrollmentIds?: string[];
     },
