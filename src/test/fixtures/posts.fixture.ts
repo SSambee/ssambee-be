@@ -46,6 +46,8 @@ export const mockInstructorPosts = {
         instructorPostId: 'post-id',
         materialId: mockMaterials.basic.id,
         filename: mockMaterials.basic.title,
+        fileUrl: null,
+        createdAt: new Date(),
         material: mockMaterials.basic,
       },
     ],
@@ -80,6 +82,30 @@ export const mockInstructorPosts = {
         },
       },
     ],
+    comments: [],
+    _count: { comments: 0 },
+  },
+};
+
+/** Mock StudentPost 데이터 */
+export const mockStudentPosts = {
+  basic: {
+    id: faker.string.uuid(),
+    status: 'PENDING',
+    title: '질문 있습니다!',
+    content: '이 부분이 이해가 안 가요.',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    enrollmentId: 'enrollment-1',
+    authorRole: 'STUDENT',
+    instructorId: mockInstructor.id,
+    lectureId: mockLectures.basic.id,
+    enrollment: {
+      appStudentId: 'student-1',
+      studentName: '김학생',
+      appStudent: { user: { name: '김학생' } },
+      appParentLink: null,
+    },
     comments: [],
     _count: { comments: 0 },
   },
