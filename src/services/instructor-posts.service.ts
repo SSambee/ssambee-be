@@ -258,9 +258,79 @@ export class InstructorPostsService {
       throw new ForbiddenException('수정 권한이 없습니다.');
     }
 
-    // 첨부파일/타겟 변경 로직은 별도 처리 필요할 수 있음 (현재는 단순 필드 업데이트)
-    // materialIds 변경 시 기존 관계 삭제 및 재생성 등의 로직이 Repository나 Service에 필요
-    // 여기서는 기본 정보 업데이트만 수행
+    // 2. 스코프 및 강의 유효성 검사
+    const targetScope = data.scope || post.scope;
+    const targetLectureId =
+      data.lectureId !== undefined ? data.lectureId : post.lectureId;
+
+    if (targetScope === PostScope.LECTURE) {
+      if (!targetLectureId) {
+        throw new BadRequestException('강의 공지는 lectureId가 필수입니다.');
+      }
+      // 강의가 바뀌었거나 스코프가 새로 LECTURE가 된 경우 권한 확인
+      if (data.lectureId || data.scope === PostScope.LECTURE) {
+        const lecture = await this.lecturesRepository.findById(targetLectureId);
+        if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
+        const instructorId =
+          userType === UserType.INSTRUCTOR
+            ? profileId
+            : await this.permissionService.getInstructorIdByAssistantId(
+                profileId,
+              );
+        if (lecture.instructorId !== instructorId) {
+          throw new ForbiddenException('해당 강의에 대한 권한이 없습니다.');
+        }
+      }
+    }
+
+    if (
+      targetScope === PostScope.SELECTED &&
+      data.targetEnrollmentIds !== undefined &&
+      data.targetEnrollmentIds.length === 0
+    ) {
+      throw new BadRequestException('선택 공지는 대상 학생 지정이 필수입니다.');
+    }
+
+    // 3. 자료 소유권 검증 (새로 첨부할 자료가 있는 경우)
+    if (data.materialIds && data.materialIds.length > 0) {
+      const instructorId =
+        userType === UserType.INSTRUCTOR
+          ? profileId
+          : await this.permissionService.getInstructorIdByAssistantId(
+              profileId,
+            );
+      if (instructorId) {
+        await this.validateMaterialOwnership(data.materialIds, instructorId);
+      }
+    }
+
+    // 동일한 내용인지 확인 (Redundant update prevention)
+    const currentMaterialIds = post.attachments
+      .map((a) => a.materialId)
+      .filter((id): id is string => !!id)
+      .sort();
+    const currentTargetEnrollmentIds = post.targets
+      .map((t) => t.enrollmentId)
+      .sort();
+
+    const isRedundant =
+      (data.title === undefined || data.title === post.title) &&
+      (data.content === undefined || data.content === post.content) &&
+      (data.isImportant === undefined ||
+        data.isImportant === post.isImportant) &&
+      (data.scope === undefined || data.scope === post.scope) &&
+      (data.targetRole === undefined || data.targetRole === post.targetRole) &&
+      (data.lectureId === undefined || data.lectureId === post.lectureId) &&
+      (data.materialIds === undefined ||
+        JSON.stringify([...data.materialIds].sort()) ===
+          JSON.stringify(currentMaterialIds)) &&
+      (data.targetEnrollmentIds === undefined ||
+        JSON.stringify([...data.targetEnrollmentIds].sort()) ===
+          JSON.stringify(currentTargetEnrollmentIds));
+
+    if (isRedundant) {
+      return post;
+    }
 
     return this.instructorPostsRepository.update(postId, {
       title: data.title,
@@ -268,6 +338,9 @@ export class InstructorPostsService {
       isImportant: data.isImportant,
       scope: data.scope,
       targetRole: data.targetRole,
+      lectureId: data.lectureId,
+      materialIds: data.materialIds,
+      targetEnrollmentIds: data.targetEnrollmentIds,
     });
   }
 
