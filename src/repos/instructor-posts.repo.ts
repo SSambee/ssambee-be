@@ -67,8 +67,9 @@ export class InstructorPostsRepository {
   }
 
   /** ID로 상세 조회 (댓글, 첨부파일, 타겟 포함) */
-  async findById(id: string) {
-    return this.prisma.instructorPost.findFirst({
+  async findById(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    return client.instructorPost.findFirst({
       where: { id }, // Soft Delete가 없으므로 그대로 조회 (필요시 추가)
       include: {
         instructor: { select: { user: { select: { name: true } } } },
@@ -104,14 +105,18 @@ export class InstructorPostsRepository {
   }
 
   /** 목록 조회 (필터링, 페이지네이션) */
-  async findMany(params: {
-    lectureId?: string;
-    instructorId?: string;
-    scope?: string;
-    search?: string;
-    page: number;
-    limit: number;
-  }) {
+  async findMany(
+    params: {
+      lectureId?: string;
+      instructorId?: string;
+      scope?: string;
+      search?: string;
+      page: number;
+      limit: number;
+    },
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
     const { lectureId, instructorId, scope, search, page, limit } = params;
     const skip = (page - 1) * limit;
 
@@ -128,7 +133,7 @@ export class InstructorPostsRepository {
     };
 
     const [posts, totalCount] = await Promise.all([
-      this.prisma.instructorPost.findMany({
+      client.instructorPost.findMany({
         where,
         skip,
         take: limit,
@@ -149,47 +154,91 @@ export class InstructorPostsRepository {
           _count: { select: { comments: true } },
         },
       }),
-      this.prisma.instructorPost.count({ where }),
+      client.instructorPost.count({ where }),
     ]);
 
     return { posts, totalCount };
   }
 
-  /** 게시글 수정 (재조회 반환) */
-  async update(id: string, data: Prisma.InstructorPostUpdateInput) {
-    // 1. 업데이트 수행
-    await this.prisma.instructorPost.updateMany({
+  /** 게시글 수정 */
+  async update(
+    id: string,
+    data: Prisma.InstructorPostUpdateInput & {
+      materialIds?: string[];
+      targetEnrollmentIds?: string[];
+    },
+    tx?: Prisma.TransactionClient,
+  ) {
+    const { materialIds, targetEnrollmentIds, ...postData } = data;
+    const client = tx ?? this.prisma;
+
+    // materialIds가 있으면 Material 정보를 조회하여 filename 포함 (attachments 용)
+    let attachmentsCreateData:
+      | { materialId: string; filename: string }[]
+      | undefined;
+    if (materialIds !== undefined && materialIds.length > 0) {
+      const materials = await client.material.findMany({
+        where: { id: { in: materialIds } },
+        select: { id: true, title: true },
+      });
+      attachmentsCreateData = materials.map((m) => ({
+        materialId: m.id,
+        filename: m.title,
+      }));
+    }
+
+    // Prisma의 nested update를 사용하여 원자성 보장 및 코드 간소화
+    await client.instructorPost.update({
       where: { id },
-      data, // updatedAt은 @updatedAt에 의해 자동 갱신되지만 updateMany에서는 안될 수 있음. 확인 필요.
-      // Prisma updateMany does NOT update @updatedAt automatically.
-      // But usually we pass 'updatedAt: new Date()' from service or expect explicit field.
-      // Here assuming service passes necessary fields or we add updatedAt.
+      data: {
+        ...postData,
+        // 첨부파일 관계 업데이트 (기존 삭제 후 새 생성)
+        attachments:
+          materialIds !== undefined
+            ? {
+                deleteMany: {},
+                create: attachmentsCreateData || [],
+              }
+            : undefined,
+        // 타겟 관계 업데이트 (기존 삭제 후 새 생성)
+        targets:
+          targetEnrollmentIds !== undefined
+            ? {
+                deleteMany: {},
+                create: targetEnrollmentIds.map((enrollmentId) => ({
+                  enrollmentId,
+                })),
+              }
+            : undefined,
+      },
     });
 
-    // 2. 재조회 및 반환
-    const updated = await this.prisma.instructorPost.findUnique({
-      where: { id },
-    });
-
-    return updated;
+    // 재조회 및 반환
+    return this.findById(id, client);
   }
 
   /** 게시글 삭제 */
-  async delete(id: string) {
-    return this.prisma.instructorPost.delete({
+  async delete(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    return client.instructorPost.delete({
       where: { id },
     });
   }
 
   /** 첨부파일 추가 */
-  async addAttachments(postId: string, materialIds: string[]) {
+  async addAttachments(
+    postId: string,
+    materialIds: string[],
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
     // Material 정보를 조회하여 filename 포함
-    const materials = await this.prisma.material.findMany({
+    const materials = await client.material.findMany({
       where: { id: { in: materialIds } },
       select: { id: true, title: true },
     });
 
-    return this.prisma.instructorPostAttachment.createMany({
+    return client.instructorPostAttachment.createMany({
       data: materials.map((m) => ({
         instructorPostId: postId,
         materialId: m.id,
@@ -200,8 +249,13 @@ export class InstructorPostsRepository {
   }
 
   /** 첨부파일 제거 */
-  async removeAttachments(postId: string, materialIds: string[]) {
-    return this.prisma.instructorPostAttachment.deleteMany({
+  async removeAttachments(
+    postId: string,
+    materialIds: string[],
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return client.instructorPostAttachment.deleteMany({
       where: {
         instructorPostId: postId,
         materialId: { in: materialIds },
