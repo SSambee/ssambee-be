@@ -121,6 +121,13 @@ export class InstructorPostsRepository {
             select: { user: { select: { name: true } } },
           },
           attachments: { include: { material: true } },
+          targets: {
+            include: {
+              enrollment: {
+                select: { appStudentId: true },
+              },
+            },
+          },
           _count: { select: { comments: true } },
         },
       }),
