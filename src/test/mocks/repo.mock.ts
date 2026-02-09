@@ -15,6 +15,7 @@ import type { LectureEnrollmentsRepository } from '../../repos/lecture-enrollmen
 import type { MaterialsRepository } from '../../repos/materials.repo.js';
 import type { InstructorPostsRepository } from '../../repos/instructor-posts.repo.js';
 import type { StudentPostsRepository } from '../../repos/student-posts.repo.js';
+import type { CommentsRepository } from '../../repos/comments.repo.js';
 import { createAutoMock } from './create-mock.util.js';
 
 /** Mock InstructorRepository 생성 */
@@ -218,5 +219,14 @@ export const createMockStudentPostsRepository = () =>
     'findById',
     'findMany',
     'updateStatus',
+    'delete',
+  ]);
+
+/** Mock CommentsRepository 생성 */
+export const createMockCommentsRepository = () =>
+  createAutoMock<CommentsRepository>([
+    'create',
+    'findById',
+    'update',
     'delete',
   ]);
