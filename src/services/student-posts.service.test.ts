@@ -252,5 +252,41 @@ describe('StudentPostsService', () => {
                 expect(studentPostsRepo.updateStatus).toHaveBeenCalledWith(post.id, 'RESOLVED');
             });
         });
+
+        describe('강사가 질문을 답변 완료(RESOLVED) 상태로 변경', () => {
+            it('강사가 자신이 담당하는 강의의 질문을 답변 완료 처리할 수 있어야 한다', async () => {
+                // TODO: 실제 구현 작성 예정
+            });
+
+            it('강사가 자신이 담당하지 않는 강의의 질문을 답변 완료 처리하려고 하면 ForbiddenException이 발생해야 한다', async () => {
+                // TODO: 실제 구현 작성 예정
+            });
+
+            it('존재하지 않는 질문 ID에 대해 답변 완료 처리를 시도하면 NotFoundException이 발생해야 한다', async () => {
+                // TODO: 실제 구현 작성 예정
+            });
+
+            it('조교(ASSISTANT)가 담당 강사의 질문을 답변 완료 처리할 수 있어야 한다 (조교 권한이 있는 경우)', async () => {
+                // TODO: 실제 구현 작성 예정
+            });
+
+            it('이미 RESOLVED 상태인 질문을 다시 RESOLVED로 변경 요청 시 중복 처리가 방지되는지 확인한다', async () => {
+                // TODO: 실제 구현 작성 예정
+            });
+        });
+
+        describe('강사가 답변 완료(RESOLVED) 상태를 취소(PENDING으로 되돌리기)', () => {
+            it('이미 답변 완료된(RESOLVED) 질문을 다시 대기 중(PENDING) 상태로 되돌릴 수 있어야 한다 (토글 기능)', async () => {
+                // TODO: 실제 구현 작성 예정
+            });
+
+            it('강사가 아닌 학생은 RESOLVED 상태를 다시 PENDING으로 되돌릴 수 없어야 한다', async () => {
+                // TODO: 실제 구현 작성 예정
+            });
+
+            it('조교(ASSISTANT)도 권한이 있다면 RESOLVED 상태를 취소할 수 있어야 한다', async () => {
+                // TODO: 실제 구현 작성 예정
+            });
+        });
     });
 });
