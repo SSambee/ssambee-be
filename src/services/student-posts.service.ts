@@ -164,6 +164,15 @@ export class StudentPostsService {
     if (userType === UserType.INSTRUCTOR) {
       if (post.instructorId !== profileId)
         throw new ForbiddenException('권한이 없습니다.');
+    } else if (userType === UserType.ASSISTANT) {
+      // 조교 권한 확인: 담당 강사의 질문인지 확인
+      // PermissionService를 사용하여 조교가 해당 강사의 조교인지 확인
+      // 현재 StudentPostsService에 PermissionService가 없으므로 기본 체크만 수행
+      // TODO: PermissionService 추가 후 getInstructorIdByAssistantId 사용
+      // 일단은 조교도 instructorId 매칭으로 간단히 처리 (실제로는 별도 검증 필요)
+      throw new ForbiddenException(
+        '조교 권한 검증이 구현되지 않았습니다. PermissionService 통합이 필요합니다.',
+      );
     } else if (userType === UserType.STUDENT) {
       // 본인 글인지 확인 (Enrollment -> AppStudent 매칭 필요)
       const enrollment = await this.enrollmentsRepository.findById(
@@ -172,7 +181,12 @@ export class StudentPostsService {
       if (enrollment?.appStudentId !== profileId)
         throw new ForbiddenException('권한이 없습니다.');
 
-      // 학생은 해결됨(RESOLVED)으로만 변경 가능, 다시 PENDING으로는 불가? (기획 나름)
+      // 학생은 해결됨(RESOLVED)으로만 변경 가능, 다시 PENDING으로는 불가
+      if (status === StudentPostStatus.PENDING) {
+        throw new ForbiddenException(
+          '학생은 질문을 다시 대기 중 상태로 변경할 수 없습니다.',
+        );
+      }
     }
 
     return this.studentPostsRepository.updateStatus(postId, status);
