@@ -341,6 +341,49 @@ describe('InstructorPostsService', () => {
     it('유효한 권한으로 수정 요청 시 제목, 내용, 자료 등을 업데이트하고 결과를 반환한다', async () => {
       // TODO: instructorPostsRepository.update 호출
     });
+
+    describe('엣지 케이스 (Failing Tests)', () => {
+      it('기존 내용과 동일한 내용으로 수정을 요청할 경우, 불필요한 DB 업데이트를 방지하기 위해 에러를 발생시키거나 업데이트를 수행하지 않아야 한다', async () => {
+        const post = mockInstructorPosts.global;
+        const profileId = post.instructorId;
+        const updateData = {
+          title: post.title,
+          content: post.content,
+          isImportant: post.isImportant,
+          scope: post.scope,
+          targetRole: post.targetRole,
+        };
+
+        instructorPostsRepo.findById.mockResolvedValue(post);
+        // 여기서는 "업데이트를 수행하지 않음"을 검증하기 위해 call count를 확인합니다.
+
+        await service.updatePost(
+          post.id,
+          updateData,
+          UserType.INSTRUCTOR,
+          profileId,
+        );
+
+        // repo.update가 호출되지 않아야 함 (Edge Case)
+        expect(instructorPostsRepo.update).not.toHaveBeenCalled();
+      });
+
+      it('스코프(scope)를 SELECTED로 변경하면서 타겟 학생 명단(targetEnrollmentIds)을 제공하지 않으면 BadRequestException이 발생해야 한다', async () => {
+        // TODO: 스코프 변경에 따른 필수 값 검증
+      });
+
+      it('스코프(scope)를 LECTURE로 변경하면서 lectureId를 누락한 경우 BadRequestException이 발생해야 한다', async () => {
+        // TODO: LECTURE 스코프 필수 값 검증
+      });
+
+      it('게시글의 소유 강사(instructorId)를 다른 강사의 ID로 변경하려는 시도는 ForbiddenException을 발생시켜야 한다', async () => {
+        // TODO: 소유권 이전 방지 로직
+      });
+
+      it('수정 요청 시 제목(title)이나 내용(content)이 공백으로만 이루어진 경우 BadRequestException이 발생해야 한다', async () => {
+        // TODO: 공백 문자열 검증
+      });
+    });
   });
 
   describe('deletePost', () => {
