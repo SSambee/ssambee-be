@@ -1,5 +1,6 @@
 import { PrismaClient } from '../generated/prisma/client.js';
 import type { Prisma } from '../generated/prisma/client.js';
+import { AssistantSignStatus } from '../constants/assistants.constant.js';
 
 interface CreateAssistantData {
   userId: string;
@@ -69,6 +70,7 @@ export class AssistantRepository {
       where: { id },
       data: {
         deletedAt: new Date(),
+        phoneNumber: null,
       },
     });
   }
@@ -81,7 +83,6 @@ export class AssistantRepository {
     const client = tx ?? this.prisma;
     const where: Prisma.AssistantWhereInput = {
       instructorId,
-      deletedAt: null,
     };
 
     if (signStatus) {
@@ -91,7 +92,7 @@ export class AssistantRepository {
     return client.assistant.findMany({
       where,
       include: {
-        user: true,
+        user: signStatus === AssistantSignStatus.SIGNED,
       },
       orderBy: { createdAt: 'desc' },
     });
