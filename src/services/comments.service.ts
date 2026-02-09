@@ -125,6 +125,9 @@ export class CommentsService {
       throw new ForbiddenException('댓글 수정 권한이 없습니다.');
     }
 
-    return this.commentsRepository.update(commentId, { content: data.content });
+    return this.commentsRepository.update(commentId, {
+      content: data.content,
+      materialIds: data.materialIds,
+    });
   }
 }
