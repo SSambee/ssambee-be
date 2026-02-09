@@ -178,7 +178,11 @@ const assistantCodesService = new AssistantCodesService(
   prisma,
 );
 
-const assistantsService = new AssistantsService(assistantRepo);
+const assistantsService = new AssistantsService(
+  assistantRepo,
+  authService,
+  prisma,
+);
 
 // 3. Instantiate Controllers (Inject Services)
 const authController = new AuthController(authService);

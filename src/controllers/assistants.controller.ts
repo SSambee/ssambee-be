@@ -29,4 +29,58 @@ export class AssistantsController {
       next(error);
     }
   };
+
+  /**
+   * PATCH /api/mgmt/v1/assistants/:id
+   * 조교 정보 수정 / 가입 승인 / 가입 거부 / 탈퇴 처리
+   */
+  updateAssistant = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const instructorId = getProfileIdOrThrow(req);
+      const { id } = req.params;
+      const query = req.query as { sign?: 'approve' | 'reject' | 'expire' };
+      const body = req.body;
+
+      let result;
+      let message = '';
+
+      // sign 쿼리 파라미터에 따라 분기
+      if (query.sign === 'approve') {
+        result = await this.assistantsService.approveAssistant(
+          id,
+          instructorId,
+        );
+        message = '조교 가입 승인 완료';
+      } else if (query.sign === 'reject') {
+        result = await this.assistantsService.rejectAssistant(
+          id,
+          instructorId,
+          req.headers,
+        );
+        message = '조교 가입 거부 완료';
+      } else if (query.sign === 'expire') {
+        result = await this.assistantsService.expireAssistant(
+          id,
+          instructorId,
+          req.headers,
+        );
+        message = '조교 탈퇴 처리 완료';
+      } else {
+        // 일반 정보 수정
+        result = await this.assistantsService.updateAssistant(
+          id,
+          instructorId,
+          body,
+        );
+        message = '조교 정보 수정 완료';
+      }
+
+      return successResponse(res, {
+        data: { assistant: result },
+        message,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

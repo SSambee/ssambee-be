@@ -13,5 +13,5 @@ export const SIGN_STATUS_MAP = {
   pending: AssistantSignStatus.PENDING,
   signed: AssistantSignStatus.SIGNED, // 기본값이지만 명시적 요청도 가능하도록
   expired: AssistantSignStatus.EXPIRED,
-  denied: AssistantSignStatus.REJECTED,
+  rejected: AssistantSignStatus.REJECTED,
 } as const;

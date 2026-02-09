@@ -1,4 +1,11 @@
 import { betterAuth } from 'better-auth';
+import { admin } from 'better-auth/plugins';
+import {
+  ac,
+  admin as adminRole,
+  user,
+  instructor,
+} from './auth.permissions.js';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import type { PrismaClient } from '../generated/prisma/client.js';
 import { prisma } from './db.config.js';
@@ -51,4 +58,29 @@ export const auth = betterAuth({
   },
 
   trustedOrigins: config.FRONT_URL ? config.FRONT_URL.split(',') : [],
+  plugins: [
+    admin({
+      ac: ac,
+      roles: {
+        admin: adminRole,
+        user,
+        instructor,
+      },
+      defaultRole: 'user',
+    }),
+  ],
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          if (user.userType === 'INSTRUCTOR') {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { role: 'instructor' },
+            });
+          }
+        },
+      },
+    },
+  },
 });
