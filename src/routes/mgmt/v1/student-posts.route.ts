@@ -6,7 +6,11 @@ import {
   getStudentPostsQuerySchema,
   studentPostParamsSchema,
 } from '../../../validations/student-posts.validation.js';
-import { createCommentSchema } from '../../../validations/comments.validation.js';
+import {
+  createCommentSchema,
+  updateCommentSchema,
+  commentParamsSchema,
+} from '../../../validations/comments.validation.js';
 
 export const mgmtStudentPostsRouter = Router();
 
@@ -48,4 +52,12 @@ mgmtStudentPostsRouter.post(
   validate(studentPostParamsSchema, 'params'),
   validate(createCommentSchema, 'body'),
   commentsController.createComment,
+);
+
+/** 답변(댓글) 수정 */
+mgmtStudentPostsRouter.patch(
+  '/:postId/comments/:commentId',
+  validate(commentParamsSchema, 'params'),
+  validate(updateCommentSchema, 'body'),
+  commentsController.updateComment,
 );

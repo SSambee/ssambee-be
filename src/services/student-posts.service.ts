@@ -12,14 +12,16 @@ import { UserType } from '../constants/auth.constant.js';
 import { StudentPostsRepository } from '../repos/student-posts.repo.js';
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
-import { LecturesRepository } from '../repos/lectures.repo.js'; // Import LecturesRepository
+import { LecturesRepository } from '../repos/lectures.repo.js';
+import { CommentsRepository } from '../repos/comments.repo.js';
 
 export class StudentPostsService {
   constructor(
     private readonly studentPostsRepository: StudentPostsRepository,
     private readonly enrollmentsRepository: EnrollmentsRepository,
     private readonly lectureEnrollmentsRepository: LectureEnrollmentsRepository,
-    private readonly lecturesRepository: LecturesRepository, // Add LecturesRepository
+    private readonly lecturesRepository: LecturesRepository,
+    private readonly commentsRepository: CommentsRepository,
   ) {}
 
   /** 질문 생성 (학생/학부모) */
@@ -190,5 +192,42 @@ export class StudentPostsService {
     }
 
     return this.studentPostsRepository.updateStatus(postId, status);
+  }
+
+  /** 댓글 수정 */
+  async updateComment(
+    commentId: string,
+    content: string,
+    userType: UserType,
+    profileId: string,
+  ) {
+    const comment = await this.commentsRepository.findById(commentId);
+    if (!comment) throw new NotFoundException('댓글을 찾을 수 없습니다.');
+
+    // 권한 검증
+    if (userType === UserType.STUDENT) {
+      // 학생: Enrollment의 appStudentId로 본인 확인
+      if (!comment.enrollmentId) {
+        throw new ForbiddenException('본인의 댓글만 수정할 수 있습니다.');
+      }
+      const enrollment = await this.enrollmentsRepository.findById(
+        comment.enrollmentId,
+      );
+      if (enrollment?.appStudentId !== profileId) {
+        throw new ForbiddenException('본인의 댓글만 수정할 수 있습니다.');
+      }
+    } else if (userType === UserType.INSTRUCTOR) {
+      // 강사: instructorId로 본인 확인
+      if (comment.instructorId !== profileId) {
+        throw new ForbiddenException('본인의 댓글만 수정할 수 있습니다.');
+      }
+    } else if (userType === UserType.PARENT) {
+      // 학부모: 현재는 댓글 수정 권한 없음
+      throw new ForbiddenException('학부모는 댓글을 수정할 수 없습니다.');
+    } else {
+      throw new ForbiddenException('댓글 수정 권한이 없습니다.');
+    }
+
+    return this.commentsRepository.update(commentId, { content });
   }
 }
