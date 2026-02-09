@@ -211,11 +211,13 @@ const studentPostsService = new StudentPostsService(
   enrollmentsRepo,
   lectureEnrollmentsRepo,
   lecturesRepo,
+  commentsRepo,
 );
 const commentsService = new CommentsService(
   commentsRepo,
   instructorPostsRepo,
   studentPostsRepo,
+  enrollmentsRepo,
   permissionService,
 );
 

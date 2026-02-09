@@ -3,7 +3,10 @@ import { CommentsService } from '../services/comments.service.js';
 import { successResponse } from '../utils/response.util.js';
 import { getAuthUser, getProfileIdOrThrow } from '../utils/user.util.js';
 import { UserType } from '../constants/auth.constant.js';
-import { CreateCommentDto } from '../validations/comments.validation.js';
+import {
+  CreateCommentDto,
+  UpdateCommentDto,
+} from '../validations/comments.validation.js';
 
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
@@ -61,6 +64,32 @@ export class CommentsController {
         statusCode: 200,
         data: null,
         message: '댓글을 삭제했습니다.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /** 댓글 수정 */
+  updateComment = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { commentId } = req.params;
+      const data = req.body as UpdateCommentDto;
+      const profileId = getProfileIdOrThrow(req);
+      const user = getAuthUser(req);
+      const userType = user.userType as UserType;
+
+      const result = await this.commentsService.updateComment(
+        commentId,
+        data,
+        userType,
+        profileId,
+      );
+
+      return successResponse(res, {
+        statusCode: 200,
+        data: result,
+        message: '댓글을 수정했습니다.',
       });
     } catch (error) {
       next(error);

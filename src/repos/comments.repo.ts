@@ -47,6 +47,20 @@ export class CommentsRepository {
     });
   }
 
+  /** 댓글 수정 */
+  async update(id: string, data: { content?: string }) {
+    return this.prisma.comment.update({
+      where: { id },
+      data,
+      include: {
+        instructor: { select: { user: { select: { name: true } } } },
+        assistant: { select: { user: { select: { name: true } } } },
+        enrollment: { select: { studentName: true } },
+        attachments: { include: { material: true } },
+      },
+    });
+  }
+
   /** 댓글 단건 조회 (권한 확인용) */
   async findById(id: string) {
     return this.prisma.comment.findUnique({
