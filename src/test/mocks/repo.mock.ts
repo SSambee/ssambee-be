@@ -14,6 +14,7 @@ import { StatisticsRepository } from '../../repos/statistics.repo.js';
 import type { LectureEnrollmentsRepository } from '../../repos/lecture-enrollments.repo.js';
 import type { MaterialsRepository } from '../../repos/materials.repo.js';
 import type { InstructorPostsRepository } from '../../repos/instructor-posts.repo.js';
+import type { StudentPostsRepository } from '../../repos/student-posts.repo.js';
 import { createAutoMock } from './create-mock.util.js';
 
 /** Mock InstructorRepository 생성 */
@@ -206,4 +207,14 @@ export const createMockInstructorPostsRepository = () =>
     'delete',
     'addAttachments',
     'removeAttachments',
+  ]);
+
+/** Mock StudentPostsRepository 생성 */
+export const createMockStudentPostsRepository = () =>
+  createAutoMock<StudentPostsRepository>([
+    'create',
+    'findById',
+    'findMany',
+    'updateStatus',
+    'delete',
   ]);
