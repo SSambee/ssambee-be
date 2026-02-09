@@ -10,6 +10,7 @@ import { createMockPermissionService } from '../test/mocks/services.mock.js';
 import { UserType } from '../constants/auth.constant.js';
 import { ForbiddenException } from '../err/http.exception.js';
 import { mockInstructorPosts } from '../test/fixtures/posts.fixture.js';
+import { mockLectures } from '../test/fixtures/lectures.fixture.js';
 
 describe('InstructorPostsService', () => {
   let service: InstructorPostsService;
@@ -99,6 +100,160 @@ describe('InstructorPostsService', () => {
 
       it('학생이 존재하지 않는 강의의 공지를 조회하려고 하면 NotFoundException이 발생한다', async () => {
         // TODO: lecturesRepository.findById 가 null 반환 시
+      });
+
+      it('학생이 전체(GLOBAL) 공지를 조회할 때, 해당 강사의 강의를 하나라도 수강 중이면 상세 정보를 반환한다', async () => {
+        const post = mockInstructorPosts.global;
+        instructorPostsRepo.findById.mockResolvedValue(post);
+        permissionService.validateInstructorStudentLink.mockResolvedValue(
+          undefined,
+        );
+
+        const result = await service.getPostDetail(
+          post.id,
+          UserType.STUDENT,
+          'student-1',
+        );
+
+        expect(result).toEqual(post);
+        expect(
+          permissionService.validateInstructorStudentLink,
+        ).toHaveBeenCalledWith(post.instructorId, 'student-1');
+      });
+
+      it('학생이 전체(GLOBAL) 공지를 조회할 때, 해당 강사의 강의를 하나도 수강 중이지 않으면 ForbiddenException이 발생한다', async () => {
+        const post = mockInstructorPosts.global;
+        instructorPostsRepo.findById.mockResolvedValue(post);
+        permissionService.validateInstructorStudentLink.mockRejectedValue(
+          new ForbiddenException(''),
+        );
+
+        await expect(
+          service.getPostDetail(post.id, UserType.STUDENT, 'student-1'),
+        ).rejects.toThrow(ForbiddenException);
+      });
+
+      it('학생이 강의(LECTURE) 공지를 조회할 때, 해당 강의를 수강 중이면 상세 정보를 반환한다', async () => {
+        const post = mockInstructorPosts.lecture;
+        const mockLecture = mockLectures.basic;
+        instructorPostsRepo.findById.mockResolvedValue(post);
+        lecturesRepo.findById.mockResolvedValue(mockLecture);
+        permissionService.validateLectureReadAccess.mockResolvedValue(
+          undefined,
+        );
+
+        const result = await service.getPostDetail(
+          post.id,
+          UserType.STUDENT,
+          'student-1',
+        );
+
+        expect(result).toEqual(post);
+        expect(
+          permissionService.validateLectureReadAccess,
+        ).toHaveBeenCalledWith(
+          post.lectureId,
+          mockLecture,
+          UserType.STUDENT,
+          'student-1',
+        );
+      });
+
+      it('학생이 강의(LECTURE) 공지를 조회할 때, 해당 강의를 수강 중이지 않으면 ForbiddenException이 발생한다', async () => {
+        const post = mockInstructorPosts.lecture;
+        const mockLecture = mockLectures.basic;
+        instructorPostsRepo.findById.mockResolvedValue(post);
+        lecturesRepo.findById.mockResolvedValue(mockLecture);
+        permissionService.validateLectureReadAccess.mockRejectedValue(
+          new ForbiddenException(''),
+        );
+
+        await expect(
+          service.getPostDetail(post.id, UserType.STUDENT, 'student-1'),
+        ).rejects.toThrow(ForbiddenException);
+      });
+
+      it('학생이 선택(SELECTED) 공지를 조회할 때, 본인이 타겟에 포함되어 있으면 상세 정보를 반환한다', async () => {
+        const profileId = 'student-1';
+        const post = {
+          ...mockInstructorPosts.selected,
+          targets: [
+            {
+              instructorPostId: mockInstructorPosts.selected.id,
+              enrollmentId: 'enrollment-1',
+              enrollment: { appStudentId: profileId, studentName: '김학생' },
+            },
+          ],
+        };
+        instructorPostsRepo.findById.mockResolvedValue(post);
+
+        const result = await service.getPostDetail(
+          post.id,
+          UserType.STUDENT,
+          profileId,
+        );
+
+        expect(result).toEqual(post);
+      });
+
+      it('학생이 조회할 때 본인이 대상이 아니거나(SELECTED), scope가 유효하지 않은 게시글은 목록에 포함되지 않아야 한다', async () => {
+        const query = { page: 1, limit: 10 };
+        const validPost = mockInstructorPosts.global;
+        const otherTargetedPost = {
+          ...mockInstructorPosts.selected,
+          id: 'other-target',
+          targets: [
+            {
+              instructorPostId: 'other-target',
+              enrollmentId: 'enrollment-other',
+              enrollment: {
+                appStudentId: 'other-student',
+                studentName: '이학생',
+              },
+            },
+          ],
+        };
+        const invalidScopePost = {
+          ...mockInstructorPosts.global,
+          id: 'invalid-scope',
+          scope: 'INVALID',
+        };
+
+        instructorPostsRepo.findMany.mockResolvedValue({
+          posts: [validPost, otherTargetedPost, invalidScopePost],
+          totalCount: 3,
+        });
+
+        const result = await service.getPostList(
+          query,
+          UserType.STUDENT,
+          'student-1',
+        );
+
+        // 본인에게 유효한 게시글만 필터링되어야 함 (현재 서비스 미구현으로 실패 예상)
+        expect(result.posts).toHaveLength(1);
+        expect(result.posts[0].id).toBe(validPost.id);
+      });
+
+      it('학생이 선택(SELECTED) 공지를 조회할 때, 본인이 타겟에 포함되어 있지 않으면 ForbiddenException이 발생한다', async () => {
+        const post = {
+          ...mockInstructorPosts.selected,
+          targets: [
+            {
+              instructorPostId: mockInstructorPosts.selected.id,
+              enrollmentId: 'enrollment-other',
+              enrollment: {
+                appStudentId: 'other-student',
+                studentName: '이학생',
+              },
+            },
+          ],
+        };
+        instructorPostsRepo.findById.mockResolvedValue(post);
+
+        await expect(
+          service.getPostDetail(post.id, UserType.STUDENT, 'student-1'),
+        ).rejects.toThrow(ForbiddenException);
       });
     });
 
