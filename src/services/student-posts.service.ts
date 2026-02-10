@@ -210,4 +210,76 @@ export class StudentPostsService {
 
     return this.commentsRepository.update(commentId, { content });
   }
+
+  /** 질문 수정 (본인만 가능) */
+  async updatePost(
+    postId: string,
+    data: { title?: string; content?: string },
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 1. 게시글 존재 확인
+    const post = await this.studentPostsRepository.findById(postId);
+    if (!post) throw new NotFoundException('질문을 찾을 수 없습니다.');
+
+    // 2. 권한 검증 - 작성자 본인만 수정 가능
+    if (userType === UserType.STUDENT) {
+      const enrollment = await this.enrollmentsRepository.findById(
+        post.enrollmentId,
+      );
+      if (enrollment?.appStudentId !== profileId) {
+        throw new ForbiddenException('본인의 질문만 수정할 수 있습니다.');
+      }
+    } else if (userType === UserType.PARENT) {
+      // TODO: 학부모 권한 검증 로직
+      throw new ForbiddenException('학부모 권한 검증이 구현되지 않았습니다.');
+    } else {
+      throw new ForbiddenException('수정 권한이 없습니다.');
+    }
+
+    // 3. 변경사항 확인 (최소 하나의 필드 필요)
+    if (!data.title && !data.content) {
+      throw new BadRequestException('수정할 내용이 없습니다.');
+    }
+
+    // 4. 중복 업데이트 방지
+    const isRedundant =
+      (data.title === undefined || data.title === post.title) &&
+      (data.content === undefined || data.content === post.content);
+
+    if (isRedundant) {
+      return post;
+    }
+
+    // 5. 업데이트 실행
+    return this.studentPostsRepository.update(postId, {
+      title: data.title,
+      content: data.content,
+    });
+  }
+
+  /** 질문 삭제 (본인만 가능) */
+  async deletePost(postId: string, userType: UserType, profileId: string) {
+    // 1. 게시글 존재 확인
+    const post = await this.studentPostsRepository.findById(postId);
+    if (!post) throw new NotFoundException('질문을 찾을 수 없습니다.');
+
+    // 2. 권한 검증 - 작성자 본인만 삭제 가능
+    if (userType === UserType.STUDENT) {
+      const enrollment = await this.enrollmentsRepository.findById(
+        post.enrollmentId,
+      );
+      if (enrollment?.appStudentId !== profileId) {
+        throw new ForbiddenException('본인의 질문만 삭제할 수 있습니다.');
+      }
+    } else if (userType === UserType.PARENT) {
+      // TODO: 학부모 권한 검증 로직
+      throw new ForbiddenException('학부모 권한 검증이 구현되지 않았습니다.');
+    } else {
+      throw new ForbiddenException('삭제 권한이 없습니다.');
+    }
+
+    // 3. 삭제 실행 (cascade로 댓글도 함께 삭제됨)
+    return this.studentPostsRepository.delete(postId);
+  }
 }

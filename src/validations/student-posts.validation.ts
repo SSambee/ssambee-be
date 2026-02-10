@@ -26,6 +26,11 @@ export const studentPostParamsSchema = z.object({
   postId: z.cuid2(),
 });
 
+export const updateStudentPostSchema = z.object({
+  title: z.string().min(1, '제목은 필수입니다.').optional(),
+  content: z.string().min(1, '내용은 필수입니다.').optional(),
+});
+
 export type CreateStudentPostDto = z.infer<typeof createStudentPostSchema>;
 export type UpdateStudentPostStatusDto = z.infer<
   typeof updateStudentPostStatusSchema
@@ -33,3 +38,4 @@ export type UpdateStudentPostStatusDto = z.infer<
 export type GetStudentPostsQueryDto = z.infer<
   typeof getStudentPostsQuerySchema
 >;
+export type UpdateStudentPostDto = z.infer<typeof updateStudentPostSchema>;
