@@ -29,8 +29,6 @@ export class AssistantsService {
       ? SIGN_STATUS_MAP[statusQuery as keyof typeof SIGN_STATUS_MAP]
       : AssistantSignStatus.SIGNED;
 
-    console.log('instructorId', instructorId);
-    console.log('signStatus', signStatus);
     const assistants = await this.assistantRepository.findManyByInstructorId(
       instructorId,
       signStatus,
