@@ -132,6 +132,8 @@ export class StudentPostsService {
       if (!instructorId || instructorId !== post.instructorId) {
         throw new ForbiddenException('담당 강사의 질문만 조회할 수 있습니다.');
       }
+    } else {
+      throw new ForbiddenException('접근 권한이 없습니다.');
     }
 
     return post;
