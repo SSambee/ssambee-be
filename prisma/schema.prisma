@@ -156,7 +156,7 @@ model Assistant {
 
 model AssistantCode {
   id           String   @id @default(uuid(7))
-  code         String
+  code         String   @unique
   instructorId String   @map("instructor_id")
   isUsed       Boolean  @default(false) @map("is_used")
   expireAt     DateTime @map("expire_at")
