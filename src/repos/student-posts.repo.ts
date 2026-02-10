@@ -4,15 +4,20 @@ export class StudentPostsRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   /** 학생 질문 생성 */
-  async create(data: Prisma.StudentPostUncheckedCreateInput) {
-    return this.prisma.studentPost.create({
+  async create(
+    data: Prisma.StudentPostUncheckedCreateInput,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return client.studentPost.create({
       data,
     });
   }
 
   /** ID로 상세 조회 (댓글 포함) */
-  async findById(id: string) {
-    return this.prisma.studentPost.findUnique({
+  async findById(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    return client.studentPost.findUnique({
       where: { id },
       include: {
         enrollment: {
@@ -37,16 +42,20 @@ export class StudentPostsRepository {
   }
 
   /** 목록 조회 (필터링, 페이지네이션) */
-  async findMany(params: {
-    lectureId?: string;
-    instructorId?: string;
-    enrollmentId?: string; // 내 질문 조회용
-    appStudentId?: string; // 추가
-    status?: string;
-    search?: string;
-    page: number;
-    limit: number;
-  }) {
+  async findMany(
+    params: {
+      lectureId?: string;
+      instructorId?: string;
+      enrollmentId?: string;
+      appStudentId?: string;
+      status?: string;
+      search?: string;
+      page: number;
+      limit: number;
+    },
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
     const {
       lectureId,
       instructorId,
@@ -63,7 +72,7 @@ export class StudentPostsRepository {
       ...(lectureId && { lectureId }),
       ...(instructorId && { instructorId }),
       ...(enrollmentId && { enrollmentId }),
-      ...(appStudentId && { enrollment: { appStudentId } }), // 추가
+      ...(appStudentId && { enrollment: { appStudentId } }),
       ...(status && { status }),
       ...(search && {
         OR: [
@@ -74,7 +83,7 @@ export class StudentPostsRepository {
     };
 
     const [posts, totalCount] = await Promise.all([
-      this.prisma.studentPost.findMany({
+      client.studentPost.findMany({
         where,
         skip,
         take: limit,
@@ -86,26 +95,32 @@ export class StudentPostsRepository {
           _count: { select: { comments: true } },
         },
       }),
-      this.prisma.studentPost.count({ where }),
+      client.studentPost.count({ where }),
     ]);
 
     return { posts, totalCount };
   }
 
   /** 상태 변경 (재조회 반환) */
-  async updateStatus(id: string, status: string) {
-    await this.prisma.studentPost.updateMany({
+  async updateStatus(
+    id: string,
+    status: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    await client.studentPost.updateMany({
       where: { id },
       data: { status, updatedAt: new Date() },
     });
 
-    return this.prisma.studentPost.findUnique({ where: { id } });
+    return client.studentPost.findUnique({ where: { id } });
   }
 
   /** 질문 삭제 (Soft Delete 없음, 실제 삭제?) */
   // 기획상 삭제 언급은 없으나 기본 CRUD로 제공
-  async delete(id: string) {
-    return this.prisma.studentPost.delete({
+  async delete(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    return client.studentPost.delete({
       where: { id },
     });
   }
