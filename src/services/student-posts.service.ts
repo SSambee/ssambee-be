@@ -170,6 +170,8 @@ export class StudentPostsService {
           '학생은 질문을 다시 대기 중 상태로 변경할 수 없습니다.',
         );
       }
+    } else {
+      throw new ForbiddenException('상태 변경 권한이 없습니다.');
     }
 
     return this.studentPostsRepository.updateStatus(postId, status);
