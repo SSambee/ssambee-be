@@ -9,7 +9,7 @@ import {
 import {
   createCommentSchema,
   updateCommentSchema,
-  commentParamsSchema,
+  commentEditParamsSchema,
 } from '../../../validations/comments.validation.js';
 
 export const mgmtStudentPostsRouter = Router();
@@ -57,7 +57,7 @@ mgmtStudentPostsRouter.post(
 /** 답변(댓글) 수정 */
 mgmtStudentPostsRouter.patch(
   '/:postId/comments/:commentId',
-  validate(commentParamsSchema, 'params'),
+  validate(commentEditParamsSchema, 'params'),
   validate(updateCommentSchema, 'body'),
   commentsController.updateComment,
 );

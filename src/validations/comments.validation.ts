@@ -16,5 +16,12 @@ export const commentParamsSchema = z.object({
   commentId: z.cuid2(),
 });
 
+export const commentEditParamsSchema = z.object({
+  postId: z.cuid2(),
+  commentId: z.cuid2(),
+});
+
 export type CreateCommentDto = z.infer<typeof createCommentSchema>;
 export type UpdateCommentDto = z.infer<typeof updateCommentSchema>;
+export type CommentParamsDto = z.infer<typeof commentParamsSchema>;
+export type CommentEditParamsDto = z.infer<typeof commentEditParamsSchema>;
