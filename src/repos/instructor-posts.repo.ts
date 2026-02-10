@@ -113,11 +113,20 @@ export class InstructorPostsRepository {
       search?: string;
       page: number;
       limit: number;
+      targetEnrollmentIds?: string[]; // 학생용 SELECTED 스코프 필터링
     },
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
-    const { lectureId, instructorId, scope, search, page, limit } = params;
+    const {
+      lectureId,
+      instructorId,
+      scope,
+      search,
+      page,
+      limit,
+      targetEnrollmentIds,
+    } = params;
     const skip = (page - 1) * limit;
 
     const where: Prisma.InstructorPostWhereInput = {
@@ -129,6 +138,15 @@ export class InstructorPostsRepository {
           { title: { contains: search, mode: 'insensitive' } },
           { content: { contains: search, mode: 'insensitive' } },
         ],
+      }),
+      // SELECTED 스코프: 특정 enrollment ID 목록 중 하나에 속한 게시글만 조회
+      ...(targetEnrollmentIds?.length && {
+        scope: PostScope.SELECTED,
+        targets: {
+          some: {
+            enrollmentId: { in: targetEnrollmentIds },
+          },
+        },
       }),
     };
 

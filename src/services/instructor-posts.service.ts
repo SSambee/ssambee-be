@@ -115,6 +115,8 @@ export class InstructorPostsService {
     profileId: string,
   ) {
     let instructorId: string | undefined;
+    let _appStudentId: string | undefined; // 향후 SELECTED 스코프 DB 필터링 시 사용 가능 (미구현)
+    let targetEnrollmentIds: string[] | undefined;
 
     // 1. 권한 설정
     if (userType === UserType.INSTRUCTOR) {
@@ -124,16 +126,13 @@ export class InstructorPostsService {
         await this.permissionService.getInstructorIdByAssistantId(profileId);
       if (id) instructorId = id;
     } else if (userType === UserType.STUDENT) {
+      _appStudentId = profileId;
+
+      // 학생은 조회 시 본인 enrollment ID 목록이 필요 (SELECTED 스코프 필터링)
+      // TODO: 향후 EnrollmentsRepository를 통해 조회하여 targetEnrollmentIds 할당
+
       // 학생은 강의별 조회 시 수강 권한 확인
       if (query.lectureId) {
-        // LectureEnrollment 확인 필요 (PermissionService 또는 Repo 활용)
-        // PermissionService에 강의 접근 권한 체크 로직 활용
-        // 하지만 validateLectureReadAccess는 lecture 객체가 필요하므로
-        // 여기서는 간단히 LectureEnrollmentsRepository를 통해 확인하거나
-        // PermissionService의 validateStudentAccess 등을 활용해야 함.
-        // 편의상 PermissionService에 메서드가 없다면 직접 구현하거나 추가해야 함.
-        // 여기서는 PermissionService.validateLectureReadAccess를 호출하기 위해 lecture를 먼저 조회
-
         const lecture = await this.lecturesRepository.findById(query.lectureId);
         if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
 
@@ -146,6 +145,9 @@ export class InstructorPostsService {
       }
     }
 
+    // 2. SELECTED 스코프 필터링 (학생용)
+    // 학생의 경우 현재 in-memory 필터링으로 처리 (향후 DB 레벨 구현 가능)
+
     const result = await this.instructorPostsRepository.findMany({
       lectureId: query.lectureId,
       scope: query.scope,
@@ -153,17 +155,22 @@ export class InstructorPostsService {
       page: query.page,
       limit: query.limit,
       instructorId: userType === UserType.STUDENT ? undefined : instructorId,
+      targetEnrollmentIds, // 학생용 SELECTED 스코프 필터링 (미구현 시 undefined)
     });
 
-    // 학생인 경우 접근 권한이 있는 게시글만 필터링 (Global, Lecture, Selected 중 본인 타겟)
+    // 학생용 게시글 필터링 (본인 권한에 맞는 게시글만 반환)
     if (userType === UserType.STUDENT) {
       const posts = result.posts as InstructorPostWithDetails[];
-      const filteredPosts = posts.filter((post) => {
-        // 유효한 스코프 확인
-        if (!(Object.values(PostScope) as string[]).includes(post.scope))
-          return false;
 
-        // SELECTED인 경우 본인이 타겟 명단에 있는지 확인
+      // 현재 페이지 결과에 대해 in-memory 필터링
+      // TODO: DB 레벨 targetEnrollmentIds 필터링 구현 시 페이지네이션 정확성 확보
+      const filteredPosts = posts.filter((post) => {
+        // 유효하지 않은 스코프는 필터링
+        if (!(Object.values(PostScope) as string[]).includes(post.scope)) {
+          return false;
+        }
+
+        // SELECTED 스코프: 본인이 타겟인지 확인
         if (post.scope === PostScope.SELECTED) {
           return post.targets?.some(
             (t) => t.enrollment?.appStudentId === profileId,
@@ -172,9 +179,11 @@ export class InstructorPostsService {
         return true;
       });
 
+      // 페이지네이션 정확성을 위해 전체 개수는 별도 조회 필요
+      // 현재는 간소화하여 필터링된 개수로 응답
       return {
         posts: filteredPosts,
-        totalCount: filteredPosts.length, // 간소화를 위해 필터링된 개수로 응답
+        totalCount: filteredPosts.length,
       };
     }
 
@@ -198,7 +207,7 @@ export class InstructorPostsService {
         throw new ForbiddenException('담당 강사의 게시글이 아닙니다.');
       }
     } else if (userType === UserType.STUDENT) {
-      // 1. Global: 해당 강사의 강의를 하나라도 수강 중인지 확인
+      // Global: 해당 강사의 강의를 하나라도 수강 중인지 확인
       if (post.scope === PostScope.GLOBAL) {
         await this.permissionService.validateInstructorStudentLink(
           post.instructorId,
@@ -207,7 +216,7 @@ export class InstructorPostsService {
         return post;
       }
 
-      // 2. Lecture: 수강 여부 확인
+      // Lecture: 수강 여부 확인
       if (post.scope === PostScope.LECTURE && post.lectureId) {
         const lecture = await this.lecturesRepository.findById(post.lectureId);
         if (lecture) {
@@ -220,7 +229,7 @@ export class InstructorPostsService {
         }
       }
 
-      // 3. Selected: 타겟 포함 여부 확인
+      // Selected: 타겟 포함 여부 확인
       if (post.scope === PostScope.SELECTED) {
         const isTargeted = post.targets.some(
           (target) => target.enrollment?.appStudentId === profileId,
@@ -251,14 +260,13 @@ export class InstructorPostsService {
       }
     } else if (userType === UserType.ASSISTANT) {
       if (post.authorAssistantId !== profileId) {
-        // 조교는 본인 글만 수정 가능 (기획에 따라 강사 글 수정 허용할 수도 있음)
         throw new ForbiddenException('본인이 작성한 글만 수정할 수 있습니다.');
       }
     } else {
       throw new ForbiddenException('수정 권한이 없습니다.');
     }
 
-    // 2. 스코프 및 강의 유효성 검사
+    // 스코프 및 강의 유효성 검사
     const targetScope = data.scope || post.scope;
     const targetLectureId =
       data.lectureId !== undefined ? data.lectureId : post.lectureId;
@@ -267,7 +275,8 @@ export class InstructorPostsService {
       if (!targetLectureId) {
         throw new BadRequestException('강의 공지는 lectureId가 필수입니다.');
       }
-      // 강의가 바뀌었거나 스코프가 새로 LECTURE가 된 경우 권한 확인
+
+      // 강의 변경 또는 LECTURE 스코프 적용 시 권한 확인
       if (data.lectureId || data.scope === PostScope.LECTURE) {
         const lecture = await this.lecturesRepository.findById(targetLectureId);
         if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
@@ -304,7 +313,7 @@ export class InstructorPostsService {
       }
     }
 
-    // 동일한 내용인지 확인 (Redundant update prevention)
+    // 변경 없음 확인 (중복 업데이트 방지)
     const currentMaterialIds = post.attachments
       .map((a) => a.materialId)
       .filter((id): id is string => !!id)
