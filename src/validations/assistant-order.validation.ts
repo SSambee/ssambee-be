@@ -24,10 +24,6 @@ export type GetAssistantOrdersQueryDto = z.infer<
   typeof getAssistantOrdersQuerySchema
 >;
 
-export const getAssistantOrderByIdSchema = z.object({
-  id: z.string().min(1, 'ID는 필수입니다.'),
-});
-
 export const updateAssistantOrderSchema = z.object({
   title: z.string().min(1, '지시 제목은 필수입니다.').optional(),
   memo: z.string().optional(),

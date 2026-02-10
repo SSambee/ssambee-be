@@ -4,7 +4,6 @@ import { validate } from '../../../middlewares/validate.middleware.js';
 import {
   createAssistantOrderSchema,
   getAssistantOrdersQuerySchema,
-  getAssistantOrderByIdSchema,
   updateAssistantOrderSchema,
   updateAssistantOrderStatusSchema,
   assistantOrderIdParamSchema,
@@ -51,7 +50,7 @@ mgmtAssistantOrderRouter.get(
  */
 mgmtAssistantOrderRouter.get(
   '/:id',
-  validate(getAssistantOrderByIdSchema, 'params'),
+  validate(assistantOrderIdParamSchema, 'params'),
   assistantOrderController.getOrderById,
 );
 
