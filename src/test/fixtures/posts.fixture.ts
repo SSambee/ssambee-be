@@ -43,7 +43,7 @@ export const mockInstructorPosts = {
     attachments: [
       {
         id: faker.string.uuid(),
-        instructorPostId: 'post-id',
+        instructorPostId: undefined, // lecture.id와 관계 없음 (별도 첨부파일)
         materialId: mockMaterials.basic.id,
         filename: mockMaterials.basic.title,
         fileUrl: null,
@@ -74,7 +74,6 @@ export const mockInstructorPosts = {
     targets: [
       {
         id: faker.string.uuid(),
-        instructorPostId: 'post-id',
         enrollmentId: 'enrollment-target',
         enrollment: {
           appStudentId: 'student-target-id',
