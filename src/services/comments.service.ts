@@ -28,7 +28,7 @@ export class CommentsService {
     userType: UserType,
     profileId: string,
   ) {
-    // 1. 게시글 존재 여부 확인
+    // 게시글 존재 여부 확인
     if (data.instructorPostId) {
       const post = await this.instructorPostsRepository.findById(
         data.instructorPostId,
@@ -45,7 +45,7 @@ export class CommentsService {
       throw new NotFoundException('대상 게시글 ID가 필요합니다.');
     }
 
-    // 2. 작성자 정보 설정
+    // 작성자 정보 설정
     const writerInfo = {
       instructorId: userType === UserType.INSTRUCTOR ? profileId : null,
       assistantId: userType === UserType.ASSISTANT ? profileId : null,
@@ -53,9 +53,25 @@ export class CommentsService {
     };
 
     if (userType === UserType.STUDENT) {
-      // 학생 Enrollment ID 찾기 로직 필요
-      // 게시글이 속한 강의/강사에 연결된 Enrollment를 찾아야 함.
-      // 여기서는 임시로 null 처리하거나, 별도 로직으로 주입해야 함.
+      // 학생: 게시글이 속한 Enrollment를 찾아서 연결
+      if (data.studentPostId) {
+        // 학생 질문에 대한 댓글인 경우
+        const post = await this.studentPostsRepository.findById(
+          data.studentPostId,
+        );
+        if (!post) throw new NotFoundException('질문을 찾을 수 없습니다.');
+
+        if (post.enrollmentId) {
+          const enrollment = await this.enrollmentsRepository.findById(
+            post.enrollmentId,
+          );
+          if (enrollment?.appStudentId === profileId) {
+            // 본인의 Enrollment인 경우에만 연결
+            writerInfo.enrollmentId = post.enrollmentId;
+          }
+        }
+      }
+      // instructorPostId에 대한 학생 댓글은 현재 지원하지 않음
     }
 
     return this.commentsRepository.create({
