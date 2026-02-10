@@ -108,12 +108,10 @@ export class StudentPostsRepository {
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
-    await client.studentPost.updateMany({
+    return client.studentPost.update({
       where: { id },
-      data: { status, updatedAt: new Date() },
+      data: { status },
     });
-
-    return client.studentPost.findUnique({ where: { id } });
   }
 
   /** 질문 삭제 (Soft Delete 없음, 실제 삭제?) */
