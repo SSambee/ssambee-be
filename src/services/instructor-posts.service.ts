@@ -290,16 +290,8 @@ export class InstructorPostsService {
 
     // 자료 소유권 검증 (새로 첨부할 자료가 있는 경우)
     if (data.materialIds && data.materialIds.length > 0) {
-      const instructorId =
-        userType === UserType.INSTRUCTOR
-          ? profileId
-          : await this.permissionService.getInstructorIdByAssistantId(
-              profileId,
-            );
-      if (!instructorId) {
-        throw new ForbiddenException('강사 정보를 찾을 수 없습니다.');
-      }
-      await this.validateMaterialOwnership(data.materialIds, instructorId);
+      // 게시글의 소속 강사 ID를 기준으로 자료 소유권 확인 (일관성 유지)
+      await this.validateMaterialOwnership(data.materialIds, post.instructorId);
     }
 
     // 변경 없음 확인 (중복 업데이트 방지)

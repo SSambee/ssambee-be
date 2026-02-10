@@ -242,6 +242,7 @@ const commentsService = new CommentsService(
   studentPostsRepo,
   enrollmentsRepo,
   lectureEnrollmentsRepo,
+  materialsRepo,
   permissionService,
 );
 

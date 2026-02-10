@@ -362,27 +362,50 @@ describe('InstructorPostsService', () => {
         // TODO: 소유권 이전 방지 로직
       });
 
-      it('수정 요청 시 제목(title)이나 내용(content)이 공백으로만 이루어진 경우 BadRequestException이 발생해야 한다', async () => {
-        // TODO: 공백 문자열 검증
+      describe('보안 검증', () => {
+        it('본인의 게시글이라 하더라도 타인의 자료를 첨부하려고 하면 ForbiddenException이 발생해야 한다', async () => {
+          const post = mockInstructorPosts.global;
+          const profileId = post.instructorId;
+          const stolenMaterialId = 'stolen-material-id';
+          const updateData = {
+            materialIds: [stolenMaterialId],
+          };
+
+          instructorPostsRepo.findById.mockResolvedValue(post);
+          // validateMaterialOwnership에서 ForbiddenException 발생 시뮬레이션
+          // (실제 validateMaterialOwnership은 private이므로 service.updatePost 호출 시 내부에서 fetch 후 throw함)
+          materialsRepo.findByIds.mockResolvedValue([
+            { id: stolenMaterialId, instructorId: 'other-instructor' },
+          ]);
+
+          await expect(
+            service.updatePost(
+              post.id,
+              updateData,
+              UserType.INSTRUCTOR,
+              profileId,
+            ),
+          ).rejects.toThrow(ForbiddenException);
+        });
       });
     });
-  });
 
-  describe('deletePost', () => {
-    it('게시글이 존재하지 않으면 NotFoundException이 발생한다', async () => {
-      // TODO: instructorPostsRepository.findById 가 null 반환 시
-    });
+    describe('deletePost', () => {
+      it('게시글이 존재하지 않으면 NotFoundException이 발생한다', async () => {
+        // TODO: instructorPostsRepository.findById 가 null 반환 시
+      });
 
-    it('강사가 본인의 게시글이 아닌 것을 삭제하려고 하면 ForbiddenException이 발생한다', async () => {
-      // TODO: post.instructorId !== profileId
-    });
+      it('강사가 본인의 게시글이 아닌 것을 삭제하려고 하면 ForbiddenException이 발생한다', async () => {
+        // TODO: post.instructorId !== profileId
+      });
 
-    it('조교가 본인이 작성하지 않은 게시글을 삭제하려고 하면 ForbiddenException이 발생한다', async () => {
-      // TODO: post.authorAssistantId !== profileId
-    });
+      it('조교가 본인이 작성하지 않은 게시글을 삭제하려고 하면 ForbiddenException이 발생한다', async () => {
+        // TODO: post.authorAssistantId !== profileId
+      });
 
-    it('유효한 권한으로 삭제 요청 시 게시글이 성공적으로 삭제된다', async () => {
-      // TODO: instructorPostsRepository.delete 호출
+      it('유효한 권한으로 삭제 요청 시 게시글이 성공적으로 삭제된다', async () => {
+        // TODO: instructorPostsRepository.delete 호출
+      });
     });
   });
 });

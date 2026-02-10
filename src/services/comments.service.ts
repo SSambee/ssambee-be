@@ -10,6 +10,7 @@ import { StudentPostsRepository } from '../repos/student-posts.repo.js';
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 import { PermissionService } from './permission.service.js';
+import { MaterialsRepository } from '../repos/materials.repo.js';
 import {
   CreateCommentDto,
   UpdateCommentDto,
@@ -22,8 +23,36 @@ export class CommentsService {
     private readonly studentPostsRepository: StudentPostsRepository,
     private readonly enrollmentsRepository: EnrollmentsRepository,
     private readonly lectureEnrollmentsRepository: LectureEnrollmentsRepository,
+    private readonly materialsRepository: MaterialsRepository,
     private readonly permissionService: PermissionService,
   ) {}
+
+  /** 자료 소유권 검증 */
+  private async validateMaterialOwnership(
+    materialIds: string[],
+    instructorId: string,
+  ) {
+    if (!materialIds || materialIds.length === 0) return;
+
+    const materials = await this.materialsRepository.findByIds(materialIds);
+
+    // 존재하지 않는 자료 확인
+    if (materials.length !== materialIds.length) {
+      const foundIds = materials.map((m) => m.id);
+      const missingIds = materialIds.filter((id) => !foundIds.includes(id));
+      throw new NotFoundException(
+        `자료를 찾을 수 없습니다: ${missingIds.join(', ')}`,
+      );
+    }
+
+    // 소유권 확인 (모든 자료가 해당 강사의 라이브러리에 속해야 함)
+    const unauthorizedMaterials = materials.filter(
+      (m) => m.instructorId !== instructorId,
+    );
+    if (unauthorizedMaterials.length > 0) {
+      throw new ForbiddenException('다른 강사의 자료는 첨부할 수 없습니다.');
+    }
+  }
 
   /** 댓글 생성 */
   async createComment(
@@ -130,6 +159,16 @@ export class CommentsService {
 
         writerInfo.enrollmentId = enrollmentId;
       }
+    }
+
+    // 자료 소유권 검증
+    if (data.materialIds && data.materialIds.length > 0) {
+      const instructorId =
+        await this.permissionService.getEffectiveInstructorId(
+          userType,
+          profileId,
+        );
+      await this.validateMaterialOwnership(data.materialIds, instructorId);
     }
 
     return this.commentsRepository.create({
@@ -247,6 +286,16 @@ export class CommentsService {
       throw new ForbiddenException('학부모는 댓글을 수정할 수 없습니다.');
     } else {
       throw new ForbiddenException('댓글 수정 권한이 없습니다.');
+    }
+
+    // 자료 소유권 검증 (새로 첨부할 자료가 있는 경우)
+    if (data.materialIds && data.materialIds.length > 0) {
+      const instructorId =
+        await this.permissionService.getEffectiveInstructorId(
+          userType,
+          profileId,
+        );
+      await this.validateMaterialOwnership(data.materialIds, instructorId);
     }
 
     return this.commentsRepository.update(commentId, {
