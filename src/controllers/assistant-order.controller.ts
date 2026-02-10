@@ -41,13 +41,24 @@ export class AssistantOrderController {
    */
   getOrders = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const instructorId = getProfileIdOrThrow(req);
+      const user = getAuthUser(req);
+      const profileId = getProfileIdOrThrow(req);
       const query = req.query as unknown as GetAssistantOrdersQueryDto;
 
-      const result = await this.assistantOrderService.getOrdersByInstructor(
-        instructorId,
-        query,
-      );
+      let result;
+
+      if (user.userType === UserType.INSTRUCTOR) {
+        result = await this.assistantOrderService.getOrdersByInstructor(
+          profileId,
+          query,
+        );
+      } else {
+        // 조교인 경우
+        result = await this.assistantOrderService.getOrdersByAssistant(
+          profileId,
+          query,
+        );
+      }
 
       return successResponse(res, {
         data: result,

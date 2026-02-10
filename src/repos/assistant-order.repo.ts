@@ -119,6 +119,51 @@ export class AssistantOrderRepository {
     return { orders, totalCount };
   }
 
+  async findManyByAssistantId(
+    assistantId: string,
+    params: {
+      status?: string;
+      page: number;
+      limit: number;
+    },
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    const { status, page, limit } = params;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.AssistantOrderWhereInput = {
+      assistantId,
+      ...(status && { status }),
+    };
+
+    const [orders, totalCount] = await Promise.all([
+      client.assistantOrder.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          instructor: {
+            select: {
+              id: true,
+              user: {
+                select: { name: true },
+              },
+            },
+          },
+          lecture: {
+            select: { id: true, title: true },
+          },
+          attachments: true,
+        },
+      }),
+      client.assistantOrder.count({ where }),
+    ]);
+
+    return { orders, totalCount };
+  }
+
   async update(
     id: string,
     data: UpdateAssistantOrderData,

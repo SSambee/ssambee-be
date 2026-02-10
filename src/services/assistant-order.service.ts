@@ -129,6 +129,32 @@ export class AssistantOrderService {
   }
 
   /**
+   * 지시 목록 조회 (조교용)
+   */
+  async getOrdersByAssistant(
+    assistantId: string,
+    query: GetAssistantOrdersQueryDto,
+  ) {
+    const { status, page, limit } = query;
+
+    const { orders, totalCount } =
+      await this.assistantOrderRepository.findManyByAssistantId(assistantId, {
+        status,
+        page,
+        limit,
+      });
+
+    return {
+      orders,
+      pagination: {
+        totalCount,
+        page,
+        limit,
+      },
+    };
+  }
+
+  /**
    * 지시 수정 (강사 전용 - 전체 수정)
    */
   async updateOrder(
