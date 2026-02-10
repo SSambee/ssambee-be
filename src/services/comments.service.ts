@@ -52,6 +52,10 @@ export class CommentsService {
       enrollmentId: null as string | null,
     };
 
+    if (userType === UserType.PARENT) {
+      throw new ForbiddenException('학부모는 댓글을 작성할 수 없습니다.');
+    }
+
     if (userType === UserType.STUDENT) {
       // 학생: 게시글이 속한 Enrollment를 찾아서 연결
       if (data.studentPostId) {
