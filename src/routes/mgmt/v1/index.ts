@@ -37,3 +37,7 @@ mgmtV1Router.use('/assistants', mgmtAssistantsRouter);
 /** 자료 라우터 (경로 자체 포함) */
 import { mgmtMaterialsRouter } from './materials.route.js';
 mgmtV1Router.use('/materials', mgmtMaterialsRouter);
+
+/** 지시 생성 라우트 */
+import { mgmtAssistantOrderRouter } from './assistant-order.route.js';
+mgmtV1Router.use('/assistant-order', mgmtAssistantOrderRouter);

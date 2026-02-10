@@ -6,6 +6,7 @@ import { StudentRepository } from '../repos/student.repo.js';
 import { AssistantRepository } from '../repos/assistant.repo.js';
 import { ParentRepository } from '../repos/parent.repo.js';
 import { AssistantCodeRepository } from '../repos/assistant-code.repo.js';
+import { AssistantOrderRepository } from '../repos/assistant-order.repo.js';
 
 import { AuthService } from '../services/auth.service.js';
 import { AuthController } from '../controllers/auth.controller.js';
@@ -63,12 +64,16 @@ import { AssistantCodesController } from '../controllers/assistant-codes.control
 import { AssistantsService } from '../services/assistants.service.js';
 import { AssistantsController } from '../controllers/assistants.controller.js';
 
+import { AssistantOrderService } from '../services/assistant-order.service.js';
+import { AssistantOrderController } from '../controllers/assistant-order.controller.js';
+
 // 1. Instantiate Repositories
 const instructorRepo = new InstructorRepository(prisma);
 const studentRepo = new StudentRepository(prisma);
 const assistantRepo = new AssistantRepository(prisma);
 const parentRepo = new ParentRepository(prisma);
 const assistantCodeRepo = new AssistantCodeRepository(prisma);
+const assistantOrderRepo = new AssistantOrderRepository(prisma);
 const parentChildLinkRepo = new ParentChildLinkRepository(prisma);
 const examsRepo = new ExamsRepository(prisma);
 const gradesRepo = new GradesRepository(prisma);
@@ -201,6 +206,13 @@ const materialsService = new MaterialsService(
   permissionService,
 );
 
+const assistantOrderService = new AssistantOrderService(
+  assistantOrderRepo,
+  assistantRepo,
+  materialsRepo,
+  prisma,
+);
+
 // 3. Instantiate Controllers (Inject Services)
 const authController = new AuthController(authService);
 const lecturesController = new LecturesController(lecturesService);
@@ -223,6 +235,9 @@ const assistantCodesController = new AssistantCodesController(
   assistantCodesService,
 );
 const assistantsController = new AssistantsController(assistantsService);
+const assistantOrderController = new AssistantOrderController(
+  assistantOrderService,
+);
 
 // 4. Create Middlewares (Inject Services)
 const requireAuth = createRequireAuth(authService);
@@ -261,6 +276,7 @@ export const container = {
   lectureEnrollmentsController,
   assistantCodesController,
   assistantsController,
+  assistantOrderController,
   // Middlewares
   requireAuth,
   optionalAuth,
