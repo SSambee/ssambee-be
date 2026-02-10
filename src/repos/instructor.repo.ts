@@ -17,7 +17,10 @@ export class InstructorRepository {
 
   async findById(id: string, tx?: Prisma.TransactionClient) {
     const client = tx ?? this.prisma;
-    return client.instructor.findUnique({ where: { id } });
+    return client.instructor.findUnique({
+      where: { id },
+      include: { user: { select: { name: true } } },
+    });
   }
 
   async findByPhoneNumber(phoneNumber: string, tx?: Prisma.TransactionClient) {

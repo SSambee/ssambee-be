@@ -97,18 +97,18 @@ model Instructor {
   updatedAt DateTime? @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at") // 회원 탈퇴 요청 시 선 Soft Delete 후 이 날로 부터 1개월 지나면 Hard Delete 및 회원 탈퇴 처리
 
-  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lectures          Lecture[]
-  lectureTimes      LectureTime[]
-  enrollments       Enrollment[]
-  instructorExams   Exam[]
-  assistants        Assistant[]
-  assistantCodes    AssistantCode[]
-  schedules         Schedule[]
-  uploadedMaterials Material[]       @relation("InstructorUploads")
-  instructorPosts   InstructorPost[]
-  comments          Comment[]
-  resolvedPosts     StudentPost[]    @relation("StudentPostResolver")
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lectures        Lecture[]
+  lectureTimes    LectureTime[]
+  enrollments     Enrollment[]
+  instructorExams Exam[]
+  assistants      Assistant[]
+  assistantCodes  AssistantCode[]
+  schedules       Schedule[]
+  ownedMaterials  Material[]       @relation("MaterialOwner")
+  instructorPosts InstructorPost[]
+  comments        Comment[]
+  resolvedPosts   StudentPost[]    @relation("StudentPostResolver")
 
   // [Audit] 성적 수정 이력
   //updatedGradeLogs GradeLog[]
@@ -138,11 +138,10 @@ model Assistant {
   updatedAt DateTime? @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at") // 회원 탈퇴 처리 시 즉시 탈퇴 후 이 테이블은 Soft Delete, 이 날로 부터 3년 또는 강사 탈퇴 후 Hard Delete
 
-  user              User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
-  instructor        Instructor       @relation(fields: [instructorId], references: [id], onDelete: Cascade)
-  comments          Comment[]
-  uploadedMaterials Material[]       @relation("AssistantUploads")
-  authoredPosts     InstructorPost[]
+  user          User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  instructor    Instructor       @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  comments      Comment[]
+  authoredPosts InstructorPost[]
 
   // [Assistant] 조교가 받은 업무 요청
   assistantOrders AssistantOrder[]
@@ -491,9 +490,10 @@ model Grade {
 // --------------------------------------------------------
 
 model Clinic {
-  id        String    @id @default(cuid(2))
-  lectureId String    @map("lecture_id")
-  examId    String    @map("exam_id")
+  id        String @id @default(cuid(2))
+  lectureId String @map("lecture_id")
+  examId    String @map("exam_id")
+
   // 기존 Clinic 필드
   title     String
   deadline  DateTime?
@@ -552,26 +552,37 @@ model Schedule {
 }
 
 model Material {
-  id                   String  @id @default(cuid(2))
-  lectureId            String? @map("lecture_id")
-  uploaderInstructorId String? @map("uploader_instructor_id")
-  uploaderAssistantId  String? @map("uploader_assistant_id")
+  id           String  @id @default(cuid(2))
+  instructorId String  @map("instructor_id")
+  lectureId    String? @map("lecture_id")
+
+  authorName String @map("author_name")
+  authorRole String @map("author_role")
 
   title   String
   fileUrl String @map("file_url")
   type    String @default("ETC")
 
+  // New fields
+  description         String? @db.Text // 소개/세부 내용
+  subject             String? // 과목
+  externalDownloadUrl String? @map("external_download_url") // 외부 다운로드 링크
+
+  // Soft Delete
+  deletedAt DateTime? @map("deleted_at")
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime? @updatedAt @map("updated_at")
 
-  lecture    Lecture?    @relation(fields: [lectureId], references: [id], onDelete: SetNull)
-  instructor Instructor? @relation("InstructorUploads", fields: [uploaderInstructorId], references: [id], onDelete: Cascade)
-  assistant  Assistant?  @relation("AssistantUploads", fields: [uploaderAssistantId], references: [id], onDelete: Cascade)
+  lecture    Lecture?   @relation(fields: [lectureId], references: [id], onDelete: SetNull)
+  instructor Instructor @relation("MaterialOwner", fields: [instructorId], references: [id], onDelete: Cascade)
 
   instructorPostAttachments InstructorPostAttachment[]
   commentAttachments        CommentAttachment[]
 
+  @@index([instructorId])
   @@index([lectureId])
+  @@index([deletedAt])
   @@map("materials")
 }
 
@@ -617,6 +628,7 @@ model InstructorPost {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime? @updatedAt @map("updated_at")
 
+  authorRole        String  @default("INSTRUCTOR") @map("author_role")
   instructorId      String  @map("instructor_id")
   lectureId         String? @map("lecture_id")
   authorAssistantId String? @map("author_assistant_id")
@@ -649,13 +661,19 @@ model InstructorPostTarget {
 }
 
 model InstructorPostAttachment {
-  instructorPostId String @map("instructor_post_id")
-  materialId       String @map("material_id")
+  id       String  @id @default(cuid(2))
+  filename String
+  fileUrl  String? @map("file_url")
+
+  instructorPostId String  @map("instructor_post_id")
+  materialId       String? @map("material_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
 
   instructorPost InstructorPost @relation(fields: [instructorPostId], references: [id], onDelete: Cascade)
-  material       Material       @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  material       Material?      @relation(fields: [materialId], references: [id], onDelete: Cascade)
 
-  @@id([instructorPostId, materialId])
+  @@index([instructorPostId])
   @@map("instructor_post_attachments")
 }
 
@@ -673,6 +691,8 @@ model StudentPost {
   instructorId String  @map("instructor_id")
   lectureId    String? @map("lecture_id")
 
+  attachments StudentPostAttachment[]
+
   enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
   instructor Instructor @relation("StudentPostResolver", fields: [instructorId], references: [id], onDelete: Cascade)
   lecture    Lecture?   @relation(fields: [lectureId], references: [id], onDelete: SetNull)
@@ -683,6 +703,21 @@ model StudentPost {
   @@index([instructorId, status])
   @@index([lectureId, createdAt(sort: Desc)])
   @@map("student_posts")
+}
+
+model StudentPostAttachment {
+  id       String  @id @default(cuid(2))
+  filename String
+  fileUrl  String? @map("file_url")
+
+  studentPostId String @map("student_post_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  studentPost StudentPost @relation(fields: [studentPostId], references: [id], onDelete: Cascade)
+
+  @@index([studentPostId])
+  @@map("student_post_attachments")
 }
 
 model Comment {
@@ -713,13 +748,19 @@ model Comment {
 }
 
 model CommentAttachment {
-  commentId  String @map("comment_id")
-  materialId String @map("material_id")
+  id       String  @id @default(cuid(2))
+  filename String
+  fileUrl  String? @map("file_url")
 
-  comment  Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
-  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  commentId  String  @map("comment_id")
+  materialId String? @map("material_id")
 
-  @@id([commentId, materialId])
+  createdAt DateTime @default(now()) @map("created_at")
+
+  comment  Comment   @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  material Material? @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@index([commentId])
   @@map("comment_attachments")
 }
 

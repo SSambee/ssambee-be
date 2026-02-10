@@ -33,3 +33,7 @@ mgmtV1Router.use('/assistant-codes', mgmtAssistantCodesRouter);
 /** 조교 라우트 */
 import { mgmtAssistantsRouter } from './assistants.route.js';
 mgmtV1Router.use('/assistants', mgmtAssistantsRouter);
+
+/** 자료 라우터 (경로 자체 포함) */
+import { mgmtMaterialsRouter } from './materials.route.js';
+mgmtV1Router.use('/materials', mgmtMaterialsRouter);
