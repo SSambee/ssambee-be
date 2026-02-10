@@ -4,14 +4,20 @@ import { validate } from '../../../middlewares/validate.middleware.js';
 import {
   createAssistantOrderSchema,
   getAssistantOrdersQuerySchema,
+  getAssistantOrderByIdSchema,
 } from '../../../validations/assistant-order.validation.js';
 
 export const mgmtAssistantOrderRouter = Router({ mergeParams: true });
 
-const { requireAuth, requireInstructor, assistantOrderController } = container;
+const {
+  requireAuth,
+  requireInstructor,
+  requireInstructorOrAssistant,
+  assistantOrderController,
+} = container;
 
 mgmtAssistantOrderRouter.use(requireAuth);
-mgmtAssistantOrderRouter.use(requireInstructor);
+mgmtAssistantOrderRouter.use(requireInstructorOrAssistant);
 
 /**
  * POST /api/mgmt/v1/assistant-order
@@ -19,6 +25,7 @@ mgmtAssistantOrderRouter.use(requireInstructor);
  */
 mgmtAssistantOrderRouter.post(
   '/',
+  requireInstructor,
   validate(createAssistantOrderSchema, 'body'),
   assistantOrderController.createOrder,
 );
@@ -31,4 +38,14 @@ mgmtAssistantOrderRouter.get(
   '/',
   validate(getAssistantOrdersQuerySchema, 'query'),
   assistantOrderController.getOrders,
+);
+
+/**
+ * GET /api/mgmt/v1/assistant-order/:id
+ * 지시 개별 조회
+ */
+mgmtAssistantOrderRouter.get(
+  '/:id',
+  validate(getAssistantOrderByIdSchema, 'params'),
+  assistantOrderController.getOrderById,
 );

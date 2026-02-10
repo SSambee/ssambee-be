@@ -8,6 +8,7 @@ import {
   NotFoundException,
 } from '../err/http.exception.js';
 import { CreateAssistantOrderDto } from '../validations/assistant-order.validation.js';
+import { UserType } from '../constants/auth.constant.js';
 
 // Jest 호환성을 위해 vi 대신 jest 사용
 const vi = {
@@ -25,6 +26,7 @@ describe('AssistantOrderService', () => {
     mockOrderRepo = {
       create: vi.fn(),
       findManyByInstructorId: vi.fn(),
+      findById: vi.fn(),
     };
     mockAssistantRepo = {
       findById: vi.fn(),
@@ -176,6 +178,82 @@ describe('AssistantOrderService', () => {
           limit: 10,
         },
       );
+    });
+  });
+
+  describe('getOrderById', () => {
+    const instructorId = 'inst-1';
+    const assistantId = 'asst-1';
+    const orderId = 'order-1';
+    const mockOrder = {
+      id: orderId,
+      instructorId,
+      assistantId,
+      title: 'Task',
+      instructor: {
+        id: instructorId,
+        user: { name: 'Instructor Name' },
+      },
+    };
+
+    it('should return order for instructor', async () => {
+      (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
+
+      const result = await service.getOrderById(
+        UserType.INSTRUCTOR,
+        instructorId,
+        orderId,
+      );
+
+      expect(result).toEqual({
+        ...mockOrder,
+        instructor: {
+          id: instructorId,
+          name: 'Instructor Name',
+        },
+      });
+    });
+
+    it('should return order for assistant', async () => {
+      (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
+
+      const result = await service.getOrderById(
+        UserType.ASSISTANT,
+        assistantId,
+        orderId,
+      );
+
+      expect(result).toEqual({
+        ...mockOrder,
+        instructor: {
+          id: instructorId,
+          name: 'Instructor Name',
+        },
+      });
+    });
+
+    it('should throw NotFoundException if order not found', async () => {
+      (mockOrderRepo.findById as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.getOrderById(UserType.INSTRUCTOR, instructorId, orderId),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ForbiddenException if instructor accesses other orders', async () => {
+      (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
+
+      await expect(
+        service.getOrderById(UserType.INSTRUCTOR, 'other-inst', orderId),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw ForbiddenException if assistant accesses other orders', async () => {
+      (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
+
+      await expect(
+        service.getOrderById(UserType.ASSISTANT, 'other-asst', orderId),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

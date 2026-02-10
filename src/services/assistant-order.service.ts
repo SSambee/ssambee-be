@@ -10,6 +10,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '../err/http.exception.js';
+import { UserType } from '../constants/auth.constant.js';
 
 export class AssistantOrderService {
   constructor(
@@ -65,6 +66,39 @@ export class AssistantOrderService {
       deadlineAt: deadlineAt ? new Date(deadlineAt) : undefined,
       attachments,
     });
+  }
+
+  /**
+   * 지시 개별 조회
+   */
+  async getOrderById(userType: UserType, profileId: string, orderId: string) {
+    const order = await this.assistantOrderRepository.findById(orderId);
+
+    if (!order) {
+      throw new NotFoundException('지시를 찾을 수 없습니다.');
+    }
+
+    // 권한 검증
+    if (userType === UserType.INSTRUCTOR) {
+      if (order.instructorId !== profileId) {
+        throw new ForbiddenException('해당 지시에 대한 접근 권한이 없습니다.');
+      }
+    } else if (userType === UserType.ASSISTANT) {
+      if (order.assistantId !== profileId) {
+        throw new ForbiddenException('해당 지시에 대한 접근 권한이 없습니다.');
+      }
+    } else {
+      // 강사나 조교가 아닌 경우 (혹시 모를 안전 장치)
+      throw new ForbiddenException('접근 권한이 없습니다.');
+    }
+
+    return {
+      ...order,
+      instructor: {
+        id: order.instructor.id,
+        name: order.instructor.user.name,
+      },
+    };
   }
 
   /**

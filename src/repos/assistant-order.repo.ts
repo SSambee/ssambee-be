@@ -20,6 +20,31 @@ export interface CreateAssistantOrderData {
 export class AssistantOrderRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
+  async findById(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+
+    return client.assistantOrder.findUnique({
+      where: { id },
+      include: {
+        instructor: {
+          select: {
+            id: true,
+            user: {
+              select: { name: true },
+            },
+          },
+        },
+        assistant: {
+          select: { id: true, name: true },
+        },
+        lecture: {
+          select: { id: true, title: true },
+        },
+        attachments: true,
+      },
+    });
+  }
+
   async create(
     instructorId: string,
     data: CreateAssistantOrderData,
