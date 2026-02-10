@@ -5,7 +5,12 @@ import {
   createAssistantOrderSchema,
   getAssistantOrdersQuerySchema,
   getAssistantOrderByIdSchema,
+  updateAssistantOrderSchema,
+  updateAssistantOrderStatusSchema,
+  assistantOrderIdParamSchema,
 } from '../../../validations/assistant-order.validation.js';
+import { UserType } from '../../../constants/auth.constant.js';
+import { getAuthUser } from '../../../utils/user.util.js';
 
 export const mgmtAssistantOrderRouter = Router({ mergeParams: true });
 
@@ -48,4 +53,34 @@ mgmtAssistantOrderRouter.get(
   '/:id',
   validate(getAssistantOrderByIdSchema, 'params'),
   assistantOrderController.getOrderById,
+);
+
+/**
+ * PATCH /api/mgmt/v1/assistant-order/:id
+ * 지시 수정 (강사: 전체, 조교: 상태만)
+ */
+mgmtAssistantOrderRouter.patch(
+  '/:id',
+  (req, res, next) => {
+    const user = getAuthUser(req);
+    const schema =
+      user.userType === UserType.INSTRUCTOR
+        ? updateAssistantOrderSchema
+        : updateAssistantOrderStatusSchema;
+
+    validate(schema, 'body')(req, res, next);
+  },
+  validate(assistantOrderIdParamSchema, 'params'),
+  assistantOrderController.updateOrder,
+);
+
+/**
+ * DELETE /api/mgmt/v1/assistant-order/:id
+ * 지시 삭제 (강사 전용)
+ */
+mgmtAssistantOrderRouter.delete(
+  '/:id',
+  requireInstructor,
+  validate(assistantOrderIdParamSchema, 'params'),
+  assistantOrderController.deleteOrder,
 );

@@ -27,6 +27,9 @@ describe('AssistantOrderService', () => {
       create: vi.fn(),
       findManyByInstructorId: vi.fn(),
       findById: vi.fn(),
+      update: vi.fn(),
+      updateStatus: vi.fn(),
+      delete: vi.fn(),
     };
     mockAssistantRepo = {
       findById: vi.fn(),
@@ -254,6 +257,143 @@ describe('AssistantOrderService', () => {
       await expect(
         service.getOrderById(UserType.ASSISTANT, 'other-asst', orderId),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('updateOrder', () => {
+    const instructorId = 'inst-1';
+    const orderId = 'order-1';
+    const mockOrder = {
+      id: orderId,
+      instructorId,
+      assistantId: 'asst-1',
+    };
+
+    const updateData = {
+      title: 'Updated Title',
+    };
+
+    it('should update order successfully', async () => {
+      (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
+      (mockOrderRepo.update as jest.Mock).mockResolvedValue({
+        ...mockOrder,
+        ...updateData,
+      });
+
+      await service.updateOrder(
+        UserType.INSTRUCTOR,
+        instructorId,
+        orderId,
+        updateData,
+      );
+
+      expect(mockOrderRepo.update).toHaveBeenCalledWith(orderId, {
+        ...updateData,
+        deadlineAt: undefined,
+        attachments: undefined,
+      });
+    });
+
+    it('should throw ForbiddenException if user is not instructor', async () => {
+      (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
+
+      await expect(
+        service.updateOrder(UserType.ASSISTANT, 'asst-1', orderId, updateData),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw ForbiddenException if instructor updates other order', async () => {
+      (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
+
+      await expect(
+        service.updateOrder(
+          UserType.INSTRUCTOR,
+          'other-inst',
+          orderId,
+          updateData,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('updateOrderStatus', () => {
+    const assistantId = 'asst-1';
+    const orderId = 'order-1';
+    const mockOrder = {
+      id: orderId,
+      instructorId: 'inst-1',
+      assistantId,
+    };
+
+    it('should update status successfully', async () => {
+      (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
+      (mockOrderRepo.updateStatus as jest.Mock).mockResolvedValue({
+        ...mockOrder,
+        status: 'IN_PROGRESS',
+      });
+
+      await service.updateOrderStatus(
+        UserType.ASSISTANT,
+        assistantId,
+        orderId,
+        'IN_PROGRESS',
+      );
+
+      expect(mockOrderRepo.updateStatus).toHaveBeenCalledWith(
+        orderId,
+        'IN_PROGRESS',
+      );
+    });
+
+    it('should throw ForbiddenException if user is not assistant', async () => {
+      (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
+
+      await expect(
+        service.updateOrderStatus(
+          UserType.INSTRUCTOR,
+          'inst-1',
+          orderId,
+          'IN_PROGRESS',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw ForbiddenException if assistant updates other order', async () => {
+      (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
+
+      await expect(
+        service.updateOrderStatus(
+          UserType.ASSISTANT,
+          'other-asst',
+          orderId,
+          'IN_PROGRESS',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('deleteOrder', () => {
+    const instructorId = 'inst-1';
+    const orderId = 'order-1';
+    const mockOrder = {
+      id: orderId,
+      instructorId,
+    };
+
+    it('should delete order successfully', async () => {
+      (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
+
+      await service.deleteOrder(instructorId, orderId);
+
+      expect(mockOrderRepo.delete).toHaveBeenCalledWith(orderId);
+    });
+
+    it('should throw ForbiddenException if instructor deletes other order', async () => {
+      (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
+
+      await expect(service.deleteOrder('other-inst', orderId)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 });

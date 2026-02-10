@@ -5,6 +5,7 @@ import { MaterialsRepository } from '../repos/materials.repo.js';
 import {
   CreateAssistantOrderDto,
   GetAssistantOrdersQueryDto,
+  UpdateAssistantOrderDto,
 } from '../validations/assistant-order.validation.js';
 import {
   ForbiddenException,
@@ -125,5 +126,104 @@ export class AssistantOrderService {
         limit,
       },
     };
+  }
+
+  /**
+   * 지시 수정 (강사 전용 - 전체 수정)
+   */
+  async updateOrder(
+    userType: UserType,
+    profileId: string,
+    orderId: string,
+    data: UpdateAssistantOrderDto,
+  ) {
+    // 1. 지시 조회 및 권한 검증
+    const order = await this.assistantOrderRepository.findById(orderId);
+    if (!order) {
+      throw new NotFoundException('지시를 찾을 수 없습니다.');
+    }
+
+    if (userType !== UserType.INSTRUCTOR) {
+      throw new ForbiddenException('지시 수정 권한이 없습니다.');
+    }
+
+    if (order.instructorId !== profileId) {
+      throw new ForbiddenException('해당 지시에 대한 접근 권한이 없습니다.');
+    }
+
+    // 2. Material 검증 (materialIds가 있는 경우)
+    const { materialIds, deadlineAt, ...rest } = data;
+    const attachments = [];
+
+    if (materialIds && materialIds.length > 0) {
+      const materials = await this.materialsRepository.findByIds(materialIds);
+
+      if (materials.length !== materialIds.length) {
+        throw new NotFoundException('일부 자료를 찾을 수 없습니다.');
+      }
+
+      for (const material of materials) {
+        if (material.instructorId !== profileId) {
+          throw new ForbiddenException('자료에 대한 접근 권한이 없습니다.');
+        }
+        attachments.push({
+          materialId: material.id,
+          filename: material.title,
+          fileUrl: material.fileUrl,
+        });
+      }
+    }
+
+    // 3. 업데이트 수행
+    return await this.assistantOrderRepository.update(orderId, {
+      ...rest,
+      deadlineAt: deadlineAt ? new Date(deadlineAt) : undefined,
+      attachments: attachments.length > 0 ? attachments : undefined,
+    });
+  }
+
+  /**
+   * 지시 상태 수정 (조교 전용 - 상태만 수정)
+   */
+  async updateOrderStatus(
+    userType: UserType,
+    profileId: string,
+    orderId: string,
+    status: string,
+  ) {
+    // 1. 지시 조회 및 권한 검증
+    const order = await this.assistantOrderRepository.findById(orderId);
+    if (!order) {
+      throw new NotFoundException('지시를 찾을 수 없습니다.');
+    }
+
+    if (userType !== UserType.ASSISTANT) {
+      throw new ForbiddenException('지시 상태 수정 권한이 없습니다.');
+    }
+
+    if (order.assistantId !== profileId) {
+      throw new ForbiddenException('해당 지시에 대한 접근 권한이 없습니다.');
+    }
+
+    // 2. 상태 업데이트 수행
+    return await this.assistantOrderRepository.updateStatus(orderId, status);
+  }
+
+  /**
+   * 지시 삭제 (강사 전용)
+   */
+  async deleteOrder(instructorId: string, orderId: string) {
+    // 1. 지시 조회 및 권한 검증
+    const order = await this.assistantOrderRepository.findById(orderId);
+    if (!order) {
+      throw new NotFoundException('지시를 찾을 수 없습니다.');
+    }
+
+    if (order.instructorId !== instructorId) {
+      throw new ForbiddenException('해당 지시에 대한 접근 권한이 없습니다.');
+    }
+
+    // 2. 삭제 수행
+    await this.assistantOrderRepository.delete(orderId);
   }
 }
