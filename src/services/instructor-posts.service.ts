@@ -124,7 +124,8 @@ export class InstructorPostsService {
     } else if (userType === UserType.ASSISTANT) {
       const id =
         await this.permissionService.getInstructorIdByAssistantId(profileId);
-      if (id) instructorId = id;
+      if (!id) throw new ForbiddenException('강사 정보를 찾을 수 없습니다.');
+      instructorId = id;
     } else if (userType === UserType.STUDENT) {
       _appStudentId = profileId;
 
