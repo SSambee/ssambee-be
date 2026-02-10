@@ -139,7 +139,9 @@ export class InstructorPostsRepository {
           { content: { contains: search, mode: 'insensitive' } },
         ],
       }),
-      // SELECTED 스코프: 특정 enrollment ID 목록 중 하나에 속한 게시글만 조회
+      // targetEnrollmentIds가 있으면 SELECTED 스코프로 강제 필터링
+      // (학생용: 본인이 타겟인 SELECTED 게시글만 조회)
+      // 이 경우 caller가 전달한 scope는 무시됨
       ...(targetEnrollmentIds?.length && {
         scope: PostScope.SELECTED,
         targets: {
