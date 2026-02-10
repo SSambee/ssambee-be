@@ -14,6 +14,7 @@ import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 import { LecturesRepository } from '../repos/lectures.repo.js';
 import { CommentsRepository } from '../repos/comments.repo.js';
+import { PermissionService } from './permission.service.js';
 
 export class StudentPostsService {
   constructor(
@@ -22,6 +23,7 @@ export class StudentPostsService {
     private readonly lectureEnrollmentsRepository: LectureEnrollmentsRepository,
     private readonly lecturesRepository: LecturesRepository,
     private readonly commentsRepository: CommentsRepository,
+    private readonly permissionService: PermissionService,
   ) {}
 
   /** 질문 생성 (학생/학부모) */
@@ -124,7 +126,12 @@ export class StudentPostsService {
         throw new ForbiddenException('권한이 없습니다.');
       }
     } else if (userType === UserType.ASSISTANT) {
-      // TODO: 조교 권한 확인 구현 필요
+      // 조교: 해당 게시글의 강사와 연결되어 있는지 확인
+      const instructorId =
+        await this.permissionService.getInstructorIdByAssistantId(profileId);
+      if (!instructorId || instructorId !== post.instructorId) {
+        throw new ForbiddenException('담당 강사의 질문만 조회할 수 있습니다.');
+      }
     }
 
     return post;

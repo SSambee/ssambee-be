@@ -228,6 +228,7 @@ const studentPostsService = new StudentPostsService(
   lectureEnrollmentsRepo,
   lecturesRepo,
   commentsRepo,
+  permissionService,
 );
 const commentsService = new CommentsService(
   commentsRepo,
