@@ -7,6 +7,7 @@ import {
   CreateStudentPostDto,
   UpdateStudentPostStatusDto,
   GetStudentPostsQueryDto,
+  UpdateStudentPostDto,
 } from '../validations/student-posts.validation.js';
 
 export class StudentPostsController {
@@ -104,6 +105,52 @@ export class StudentPostsController {
         statusCode: 200,
         data: result,
         message: '질문 상태를 변경했습니다.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /** 질문 수정 */
+  updatePost = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { postId } = req.params;
+      const data = req.body as UpdateStudentPostDto;
+      const profileId = getProfileIdOrThrow(req);
+      const user = getAuthUser(req);
+      const userType = user.userType as UserType;
+
+      const result = await this.studentPostsService.updatePost(
+        postId,
+        data,
+        userType,
+        profileId,
+      );
+
+      return successResponse(res, {
+        statusCode: 200,
+        data: result,
+        message: '질문을 수정했습니다.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /** 질문 삭제 */
+  deletePost = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { postId } = req.params;
+      const profileId = getProfileIdOrThrow(req);
+      const user = getAuthUser(req);
+      const userType = user.userType as UserType;
+
+      await this.studentPostsService.deletePost(postId, userType, profileId);
+
+      return successResponse(res, {
+        statusCode: 200,
+        data: null,
+        message: '질문을 삭제했습니다.',
       });
     } catch (error) {
       next(error);

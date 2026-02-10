@@ -6,6 +6,7 @@ import {
   updateStudentPostStatusSchema,
   getStudentPostsQuerySchema,
   studentPostParamsSchema,
+  updateStudentPostSchema,
 } from '../../../validations/student-posts.validation.js';
 import { createCommentSchema } from '../../../validations/comments.validation.js';
 
@@ -43,6 +44,21 @@ svcStudentPostsRouter.get(
   '/:postId',
   validate(studentPostParamsSchema, 'params'),
   studentPostsController.getPostDetail,
+);
+
+/** 질문 수정 */
+svcStudentPostsRouter.patch(
+  '/:postId',
+  validate(studentPostParamsSchema, 'params'),
+  validate(updateStudentPostSchema, 'body'),
+  studentPostsController.updatePost,
+);
+
+/** 질문 삭제 */
+svcStudentPostsRouter.delete(
+  '/:postId',
+  validate(studentPostParamsSchema, 'params'),
+  studentPostsController.deletePost,
 );
 
 /** 질문 상태 변경 (학생이 해결 완료 처리) */
