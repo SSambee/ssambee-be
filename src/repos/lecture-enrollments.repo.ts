@@ -153,7 +153,7 @@ export class LectureEnrollmentsRepository {
     });
   }
 
-  /** [NEW] 학부모 자녀 연동(AppParentChildLink) 기준 수강 강의 목록 조회 */
+  /** 학부모 자녀 연동(AppParentChildLink) 기준 수강 강의 목록 조회 */
   async findManyByAppParentLinkId(
     appParentLinkId: string,
     params: {
@@ -211,7 +211,7 @@ export class LectureEnrollmentsRepository {
     return { lectureEnrollments, totalCount };
   }
 
-  /** [NEW] LectureEnrollment 상세 조회 (강의 상세, 성적, 출석, 과제 포함) */
+  /** LectureEnrollment 상세 조회 (강의 상세, 성적, 출석, 과제 포함) */
   async findByIdWithDetails(id: string, tx?: Prisma.TransactionClient) {
     const client = tx ?? this.prisma;
     return await client.lectureEnrollment.findUnique({
@@ -330,6 +330,7 @@ export class LectureEnrollmentsRepository {
           instructorId,
           appStudentId,
           deletedAt: null,
+          status: 'ACTIVE',
         },
       },
       include: {
