@@ -165,9 +165,9 @@ export class StudentPostsService {
         throw new ForbiddenException('권한이 없습니다.');
 
       // 학생은 해결됨(RESOLVED)으로만 변경 가능
-      if (status === StudentPostStatus.PENDING) {
+      if (status !== StudentPostStatus.PENDING) {
         throw new ForbiddenException(
-          '학생은 질문을 다시 대기 중 상태로 변경할 수 없습니다.',
+          '학생은 해결됨 상태로만 변경할 수 있습니다.',
         );
       }
     } else {
