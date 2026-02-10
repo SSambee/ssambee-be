@@ -240,6 +240,7 @@ const commentsService = new CommentsService(
   instructorPostsRepo,
   studentPostsRepo,
   enrollmentsRepo,
+  lectureEnrollmentsRepo,
   permissionService,
 );
 

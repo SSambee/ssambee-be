@@ -297,6 +297,27 @@ export class LectureEnrollmentsRepository {
     });
   }
 
+  /** 학생이 특정 강사의 강의를 수강 중인지 확인하고 첫 번째 Enrollment 반환 */
+  async findFirstByInstructorIdAndStudentId(
+    instructorId: string,
+    appStudentId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return await client.lectureEnrollment.findFirst({
+      where: {
+        enrollment: {
+          instructorId,
+          appStudentId,
+          deletedAt: null,
+        },
+      },
+      include: {
+        enrollment: true,
+      },
+    });
+  }
+
   /** 강의 ID와 Enrollment ID로 수강생 삭제 (Hard Delete) */
   async removeByLectureIdAndEnrollmentId(
     lectureId: string,
