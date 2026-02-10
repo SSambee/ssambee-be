@@ -144,6 +144,7 @@ export class MaterialsService {
     profileId: string,
   ) {
     const { lectureId } = query;
+    let finalInstructorId = undefined;
 
     // 강의가 지정된 경우 접근 권한 확인
     if (lectureId) {
@@ -157,10 +158,15 @@ export class MaterialsService {
         profileId,
       );
     } else {
-      // 강의 미지정(라이브러리): 학생/학부모는 접근 불가 (기획에 따라 변경 가능)
-      if (userType === UserType.STUDENT || userType === UserType.PARENT) {
+      // 라이브러리 조회 시: 강사/조교는 본인/담당 강사 자료만 조회
+      const effectiveId = await this.permissionService.getEffectiveInstructorId(
+        userType,
+        profileId,
+      );
+      if (!effectiveId) {
         throw new ForbiddenException('자료 목록 접근 권한이 없습니다.');
       }
+      finalInstructorId = effectiveId;
     }
 
     const queryWithBackendType = {
@@ -169,8 +175,10 @@ export class MaterialsService {
     };
 
     // 목록 조회
-    const { materials, totalCount } =
-      await this.materialsRepository.findMany(queryWithBackendType);
+    const { materials, totalCount } = await this.materialsRepository.findMany({
+      ...queryWithBackendType,
+      instructorId: finalInstructorId,
+    });
 
     // 작성자(Author) 유효성 체크 및 마스킹 데이터 준비
     const instructorIds = [...new Set(materials.map((m) => m.instructorId))];
@@ -280,9 +288,7 @@ export class MaterialsService {
       profileId,
     );
 
-    // Soft Delete 수행 (S3 파일은 Lifecycle 정책에 따라 삭제되도록 원본 보존 권장)
-    // 현재 Repository는 deletedAt: null인 것만 조회하므로, 소통 게시글에서도 안 보이게 됨.
-    // 하지만 S3 파일 자체는 남아있으므로 URL을 이미 아는 학생은 접근 가능할 수 있음. (보안)
+    // Soft Delete 수행
     await this.materialsRepository.softDelete(materialsId);
   }
 
@@ -310,12 +316,12 @@ export class MaterialsService {
         profileId,
       );
     } else {
-      // 라이브러리(강의 미지정) 자료:
-      if (userType === UserType.STUDENT || userType === UserType.PARENT) {
-        // 학생/학부모가 이 라이브러리를 사용할수있을지는 모르겠지만 학생측에서 아마 바로 게시글에 자료를 던져주는 방식으로 구현이된다면
-        // 이 부분은 필요없으므로 알수없는 케이스가 있을수있기에 일단 예외처리하겠습니다.
-        throw new ForbiddenException('해당 자료에 직접 접근 권한이 없습니다.');
-      }
+      // 라이브러리(강의 미지정) 자료: 소유권 확인
+      await this.permissionService.validateInstructorAccess(
+        material.instructorId,
+        userType,
+        profileId,
+      );
     }
 
     // 작성자 마스킹 로직
@@ -401,10 +407,12 @@ export class MaterialsService {
         }
       }
     } else {
-      // 라이브러리 자료: 학생/학부모 접근 불가
-      if (userType === UserType.STUDENT || userType === UserType.PARENT) {
-        throw new ForbiddenException('해당 자료에 접근 권한이 없습니다.');
-      }
+      // 라이브러리 자료: 소유권 확인
+      await this.permissionService.validateInstructorAccess(
+        material.instructorId,
+        userType,
+        profileId,
+      );
     }
 
     if (material.type === MaterialType.VIDEO_LINK) {
