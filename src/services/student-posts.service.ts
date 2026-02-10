@@ -113,13 +113,11 @@ export class StudentPostsService {
     // 권한 검증
     if (userType === UserType.STUDENT) {
       // 본인 확인
-      if (post.enrollment?.appStudent?.user?.name) {
-        const enrollment = await this.enrollmentsRepository.findById(
-          post.enrollmentId,
-        );
-        if (enrollment?.appStudentId !== profileId) {
-          throw new ForbiddenException('본인의 질문만 조회할 수 있습니다.');
-        }
+      const enrollment = await this.enrollmentsRepository.findById(
+        post.enrollmentId,
+      );
+      if (enrollment?.appStudentId !== profileId) {
+        throw new ForbiddenException('본인의 질문만 조회할 수 있습니다.');
       }
     } else if (userType === UserType.INSTRUCTOR) {
       if (post.instructorId !== profileId) {
