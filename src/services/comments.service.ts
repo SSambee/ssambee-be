@@ -105,9 +105,22 @@ export class CommentsService {
     commentId: string,
     userType: UserType,
     profileId: string,
+    postId?: string,
+    postType?: 'instructorPost' | 'studentPost' | null,
   ) {
     const comment = await this.commentsRepository.findById(commentId);
     if (!comment) throw new NotFoundException('댓글을 찾을 수 없습니다.');
+
+    // 댓글이 해당 게시글에 속하는지 검증 (REST semantics 준수)
+    if (postId && postType) {
+      const postIdField =
+        postType === 'instructorPost'
+          ? comment.instructorPostId
+          : comment.studentPostId;
+      if (postIdField !== postId) {
+        throw new NotFoundException('해당 게시글에서 댓글을 찾을 수 없습니다.');
+      }
+    }
 
     // 권한 검증
     if (userType === UserType.STUDENT) {
@@ -147,9 +160,22 @@ export class CommentsService {
     data: UpdateCommentDto,
     userType: UserType,
     profileId: string,
+    postId?: string,
+    postType?: 'instructorPost' | 'studentPost' | null,
   ) {
     const comment = await this.commentsRepository.findById(commentId);
     if (!comment) throw new NotFoundException('댓글을 찾을 수 없습니다.');
+
+    // 댓글이 해당 게시글에 속하는지 검증 (REST semantics 준수)
+    if (postId && postType) {
+      const postIdField =
+        postType === 'instructorPost'
+          ? comment.instructorPostId
+          : comment.studentPostId;
+      if (postIdField !== postId) {
+        throw new NotFoundException('해당 게시글에서 댓글을 찾을 수 없습니다.');
+      }
+    }
 
     // 권한 검증
     if (userType === UserType.STUDENT) {

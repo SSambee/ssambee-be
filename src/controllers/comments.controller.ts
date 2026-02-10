@@ -53,12 +53,25 @@ export class CommentsController {
   /** 댓글 삭제 */
   deleteComment = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { commentId } = req.params;
+      const { postId, commentId } = req.params;
       const profileId = getProfileIdOrThrow(req);
       const user = getAuthUser(req);
       const userType = user.userType as UserType;
 
-      await this.commentsService.deleteComment(commentId, userType, profileId);
+      // URL에서 post 타입 파악 (instructor-posts 또는 student-posts)
+      const postType = req.baseUrl.includes('instructor-posts')
+        ? 'instructorPost'
+        : req.baseUrl.includes('student-posts')
+          ? 'studentPost'
+          : null;
+
+      await this.commentsService.deleteComment(
+        commentId,
+        userType,
+        profileId,
+        postId,
+        postType,
+      );
 
       return successResponse(res, {
         statusCode: 200,
@@ -73,17 +86,26 @@ export class CommentsController {
   /** 댓글 수정 */
   updateComment = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { commentId } = req.params;
+      const { postId, commentId } = req.params;
       const data = req.body as UpdateCommentDto;
       const profileId = getProfileIdOrThrow(req);
       const user = getAuthUser(req);
       const userType = user.userType as UserType;
+
+      // URL에서 post 타입 파악
+      const postType = req.baseUrl.includes('instructor-posts')
+        ? 'instructorPost'
+        : req.baseUrl.includes('student-posts')
+          ? 'studentPost'
+          : null;
 
       const result = await this.commentsService.updateComment(
         commentId,
         data,
         userType,
         profileId,
+        postId,
+        postType,
       );
 
       return successResponse(res, {
