@@ -127,8 +127,10 @@ export class CommentsService {
         throw new ForbiddenException('본인의 댓글만 삭제할 수 있습니다.');
       }
     } else if (userType === UserType.ASSISTANT) {
-      // 조교: 현재는 댓글 삭제 권한 없음
-      throw new ForbiddenException('조교는 댓글을 삭제할 수 없습니다.');
+      // 조교: assistantId로 본인 확인
+      if (comment.assistantId !== profileId) {
+        throw new ForbiddenException('본인의 댓글만 삭제할 수 있습니다.');
+      }
     } else if (userType === UserType.PARENT) {
       // 학부모: 현재는 댓글 삭제 권한 없음
       throw new ForbiddenException('학부모는 댓글을 삭제할 수 없습니다.');
