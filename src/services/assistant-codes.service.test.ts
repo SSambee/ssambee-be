@@ -16,6 +16,7 @@ describe('AssistantCodesService', () => {
     mockRepo = {
       create: vi.fn(),
       findByInstructorId: vi.fn(),
+      findValidCode: vi.fn(),
     };
     mockPrisma = {};
     service = new AssistantCodesService(
@@ -69,7 +70,33 @@ describe('AssistantCodesService', () => {
       const result = await service.getCodesByInstructor(instructorId);
 
       expect(result).toBe(mockCodes);
+      expect(result).toBe(mockCodes);
       expect(mockRepo.findByInstructorId).toHaveBeenCalledWith(instructorId);
+    });
+  });
+
+  describe('validateCode', () => {
+    it('should return true if code is valid', async () => {
+      const code = 'VALID1';
+      (mockRepo.findValidCode as jest.Mock).mockResolvedValue({
+        id: 'code-1',
+        code,
+      });
+
+      const result = await service.validateCode(code);
+
+      expect(result).toBe(true);
+      expect(mockRepo.findValidCode).toHaveBeenCalledWith(code);
+    });
+
+    it('should return false if code is invalid or not found', async () => {
+      const code = 'INVALI';
+      (mockRepo.findValidCode as jest.Mock).mockResolvedValue(null);
+
+      const result = await service.validateCode(code);
+
+      expect(result).toBe(false);
+      expect(mockRepo.findValidCode).toHaveBeenCalledWith(code);
     });
   });
 });

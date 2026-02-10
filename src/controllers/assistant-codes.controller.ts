@@ -52,4 +52,19 @@ export class AssistantCodesController {
       next(error);
     }
   };
+
+  /** 조교 가입 코드 검증 */
+  validateCode = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { code } = req.query as unknown as { code: string };
+
+      const isValid = await this.assistantCodesService.validateCode(code);
+
+      return successResponse(res, {
+        data: { isValid },
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

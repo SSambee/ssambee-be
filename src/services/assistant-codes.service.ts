@@ -33,4 +33,10 @@ export class AssistantCodesService {
   async getCodesByInstructor(instructorId: string) {
     return await this.assistantCodeRepo.findByInstructorId(instructorId);
   }
+
+  /** 조교 가입 코드 유효성 검증 */
+  async validateCode(code: string): Promise<boolean> {
+    const validCode = await this.assistantCodeRepo.findValidCode(code);
+    return validCode !== null;
+  }
 }
