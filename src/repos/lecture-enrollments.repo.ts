@@ -257,6 +257,25 @@ export class LectureEnrollmentsRepository {
     return count > 0;
   }
 
+  /** 학생이 특정 강사의 강의를 하나라도 수강 중인지 확인 */
+  async existsByInstructorIdAndStudentId(
+    instructorId: string,
+    appStudentId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<boolean> {
+    const client = tx ?? this.prisma;
+    const count = await client.lectureEnrollment.count({
+      where: {
+        enrollment: {
+          instructorId,
+          appStudentId,
+          deletedAt: null,
+        },
+      },
+    });
+    return count > 0;
+  }
+
   /** 학생이 특정 강의에 수강 등록되어 있는지 조회 */
   async findByLectureIdAndStudentId(
     lectureId: string,

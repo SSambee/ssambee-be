@@ -58,6 +58,17 @@ import { MaterialsController } from '../controllers/materials.controller.js';
 import { LectureEnrollmentsService } from '../services/lecture-enrollments.service.js';
 import { LectureEnrollmentsController } from '../controllers/lecture-enrollments.controller.js';
 
+import { InstructorPostsRepository } from '../repos/instructor-posts.repo.js';
+import { StudentPostsRepository } from '../repos/student-posts.repo.js';
+import { CommentsRepository } from '../repos/comments.repo.js';
+
+import { InstructorPostsService } from '../services/instructor-posts.service.js';
+import { StudentPostsService } from '../services/student-posts.service.js';
+import { CommentsService } from '../services/comments.service.js';
+
+import { InstructorPostsController } from '../controllers/instructor-posts.controller.js';
+import { StudentPostsController } from '../controllers/student-posts.controller.js';
+import { CommentsController } from '../controllers/comments.controller.js';
 import { AssistantCodesService } from '../services/assistant-codes.service.js';
 import { AssistantCodesController } from '../controllers/assistant-codes.controller.js';
 
@@ -85,6 +96,10 @@ const lecturesRepo = new LecturesRepository(prisma);
 const enrollmentsRepo = new EnrollmentsRepository(prisma);
 const lectureEnrollmentsRepo = new LectureEnrollmentsRepository(prisma);
 const attendancesRepo = new AttendancesRepository(prisma);
+
+const instructorPostsRepo = new InstructorPostsRepository(prisma);
+const studentPostsRepo = new StudentPostsRepository(prisma);
+const commentsRepo = new CommentsRepository(prisma);
 
 // 2. Instantiate Services (Inject Repos)
 const authService = new AuthService(
@@ -206,6 +221,28 @@ const materialsService = new MaterialsService(
   permissionService,
 );
 
+const instructorPostsService = new InstructorPostsService(
+  instructorPostsRepo,
+  lecturesRepo,
+  materialsRepo,
+  permissionService,
+);
+const studentPostsService = new StudentPostsService(
+  studentPostsRepo,
+  enrollmentsRepo,
+  lectureEnrollmentsRepo,
+  lecturesRepo,
+  commentsRepo,
+  permissionService,
+);
+const commentsService = new CommentsService(
+  commentsRepo,
+  instructorPostsRepo,
+  studentPostsRepo,
+  enrollmentsRepo,
+  permissionService,
+);
+
 const assistantOrderService = new AssistantOrderService(
   assistantOrderRepo,
   assistantRepo,
@@ -238,6 +275,12 @@ const assistantsController = new AssistantsController(assistantsService);
 const assistantOrderController = new AssistantOrderController(
   assistantOrderService,
 );
+
+const instructorPostsController = new InstructorPostsController(
+  instructorPostsService,
+);
+const studentPostsController = new StudentPostsController(studentPostsService);
+const commentsController = new CommentsController(commentsService);
 
 // 4. Create Middlewares (Inject Services)
 const requireAuth = createRequireAuth(authService);
@@ -274,6 +317,9 @@ export const container = {
   clinicsController,
   materialsController,
   lectureEnrollmentsController,
+  instructorPostsController,
+  studentPostsController,
+  commentsController,
   assistantCodesController,
   assistantsController,
   assistantOrderController,

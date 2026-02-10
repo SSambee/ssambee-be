@@ -46,6 +46,8 @@ export class MaterialsService {
     userType: UserType,
     profileId: string,
   ) {
+    let ownerInstructorId: string;
+
     if (lectureId) {
       const lecture = await this.lecturesRepository.findById(lectureId);
       if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
@@ -55,6 +57,22 @@ export class MaterialsService {
         userType,
         profileId,
       );
+
+      // 강의 담당 강사 ID 설정
+      ownerInstructorId = lecture.instructorId;
+    } else {
+      // 라이브러리 업로드인 경우 현재 사용자의 강사 ID 사용
+      if (userType === UserType.INSTRUCTOR) {
+        ownerInstructorId = profileId;
+      } else if (userType === UserType.ASSISTANT) {
+        const instructorId =
+          await this.permissionService.getInstructorIdByAssistantId(profileId);
+        if (!instructorId)
+          throw new ForbiddenException('강사 정보를 찾을 수 없습니다.');
+        ownerInstructorId = instructorId;
+      } else {
+        throw new ForbiddenException('자료 업로드 권한이 없습니다.');
+      }
     }
 
     let fileUrl: string;
@@ -76,12 +94,12 @@ export class MaterialsService {
       const now = new Date();
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, '0');
-      const key = `materials/${year}/${month}/${randomId}${ext}`;
+      const prefix = data.type.toLowerCase();
+      const key = `${prefix}/${year}/${month}/${randomId}${ext}`;
 
       fileUrl = await this.fileStorageService.upload(file, key);
     }
 
-    let ownerInstructorId: string;
     let authorName: string;
     let authorRole: string;
 
@@ -89,43 +107,30 @@ export class MaterialsService {
       const instructor = await this.instructorRepository.findById(profileId);
       if (!instructor)
         throw new NotFoundException('강사 정보를 찾을 수 없습니다.');
-      ownerInstructorId = instructor.id;
-      authorName = instructor.user.name;
+      authorName = instructor.user?.name ?? '알 수 없음';
       authorRole = UserType.INSTRUCTOR;
     } else if (userType === UserType.ASSISTANT) {
       const assistant = await this.assistantRepository.findById(profileId);
       if (!assistant)
         throw new NotFoundException('조교 정보를 찾을 수 없습니다.');
       ownerInstructorId = assistant.instructorId;
-      authorName = assistant.name;
+      authorName = assistant.user?.name ?? '보조강사';
       authorRole = UserType.ASSISTANT;
     } else {
       throw new ForbiddenException('자료 업로드 권한이 없습니다.');
     }
 
-    // 강의 자료인 경우 강의 담당 강사와 현재 강사(또는 조교의 강사)가 일치하는지 확인
-    if (lectureId) {
-      const lecture = await this.lecturesRepository.findById(lectureId);
-      if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
-
-      if (lecture.instructorId !== ownerInstructorId) {
-        throw new ForbiddenException(
-          '해당 강의의 자료를 업로드할 권한이 없습니다.',
-        );
-      }
-    }
-
     return this.materialsRepository.create({
       instructorId: ownerInstructorId,
-      lectureId: lectureId || null,
+      lectureId: null, // 원본 보존을 위해 무조건 null로 저장 (Library-first)
+      authorName,
+      authorRole,
       title: data.title,
       fileUrl,
       type: backendType,
       description: data.description,
       subject: data.subject,
       externalDownloadUrl: data.externalDownloadUrl,
-      authorName,
-      authorRole,
     });
   }
 
@@ -167,6 +172,21 @@ export class MaterialsService {
     const { materials, totalCount } =
       await this.materialsRepository.findMany(queryWithBackendType);
 
+    // 작성자(Author) 유효성 체크 및 마스킹 데이터 준비
+    const instructorIds = [...new Set(materials.map((m) => m.instructorId))];
+    const assistantsMap = new Map<string, string[]>(); // instructorId -> activeAssistantNames[]
+
+    await Promise.all(
+      instructorIds.map(async (id) => {
+        const assistants =
+          await this.assistantRepository.findAllByInstructorId(id);
+        assistantsMap.set(
+          id,
+          assistants.map((a) => a.user?.name ?? ''),
+        );
+      }),
+    );
+
     const mappedMaterials = materials.map((m) => {
       // MaterialType Mapping
       const type =
@@ -176,20 +196,27 @@ export class MaterialsService {
       const isManagement =
         userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT;
       const basePath = isManagement ? '/api/mgmt/v1' : '/api/svc/v1';
-      const downloadUrl = `${basePath}/materials/${m.id}/download`; // 다운로드 URL (프론트에서 이 경로로 호출)
+      const downloadUrl = `${basePath}/materials/${m.id}/download`;
+
+      // 작성자 마스킹 로직
+      let writer = m.authorName || '보조강사';
+      if (m.authorRole === UserType.ASSISTANT) {
+        const activeNames = assistantsMap.get(m.instructorId) || [];
+        if (!activeNames.includes(m.authorName)) {
+          writer = '보조강사';
+        }
+      }
 
       return {
         id: m.id,
         title: m.title,
-        description: m.description, // description 추가
-        writer: m.authorName || '보조 강사', // writer <- authorName
-        date: format(m.createdAt, 'yyyy-MM-dd'), // date <- createdAt
-        type: type, // type 매핑
-        classId: m.lectureId, // classId <- lectureId
-        className: m.lecture?.title, // className <- lecture.title (Repository에서 가져옴)
-        // file: 비디오가 아니면 { name, url } 반환
+        description: m.description,
+        writer, // 마스킹된 이름 반영
+        date: format(m.createdAt, 'yyyy-MM-dd'),
+        type: type,
+        classId: m.lectureId,
+        className: m.lecture?.title,
         file: !isVideo ? { name: m.title, url: downloadUrl } : undefined,
-        // link: 비디오면 fileUrl 반환
         link: isVideo ? m.fileUrl : undefined,
       };
     });
@@ -283,10 +310,24 @@ export class MaterialsService {
         profileId,
       );
     } else {
-      // 라이브러리(강의 미지정) 자료: 학생/학부모는 접근 불가
-      // 기획에 따라 변동 가능
+      // 라이브러리(강의 미지정) 자료:
       if (userType === UserType.STUDENT || userType === UserType.PARENT) {
-        throw new ForbiddenException('해당 자료에 접근 권한이 없습니다.');
+        // 학생/학부모가 이 라이브러리를 사용할수있을지는 모르겠지만 학생측에서 아마 바로 게시글에 자료를 던져주는 방식으로 구현이된다면
+        // 이 부분은 필요없으므로 알수없는 케이스가 있을수있기에 일단 예외처리하겠습니다.
+        throw new ForbiddenException('해당 자료에 직접 접근 권한이 없습니다.');
+      }
+    }
+
+    // 작성자 마스킹 로직
+    let writer = material.authorName || '보조강사';
+    if (material.authorRole === UserType.ASSISTANT) {
+      const activeAssistants =
+        await this.assistantRepository.findAllByInstructorId(
+          material.instructorId,
+        );
+      const activeNames = activeAssistants.map((a) => a.user?.name ?? '');
+      if (!activeNames.includes(material.authorName)) {
+        writer = '보조강사';
       }
     }
 
@@ -305,7 +346,7 @@ export class MaterialsService {
       id: material.id,
       title: material.title,
       description: material.description,
-      writer: material.authorName || '보조 강사',
+      writer, // 마스킹된 이름 반영
       date: format(material.createdAt, 'yyyy-MM-dd'),
       type: type,
       classId: material.lectureId,

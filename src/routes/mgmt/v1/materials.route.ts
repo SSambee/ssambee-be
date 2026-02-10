@@ -21,7 +21,7 @@ const {
 mgmtMaterialsRouter.use(requireAuth);
 mgmtMaterialsRouter.use(requireInstructorOrAssistant);
 
-/** 자료 생성 */
+/** 자료 업로드 */
 mgmtMaterialsRouter.post(
   '/',
   upload.single('file'), // 'file' 필드

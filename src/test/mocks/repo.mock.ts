@@ -13,6 +13,9 @@ import { ClinicsRepository } from '../../repos/clinics.repo.js';
 import { StatisticsRepository } from '../../repos/statistics.repo.js';
 import type { LectureEnrollmentsRepository } from '../../repos/lecture-enrollments.repo.js';
 import type { MaterialsRepository } from '../../repos/materials.repo.js';
+import type { InstructorPostsRepository } from '../../repos/instructor-posts.repo.js';
+import type { StudentPostsRepository } from '../../repos/student-posts.repo.js';
+import type { CommentsRepository } from '../../repos/comments.repo.js';
 import { createAutoMock } from './create-mock.util.js';
 
 /** Mock InstructorRepository 생성 */
@@ -40,6 +43,7 @@ export const createMockAssistantRepository = () =>
     'findById',
     'findByPhoneNumber',
     'create',
+    'findAllByInstructorId',
   ]);
 
 /** Mock ParentRepository 생성 */
@@ -108,6 +112,8 @@ export const createMockLectureEnrollmentsRepository = () =>
     'findByLectureIdAndEnrollmentId',
     'findManyByLectureIdWithEnrollments',
     'findById',
+    'existsByLectureIdAndStudentId',
+    'findByLectureIdAndStudentId',
     'removeByLectureIdAndEnrollmentId',
     'findByIdWithGrades',
   ]);
@@ -192,4 +198,35 @@ export const createMockMaterialsRepository = () =>
     'softDelete',
     'delete',
     'isAccessibleByStudent',
+  ]);
+
+/** Mock InstructorPostsRepository 생성 */
+export const createMockInstructorPostsRepository = () =>
+  createAutoMock<InstructorPostsRepository>([
+    'create',
+    'findById',
+    'findMany',
+    'update',
+    'delete',
+    'addAttachments',
+    'removeAttachments',
+  ]);
+
+/** Mock StudentPostsRepository 생성 */
+export const createMockStudentPostsRepository = () =>
+  createAutoMock<StudentPostsRepository>([
+    'create',
+    'findById',
+    'findMany',
+    'updateStatus',
+    'delete',
+  ]);
+
+/** Mock CommentsRepository 생성 */
+export const createMockCommentsRepository = () =>
+  createAutoMock<CommentsRepository>([
+    'create',
+    'findById',
+    'update',
+    'delete',
   ]);

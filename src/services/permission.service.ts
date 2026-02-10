@@ -168,4 +168,25 @@ export class PermissionService {
 
     throw new ForbiddenException('접근 권한이 없습니다.');
   }
+
+  /** 학생이 특정 강사의 강의를 하나라도 수강 중인지 확인 */
+  async validateInstructorStudentLink(instructorId: string, studentId: string) {
+    const isEnrolled =
+      await this.lectureEnrollmentsRepository.existsByInstructorIdAndStudentId(
+        instructorId,
+        studentId,
+      );
+
+    if (!isEnrolled) {
+      throw new ForbiddenException('해당 강사의 수강생이 아닙니다.');
+    }
+  }
+
+  /** Assistant ID로 Instructor ID 조회 */
+  async getInstructorIdByAssistantId(
+    assistantId: string,
+  ): Promise<string | null> {
+    const assistant = await this.assistantRepository.findById(assistantId);
+    return assistant?.instructorId || null;
+  }
 }

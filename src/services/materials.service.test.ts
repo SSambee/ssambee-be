@@ -21,6 +21,7 @@ import {
   mockLectures,
   mockMaterials,
   mockInstructor,
+  mockProfiles,
 } from '../test/fixtures/index.js';
 import {
   UploadMaterialDto,
@@ -53,6 +54,7 @@ describe('MaterialsService', () => {
     } as unknown as jest.Mocked<FileStorageService>;
 
     permissionService = createMockPermissionService();
+    assistantRepo.findAllByInstructorId.mockResolvedValue([]);
 
     service = new MaterialsService(
       materialsRepo,
@@ -155,7 +157,7 @@ describe('MaterialsService', () => {
 
       expect(fileStorageService.upload).toHaveBeenCalledWith(
         mockFile,
-        expect.stringMatching(/^materials\/\d{4}\/\d{2}\/.*\.pdf$/),
+        expect.stringMatching(/^paper\/\d{4}\/\d{2}\/.*\.pdf$/),
       );
 
       expect(materialsRepo.create).toHaveBeenCalledWith(
@@ -193,7 +195,10 @@ describe('MaterialsService', () => {
 
       expect(lecturesRepo.findById).not.toHaveBeenCalled();
 
-      expect(fileStorageService.upload).toHaveBeenCalled();
+      expect(fileStorageService.upload).toHaveBeenCalledWith(
+        mockFile,
+        expect.stringMatching(/^paper\/\d{4}\/\d{2}\/.*\.pdf$/),
+      );
 
       expect(materialsRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -228,8 +233,42 @@ describe('MaterialsService', () => {
       expect(result.pagination.totalCount).toBe(1);
       expect(result.materials[0].file?.url).toContain('/api/mgmt/v1/materials');
       expect(result.materials[0]).toHaveProperty('writer');
+      expect(result.materials[0].writer).toBe('이강사'); // Instructor is not masked
       expect(result.materials[0]).toHaveProperty('date');
       expect(result.materials[0]).toHaveProperty('className');
+    });
+
+    it('활성 조교인 경우 이름을 마스킹하지 않아야 한다', async () => {
+      const query: GetMaterialsQueryDto & { lectureId: string } = {
+        page: 1,
+        limit: 10,
+        lectureId: mockLectures.basic.id,
+      };
+      lecturesRepo.findById.mockResolvedValue(mockLectures.basic);
+
+      const assistantName = '김조교';
+      materialsRepo.findMany.mockResolvedValue({
+        materials: [
+          {
+            ...mockMaterials.basic,
+            authorName: assistantName,
+            authorRole: UserType.ASSISTANT,
+          },
+        ],
+        totalCount: 1,
+      });
+
+      assistantRepo.findAllByInstructorId.mockResolvedValue([
+        { ...mockProfiles.assistant, user: { name: assistantName } },
+      ]);
+
+      const result = await service.getMaterials(
+        query,
+        UserType.INSTRUCTOR,
+        mockInstructor.id,
+      );
+
+      expect(result.materials[0].writer).toBe(assistantName);
     });
   });
 

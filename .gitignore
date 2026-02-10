@@ -44,3 +44,4 @@ crash.log
 
 .secrets
 *.pem
+.aider*

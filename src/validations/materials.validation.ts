@@ -14,7 +14,6 @@ export const uploadMaterialSchema = z.object({
   ]),
   // youtubeUrl은 type이 VIDEO_LINK일 때 필수 체크 (Service 레벨에서 추가 검증 가능, 여기서는 형식만)
   youtubeUrl: z.url('유효하지 않은 YouTube URL입니다.').optional(),
-  lectureId: z.cuid2().optional().or(z.null()), // 라이브러리 업로드(강의 미지정) 지원
 });
 
 export const updateMaterialSchema = z.object({

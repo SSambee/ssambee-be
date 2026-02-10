@@ -34,9 +34,23 @@ mgmtV1Router.use('/assistant-codes', mgmtAssistantCodesRouter);
 import { mgmtAssistantsRouter } from './assistants.route.js';
 mgmtV1Router.use('/assistants', mgmtAssistantsRouter);
 
-/** 자료 라우터 (경로 자체 포함) */
+/** 자료 라우터 */
 import { mgmtMaterialsRouter } from './materials.route.js';
 mgmtV1Router.use('/materials', mgmtMaterialsRouter);
+
+/** 공지(소통) 라우트 */
+import { mgmtInstructorPostsRouter } from './instructor-posts.route.js';
+mgmtV1Router.use('/instructor-posts', mgmtInstructorPostsRouter);
+
+/** 강의 내 공지 라우트 (Nested) */
+mgmtV1Router.use(
+  '/lectures/:lectureId/instructor-posts',
+  mgmtInstructorPostsRouter,
+);
+
+/** 학생 질문 라우트 */
+import { mgmtStudentPostsRouter } from './student-posts.route.js';
+mgmtV1Router.use('/student-posts', mgmtStudentPostsRouter);
 
 /** 지시 생성 라우트 */
 import { mgmtAssistantOrderRouter } from './assistant-order.route.js';

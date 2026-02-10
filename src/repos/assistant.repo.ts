@@ -43,6 +43,21 @@ export class AssistantRepository {
     return client.assistant.create({ data });
   }
 
+  async findAllByInstructorId(
+    instructorId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return client.assistant.findMany({
+      where: { instructorId },
+      include: {
+        user: {
+          select: { name: true },
+        },
+      },
+    });
+  }
+
   async update(
     id: string,
     data: UpdateAssistantData,

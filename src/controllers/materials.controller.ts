@@ -15,13 +15,10 @@ export class MaterialsController {
   /** 자료 업로드 */
   uploadMaterial = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      // Path param 또는 Body param에서 lectureId 확인 (라이브러리 업로드 시 Body 사용)
-      const { lectureId: paramLectureId } = req.params;
+      // 경로 파라미터에서만 lectureId 가져오기
+      const { lectureId } = req.params;
       const data = req.body as UploadMaterialDto;
       const file = req.file;
-
-      // params에 있으면 그것을 우선, 없으면 body의 lectureId 사용
-      const lectureId = paramLectureId || data.lectureId;
 
       const profileId = getProfileIdOrThrow(req);
       const user = getAuthUser(req);
