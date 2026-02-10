@@ -151,6 +151,11 @@ export class CommentsService {
       if (comment.instructorId !== profileId) {
         throw new ForbiddenException('본인의 댓글만 수정할 수 있습니다.');
       }
+    } else if (userType === UserType.ASSISTANT) {
+      // 조교: assistantId로 본인 확인
+      if (comment.assistantId !== profileId) {
+        throw new ForbiddenException('본인의 댓글만 수정할 수 있습니다.');
+      }
     } else if (userType === UserType.PARENT) {
       // 학부모: 현재는 댓글 수정 권한 없음
       throw new ForbiddenException('학부모는 댓글을 수정할 수 없습니다.');
