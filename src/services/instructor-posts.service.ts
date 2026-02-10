@@ -238,6 +238,8 @@ export class InstructorPostsService {
           throw new ForbiddenException('접근 권한이 없습니다.');
         }
       }
+    } else {
+      throw new ForbiddenException('조회 권한이 없습니다.');
     }
 
     return post;
