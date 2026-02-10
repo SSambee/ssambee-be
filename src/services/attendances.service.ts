@@ -198,13 +198,6 @@ export class AttendancesService {
 
   /** Helper Functions */
 
-  // /** 날짜에서 시간 제거 (00:00:00.000) */
-  // private truncateTime(date: Date): Date {
-  //   const d = new Date(date);
-  //   d.setHours(0, 0, 0, 0);
-  //   return d;
-  // }
-
   /** 조회 권한 체크 (강사/조교/학생/학부모) */
   private async validateReadAccess(
     enrollment: Enrollment,

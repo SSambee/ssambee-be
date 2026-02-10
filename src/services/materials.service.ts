@@ -113,6 +113,7 @@ export class MaterialsService {
       const assistant = await this.assistantRepository.findById(profileId);
       if (!assistant)
         throw new NotFoundException('조교 정보를 찾을 수 없습니다.');
+      ownerInstructorId = assistant.instructorId;
       authorName = assistant.user.name;
       authorRole = UserType.ASSISTANT;
     } else {

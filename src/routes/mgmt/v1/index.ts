@@ -26,6 +26,14 @@ mgmtV1Router.use('/clinics', mgmtClinicsRouter);
 import { mgmtLectureEnrollmentsRouter } from './lecture-enrollments.route.js';
 mgmtV1Router.use('/lectureEnrollments', mgmtLectureEnrollmentsRouter);
 
+/** 조교 가입 코드 라우트 */
+import { mgmtAssistantCodesRouter } from './assistant-codes.route.js';
+mgmtV1Router.use('/assistant-codes', mgmtAssistantCodesRouter);
+
+/** 조교 라우트 */
+import { mgmtAssistantsRouter } from './assistants.route.js';
+mgmtV1Router.use('/assistants', mgmtAssistantsRouter);
+
 /** 자료 라우터 (경로 자체 포함) */
 import { mgmtMaterialsRouter } from './materials.route.js';
 mgmtV1Router.use('/materials', mgmtMaterialsRouter);

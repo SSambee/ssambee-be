@@ -1,14 +1,15 @@
-import { IncomingHttpHeaders } from 'http';
+import type { IncomingHttpHeaders } from 'http';
 import { fromNodeHeaders } from 'better-auth/node';
 import { PrismaClient } from '../generated/prisma/client.js';
-import { auth } from '../config/auth.config.js';
-import { UserType } from '../constants/auth.constant.js';
 import {
   BadRequestException,
   ForbiddenException,
   InternalServerErrorException,
+  NotFoundException,
   UnauthorizedException,
 } from '../err/http.exception.js';
+import { UserType } from '../constants/auth.constant.js';
+import { auth } from '../config/auth.config.js';
 import { InstructorRepository } from '../repos/instructor.repo.js';
 import { AssistantRepository } from '../repos/assistant.repo.js';
 import { AssistantCodeRepository } from '../repos/assistant-code.repo.js';
@@ -163,7 +164,41 @@ export class AuthService {
     });
   }
 
+  /** 회원 탈퇴 (Better Auth API 사용) */
+  async withdraw(headers: IncomingHttpHeaders) {
+    return await this.authClient.api.deleteUser({
+      headers: fromNodeHeaders(headers),
+      body: {},
+    });
+  }
+
+  /** 관리자용 회원 탈퇴 처리 (userId 기반) */
+  async deleteUserById(userId: string, headers: IncomingHttpHeaders) {
+    // 1. 삭제 대상 유저 조회
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, userType: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('사용자를 찾을 수 없습니다.');
+    }
+
+    // 2. 조교만 삭제 가능하도록 제한
+    if (user.userType !== UserType.ASSISTANT) {
+      throw new ForbiddenException('조교만 삭제할 수 있습니다.');
+    }
+
+    // 3. Better Auth admin API를 사용하여 userId로 직접 삭제
+    // cascade 설정에 의해 session, account 등도 삭제됨
+    await this.authClient.api.removeUser({
+      body: { userId },
+      headers: fromNodeHeaders(headers),
+    });
+  }
+
   /** 세션 조회 */
+
   async getSession(headers: IncomingHttpHeaders) {
     const session = await this.authClient.api.getSession({
       headers: fromNodeHeaders(headers),
@@ -212,6 +247,7 @@ export class AuthService {
       return await this.assistantRepo.create(
         {
           userId,
+          name: data.name || 'Assistant', // name이 없을 경우 기본값 처리 또는 data.name 사용
           phoneNumber: data.phoneNumber,
           instructorId: assistantCode.instructorId,
           signupCode: data.signupCode!,

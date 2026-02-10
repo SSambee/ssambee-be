@@ -1,5 +1,6 @@
 import { fakerKO as faker } from '@faker-js/faker';
 import { mockUsers } from './user.fixture.js';
+import { AssistantStatus } from '../../constants/auth.constant.js';
 
 const instructorProfileId = faker.string.uuid();
 
@@ -28,6 +29,11 @@ export const mockProfiles = {
     instructorId: instructorProfileId,
     signupCode: faker.string.alphanumeric(10).toUpperCase(),
     contract: null,
+    signStatus: AssistantStatus.SIGNED,
+    name: faker.person.fullName(),
+    memo: null,
+    deletedAt: null,
+    attendanceStatus: 'PENDING',
     createdAt: faker.date.past(),
     updatedAt: faker.date.recent(),
   },
