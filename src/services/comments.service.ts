@@ -68,7 +68,14 @@ export class CommentsService {
           if (enrollment?.appStudentId === profileId) {
             // 본인의 Enrollment인 경우에만 연결
             writerInfo.enrollmentId = post.enrollmentId;
+          } else {
+            // 다른 학생의 질문에는 댓글 불가
+            throw new ForbiddenException(
+              '본인의 질문에만 댓글을 작성할 수 있습니다.',
+            );
           }
+        } else {
+          throw new ForbiddenException('질문 정보를 찾을 수 없습니다.');
         }
       } else if (data.instructorPostId) {
         // 강사 게시물에 대한 학생 댓글은 지원하지 않음
