@@ -107,14 +107,14 @@ export class MaterialsService {
       const instructor = await this.instructorRepository.findById(profileId);
       if (!instructor)
         throw new NotFoundException('강사 정보를 찾을 수 없습니다.');
-      authorName = instructor.user.name;
+      authorName = instructor.user?.name ?? '알 수 없음';
       authorRole = UserType.INSTRUCTOR;
     } else if (userType === UserType.ASSISTANT) {
       const assistant = await this.assistantRepository.findById(profileId);
       if (!assistant)
         throw new NotFoundException('조교 정보를 찾을 수 없습니다.');
       ownerInstructorId = assistant.instructorId;
-      authorName = assistant.user.name;
+      authorName = assistant.user?.name ?? '보조강사';
       authorRole = UserType.ASSISTANT;
     } else {
       throw new ForbiddenException('자료 업로드 권한이 없습니다.');
@@ -182,7 +182,7 @@ export class MaterialsService {
           await this.assistantRepository.findAllByInstructorId(id);
         assistantsMap.set(
           id,
-          assistants.map((a) => a.user.name),
+          assistants.map((a) => a.user?.name ?? ''),
         );
       }),
     );
@@ -325,7 +325,7 @@ export class MaterialsService {
         await this.assistantRepository.findAllByInstructorId(
           material.instructorId,
         );
-      const activeNames = activeAssistants.map((a) => a.user.name);
+      const activeNames = activeAssistants.map((a) => a.user?.name ?? '');
       if (!activeNames.includes(material.authorName)) {
         writer = '보조강사';
       }
