@@ -389,23 +389,23 @@ describe('InstructorPostsService', () => {
         });
       });
     });
+  });
 
-    describe('deletePost', () => {
-      it('게시글이 존재하지 않으면 NotFoundException이 발생한다', async () => {
-        // TODO: instructorPostsRepository.findById 가 null 반환 시
-      });
+  describe('deletePost', () => {
+    it('게시글이 존재하지 않으면 NotFoundException이 발생한다', async () => {
+      // TODO: instructorPostsRepository.findById 가 null 반환 시
+    });
 
-      it('강사가 본인의 게시글이 아닌 것을 삭제하려고 하면 ForbiddenException이 발생한다', async () => {
-        // TODO: post.instructorId !== profileId
-      });
+    it('강사가 본인의 게시글이 아닌 것을 삭제하려고 하면 ForbiddenException이 발생한다', async () => {
+      // TODO: post.instructorId !== profileId
+    });
 
-      it('조교가 본인이 작성하지 않은 게시글을 삭제하려고 하면 ForbiddenException이 발생한다', async () => {
-        // TODO: post.authorAssistantId !== profileId
-      });
+    it('조교가 본인이 작성하지 않은 게시글을 삭제하려고 하면 ForbiddenException이 발생한다', async () => {
+      // TODO: post.authorAssistantId !== profileId
+    });
 
-      it('유효한 권한으로 삭제 요청 시 게시글이 성공적으로 삭제된다', async () => {
-        // TODO: instructorPostsRepository.delete 호출
-      });
+    it('유효한 권한으로 삭제 요청 시 게시글이 성공적으로 삭제된다', async () => {
+      // TODO: instructorPostsRepository.delete 호출
     });
   });
 });
