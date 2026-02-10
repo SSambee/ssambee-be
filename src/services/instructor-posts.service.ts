@@ -299,7 +299,7 @@ export class InstructorPostsService {
       throw new BadRequestException('선택 공지는 대상 학생 지정이 필수입니다.');
     }
 
-    // 3. 자료 소유권 검증 (새로 첨부할 자료가 있는 경우)
+    // 자료 소유권 검증 (새로 첨부할 자료가 있는 경우)
     if (data.materialIds && data.materialIds.length > 0) {
       const instructorId =
         userType === UserType.INSTRUCTOR
@@ -307,9 +307,10 @@ export class InstructorPostsService {
           : await this.permissionService.getInstructorIdByAssistantId(
               profileId,
             );
-      if (instructorId) {
-        await this.validateMaterialOwnership(data.materialIds, instructorId);
+      if (!instructorId) {
+        throw new ForbiddenException('강사 정보를 찾을 수 없습니다.');
       }
+      await this.validateMaterialOwnership(data.materialIds, instructorId);
     }
 
     // 변경 없음 확인 (중복 업데이트 방지)
