@@ -602,6 +602,7 @@ model AssistantOrder {
 
   attachments OrderAttachment[]
 
+  title    String
   memo     String?
   status   String  @default("PENDING")
   priority String  @default("NORMAL")
