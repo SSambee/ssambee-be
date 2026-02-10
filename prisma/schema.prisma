@@ -538,6 +538,8 @@ model ScheduleCategory {
   instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
   schedules    Schedule[]
 
+  @@unique([instructorId, name])
+  @@unique([instructorId, color])
   @@index([instructorId])
   @@map("schedule_categories")
 }
@@ -553,7 +555,7 @@ model Schedule {
   startTime    DateTime @map("start_time")
   endTime      DateTime @map("end_time")
 
-  categoryId String?   @map("category_id")
+  categoryId   String?   @map("category_id")
   category     ScheduleCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   createdAt DateTime  @default(now()) @map("created_at")
