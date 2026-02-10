@@ -57,6 +57,12 @@ import { MaterialsController } from '../controllers/materials.controller.js';
 import { LectureEnrollmentsService } from '../services/lecture-enrollments.service.js';
 import { LectureEnrollmentsController } from '../controllers/lecture-enrollments.controller.js';
 
+import { AssistantCodesService } from '../services/assistant-codes.service.js';
+import { AssistantCodesController } from '../controllers/assistant-codes.controller.js';
+
+import { AssistantsService } from '../services/assistants.service.js';
+import { AssistantsController } from '../controllers/assistants.controller.js';
+
 // 1. Instantiate Repositories
 const instructorRepo = new InstructorRepository(prisma);
 const studentRepo = new StudentRepository(prisma);
@@ -173,6 +179,17 @@ const lectureEnrollmentsService = new LectureEnrollmentsService(
   prisma,
 );
 
+const assistantCodesService = new AssistantCodesService(
+  assistantCodeRepo,
+  prisma,
+);
+
+const assistantsService = new AssistantsService(
+  assistantRepo,
+  authService,
+  prisma,
+);
+
 const fileStorageService = new FileStorageService();
 const materialsService = new MaterialsService(
   materialsRepo,
@@ -202,6 +219,10 @@ const materialsController = new MaterialsController(materialsService);
 const lectureEnrollmentsController = new LectureEnrollmentsController(
   lectureEnrollmentsService,
 );
+const assistantCodesController = new AssistantCodesController(
+  assistantCodesService,
+);
+const assistantsController = new AssistantsController(assistantsService);
 
 // 4. Create Middlewares (Inject Services)
 const requireAuth = createRequireAuth(authService);
@@ -225,6 +246,7 @@ export const container = {
   clinicsService,
   materialsService,
   lectureEnrollmentsService,
+  assistantsService,
   // Controllers
   authController,
   lecturesController,
@@ -237,6 +259,8 @@ export const container = {
   clinicsController,
   materialsController,
   lectureEnrollmentsController,
+  assistantCodesController,
+  assistantsController,
   // Middlewares
   requireAuth,
   optionalAuth,

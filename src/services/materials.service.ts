@@ -97,7 +97,7 @@ export class MaterialsService {
       if (!assistant)
         throw new NotFoundException('조교 정보를 찾을 수 없습니다.');
       ownerInstructorId = assistant.instructorId;
-      authorName = assistant.user.name;
+      authorName = assistant.name;
       authorRole = UserType.ASSISTANT;
     } else {
       throw new ForbiddenException('자료 업로드 권한이 없습니다.');

@@ -3,6 +3,7 @@ import { UserType } from '../constants/auth.constant.js';
 import {
   BadRequestException,
   ForbiddenException,
+  NotFoundException,
 } from '../err/http.exception.js';
 import {
   createMockInstructorRepository,
@@ -158,6 +159,13 @@ describe('AuthService - @unit #critical', () => {
         expect(result.user.userType).toBe(UserType.ASSISTANT);
         expect(mockAssistantCodeRepo.findValidCode).toHaveBeenCalledWith(
           signUpRequests.assistant.signupCode,
+        );
+        // Verify name is saved to Assistant table
+        expect(mockAssistantRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            name: signUpRequests.assistant.name,
+          }),
+          expect.anything(), // Transaction client
         );
       });
 
@@ -531,6 +539,77 @@ describe('AuthService - @unit #critical', () => {
           where: { id: mockUsers.instructor.id },
         });
       });
+    });
+  });
+
+  describe('AUTH-09: 회원 탈퇴', () => {
+    it('사용자가 회원 탈퇴를 요청할 때, Better Auth의 deleteUser API가 호출된다', async () => {
+      // Arrange
+      const headers = { cookie: 'test-session-cookie' };
+      mockBetterAuth.api.deleteUser.mockResolvedValue({
+        success: true,
+      });
+
+      // Act
+      await authService.withdraw(headers);
+
+      // Assert
+      expect(mockBetterAuth.api.deleteUser).toHaveBeenCalledWith({
+        headers: expect.anything(),
+        body: {},
+      });
+    });
+  });
+
+  describe('AUTH-10: 관리자 회원 탈퇴 처리', () => {
+    const userId = 'user-123';
+    const headers = { authorization: 'Bearer token' };
+
+    it('관리자가 회원 탈퇴를 요청할 때, Better Auth의 removeUser API가 호출된다', async () => {
+      // Arrange
+      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: userId,
+        userType: UserType.ASSISTANT,
+      });
+      (mockBetterAuth.api.removeUser as jest.Mock).mockResolvedValue({
+        success: true,
+      });
+
+      // Act
+      await authService.deleteUserById(userId, headers);
+
+      // Assert
+      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: userId },
+        select: { id: true, userType: true },
+      });
+      expect(mockBetterAuth.api.removeUser).toHaveBeenCalledWith({
+        body: { userId },
+        headers: expect.anything(),
+      });
+    });
+
+    it('존재하지 않는 사용자일 경우 NotFoundException을 던진다', async () => {
+      // Arrange
+      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(authService.deleteUserById(userId, headers)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('조교가 아닌 사용자를 삭제하려 하면 ForbiddenException을 던진다', async () => {
+      // Arrange
+      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: userId,
+        userType: UserType.STUDENT,
+      });
+
+      // Act & Assert
+      await expect(authService.deleteUserById(userId, headers)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 });

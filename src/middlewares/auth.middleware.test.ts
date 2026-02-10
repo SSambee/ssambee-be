@@ -191,6 +191,7 @@ describe('Auth Middleware - @unit #critical', () => {
       it('조교 역할이면 next()를 호출한다', () => {
         // Arrange
         mockReq.user = asAssistant();
+        mockReq.profile = mockProfiles.assistant;
 
         // Act
         requireInstructorOrAssistant(
@@ -444,6 +445,7 @@ describe('Auth Middleware - @unit #critical', () => {
 
       it('조교 접근 시 통과 (200)', () => {
         mockReq.user = asAssistant();
+        mockReq.profile = mockProfiles.assistant;
         managementMiddleware(mockReq as Request, mockRes as Response, mockNext);
         expect(mockNext).toHaveBeenCalledWith();
       });

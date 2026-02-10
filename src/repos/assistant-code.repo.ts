@@ -39,4 +39,29 @@ export class AssistantCodeRepository {
     // 성공적으로 업데이트된 경우, 결과 반환
     return client.assistantCode.findUnique({ where: { id } });
   }
+
+  async create(
+    data: {
+      code: string;
+      instructorId: string;
+      expireAt: Date;
+    },
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return client.assistantCode.create({
+      data,
+    });
+  }
+
+  async findByInstructorId(
+    instructorId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return client.assistantCode.findMany({
+      where: { instructorId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 }
