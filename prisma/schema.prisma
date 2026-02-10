@@ -249,6 +249,7 @@ model Lecture {
 
   instructorPosts InstructorPost[]
   studentPosts    StudentPost[]
+  assistantOrders AssistantOrder[]
 
   // [Performance] 강사별 강의 목록 조회
   @@index([instructorId])
@@ -579,6 +580,7 @@ model Material {
 
   instructorPostAttachments InstructorPostAttachment[]
   commentAttachments        CommentAttachment[]
+  orderAttachments          OrderAttachment[]
 
   @@index([instructorId])
   @@index([lectureId])
@@ -595,9 +597,12 @@ model AssistantOrder {
   instructorId String     @map("instructor_id")
   instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
 
-  lectureId  String  @map("lecture_id")
-  materialId String? @map("material_id")
+  lectureId  String?  @map("lecture_id")
+  lecture    Lecture? @relation(fields: [lectureId], references: [id], onDelete: SetNull)
 
+  attachments OrderAttachment[]
+
+  title    String
   memo     String?
   status   String  @default("PENDING")
   priority String  @default("NORMAL")
@@ -611,6 +616,24 @@ model AssistantOrder {
   @@index([lectureId])
   @@map("assistant_orders")
 }
+
+model OrderAttachment {
+  id       String  @id @default(cuid(2))
+  filename String
+  fileUrl  String? @map("file_url")
+
+  orderId String  @map("order_id")
+  materialId       String? @map("material_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  order    AssistantOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  material Material?      @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("order_attachments")
+}
+
 
 // --------------------------------------------------------
 // 8. COMMUNICATION (소통)

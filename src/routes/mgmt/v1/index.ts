@@ -34,7 +34,7 @@ mgmtV1Router.use('/assistant-codes', mgmtAssistantCodesRouter);
 import { mgmtAssistantsRouter } from './assistants.route.js';
 mgmtV1Router.use('/assistants', mgmtAssistantsRouter);
 
-/** 자료 라우터 (경로 자체 포함) */
+/** 자료 라우터 */
 import { mgmtMaterialsRouter } from './materials.route.js';
 mgmtV1Router.use('/materials', mgmtMaterialsRouter);
 
@@ -51,3 +51,7 @@ mgmtV1Router.use(
 /** 학생 질문 라우트 */
 import { mgmtStudentPostsRouter } from './student-posts.route.js';
 mgmtV1Router.use('/student-posts', mgmtStudentPostsRouter);
+
+/** 지시 생성 라우트 */
+import { mgmtAssistantOrderRouter } from './assistant-order.route.js';
+mgmtV1Router.use('/assistant-order', mgmtAssistantOrderRouter);
