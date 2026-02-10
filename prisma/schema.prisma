@@ -548,13 +548,13 @@ model Schedule {
 
   authorName String @map("author_name")
   authorRole String @map("author_role")
-  
+
   title        String
   startTime    DateTime @map("start_time")
   endTime      DateTime @map("end_time")
 
-  categoryId String   @map("category_id")
-  category     ScheduleCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId String?   @map("category_id")
+  category     ScheduleCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime? @updatedAt @map("updated_at")
