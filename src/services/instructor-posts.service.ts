@@ -219,14 +219,13 @@ export class InstructorPostsService {
       // Lecture: 수강 여부 확인
       if (post.scope === PostScope.LECTURE && post.lectureId) {
         const lecture = await this.lecturesRepository.findById(post.lectureId);
-        if (lecture) {
-          await this.permissionService.validateLectureReadAccess(
-            post.lectureId,
-            lecture,
-            userType,
-            profileId,
-          );
-        }
+        if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
+        await this.permissionService.validateLectureReadAccess(
+          post.lectureId,
+          lecture,
+          userType,
+          profileId,
+        );
       }
 
       // Selected: 타겟 포함 여부 확인
