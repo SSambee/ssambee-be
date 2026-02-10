@@ -3,8 +3,8 @@ import { z } from 'zod';
 export const createCommentSchema = z.object({
   content: z.string().min(1, '내용은 필수입니다.'),
   materialIds: z.array(z.cuid2()).optional(),
-  instructorPostId: z.string().optional(),
-  studentPostId: z.string().optional(),
+  instructorPostId: z.cuid2().optional(),
+  studentPostId: z.cuid2().optional(),
 });
 
 export const updateCommentSchema = z.object({
