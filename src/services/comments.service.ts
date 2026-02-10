@@ -8,6 +8,7 @@ import { CommentsRepository } from '../repos/comments.repo.js';
 import { InstructorPostsRepository } from '../repos/instructor-posts.repo.js';
 import { StudentPostsRepository } from '../repos/student-posts.repo.js';
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
+import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 import { PermissionService } from './permission.service.js';
 import {
   CreateCommentDto,
@@ -20,6 +21,7 @@ export class CommentsService {
     private readonly instructorPostsRepository: InstructorPostsRepository,
     private readonly studentPostsRepository: StudentPostsRepository,
     private readonly enrollmentsRepository: EnrollmentsRepository,
+    private readonly lectureEnrollmentsRepository: LectureEnrollmentsRepository,
     private readonly permissionService: PermissionService,
   ) {}
 
@@ -90,10 +92,43 @@ export class CommentsService {
           throw new ForbiddenException('질문 정보를 찾을 수 없습니다.');
         }
       } else if (data.instructorPostId) {
-        // 강사 게시물에 대한 학생 댓글은 지원하지 않음
-        throw new ForbiddenException(
-          '학생은 강사 게시물에 댓글을 작성할 수 없습니다.',
+        // 강사 게시글 댓글 작성
+        const post = await this.instructorPostsRepository.findById(
+          data.instructorPostId,
         );
+        if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
+
+        let enrollmentId = null;
+
+        if (post.lectureId) {
+          // 강의 지정 게시글인 경우: 해당 강의 수강생인지 확인
+          const enrollment =
+            await this.lectureEnrollmentsRepository.findByLectureIdAndStudentId(
+              post.lectureId,
+              profileId,
+            );
+          if (!enrollment) {
+            throw new ForbiddenException(
+              '해당 강의의 수강생만 댓글을 작성할 수 있습니다.',
+            );
+          }
+          enrollmentId = enrollment.enrollmentId; // LectureEnrollment가 아닌 Enrollment ID 사용
+        } else {
+          // 전체 공지(GLOBAL)인 경우: 해당 강사의 수강생인지 확인 (아무 강의나 하나라도 수강 중이면 OK)
+          const lectureEnrollment =
+            await this.lectureEnrollmentsRepository.findFirstByInstructorIdAndStudentId(
+              post.instructorId,
+              profileId,
+            );
+          if (!lectureEnrollment) {
+            throw new ForbiddenException(
+              '해당 강사의 수강생만 댓글을 작성할 수 있습니다.',
+            );
+          }
+          enrollmentId = lectureEnrollment.enrollmentId; // LectureEnrollment가 아닌 Enrollment ID 사용
+        }
+
+        writerInfo.enrollmentId = enrollmentId;
       }
     }
 
