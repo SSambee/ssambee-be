@@ -43,4 +43,44 @@ export class AssistantOrderRepository {
       },
     });
   }
+
+  async findManyByInstructorId(
+    instructorId: string,
+    params: {
+      status?: string;
+      page: number;
+      limit: number;
+    },
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    const { status, page, limit } = params;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.AssistantOrderWhereInput = {
+      instructorId,
+      ...(status && { status }),
+    };
+
+    const [orders, totalCount] = await Promise.all([
+      client.assistantOrder.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          assistant: {
+            select: { id: true, name: true },
+          },
+          lecture: {
+            select: { id: true, title: true },
+          },
+          attachments: true,
+        },
+      }),
+      client.assistantOrder.count({ where }),
+    ]);
+
+    return { orders, totalCount };
+  }
 }

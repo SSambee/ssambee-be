@@ -24,6 +24,7 @@ describe('AssistantOrderService', () => {
   beforeEach(() => {
     mockOrderRepo = {
       create: vi.fn(),
+      findManyByInstructorId: vi.fn(),
     };
     mockAssistantRepo = {
       findById: vi.fn(),
@@ -116,6 +117,65 @@ describe('AssistantOrderService', () => {
       await expect(
         service.createOrder(instructorId, validData),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('getOrdersByInstructor', () => {
+    const instructorId = 'inst-1';
+
+    it('should return orders with pagination', async () => {
+      const mockOrders = [
+        { id: '1', title: 'Order 1' },
+        { id: '2', title: 'Order 2' },
+      ];
+      const mockTotalCount = 2;
+
+      (mockOrderRepo.findManyByInstructorId as jest.Mock).mockResolvedValue({
+        orders: mockOrders,
+        totalCount: mockTotalCount,
+      });
+
+      const query = { page: 1, limit: 10 };
+      const result = await service.getOrdersByInstructor(instructorId, query);
+
+      expect(mockOrderRepo.findManyByInstructorId).toHaveBeenCalledWith(
+        instructorId,
+        {
+          status: undefined,
+          page: 1,
+          limit: 10,
+        },
+      );
+      expect(result).toEqual({
+        orders: mockOrders,
+        pagination: {
+          totalCount: mockTotalCount,
+          page: 1,
+          limit: 10,
+        },
+      });
+    });
+
+    it('should filter by status', async () => {
+      const mockOrders = [{ id: '1', title: 'Order 1' }];
+      const mockTotalCount = 1;
+
+      (mockOrderRepo.findManyByInstructorId as jest.Mock).mockResolvedValue({
+        orders: mockOrders,
+        totalCount: mockTotalCount,
+      });
+
+      const query = { status: 'PENDING', page: 1, limit: 10 } as const;
+      await service.getOrdersByInstructor(instructorId, query);
+
+      expect(mockOrderRepo.findManyByInstructorId).toHaveBeenCalledWith(
+        instructorId,
+        {
+          status: 'PENDING',
+          page: 1,
+          limit: 10,
+        },
+      );
     });
   });
 });

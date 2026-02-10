@@ -13,3 +13,13 @@ export const createAssistantOrderSchema = z.object({
 export type CreateAssistantOrderDto = z.infer<
   typeof createAssistantOrderSchema
 >;
+
+export const getAssistantOrdersQuerySchema = z.object({
+  status: z.enum(['PENDING', 'IN_PROGRESS', 'END']).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+});
+
+export type GetAssistantOrdersQueryDto = z.infer<
+  typeof getAssistantOrdersQuerySchema
+>;

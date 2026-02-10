@@ -2,7 +2,10 @@ import { PrismaClient } from '../generated/prisma/client.js';
 import { AssistantOrderRepository } from '../repos/assistant-order.repo.js';
 import { AssistantRepository } from '../repos/assistant.repo.js';
 import { MaterialsRepository } from '../repos/materials.repo.js';
-import { CreateAssistantOrderDto } from '../validations/assistant-order.validation.js';
+import {
+  CreateAssistantOrderDto,
+  GetAssistantOrdersQueryDto,
+} from '../validations/assistant-order.validation.js';
 import {
   ForbiddenException,
   NotFoundException,
@@ -62,5 +65,31 @@ export class AssistantOrderService {
       deadlineAt: deadlineAt ? new Date(deadlineAt) : undefined,
       attachments,
     });
+  }
+
+  /**
+   * 지시 목록 조회
+   */
+  async getOrdersByInstructor(
+    instructorId: string,
+    query: GetAssistantOrdersQueryDto,
+  ) {
+    const { status, page, limit } = query;
+
+    const { orders, totalCount } =
+      await this.assistantOrderRepository.findManyByInstructorId(instructorId, {
+        status,
+        page,
+        limit,
+      });
+
+    return {
+      orders,
+      pagination: {
+        totalCount,
+        page,
+        limit,
+      },
+    };
   }
 }

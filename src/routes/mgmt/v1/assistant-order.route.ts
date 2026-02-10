@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { container } from '../../../config/container.config.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
-import { createAssistantOrderSchema } from '../../../validations/assistant-order.validation.js';
+import {
+  createAssistantOrderSchema,
+  getAssistantOrdersQuerySchema,
+} from '../../../validations/assistant-order.validation.js';
 
 export const mgmtAssistantOrderRouter = Router({ mergeParams: true });
 
@@ -18,4 +21,14 @@ mgmtAssistantOrderRouter.post(
   '/',
   validate(createAssistantOrderSchema, 'body'),
   assistantOrderController.createOrder,
+);
+
+/**
+ * GET /api/mgmt/v1/assistant-order
+ * 지시 목록 조회
+ */
+mgmtAssistantOrderRouter.get(
+  '/',
+  validate(getAssistantOrdersQuerySchema, 'query'),
+  assistantOrderController.getOrders,
 );
