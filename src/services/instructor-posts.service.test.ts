@@ -1,6 +1,7 @@
 import { InstructorPostsService } from './instructor-posts.service.js';
 import {
   createMockInstructorPostsRepository,
+  createMockLectureEnrollmentsRepository,
   createMockLecturesRepository,
   createMockMaterialsRepository,
 } from '../test/mocks/repo.mock.js';
@@ -15,6 +16,7 @@ import { mockLectures } from '../test/fixtures/lectures.fixture.js';
 import type { InstructorPostsRepository } from '../repos/instructor-posts.repo.js';
 import type { LecturesRepository } from '../repos/lectures.repo.js';
 import type { MaterialsRepository } from '../repos/materials.repo.js';
+import type { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 import type { PermissionService } from './permission.service.js';
 
 describe('InstructorPostsService', () => {
@@ -22,18 +24,21 @@ describe('InstructorPostsService', () => {
   let instructorPostsRepo: jest.Mocked<InstructorPostsRepository>;
   let lecturesRepo: jest.Mocked<LecturesRepository>;
   let materialsRepo: jest.Mocked<MaterialsRepository>;
+  let lectureEnrollmentsRepo: jest.Mocked<LectureEnrollmentsRepository>;
   let permissionService: jest.Mocked<PermissionService>;
 
   beforeEach(() => {
     instructorPostsRepo = createMockInstructorPostsRepository();
     lecturesRepo = createMockLecturesRepository();
     materialsRepo = createMockMaterialsRepository();
+    lectureEnrollmentsRepo = createMockLectureEnrollmentsRepository();
     permissionService = createMockPermissionService();
 
     service = new InstructorPostsService(
       instructorPostsRepo,
       lecturesRepo,
       materialsRepo,
+      lectureEnrollmentsRepo,
       permissionService,
     );
   });
@@ -87,43 +92,45 @@ describe('InstructorPostsService', () => {
       // TODO: userType === ASSISTANT 인 경우
     });
 
-    it('학생이 조회할 때 본인이 대상이 아니거나 scope가 유효하지 않은 게시글은 목록에 포함되지 않아야 한다', async () => {
+    it('학생이 조회할 때 본인의 수강 정보를 기반으로 DB 필터링을 수행한다', async () => {
       const query = { page: 1, limit: 10 };
-      const validPost = mockInstructorPosts.global;
-      const otherTargetedPost = {
-        ...mockInstructorPosts.selected,
-        id: 'other-target',
-        targets: [
-          {
-            instructorPostId: 'other-target',
-            enrollmentId: 'enrollment-other',
-            enrollment: {
-              appStudentId: 'other-student',
-              studentName: '이학생',
-            },
-          },
-        ],
-      };
-      const invalidScopePost = {
-        ...mockInstructorPosts.global,
-        id: 'invalid-scope',
-        scope: 'INVALID',
-      };
+      const profileId = 'student-1';
+      const mockEnrollments = [
+        {
+          enrollmentId: 'en-1',
+          lectureId: 'lec-1',
+          lecture: { instructorId: 'ins-1' },
+        },
+      ];
 
+      lectureEnrollmentsRepo.findAllByAppStudentId.mockResolvedValue(
+        mockEnrollments,
+      );
       instructorPostsRepo.findMany.mockResolvedValue({
-        posts: [validPost, otherTargetedPost, invalidScopePost],
-        totalCount: 3,
+        posts: [mockInstructorPosts.global],
+        totalCount: 1,
       });
 
       const result = await service.getPostList(
         query,
         UserType.STUDENT,
-        'student-1',
+        profileId,
       );
 
-      // 본인에게 유효한 게시글만 필터링되어야 함
-      expect(result.posts).toHaveLength(1);
-      expect(result.posts[0].id).toBe(validPost.id);
+      // Verify DB filtering was called with correct params
+      expect(lectureEnrollmentsRepo.findAllByAppStudentId).toHaveBeenCalledWith(
+        profileId,
+      );
+      expect(instructorPostsRepo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          studentFiltering: {
+            lectureIds: ['lec-1'],
+            instructorIds: ['ins-1'],
+            enrollmentIds: ['en-1'],
+          },
+        }),
+      );
+      expect(result.totalCount).toBe(1);
     });
 
     it('검색어, 페이지네이션 필터가 포함된 경우 정상적으로 목록을 반환한다', async () => {

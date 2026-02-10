@@ -225,6 +225,7 @@ const instructorPostsService = new InstructorPostsService(
   instructorPostsRepo,
   lecturesRepo,
   materialsRepo,
+  lectureEnrollmentsRepo,
   permissionService,
 );
 const studentPostsService = new StudentPostsService(

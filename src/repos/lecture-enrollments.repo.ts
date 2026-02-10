@@ -133,6 +133,26 @@ export class LectureEnrollmentsRepository {
     return { lectureEnrollments, totalCount };
   }
 
+  /** 학생의 모든 유효 수강 목록 조회 (필터링 데이터 구축용) */
+  async findAllByAppStudentId(
+    appStudentId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return client.lectureEnrollment.findMany({
+      where: {
+        enrollment: {
+          appStudentId,
+          deletedAt: null,
+          status: 'ACTIVE',
+        },
+      },
+      include: {
+        lecture: true,
+      },
+    });
+  }
+
   /** [NEW] 학부모 자녀 연동(AppParentChildLink) 기준 수강 강의 목록 조회 */
   async findManyByAppParentLinkId(
     appParentLinkId: string,

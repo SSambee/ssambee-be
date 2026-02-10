@@ -19,6 +19,12 @@ export type InstructorPostWithDetails = Prisma.InstructorPostGetPayload<{
   };
 }>;
 
+export type StudentFiltering = {
+  lectureIds: string[];
+  instructorIds: string[];
+  enrollmentIds: string[];
+};
+
 export class InstructorPostsRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -113,7 +119,8 @@ export class InstructorPostsRepository {
       search?: string;
       page: number;
       limit: number;
-      targetEnrollmentIds?: string[]; // 학생용 SELECTED 스코프 필터링
+      targetEnrollmentIds?: string[]; // 학생용 SELECTED 스코프 필터링 (하위 호환)
+      studentFiltering?: StudentFiltering;
     },
     tx?: Prisma.TransactionClient,
   ) {
@@ -126,6 +133,7 @@ export class InstructorPostsRepository {
       page,
       limit,
       targetEnrollmentIds,
+      studentFiltering,
     } = params;
     const skip = (page - 1) * limit;
 
@@ -139,17 +147,40 @@ export class InstructorPostsRepository {
           { content: { contains: search, mode: 'insensitive' } },
         ],
       }),
-      // targetEnrollmentIds가 있으면 SELECTED 스코프로 강제 필터링
-      // (학생용: 본인이 타겟인 SELECTED 게시글만 조회)
-      // 이 경우 caller가 전달한 scope는 무시됨
-      ...(targetEnrollmentIds?.length && {
-        scope: PostScope.SELECTED,
-        targets: {
-          some: {
-            enrollmentId: { in: targetEnrollmentIds },
+      // 학생용 복합 필터링 (OR 조건)
+      ...(studentFiltering && {
+        OR: [
+          // 1. GLOBAL: 내가 수강 중인 강사의 전체 공지
+          {
+            scope: PostScope.GLOBAL,
+            instructorId: { in: studentFiltering.instructorIds },
           },
-        },
+          // 2. LECTURE: 내가 수강 중인 강의의 공지
+          {
+            scope: PostScope.LECTURE,
+            lectureId: { in: studentFiltering.lectureIds },
+          },
+          // 3. SELECTED: 내가 타겟으로 지정된 공지
+          {
+            scope: PostScope.SELECTED,
+            targets: {
+              some: {
+                enrollmentId: { in: studentFiltering.enrollmentIds },
+              },
+            },
+          },
+        ],
       }),
+      // targetEnrollmentIds (Backward compatibility)
+      ...(targetEnrollmentIds?.length &&
+        !studentFiltering && {
+          scope: PostScope.SELECTED,
+          targets: {
+            some: {
+              enrollmentId: { in: targetEnrollmentIds },
+            },
+          },
+        }),
     };
 
     const [posts, totalCount] = await Promise.all([

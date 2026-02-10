@@ -5,12 +5,10 @@ import {
 } from '../err/http.exception.js';
 import { PostScope, TargetRole } from '../constants/posts.constant.js';
 import { UserType } from '../constants/auth.constant.js';
-import {
-  InstructorPostsRepository,
-  InstructorPostWithDetails,
-} from '../repos/instructor-posts.repo.js';
+import { InstructorPostsRepository } from '../repos/instructor-posts.repo.js';
 import { LecturesRepository } from '../repos/lectures.repo.js';
 import { MaterialsRepository } from '../repos/materials.repo.js';
+import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 import { PermissionService } from './permission.service.js';
 import {
   CreateInstructorPostDto,
@@ -23,6 +21,7 @@ export class InstructorPostsService {
     private readonly instructorPostsRepository: InstructorPostsRepository,
     private readonly lecturesRepository: LecturesRepository,
     private readonly materialsRepository: MaterialsRepository,
+    private readonly lectureEnrollmentsRepository: LectureEnrollmentsRepository,
     private readonly permissionService: PermissionService,
   ) {}
 
@@ -127,12 +126,24 @@ export class InstructorPostsService {
       if (!id) throw new ForbiddenException('강사 정보를 찾을 수 없습니다.');
       instructorId = id;
     } else if (userType === UserType.STUDENT) {
-      _appStudentId = profileId;
+      // 학생용 필터링 데이터 구축
+      const enrollments =
+        await this.lectureEnrollmentsRepository.findAllByAppStudentId(
+          profileId,
+        );
 
-      // 학생은 조회 시 본인 enrollment ID 목록이 필요 (SELECTED 스코프 필터링)
-      // TODO: 향후 EnrollmentsRepository를 통해 조회하여 targetEnrollmentIds 할당
+      targetEnrollmentIds = enrollments.map((e) => e.enrollmentId);
+      const lectureIds = enrollments.map((e) => e.lectureId);
+      const instructorIds = enrollments.map((e) => e.lecture.instructorId);
 
-      // 학생은 강의별 조회 시 수강 권한 확인
+      // 중복 제거 및 필터링 객체 생성
+      const studentFiltering = {
+        lectureIds: [...new Set(lectureIds)],
+        instructorIds: [...new Set(instructorIds)],
+        enrollmentIds: [...new Set(targetEnrollmentIds)],
+      };
+
+      // 학생은 강의별 조회 시 수강 권한 확인 (기존 로직 유지)
       if (query.lectureId) {
         const lecture = await this.lecturesRepository.findById(query.lectureId);
         if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
@@ -144,51 +155,26 @@ export class InstructorPostsService {
           profileId,
         );
       }
+
+      // DB 레벨 필터링 요청
+      return await this.instructorPostsRepository.findMany({
+        lectureId: query.lectureId,
+        scope: query.scope,
+        search: query.search,
+        page: query.page,
+        limit: query.limit,
+        studentFiltering,
+      });
     }
 
-    // 2. SELECTED 스코프 필터링 (학생용)
-    // 학생의 경우 현재 in-memory 필터링으로 처리 (향후 DB 레벨 구현 가능)
-
-    const result = await this.instructorPostsRepository.findMany({
+    return await this.instructorPostsRepository.findMany({
       lectureId: query.lectureId,
       scope: query.scope,
       search: query.search,
       page: query.page,
       limit: query.limit,
-      instructorId: userType === UserType.STUDENT ? undefined : instructorId,
-      targetEnrollmentIds, // 학생용 SELECTED 스코프 필터링 (미구현 시 undefined)
+      instructorId,
     });
-
-    // 학생용 게시글 필터링 (본인 권한에 맞는 게시글만 반환)
-    if (userType === UserType.STUDENT) {
-      const posts = result.posts as InstructorPostWithDetails[];
-
-      // 현재 페이지 결과에 대해 in-memory 필터링
-      // TODO: DB 레벨 targetEnrollmentIds 필터링 구현 시 페이지네이션 정확성 확보
-      const filteredPosts = posts.filter((post) => {
-        // 유효하지 않은 스코프는 필터링
-        if (!(Object.values(PostScope) as string[]).includes(post.scope)) {
-          return false;
-        }
-
-        // SELECTED 스코프: 본인이 타겟인지 확인
-        if (post.scope === PostScope.SELECTED) {
-          return post.targets?.some(
-            (t) => t.enrollment?.appStudentId === profileId,
-          );
-        }
-        return true;
-      });
-
-      // 페이지네이션 정확성을 위해 전체 개수는 별도 조회 필요
-      // 현재는 간소화하여 필터링된 개수로 응답
-      return {
-        posts: filteredPosts,
-        totalCount: filteredPosts.length,
-      };
-    }
-
-    return result;
   }
 
   /** 공지 상세 조회 */
