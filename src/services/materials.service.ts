@@ -372,47 +372,47 @@ export class MaterialsService {
     if (!material) throw new NotFoundException('자료를 찾을 수 없습니다.');
 
     // 권한 확인
-    if (material.lectureId) {
-      const lecture = await this.lecturesRepository.findById(
-        material.lectureId,
-      );
-      if (!lecture)
-        throw new NotFoundException('강의 정보를 찾을 수 없습니다.');
-
-      await this.permissionService.validateLectureReadAccess(
-        material.lectureId,
-        { instructorId: lecture.instructorId },
-        userType,
-        profileId,
-      );
-
-      // 학생인 경우 추가 접근 제어 (게시글 타겟팅 확인)
-      if (userType === UserType.STUDENT && material.lectureId) {
-        const enrollment =
-          await this.lectureEnrollmentsRepository.findByLectureIdAndStudentId(
-            material.lectureId,
-            profileId,
-          );
-        if (!enrollment) {
-          throw new ForbiddenException('해당 자료에 접근 권한이 없습니다.');
-        }
-        const isAccessible =
-          await this.materialsRepository.isAccessibleByStudent(
-            materialsId,
-            enrollment.enrollmentId,
-            material.lectureId,
-          );
-        if (!isAccessible) {
-          throw new ForbiddenException('해당 자료에 접근 권한이 없습니다.');
-        }
-      }
-    } else {
-      // 라이브러리 자료: 소유권 확인
+    if (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) {
+      // 강사/조교: 소유권 확인
       await this.permissionService.validateInstructorAccess(
         material.instructorId,
         userType,
         profileId,
       );
+    } else if (userType === UserType.STUDENT) {
+      // 학생: 강의 자료 또는 게시글 첨부 자료 확인
+      if (material.lectureId) {
+        const isEnrolled =
+          await this.lectureEnrollmentsRepository.existsByLectureIdAndStudentId(
+            material.lectureId,
+            profileId,
+          );
+        if (!isEnrolled) {
+          throw new ForbiddenException('수강 중인 강의가 아닙니다.');
+        }
+      }
+
+      const enrollment =
+        await this.lectureEnrollmentsRepository.findFirstByInstructorIdAndStudentId(
+          material.instructorId,
+          profileId,
+        );
+
+      if (!enrollment) {
+        throw new ForbiddenException('해당 자료에 접근 권한이 없습니다.');
+      }
+
+      const isAccessible = await this.materialsRepository.isAccessibleByStudent(
+        materialsId,
+        enrollment.enrollmentId,
+        material.lectureId ?? undefined,
+      );
+
+      if (!isAccessible) {
+        throw new ForbiddenException('해당 자료에 접근 권한이 없습니다.');
+      }
+    } else {
+      throw new ForbiddenException('접근 권한이 없습니다.');
     }
 
     if (material.type === MaterialType.VIDEO_LINK) {

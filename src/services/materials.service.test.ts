@@ -441,5 +441,74 @@ describe('MaterialsService', () => {
 
       expect(result.url).toBe('presigned-url');
     });
+
+    it('조교가 담당 강사의 라이브러리 자료를 다운로드 시 성공해야 한다', async () => {
+      const mockMaterial = {
+        ...mockMaterials.basic,
+        lectureId: null,
+        instructorId: 'instructor-a',
+      };
+      materialsRepo.findById.mockResolvedValue(mockMaterial);
+      fileStorageService.getPresignedUrl.mockResolvedValue('presigned-url');
+
+      const result = await service.getDownloadUrl(
+        mockMaterial.id,
+        UserType.ASSISTANT,
+        'assistant-a',
+      );
+
+      expect(permissionService.validateInstructorAccess).toHaveBeenCalledWith(
+        'instructor-a',
+        UserType.ASSISTANT,
+        'assistant-a',
+      );
+      expect(result.url).toBe('presigned-url');
+    });
+
+    it('학생이 게시글에 첨부된 라이브러리 자료를 다운로드 시 성공해야 한다', async () => {
+      const mockMaterial = {
+        ...mockMaterials.basic,
+        lectureId: null,
+        instructorId: 'instructor-a',
+      };
+      const mockEnrollment = { enrollmentId: 'enrollment-1' };
+      materialsRepo.findById.mockResolvedValue(mockMaterial);
+      lectureEnrollmentsRepo.findFirstByInstructorIdAndStudentId.mockResolvedValue(
+        mockEnrollment,
+      );
+      materialsRepo.isAccessibleByStudent.mockResolvedValue(true);
+      fileStorageService.getPresignedUrl.mockResolvedValue('presigned-url');
+
+      const result = await service.getDownloadUrl(
+        mockMaterial.id,
+        UserType.STUDENT,
+        'student-1',
+      );
+
+      expect(materialsRepo.isAccessibleByStudent).toHaveBeenCalledWith(
+        mockMaterial.id,
+        'enrollment-1',
+        undefined,
+      );
+      expect(result.url).toBe('presigned-url');
+    });
+
+    it('타인의 라이브러리 자료가 게시글에 첨부되지 않은 경우 학생의 다운로드는 차단되어야 한다', async () => {
+      const mockMaterial = {
+        ...mockMaterials.basic,
+        lectureId: null,
+        instructorId: 'instructor-a',
+      };
+      const mockEnrollment = { enrollmentId: 'enrollment-1' };
+      materialsRepo.findById.mockResolvedValue(mockMaterial);
+      lectureEnrollmentsRepo.findFirstByInstructorIdAndStudentId.mockResolvedValue(
+        mockEnrollment,
+      );
+      materialsRepo.isAccessibleByStudent.mockResolvedValue(false);
+
+      await expect(
+        service.getDownloadUrl(mockMaterial.id, UserType.STUDENT, 'student-1'),
+      ).rejects.toThrow(ForbiddenException);
+    });
   });
 });
