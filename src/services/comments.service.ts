@@ -70,8 +70,12 @@ export class CommentsService {
             writerInfo.enrollmentId = post.enrollmentId;
           }
         }
+      } else if (data.instructorPostId) {
+        // 강사 게시물에 대한 학생 댓글은 지원하지 않음
+        throw new ForbiddenException(
+          '학생은 강사 게시물에 댓글을 작성할 수 없습니다.',
+        );
       }
-      // instructorPostId에 대한 학생 댓글은 현재 지원하지 않음
     }
 
     return this.commentsRepository.create({
