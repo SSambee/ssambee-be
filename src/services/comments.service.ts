@@ -94,15 +94,32 @@ export class CommentsService {
     const comment = await this.commentsRepository.findById(commentId);
     if (!comment) throw new NotFoundException('댓글을 찾을 수 없습니다.');
 
-    // 본인 댓글 or 게시글 작성자/관리자(강사) 권한 확인
-    // 간단히 본인 댓글만 삭제 가능하게 구현
-    if (
-      userType === UserType.INSTRUCTOR &&
-      comment.instructorId !== profileId
-    ) {
-      throw new ForbiddenException('삭제 권한이 없습니다.');
+    // 권한 검증
+    if (userType === UserType.STUDENT) {
+      // 학생: Enrollment의 appStudentId로 본인 확인
+      if (!comment.enrollmentId) {
+        throw new ForbiddenException('본인의 댓글만 삭제할 수 있습니다.');
+      }
+      const enrollment = await this.enrollmentsRepository.findById(
+        comment.enrollmentId,
+      );
+      if (enrollment?.appStudentId !== profileId) {
+        throw new ForbiddenException('본인의 댓글만 삭제할 수 있습니다.');
+      }
+    } else if (userType === UserType.INSTRUCTOR) {
+      // 강사: instructorId로 본인 확인
+      if (comment.instructorId !== profileId) {
+        throw new ForbiddenException('본인의 댓글만 삭제할 수 있습니다.');
+      }
+    } else if (userType === UserType.ASSISTANT) {
+      // 조교: 현재는 댓글 삭제 권한 없음
+      throw new ForbiddenException('조교는 댓글을 삭제할 수 없습니다.');
+    } else if (userType === UserType.PARENT) {
+      // 학부모: 현재는 댓글 삭제 권한 없음
+      throw new ForbiddenException('학부모는 댓글을 삭제할 수 없습니다.');
+    } else {
+      throw new ForbiddenException('댓글 삭제 권한이 없습니다.');
     }
-    // ... 기타 타입 체크 ...
 
     return this.commentsRepository.delete(commentId);
   }
