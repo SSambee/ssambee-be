@@ -61,3 +61,10 @@ mgmtStudentPostsRouter.patch(
   validate(updateCommentSchema, 'body'),
   commentsController.updateComment,
 );
+
+/** 답변(댓글) 삭제 */
+mgmtStudentPostsRouter.delete(
+  '/:postId/comments/:commentId',
+  validate(commentEditParamsSchema, 'params'),
+  commentsController.deleteComment,
+);
