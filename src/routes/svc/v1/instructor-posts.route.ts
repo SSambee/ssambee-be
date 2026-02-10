@@ -45,6 +45,13 @@ svcInstructorPostsRouter.post(
   commentsController.createComment,
 );
 
+/** 댓글 목록 조회 (성능 이슈시추후 분리 예정) */
+// svcInstructorPostsRouter.get(
+//   '/:postId/comments',
+//   validate(instructorPostParamsSchema, 'params'),
+//   commentsController.getCommentList,
+// );
+
 /** 댓글 수정 (본인만 가능) */
 svcInstructorPostsRouter.patch(
   '/:postId/comments/:commentId',
