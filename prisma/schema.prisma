@@ -604,7 +604,7 @@ model AssistantOrder {
 
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime? @updatedAt @map("updated_at")
-  deadlinedAt DateTime? @map("deadlined_at")
+  deadlineAt DateTime? @map("deadline_at")
 
   @@index([assistantId])
   @@index([instructorId])

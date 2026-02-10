@@ -70,7 +70,6 @@ describe('AssistantCodesService', () => {
       const result = await service.getCodesByInstructor(instructorId);
 
       expect(result).toBe(mockCodes);
-      expect(result).toBe(mockCodes);
       expect(mockRepo.findByInstructorId).toHaveBeenCalledWith(instructorId);
     });
   });
