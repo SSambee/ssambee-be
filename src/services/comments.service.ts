@@ -1,6 +1,7 @@
 import {
   ForbiddenException,
   NotFoundException,
+  BadRequestException,
 } from '../err/http.exception.js';
 import { UserType } from '../constants/auth.constant.js';
 import { CommentsRepository } from '../repos/comments.repo.js';
@@ -28,6 +29,13 @@ export class CommentsService {
     userType: UserType,
     profileId: string,
   ) {
+    // 상호 배타성 검증 (방어코드)
+    if (data.instructorPostId && data.studentPostId) {
+      throw new BadRequestException(
+        'instructorPostId와 studentPostId를 동시에 지정할 수 없습니다.',
+      );
+    }
+
     // 게시글 존재 여부 확인
     if (data.instructorPostId) {
       const post = await this.instructorPostsRepository.findById(

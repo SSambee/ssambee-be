@@ -21,16 +21,13 @@ export class CommentsController {
 
       // URL 파라미터 병합 (라우트 설정에 따라 다름)
       if (req.params.postId) {
-        // 라우트가 /instructor-posts/:postId/comments 인지 /student-posts/:postId/comments 인지 구분 필요
-        // 혹은 미들웨어나 라우트 분기에서 data에 주입
-        // 여기서는 body Validation이 필드를 요구하므로, 클라이언트가 body에 ID를 포함한다고 가정하거나
-        // 라우트별 핸들러를 분리하는 것이 좋을 수 있음.
-
-        // 하지만 지금은 하나의 createComment 메서드로 처리하고, params를 확인하여 body에 주입
+        // 라우트가 /instructor-posts/:postId/comments 인지 /student-posts/:postId/comments 인지 구분 (방어코드)
         if (req.baseUrl.includes('instructor-posts')) {
           data.instructorPostId = req.params.postId;
+          data.studentPostId = undefined; // 반대쪽 필드 제거
         } else if (req.baseUrl.includes('student-posts')) {
           data.studentPostId = req.params.postId;
+          data.instructorPostId = undefined; // 반대쪽 필드 제거
         }
       }
 
