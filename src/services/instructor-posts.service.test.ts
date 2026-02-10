@@ -175,10 +175,12 @@ describe('InstructorPostsService', () => {
       });
 
       it('학생이 존재하지 않는 강의의 공지를 조회하려고 하면 NotFoundException이 발생한다', async () => {
+        const post = mockInstructorPosts.lecture;
+        instructorPostsRepo.findById.mockResolvedValue(post);
         lecturesRepo.findById.mockResolvedValue(null);
 
         await expect(
-          service.getPostDetail('post-id', UserType.STUDENT, 'student-1'),
+          service.getPostDetail(post.id, UserType.STUDENT, 'student-1'),
         ).rejects.toThrow(NotFoundException);
       });
 
