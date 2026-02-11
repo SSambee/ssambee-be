@@ -466,7 +466,7 @@ describe('MaterialsService', () => {
       expect(permissionService.validateInstructorAccess).toHaveBeenCalledWith(
         'instructor-a',
         UserType.ASSISTANT,
-        'instructor-a',
+        'assistant-a',
       );
       expect(result.url).toBe('presigned-url');
     });

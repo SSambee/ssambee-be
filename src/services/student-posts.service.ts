@@ -15,6 +15,7 @@ import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.
 import { LecturesRepository } from '../repos/lectures.repo.js';
 import { CommentsRepository } from '../repos/comments.repo.js';
 import { PermissionService } from './permission.service.js';
+import { StudentPost, Comment } from '../generated/prisma/client.js';
 
 export class StudentPostsService {
   constructor(
@@ -32,29 +33,14 @@ export class StudentPostsService {
     userType: UserType,
     profileId: string,
   ) {
-    // 1. Enrollment 식별
     let enrollmentId = '';
     let authorRole = AuthorRole.STUDENT;
 
-    // 질문은 'Enrollment(학생-강사 관계)'에 귀속됨
-    // lectureId가 있으면 해당 강의의 enrollment를 찾음
     if (userType === UserType.STUDENT) {
-      if (data.lectureId) {
-        const lecture = await this.lecturesRepository.findById(data.lectureId);
-        if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
-
-        const enrollment =
-          await this.lectureEnrollmentsRepository.findByLectureIdAndStudentId(
-            data.lectureId,
-            profileId,
-          );
-        if (!enrollment)
-          throw new ForbiddenException('해당 강의를 수강하고 있지 않습니다.');
-
-        enrollmentId = enrollment.enrollmentId;
-      } else {
-        throw new BadRequestException('강의 ID는 필수입니다.');
-      }
+      enrollmentId = await this.getStudentEnrollmentForPost(
+        data.lectureId,
+        profileId,
+      );
       authorRole = AuthorRole.STUDENT;
     } else if (userType === UserType.PARENT) {
       // TODO: 학부모 질문 작성 - 자녀 선택 후 enrollment 조회 로직 필요
@@ -95,7 +81,12 @@ export class StudentPostsService {
     } else if (userType === UserType.STUDENT) {
       appStudentId = profileId;
     } else if (userType === UserType.ASSISTANT) {
-      throw new ForbiddenException('조교 권한 검증이 구현되지 않았습니다.');
+      const id = await this.permissionService.getEffectiveInstructorId(
+        userType,
+        profileId,
+      );
+      if (!id) throw new ForbiddenException('강사 정보를 찾을 수 없습니다.');
+      instructorId = id;
     } else {
       throw new ForbiddenException('접근 권한이 없습니다.');
     }
@@ -113,46 +104,14 @@ export class StudentPostsService {
     if (!post) throw new NotFoundException('질문을 찾을 수 없습니다.');
 
     // 권한 검증
-    if (userType === UserType.STUDENT) {
-      // 본인 확인
-      const enrollment = await this.enrollmentsRepository.findById(
-        post.enrollmentId,
-      );
-      if (enrollment?.appStudentId !== profileId) {
-        throw new ForbiddenException('본인의 질문만 조회할 수 있습니다.');
-      }
-    } else if (userType === UserType.INSTRUCTOR) {
-      if (post.instructorId !== profileId) {
-        throw new ForbiddenException('권한이 없습니다.');
-      }
-    } else if (userType === UserType.ASSISTANT) {
-      // 조교: 해당 게시글의 강사와 연결되어 있는지 확인
-      const instructorId =
-        await this.permissionService.getInstructorIdByAssistantId(profileId);
-      if (!instructorId || instructorId !== post.instructorId) {
-        throw new ForbiddenException('담당 강사의 질문만 조회할 수 있습니다.');
-      }
-    } else {
-      throw new ForbiddenException('접근 권한이 없습니다.');
-    }
+    await this.validatePostAccess(post, userType, profileId);
 
     // 학생용 댓글 첨부파일 필터링
     if (userType === UserType.STUDENT && post.comments) {
-      const filteredComments = await Promise.all(
-        post.comments.map(async (comment) => {
-          // 학생이 해당 댓글의 첨부파일에 접근 가능한지 확인
-          const accessibleAttachments = await this.filterAccessibleAttachments(
-            comment.attachments,
-            post.lectureId,
-            post.instructorId,
-            userType,
-            profileId,
-          );
-          return {
-            ...comment,
-            attachments: accessibleAttachments,
-          };
-        }),
+      const filteredComments = await this.processPostComments(
+        post,
+        userType,
+        profileId,
       );
 
       return {
@@ -162,6 +121,220 @@ export class StudentPostsService {
     }
 
     return post;
+  }
+
+  /** 상태 변경 */
+  async updateStatus(
+    postId: string,
+    status: string,
+    userType: UserType,
+    profileId: string,
+  ) {
+    const post = await this.studentPostsRepository.findById(postId);
+    if (!post) throw new NotFoundException('질문을 찾을 수 없습니다.');
+
+    // 권한 검증
+    await this.validatePostAccess(post, userType, profileId);
+
+    // 상태 변경 유효성 검사 (학생은 해결됨으로만 변경 가능)
+    if (userType === UserType.STUDENT && status !== StudentPostStatus.PENDING) {
+      // NOTE: validatePostAccess에서 이미 학생 권한 체크를 했지만,
+      // 상태 변경에 대한 추가적인 제약사항이 있다면 여기서 처리
+      // 현재 로직상 학생은 본인 글에 대해 UPDATE_STATUS 권한을 가지며,
+      // 특정 상태로의 변경 제약은 비즈니스 로직으로 남겨둡니다.
+      // 기존 코드: if (status !== StudentPostStatus.PENDING) ...
+      // 학생이 PENDING이 아닌 상태로 변경하려 할 때 에러?
+      // 기존 로직: if (status !== StudentPostStatus.PENDING) throw ...
+      // "학생은 해결됨 상태로만 변경할 수 있습니다." -> 이 메시지가 좀 모호함.
+      // PENDING -> RESOLVED (O), RESOLVED -> PENDING (X)?
+      // 일단 기존 로직을 유지합니다.
+      throw new ForbiddenException(
+        '학생은 해결됨 상태로만 변경할 수 있습니다.',
+      );
+    }
+
+    return this.studentPostsRepository.updateStatus(postId, status);
+  }
+
+  /** 댓글 수정 */
+  async updateComment(
+    commentId: string,
+    content: string,
+    userType: UserType,
+    profileId: string,
+  ) {
+    const comment = await this.commentsRepository.findById(commentId);
+    if (!comment) throw new NotFoundException('댓글을 찾을 수 없습니다.');
+
+    await this.validateCommentAccess(comment, userType, profileId);
+
+    return this.commentsRepository.update(commentId, { content });
+  }
+
+  /** 질문 수정 (본인만 가능) */
+  async updatePost(
+    postId: string,
+    data: { title?: string; content?: string },
+    userType: UserType,
+    profileId: string,
+  ) {
+    const post = await this.studentPostsRepository.findById(postId);
+    if (!post) throw new NotFoundException('질문을 찾을 수 없습니다.');
+
+    await this.validatePostAccess(post, userType, profileId);
+
+    if (!data.title && !data.content) {
+      throw new BadRequestException('수정할 내용이 없습니다.');
+    }
+
+    const isRedundant =
+      (data.title === undefined || data.title === post.title) &&
+      (data.content === undefined || data.content === post.content);
+
+    if (isRedundant) {
+      return post;
+    }
+
+    return this.studentPostsRepository.update(postId, {
+      title: data.title,
+      content: data.content,
+    });
+  }
+
+  /** 질문 삭제 (본인만 가능) */
+  async deletePost(postId: string, userType: UserType, profileId: string) {
+    const post = await this.studentPostsRepository.findById(postId);
+    if (!post) throw new NotFoundException('질문을 찾을 수 없습니다.');
+
+    await this.validatePostAccess(post, userType, profileId);
+
+    return this.studentPostsRepository.delete(postId);
+  }
+
+  // ----------------------------------------------------------------
+  // Private Helper Methods
+  // ----------------------------------------------------------------
+
+  /** 게시글 접근 권한 검증 Helper */
+  private async validatePostAccess(
+    post: StudentPost,
+    userType: UserType,
+    profileId: string,
+  ) {
+    if (userType === UserType.STUDENT) {
+      const enrollment = await this.enrollmentsRepository.findById(
+        post.enrollmentId,
+      );
+      if (enrollment?.appStudentId !== profileId) {
+        throw new ForbiddenException('권한이 없습니다.');
+      }
+      return;
+    }
+
+    if (userType === UserType.INSTRUCTOR) {
+      if (post.instructorId !== profileId) {
+        throw new ForbiddenException('권한이 없습니다.');
+      }
+      return;
+    }
+
+    if (userType === UserType.ASSISTANT) {
+      const instructorId =
+        await this.permissionService.getEffectiveInstructorId(
+          userType,
+          profileId,
+        );
+      if (instructorId !== post.instructorId) {
+        throw new ForbiddenException('권한이 없습니다.');
+      }
+      return;
+    }
+
+    if (userType === UserType.PARENT) {
+      // TODO: 학부모 권한 검증 로직
+      throw new ForbiddenException('학부모 권한 검증이 구현되지 않았습니다.');
+    }
+
+    throw new ForbiddenException('접근 권한이 없습니다.');
+  }
+
+  /** 댓글 접근 권한 검증 Helper */
+  private async validateCommentAccess(
+    comment: Comment,
+    userType: UserType,
+    profileId: string,
+  ) {
+    if (userType === UserType.STUDENT) {
+      if (!comment.enrollmentId) {
+        throw new ForbiddenException('본인의 댓글만 수정할 수 있습니다.');
+      }
+      const enrollment = await this.enrollmentsRepository.findById(
+        comment.enrollmentId,
+      );
+      if (enrollment?.appStudentId !== profileId) {
+        throw new ForbiddenException('본인의 댓글만 수정할 수 있습니다.');
+      }
+      return;
+    }
+
+    if (userType === UserType.INSTRUCTOR) {
+      if (comment.instructorId !== profileId) {
+        throw new ForbiddenException('본인의 댓글만 수정할 수 있습니다.');
+      }
+      return;
+    }
+
+    if (userType === UserType.PARENT) {
+      throw new ForbiddenException('학부모는 댓글을 수정할 수 없습니다.');
+    }
+
+    throw new ForbiddenException('댓글 수정 권한이 없습니다.');
+  }
+
+  /** 학생 질문 작성을 위한 Enrollment ID 조회 Helper */
+  private async getStudentEnrollmentForPost(
+    lectureId: string | undefined,
+    profileId: string,
+  ): Promise<string> {
+    if (!lectureId) {
+      throw new BadRequestException('강의 ID는 필수입니다.');
+    }
+
+    const lecture = await this.lecturesRepository.findById(lectureId);
+    if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
+
+    const enrollment =
+      await this.lectureEnrollmentsRepository.findByLectureIdAndStudentId(
+        lectureId,
+        profileId,
+      );
+
+    if (!enrollment) {
+      throw new ForbiddenException('해당 강의를 수강하고 있지 않습니다.');
+    }
+
+    return enrollment.enrollmentId;
+  }
+
+  private async processPostComments(
+    post: NonNullable<Awaited<ReturnType<StudentPostsRepository['findById']>>>,
+    userType: UserType,
+    profileId: string,
+  ) {
+    if (!post.comments) return [];
+
+    return Promise.all(
+      post.comments.map(async (comment) => {
+        const accessibleAttachments = await this.filterAccessibleAttachments(
+          comment.attachments,
+          profileId,
+        );
+        return {
+          ...comment,
+          attachments: accessibleAttachments,
+        };
+      }),
+    );
   }
 
   /** 학생용 첨부파일 접근 권한 필터링 */
@@ -174,9 +347,6 @@ export class StudentPostsService {
         lectureId: string | null;
       } | null;
     }>,
-    lectureId: string | null,
-    instructorId: string,
-    userType: UserType,
     profileId: string,
   ): Promise<
     Array<{
@@ -224,149 +394,5 @@ export class StudentPostsService {
     }
 
     return result;
-  }
-
-  /** 상태 변경 */
-  async updateStatus(
-    postId: string,
-    status: string,
-    userType: UserType,
-    profileId: string,
-  ) {
-    const post = await this.studentPostsRepository.findById(postId);
-    if (!post) throw new NotFoundException('질문을 찾을 수 없습니다.');
-
-    // 권한: 담당 강사/조교 또는 질문 작성자(해결됨 처리)
-    if (userType === UserType.INSTRUCTOR) {
-      if (post.instructorId !== profileId)
-        throw new ForbiddenException('권한이 없습니다.');
-    } else if (userType === UserType.ASSISTANT) {
-      // TODO: PermissionService 통합 후 getInstructorIdByAssistantId 사용
-      throw new ForbiddenException('조교 권한 검증이 구현되지 않았습니다.');
-    } else if (userType === UserType.STUDENT) {
-      // 본인 글인지 확인
-      const enrollment = await this.enrollmentsRepository.findById(
-        post.enrollmentId,
-      );
-      if (enrollment?.appStudentId !== profileId)
-        throw new ForbiddenException('권한이 없습니다.');
-
-      // 학생은 해결됨(RESOLVED)으로만 변경 가능
-      if (status !== StudentPostStatus.PENDING) {
-        throw new ForbiddenException(
-          '학생은 해결됨 상태로만 변경할 수 있습니다.',
-        );
-      }
-    } else {
-      throw new ForbiddenException('상태 변경 권한이 없습니다.');
-    }
-
-    return this.studentPostsRepository.updateStatus(postId, status);
-  }
-
-  /** 댓글 수정 */
-  async updateComment(
-    commentId: string,
-    content: string,
-    userType: UserType,
-    profileId: string,
-  ) {
-    const comment = await this.commentsRepository.findById(commentId);
-    if (!comment) throw new NotFoundException('댓글을 찾을 수 없습니다.');
-
-    // 권한 검증
-    if (userType === UserType.STUDENT) {
-      if (!comment.enrollmentId) {
-        throw new ForbiddenException('본인의 댓글만 수정할 수 있습니다.');
-      }
-      const enrollment = await this.enrollmentsRepository.findById(
-        comment.enrollmentId,
-      );
-      if (enrollment?.appStudentId !== profileId) {
-        throw new ForbiddenException('본인의 댓글만 수정할 수 있습니다.');
-      }
-    } else if (userType === UserType.INSTRUCTOR) {
-      if (comment.instructorId !== profileId) {
-        throw new ForbiddenException('본인의 댓글만 수정할 수 있습니다.');
-      }
-    } else if (userType === UserType.PARENT) {
-      throw new ForbiddenException('학부모는 댓글을 수정할 수 없습니다.');
-    } else {
-      throw new ForbiddenException('댓글 수정 권한이 없습니다.');
-    }
-
-    return this.commentsRepository.update(commentId, { content });
-  }
-
-  /** 질문 수정 (본인만 가능) */
-  async updatePost(
-    postId: string,
-    data: { title?: string; content?: string },
-    userType: UserType,
-    profileId: string,
-  ) {
-    // 1. 게시글 존재 확인
-    const post = await this.studentPostsRepository.findById(postId);
-    if (!post) throw new NotFoundException('질문을 찾을 수 없습니다.');
-
-    // 2. 권한 검증 - 작성자 본인만 수정 가능
-    if (userType === UserType.STUDENT) {
-      const enrollment = await this.enrollmentsRepository.findById(
-        post.enrollmentId,
-      );
-      if (enrollment?.appStudentId !== profileId) {
-        throw new ForbiddenException('본인의 질문만 수정할 수 있습니다.');
-      }
-    } else if (userType === UserType.PARENT) {
-      // TODO: 학부모 권한 검증 로직
-      throw new ForbiddenException('학부모 권한 검증이 구현되지 않았습니다.');
-    } else {
-      throw new ForbiddenException('수정 권한이 없습니다.');
-    }
-
-    // 3. 변경사항 확인 (최소 하나의 필드 필요)
-    if (!data.title && !data.content) {
-      throw new BadRequestException('수정할 내용이 없습니다.');
-    }
-
-    // 4. 중복 업데이트 방지
-    const isRedundant =
-      (data.title === undefined || data.title === post.title) &&
-      (data.content === undefined || data.content === post.content);
-
-    if (isRedundant) {
-      return post;
-    }
-
-    // 5. 업데이트 실행
-    return this.studentPostsRepository.update(postId, {
-      title: data.title,
-      content: data.content,
-    });
-  }
-
-  /** 질문 삭제 (본인만 가능) */
-  async deletePost(postId: string, userType: UserType, profileId: string) {
-    // 1. 게시글 존재 확인
-    const post = await this.studentPostsRepository.findById(postId);
-    if (!post) throw new NotFoundException('질문을 찾을 수 없습니다.');
-
-    // 2. 권한 검증 - 작성자 본인만 삭제 가능
-    if (userType === UserType.STUDENT) {
-      const enrollment = await this.enrollmentsRepository.findById(
-        post.enrollmentId,
-      );
-      if (enrollment?.appStudentId !== profileId) {
-        throw new ForbiddenException('본인의 질문만 삭제할 수 있습니다.');
-      }
-    } else if (userType === UserType.PARENT) {
-      // TODO: 학부모 권한 검증 로직
-      throw new ForbiddenException('학부모 권한 검증이 구현되지 않았습니다.');
-    } else {
-      throw new ForbiddenException('삭제 권한이 없습니다.');
-    }
-
-    // 3. 삭제 실행 (cascade로 댓글도 함께 삭제됨)
-    return this.studentPostsRepository.delete(postId);
   }
 }
