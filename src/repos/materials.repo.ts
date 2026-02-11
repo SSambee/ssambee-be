@@ -34,11 +34,12 @@ export class MaterialsRepository {
       type?: string;
       search?: string;
       instructorId?: string;
+      sort?: 'latest' | 'oldest';
     },
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
-    const { lectureId, page, limit, type, search, instructorId } = params;
+    const { lectureId, page, limit, type, search, instructorId, sort } = params;
     const skip = (page - 1) * limit;
 
     const where: Prisma.MaterialWhereInput = {
@@ -62,12 +63,16 @@ export class MaterialsRepository {
       }),
     };
 
+    const orderBy: Prisma.MaterialOrderByWithRelationInput = {
+      createdAt: sort === 'oldest' ? 'asc' : 'desc',
+    };
+
     const [materials, totalCount] = await Promise.all([
       client.material.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         include: {
           lecture: {
             select: { title: true },
