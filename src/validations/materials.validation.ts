@@ -37,6 +37,7 @@ export const getMaterialsQuerySchema = z.object({
     ])
     .optional(),
   search: z.string().optional(),
+  sort: z.enum(['latest', 'oldest']).optional(),
 });
 
 export const materialParamsSchema = z.object({

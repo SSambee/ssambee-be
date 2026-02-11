@@ -8,6 +8,7 @@ import {
   UpdateInstructorPostDto,
   GetInstructorPostsQueryDto,
 } from '../validations/instructor-posts.validation.js';
+import { transformDateFieldsToKst } from '../utils/date.util.js';
 
 export class InstructorPostsController {
   constructor(
@@ -33,9 +34,15 @@ export class InstructorPostsController {
         userType,
       );
 
+      // 날짜 데이터를 한국 시간으로 변환
+      const kstResult = transformDateFieldsToKst(result, [
+        'createdAt',
+        'updatedAt',
+      ]);
+
       return successResponse(res, {
         statusCode: 201,
-        data: result,
+        data: kstResult,
         message: '공지가 성공적으로 등록되었습니다.',
       });
     } catch (error) {
@@ -57,9 +64,21 @@ export class InstructorPostsController {
         profileId,
       );
 
+      // posts 배열 변환 (comments가 포함되어 있다면 중첩 변환)
+      // 날짜 데이터를 한국 시간으로 변환
+      const kstPosts = transformDateFieldsToKst(result.posts, [
+        'createdAt',
+        'updatedAt',
+      ]);
+
+      const kstResult = {
+        posts: kstPosts,
+        totalCount: result.totalCount,
+      };
+
       return successResponse(res, {
         statusCode: 200,
-        data: result,
+        data: kstResult,
         message: '공지 목록을 조회했습니다.',
       });
     } catch (error) {
@@ -81,9 +100,23 @@ export class InstructorPostsController {
         profileId,
       );
 
+      const rawResult = result;
+      if (rawResult.comments) {
+        rawResult.comments = transformDateFieldsToKst(rawResult.comments, [
+          'createdAt',
+          'updatedAt',
+        ]);
+      }
+
+      // 날짜 데이터를 한국 시간으로 변환
+      const kstResult = transformDateFieldsToKst(rawResult, [
+        'createdAt',
+        'updatedAt',
+      ]);
+
       return successResponse(res, {
         statusCode: 200,
-        data: result,
+        data: kstResult,
         message: '공지 상세 정보를 조회했습니다.',
       });
     } catch (error) {
@@ -107,9 +140,14 @@ export class InstructorPostsController {
         profileId,
       );
 
+      // 날짜 데이터를 한국 시간으로 변환
+      const kstResult = result
+        ? transformDateFieldsToKst(result, ['createdAt', 'updatedAt'])
+        : null;
+
       return successResponse(res, {
         statusCode: 200,
-        data: result,
+        data: kstResult,
         message: '공지 정보를 수정했습니다.',
       });
     } catch (error) {

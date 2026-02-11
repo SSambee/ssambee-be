@@ -1,6 +1,6 @@
 import path from 'path';
 import { randomUUID } from 'crypto';
-import { format } from 'date-fns';
+import { toKstDateOnly } from '../utils/date.util.js';
 import {
   BadRequestException,
   ForbiddenException,
@@ -220,7 +220,7 @@ export class MaterialsService {
         title: m.title,
         description: m.description,
         writer, // 마스킹된 이름 반영
-        date: format(m.createdAt, 'yyyy-MM-dd'),
+        date: toKstDateOnly(m.createdAt),
         type: type,
         classId: m.lectureId,
         className: m.lecture?.title,
@@ -248,9 +248,11 @@ export class MaterialsService {
     data: UpdateMaterialDto,
     userType: UserType,
     profileId: string,
+    file?: Express.Multer.File,
   ) {
     const material = await this.materialsRepository.findById(materialsId);
     if (!material) throw new NotFoundException('자료를 찾을 수 없습니다.');
+
     // 권한 검증: 자료의 소유 강사 ID로 확인
     await this.permissionService.validateInstructorAccess(
       material.instructorId,
@@ -259,17 +261,40 @@ export class MaterialsService {
     );
 
     let fileUrl = material.fileUrl;
+
+    // 유튜브 링크 수정 (VIDEO_LINK 타입인 경우)
     if (data.youtubeUrl && material.type === MaterialType.VIDEO_LINK) {
       fileUrl = this.validateYouTubeUrl(data.youtubeUrl);
     }
 
-    return this.materialsRepository.update(materialsId, {
+    // 파일 교체 (VIDEO_LINK 타입이 아닌 경우)
+    if (file && material.type !== MaterialType.VIDEO_LINK) {
+      // 새 파일 업로드
+      const randomId = randomUUID();
+      const ext = path.extname(file.originalname);
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const prefix =
+        toFrontendMaterialType[material.type as MaterialType]?.toLowerCase() ||
+        'other';
+      const key = `${prefix}/${year}/${month}/${randomId}${ext}`;
+
+      fileUrl = await this.fileStorageService.upload(file, key);
+
+      // 기존 파일 삭제
+      await this.fileStorageService.delete(material.fileUrl);
+    }
+
+    const updateResult = await this.materialsRepository.update(materialsId, {
       title: data.title,
       fileUrl,
       description: data.description,
       subject: data.subject,
       externalDownloadUrl: data.externalDownloadUrl,
     });
+
+    return updateResult;
   }
 
   /** 자료 삭제 */
@@ -353,7 +378,7 @@ export class MaterialsService {
       title: material.title,
       description: material.description,
       writer, // 마스킹된 이름 반영
-      date: format(material.createdAt, 'yyyy-MM-dd'),
+      date: toKstDateOnly(material.createdAt),
       type: type,
       classId: material.lectureId,
       className: material.lecture?.title,

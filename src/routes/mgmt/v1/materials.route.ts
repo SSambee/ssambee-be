@@ -47,6 +47,7 @@ mgmtMaterialsRouter.get(
 mgmtMaterialsRouter.patch(
   '/:materialsId',
   validate(materialParamsSchema, 'params'),
+  upload.single('file'),
   validate(updateMaterialSchema, 'body'),
   materialsController.updateMaterial,
 );

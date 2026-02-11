@@ -102,6 +102,7 @@ export class MaterialsController {
     try {
       const { materialsId } = req.params;
       const data = req.body as UpdateMaterialDto;
+      const file = req.file;
 
       const profileId = getProfileIdOrThrow(req);
       const user = getAuthUser(req);
@@ -112,6 +113,7 @@ export class MaterialsController {
         data,
         userType,
         profileId,
+        file,
       );
 
       return successResponse(res, {

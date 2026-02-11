@@ -24,14 +24,27 @@ const fileFilter = (
   done: FileFilterCallback,
 ): void => {
   const allowedTypes = [
+    // 이미지
     'image/jpeg',
     'image/jpg',
     'image/png',
-    'application/pdf', // PDF 추가
-    'application/msword', // DOC
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // DOCX
-    'application/vnd.ms-powerpoint', // PPT
+    // PDF
+    'application/pdf',
+    // Word
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    // HWP (한국형 한글문서)
+    'application/x-hwp',
+    'application/hwp',
+    'application/x-hwp+zip',
+    // Excel
+    'application/vnd.ms-excel',
+    'application/vnd.ms-excel.sheet.macroEnabled.12', // XLSM
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // XLSX
+    // PowerPoint
+    'application/vnd.ms-powerpoint',
     'application/vnd.openxmlformats-officedocument.presentationml.presentation', // PPTX
+    // 텍스트
     'text/plain',
   ];
 
