@@ -122,7 +122,6 @@ export class MaterialsController {
         message: '자료 정보가 수정되었습니다.',
       });
     } catch (error) {
-      console.log('[Controller updateMaterial] 에러 발생:', error);
       next(error);
     }
   };

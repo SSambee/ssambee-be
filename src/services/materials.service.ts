@@ -269,9 +269,6 @@ export class MaterialsService {
 
     // 파일 교체 (VIDEO_LINK 타입이 아닌 경우)
     if (file && material.type !== MaterialType.VIDEO_LINK) {
-      // 기존 파일 삭제
-      await this.fileStorageService.delete(material.fileUrl);
-
       // 새 파일 업로드
       const randomId = randomUUID();
       const ext = path.extname(file.originalname);
@@ -284,6 +281,9 @@ export class MaterialsService {
       const key = `${prefix}/${year}/${month}/${randomId}${ext}`;
 
       fileUrl = await this.fileStorageService.upload(file, key);
+
+      // 기존 파일 삭제
+      await this.fileStorageService.delete(material.fileUrl);
     }
 
     const updateResult = await this.materialsRepository.update(materialsId, {
