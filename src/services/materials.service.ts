@@ -264,23 +264,13 @@ export class MaterialsService {
 
     // 유튜브 링크 수정 (VIDEO_LINK 타입인 경우)
     if (data.youtubeUrl && material.type === MaterialType.VIDEO_LINK) {
-      console.log('[updateMaterial] 유튜브 링크 수정 시도:', data.youtubeUrl);
       fileUrl = this.validateYouTubeUrl(data.youtubeUrl);
-      console.log('[updateMaterial] 유튜브 링크 수정 완료:', fileUrl);
     }
 
     // 파일 교체 (VIDEO_LINK 타입이 아닌 경우)
     if (file && material.type !== MaterialType.VIDEO_LINK) {
-      console.log('[updateMaterial] 파일 교체 시작');
-      console.log('[updateMaterial] material.type:', material.type);
-      console.log(
-        '[updateMaterial] MaterialType.VIDEO_LINK:',
-        MaterialType.VIDEO_LINK,
-      );
-
       // 기존 파일 삭제
       await this.fileStorageService.delete(material.fileUrl);
-      console.log('[updateMaterial] 기존 파일 삭제 완료:', material.fileUrl);
 
       // 새 파일 업로드
       const randomId = randomUUID();
@@ -294,7 +284,6 @@ export class MaterialsService {
       const key = `${prefix}/${year}/${month}/${randomId}${ext}`;
 
       fileUrl = await this.fileStorageService.upload(file, key);
-      console.log('[updateMaterial] 새 파일 업로드 완료:', fileUrl);
     }
 
     const updateResult = await this.materialsRepository.update(materialsId, {
@@ -304,10 +293,6 @@ export class MaterialsService {
       subject: data.subject,
       externalDownloadUrl: data.externalDownloadUrl,
     });
-    console.log(
-      '[updateMaterial] 업데이트 완료:',
-      JSON.stringify(updateResult, null, 2),
-    );
 
     return updateResult;
   }
