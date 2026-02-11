@@ -16,6 +16,7 @@ import {
   CreateCommentDto,
   UpdateCommentDto,
 } from '../validations/comments.validation.js';
+import { StudentPostStatus } from '../constants/posts.constant.js';
 
 export class CommentsService {
   constructor(
@@ -218,6 +219,22 @@ export class CommentsService {
           profileId,
         );
       await this.validateMaterialOwnership(data.materialIds, instructorId);
+    }
+
+    // 강사/조교가 학생 질문에 댓글 작성 시 상태를 RESOLVED로 자동 변경
+    if (
+      (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) &&
+      data.studentPostId
+    ) {
+      const post = await this.studentPostsRepository.findById(
+        data.studentPostId,
+      );
+      if (post && post.status === StudentPostStatus.PENDING) {
+        await this.studentPostsRepository.updateStatus(
+          data.studentPostId,
+          StudentPostStatus.RESOLVED,
+        );
+      }
     }
 
     return this.commentsRepository.create({
