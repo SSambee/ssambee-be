@@ -9,6 +9,7 @@ import {
   GetStudentPostsQueryDto,
   UpdateStudentPostDto,
 } from '../validations/student-posts.validation.js';
+import { transformDateFieldsToKst } from '../utils/date.util.js';
 
 export class StudentPostsController {
   constructor(private readonly studentPostsService: StudentPostsService) {}
@@ -27,9 +28,15 @@ export class StudentPostsController {
         profileId,
       );
 
+      // 날짜 데이터를 한국 시간으로 변환
+      const kstResult = transformDateFieldsToKst(result, [
+        'createdAt',
+        'updatedAt',
+      ]);
+
       return successResponse(res, {
         statusCode: 201,
-        data: result,
+        data: kstResult,
         message: '질문이 성공적으로 등록되었습니다.',
       });
     } catch (error) {
@@ -51,9 +58,20 @@ export class StudentPostsController {
         profileId,
       );
 
+      // 날짜 데이터를 한국 시간으로 변환
+      const kstPosts = transformDateFieldsToKst(result.posts, [
+        'createdAt',
+        'updatedAt',
+      ]);
+
+      const kstResult = {
+        posts: kstPosts,
+        totalCount: result.totalCount,
+      };
+
       return successResponse(res, {
         statusCode: 200,
-        data: result,
+        data: kstResult,
         message: '질문 목록을 조회했습니다.',
       });
     } catch (error) {
@@ -75,9 +93,23 @@ export class StudentPostsController {
         profileId,
       );
 
+      const rawResult = result;
+      if (rawResult.comments) {
+        rawResult.comments = transformDateFieldsToKst(rawResult.comments, [
+          'createdAt',
+          'updatedAt',
+        ]);
+      }
+
+      // 날짜 데이터를 한국 시간으로 변환
+      const kstResult = transformDateFieldsToKst(rawResult, [
+        'createdAt',
+        'updatedAt',
+      ]);
+
       return successResponse(res, {
         statusCode: 200,
-        data: result,
+        data: kstResult,
         message: '질문 상세 정보를 조회했습니다.',
       });
     } catch (error) {
@@ -101,9 +133,15 @@ export class StudentPostsController {
         profileId,
       );
 
+      // 날짜 데이터를 한국 시간으로 변환
+      const kstResult = transformDateFieldsToKst(result, [
+        'createdAt',
+        'updatedAt',
+      ]);
+
       return successResponse(res, {
         statusCode: 200,
-        data: result,
+        data: kstResult,
         message: '질문 상태를 변경했습니다.',
       });
     } catch (error) {
@@ -127,9 +165,15 @@ export class StudentPostsController {
         profileId,
       );
 
+      // 날짜 데이터를 한국 시간으로 변환
+      const kstResult = transformDateFieldsToKst(result, [
+        'createdAt',
+        'updatedAt',
+      ]);
+
       return successResponse(res, {
         statusCode: 200,
-        data: result,
+        data: kstResult,
         message: '질문을 수정했습니다.',
       });
     } catch (error) {

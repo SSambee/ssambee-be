@@ -95,7 +95,7 @@ export class MaterialsRepository {
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
-    return client.material.updateMany({
+    return client.material.update({
       where: { id, deletedAt: null },
       data,
     });

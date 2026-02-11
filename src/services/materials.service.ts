@@ -1,6 +1,6 @@
 import path from 'path';
 import { randomUUID } from 'crypto';
-import { format } from 'date-fns';
+import { toKstDateOnly } from '../utils/date.util.js';
 import {
   BadRequestException,
   ForbiddenException,
@@ -220,7 +220,7 @@ export class MaterialsService {
         title: m.title,
         description: m.description,
         writer, // 마스킹된 이름 반영
-        date: format(m.createdAt, 'yyyy-MM-dd'),
+        date: toKstDateOnly(m.createdAt),
         type: type,
         classId: m.lectureId,
         className: m.lecture?.title,
@@ -252,6 +252,8 @@ export class MaterialsService {
     const material = await this.materialsRepository.findById(materialsId);
     if (!material) throw new NotFoundException('자료를 찾을 수 없습니다.');
     // 권한 검증: 자료의 소유 강사 ID로 확인
+    console.log(material);
+    console.log(data);
     await this.permissionService.validateInstructorAccess(
       material.instructorId,
       userType,
@@ -353,7 +355,7 @@ export class MaterialsService {
       title: material.title,
       description: material.description,
       writer, // 마스킹된 이름 반영
-      date: format(material.createdAt, 'yyyy-MM-dd'),
+      date: toKstDateOnly(material.createdAt),
       type: type,
       classId: material.lectureId,
       className: material.lecture?.title,
