@@ -39,9 +39,9 @@ export function parseToUtc(dateString: string): Date {
     if (!isValid(date)) throw new Error('Invalid date string');
     return date;
   } else {
-    // 타임존이 없는 경우: UTC(Z)로 간주
-    const utcString = `${dateString}Z`;
-    const date = parseISO(utcString);
+    // 타임존이 없는 경우: KST로 간주 (+09:00)
+    const kstString = `${dateString}+09:00`;
+    const date = parseISO(kstString);
     if (!isValid(date)) throw new Error('Invalid date string');
     return date;
   }
