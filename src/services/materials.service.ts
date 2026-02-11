@@ -374,10 +374,20 @@ export class MaterialsService {
     // 권한 확인
     if (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) {
       // 강사/조교: 소유권 확인
+      const effectiveInstructorId =
+        await this.permissionService.getEffectiveInstructorId(
+          userType,
+          profileId,
+        );
+
+      if (!effectiveInstructorId) {
+        throw new ForbiddenException('강사 정보를 찾을 수 없습니다.');
+      }
+
       await this.permissionService.validateInstructorAccess(
         material.instructorId,
         userType,
-        profileId,
+        effectiveInstructorId, // 번환된 강사 ID 사용
       );
     } else if (userType === UserType.STUDENT) {
       // 학생: 강의 자료 또는 게시글 첨부 자료 확인
