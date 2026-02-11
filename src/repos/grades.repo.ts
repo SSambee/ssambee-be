@@ -113,11 +113,7 @@ export class GradesRepository {
           select: {
             id: true,
             title: true,
-            schedule: {
-              select: {
-                startTime: true,
-              },
-            },
+            examDate: true,
           },
         },
         lectureEnrollment: {

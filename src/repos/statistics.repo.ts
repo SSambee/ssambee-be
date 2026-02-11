@@ -97,9 +97,7 @@ export class StatisticsRepository {
     const exam = await client.exam.findUnique({
       where: { id: examId },
       select: {
-        schedule: {
-          select: { startTime: true },
-        },
+        examDate: true,
       },
     });
 
@@ -108,7 +106,7 @@ export class StatisticsRepository {
       highestScore: aggregations._max.score ?? 0,
       lowestScore: aggregations._min.score ?? 0,
       totalExaminees: aggregations._count._all,
-      examDate: exam?.schedule?.startTime ?? null,
+      examDate: exam?.examDate ?? null,
     };
   }
 

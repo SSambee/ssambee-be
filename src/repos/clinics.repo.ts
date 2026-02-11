@@ -158,11 +158,7 @@ export class ClinicsRepository {
             id: true,
             title: true,
             cutoffScore: true,
-            schedule: {
-              select: {
-                startTime: true,
-              },
-            },
+            examDate: true,
           },
         },
       },

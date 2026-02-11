@@ -271,7 +271,7 @@ export class ClinicsService {
           title: clinic.exam.title,
           cutoffScore: clinic.exam.cutoffScore, // 합격 기준점
           score: score, // 학생 점수
-          date: clinic.exam.schedule?.startTime ?? null, // 시험 일자 (Schedule 기준)
+          date: clinic.exam.examDate ?? null, // 시험 일자
         },
         clinic: {
           createdAt: clinic.createdAt, // 클리닉 생성일
