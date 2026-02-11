@@ -1,4 +1,8 @@
 import { Prisma, PrismaClient } from '../generated/prisma/client.js';
+import {
+  AnswerStatus,
+  InquiryWriterType,
+} from '../constants/posts.constant.js';
 
 export class StudentPostsRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -49,6 +53,8 @@ export class StudentPostsRepository {
       enrollmentId?: string;
       appStudentId?: string;
       status?: string;
+      answerStatus?: AnswerStatus;
+      writerType?: InquiryWriterType;
       search?: string;
       page: number;
       limit: number;
@@ -62,6 +68,8 @@ export class StudentPostsRepository {
       enrollmentId,
       appStudentId,
       status,
+      answerStatus,
+      writerType,
       search,
       page,
       limit,
@@ -79,6 +87,36 @@ export class StudentPostsRepository {
           { title: { contains: search, mode: 'insensitive' } },
           { content: { contains: search, mode: 'insensitive' } },
         ],
+      }),
+      // 작성자 유형 필터링
+      ...(writerType &&
+        writerType !== InquiryWriterType.ALL && {
+          authorRole: writerType,
+        }),
+      // 답변 상태 필터링
+      ...(answerStatus === AnswerStatus.BEFORE && {
+        comments: { none: {} },
+      }),
+      ...(answerStatus === AnswerStatus.REGISTERED && {
+        comments: {
+          some: {
+            instructorId: null,
+            assistantId: null,
+          },
+          every: {
+            OR: [{ instructorId: null }, { assistantId: null }],
+          },
+        },
+      }),
+      ...(answerStatus === AnswerStatus.COMPLETED && {
+        comments: {
+          some: {
+            OR: [
+              { instructorId: { not: null } },
+              { assistantId: { not: null } },
+            ],
+          },
+        },
       }),
     };
 
