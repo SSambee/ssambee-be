@@ -191,6 +191,8 @@ export class CommentsService {
       enrollmentId: null as string | null,
     };
 
+    let studentPostForStatus: { id: string; status: string } | null = null;
+
     if (userType === UserType.STUDENT) {
       writerInfo.enrollmentId = await this.getStudentEnrollmentId(
         profileId,
@@ -210,6 +212,11 @@ export class CommentsService {
         : this.studentPostsRepository;
       const post = await repo.findById(postId);
       if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
+
+      // studentPost이고 PENDING 상태인 경우 나중에 트랜잭션에서 처리
+      if (data.studentPostId && 'status' in post) {
+        studentPostForStatus = { id: postId, status: post.status };
+      }
     }
 
     if (data.materialIds?.length) {
@@ -221,22 +228,22 @@ export class CommentsService {
       await this.validateMaterialOwnership(data.materialIds, instructorId);
     }
 
-    // 강사/조교가 학생 질문에 댓글 작성 시 상태를 RESOLVED로 자동 변경
+    // 강사/조교가 학생 질문에 댓글 작성 시 트랜잭션으로 처리
     if (
-      (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) &&
-      data.studentPostId
+      studentPostForStatus &&
+      studentPostForStatus.status === StudentPostStatus.PENDING
     ) {
-      const post = await this.studentPostsRepository.findById(
-        data.studentPostId,
-      );
-      if (post && post.status === StudentPostStatus.PENDING) {
-        await this.studentPostsRepository.updateStatus(
-          data.studentPostId,
-          StudentPostStatus.RESOLVED,
-        );
-      }
+      return this.commentsRepository.createCommentWithStudentPostStatusUpdate({
+        content: data.content,
+        studentPostId: studentPostForStatus.id,
+        instructorId: writerInfo.instructorId,
+        assistantId: writerInfo.assistantId,
+        enrollmentId: writerInfo.enrollmentId,
+        materialIds: data.materialIds,
+      });
     }
 
+    // 일반 댓글 생성
     return this.commentsRepository.create({
       ...data,
       ...writerInfo,
