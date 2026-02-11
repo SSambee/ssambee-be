@@ -14,8 +14,8 @@ const envSchema = z.object({
   BETTER_AUTH_URL: z.string().url(),
   SENTRY_DSN: z.string(),
   AWS_REGION: z.string().default('ap-northeast-2'),
-  AWS_S3_BUCKET_DOCUMENTS: z.string().default('ssambee-lms-dev-document'),
-  AWS_S3_BUCKET_REPORTS: z.string().default('ssambee-lms-dev-reports'),
+  AWS_S3_BUCKET_DOCUMENTS: z.string().default('ssambee-dev-lms-documents'),
+  AWS_S3_BUCKET_REPORTS: z.string().default('ssambee-dev-lms-reports'),
 });
 
 const parseEnvironment = () => {

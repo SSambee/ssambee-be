@@ -12,6 +12,15 @@ import { UserType } from '../constants/auth.constant.js';
 export class MaterialsController {
   constructor(private readonly materialsService: MaterialsService) {}
 
+  private getUserContext(req: Request) {
+    const profileId = getProfileIdOrThrow(req);
+    const user = getAuthUser(req);
+    return {
+      profileId,
+      userType: user.userType as UserType,
+    };
+  }
+
   /** 자료 업로드 */
   uploadMaterial = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -20,9 +29,7 @@ export class MaterialsController {
       const data = req.body as UploadMaterialDto;
       const file = req.file;
 
-      const profileId = getProfileIdOrThrow(req);
-      const user = getAuthUser(req);
-      const userType = user.userType as UserType;
+      const { profileId, userType } = this.getUserContext(req);
 
       const result = await this.materialsService.uploadMaterial(
         lectureId || undefined, // undefined일 수 있음 (Global Library)
@@ -48,9 +55,7 @@ export class MaterialsController {
       const { lectureId } = req.params;
       const query = req.query as unknown as GetMaterialsQueryDto;
 
-      const profileId = getProfileIdOrThrow(req);
-      const user = getAuthUser(req);
-      const userType = user.userType as UserType;
+      const { profileId, userType } = this.getUserContext(req);
 
       const result = await this.materialsService.getMaterials(
         { ...query, lectureId },
@@ -77,9 +82,7 @@ export class MaterialsController {
     try {
       const { materialsId } = req.params;
 
-      const profileId = getProfileIdOrThrow(req);
-      const user = getAuthUser(req);
-      const userType = user.userType as UserType;
+      const { profileId, userType } = this.getUserContext(req);
 
       const result = await this.materialsService.getMaterialDetail(
         materialsId,
@@ -104,9 +107,7 @@ export class MaterialsController {
       const data = req.body as UpdateMaterialDto;
       const file = req.file;
 
-      const profileId = getProfileIdOrThrow(req);
-      const user = getAuthUser(req);
-      const userType = user.userType as UserType;
+      const { profileId, userType } = this.getUserContext(req);
 
       const result = await this.materialsService.updateMaterial(
         materialsId,
@@ -131,9 +132,7 @@ export class MaterialsController {
     try {
       const { materialsId } = req.params;
 
-      const profileId = getProfileIdOrThrow(req);
-      const user = getAuthUser(req);
-      const userType = user.userType as UserType;
+      const { profileId, userType } = this.getUserContext(req);
 
       await this.materialsService.deleteMaterial(
         materialsId,
@@ -156,9 +155,7 @@ export class MaterialsController {
     try {
       const { materialsId } = req.params;
 
-      const profileId = getProfileIdOrThrow(req);
-      const user = getAuthUser(req);
-      const userType = user.userType as UserType;
+      const { profileId, userType } = this.getUserContext(req);
 
       const result = await this.materialsService.getDownloadUrl(
         materialsId,
