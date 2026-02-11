@@ -298,6 +298,7 @@ model LectureEnrollment {
   studentAnswers StudentAnswer[]
   clinics        Clinic[]
   attendances    Attendance[]
+  gradeReports   GradeReport[]
 
   // 한 수업에 중복 등록 방지
   @@unique([lectureId, enrollmentId])
@@ -344,7 +345,7 @@ model Exam {
   lectureId    String  @map("lecture_id")
   instructorId String  @map("instructor_id")
   title        String
-  description  String?
+  description  String? @db.Text
   subject      String?
   cutoffScore  Int     @default(0) @map("cutoff_score")
   source       String?
@@ -365,6 +366,7 @@ model Exam {
   questions Question[]
   grades    Grade[]
   clinics   Clinic[]
+  gradeReports GradeReport[]
 
   // [Performance] 강의 내 시험 목록 조회
   @@unique([lectureId, id])
@@ -455,6 +457,7 @@ model Grade {
   exam              Exam              @relation(fields: [lectureId, examId], references: [lectureId, id], onDelete: Cascade)
   lectureEnrollment LectureEnrollment @relation(fields: [lectureEnrollmentId], references: [id], onDelete: Cascade)
 
+  gradeReports GradeReport[]
   //logs GradeLog[]
 
   // [Performance] 석차 계산 및 성적 조회
@@ -462,6 +465,28 @@ model Grade {
   @@index([examId, score(sort: Desc)])
   @@index([lectureEnrollmentId])
   @@map("grades")
+}
+
+model GradeReport {
+  id                  String @id @default(cuid(2))
+  examId              String @map("exam_id")
+  gradeId             String @unique @map("grade_id")
+  lectureEnrollmentId String @map("lecture_enrollment_id")
+
+  description String  @db.Text
+  reportUrl   String? @map("report_url")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+
+  exam              Exam              @relation(fields: [examId], references: [id], onDelete: Cascade)
+  grade             Grade             @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  lectureEnrollment LectureEnrollment @relation(fields: [lectureEnrollmentId], references: [id], onDelete: Cascade)
+
+  @@index([examId])
+  @@index([gradeId])
+  @@index([lectureEnrollmentId])
+  @@map("grade_reports")
 }
 
 // // [Audit] 성적 수정 로그 (New)
@@ -485,6 +510,7 @@ model Grade {
 //   @@index([gradeId])
 //   @@map("grade_logs")
 // }
+
 
 // --------------------------------------------------------
 // 6. CLINIC (클리닉/재시험 관리)
