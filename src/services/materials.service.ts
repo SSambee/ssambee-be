@@ -18,7 +18,7 @@ import { LecturesRepository } from '../repos/lectures.repo.js';
 import { InstructorRepository } from '../repos/instructor.repo.js';
 import { AssistantRepository } from '../repos/assistant.repo.js';
 import { PermissionService } from './permission.service.js';
-import { FileStorageService } from './filestorage.service.js';
+import { FileStorageService, BucketType } from './filestorage.service.js';
 import {
   UploadMaterialDto,
   UpdateMaterialDto,
@@ -97,7 +97,11 @@ export class MaterialsService {
       const prefix = data.type.toLowerCase();
       const key = `${prefix}/${year}/${month}/${randomId}${ext}`;
 
-      fileUrl = await this.fileStorageService.upload(file, key);
+      fileUrl = await this.fileStorageService.upload(
+        file,
+        key,
+        BucketType.DOCUMENTS,
+      );
     }
 
     let authorName: string;
@@ -280,10 +284,17 @@ export class MaterialsService {
         'other';
       const key = `${prefix}/${year}/${month}/${randomId}${ext}`;
 
-      fileUrl = await this.fileStorageService.upload(file, key);
+      fileUrl = await this.fileStorageService.upload(
+        file,
+        key,
+        BucketType.DOCUMENTS,
+      );
 
       // 기존 파일 삭제
-      await this.fileStorageService.delete(material.fileUrl);
+      await this.fileStorageService.delete(
+        material.fileUrl,
+        BucketType.DOCUMENTS,
+      );
     }
 
     const updateResult = await this.materialsRepository.update(materialsId, {
@@ -456,6 +467,8 @@ export class MaterialsService {
 
     const presignedUrl = await this.fileStorageService.getPresignedUrl(
       material.fileUrl,
+      3600,
+      BucketType.DOCUMENTS,
     );
     return { url: presignedUrl, type: 'file' };
   }
