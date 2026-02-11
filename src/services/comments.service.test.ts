@@ -102,7 +102,14 @@ describe('CommentsService 보안 검증', () => {
       ]);
 
       await expect(
-        service.updateComment('comment-1', data, userType, profileId),
+        service.updateComment(
+          'comment-1',
+          data,
+          userType,
+          profileId,
+          'post-1',
+          'instructorPost',
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -118,7 +125,14 @@ describe('CommentsService 보안 검증', () => {
       ]);
       commentsRepo.update.mockResolvedValue({ id: 'comment-1' });
 
-      await service.updateComment('comment-1', data, userType, profileId);
+      await service.updateComment(
+        'comment-1',
+        data,
+        userType,
+        profileId,
+        'post-1',
+        'instructorPost',
+      );
 
       expect(commentsRepo.update).toHaveBeenCalledWith('comment-1', {
         content: 'updated',
@@ -136,7 +150,14 @@ describe('CommentsService 보안 검증', () => {
       materialsRepo.findByIds.mockResolvedValue([]); // 아무것도 찾지 못함
 
       await expect(
-        service.updateComment('comment-1', data, userType, profileId),
+        service.updateComment(
+          'comment-1',
+          data,
+          userType,
+          profileId,
+          'post-1',
+          'instructorPost',
+        ),
       ).rejects.toThrow(NotFoundException);
     });
   });

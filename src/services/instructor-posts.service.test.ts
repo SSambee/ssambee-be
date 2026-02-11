@@ -230,6 +230,9 @@ describe('InstructorPostsService', () => {
         permissionService.validateLectureReadAccess.mockResolvedValue(
           undefined,
         );
+        lectureEnrollmentsRepo.existsByLectureIdAndStudentId.mockResolvedValue(
+          true,
+        );
 
         const result = await service.getPostDetail(
           post.id,

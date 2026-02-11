@@ -431,6 +431,9 @@ describe('MaterialsService', () => {
         instructorId: 'instructor-a',
       };
       materialsRepo.findById.mockResolvedValue(mockMaterial);
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        'instructor-a',
+      );
       fileStorageService.getPresignedUrl.mockResolvedValue('presigned-url');
 
       const result = await service.getDownloadUrl(
@@ -449,6 +452,9 @@ describe('MaterialsService', () => {
         instructorId: 'instructor-a',
       };
       materialsRepo.findById.mockResolvedValue(mockMaterial);
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        'instructor-a',
+      );
       fileStorageService.getPresignedUrl.mockResolvedValue('presigned-url');
 
       const result = await service.getDownloadUrl(
@@ -460,7 +466,7 @@ describe('MaterialsService', () => {
       expect(permissionService.validateInstructorAccess).toHaveBeenCalledWith(
         'instructor-a',
         UserType.ASSISTANT,
-        'assistant-a',
+        'instructor-a',
       );
       expect(result.url).toBe('presigned-url');
     });
