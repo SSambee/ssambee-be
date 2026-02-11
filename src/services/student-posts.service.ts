@@ -140,14 +140,7 @@ export class StudentPostsService {
     if (userType === UserType.STUDENT && status !== StudentPostStatus.PENDING) {
       // NOTE: validatePostAccess에서 이미 학생 권한 체크를 했지만,
       // 상태 변경에 대한 추가적인 제약사항이 있다면 여기서 처리
-      // 현재 로직상 학생은 본인 글에 대해 UPDATE_STATUS 권한을 가지며,
       // 특정 상태로의 변경 제약은 비즈니스 로직으로 남겨둡니다.
-      // 기존 코드: if (status !== StudentPostStatus.PENDING) ...
-      // 학생이 PENDING이 아닌 상태로 변경하려 할 때 에러?
-      // 기존 로직: if (status !== StudentPostStatus.PENDING) throw ...
-      // "학생은 해결됨 상태로만 변경할 수 있습니다." -> 이 메시지가 좀 모호함.
-      // PENDING -> RESOLVED (O), RESOLVED -> PENDING (X)?
-      // 일단 기존 로직을 유지합니다.
       throw new ForbiddenException(
         '학생은 해결됨 상태로만 변경할 수 있습니다.',
       );
