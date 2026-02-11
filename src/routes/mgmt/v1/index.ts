@@ -55,3 +55,11 @@ mgmtV1Router.use('/student-posts', mgmtStudentPostsRouter);
 /** 지시 생성 라우트 */
 import { mgmtAssistantOrderRouter } from './assistant-order.route.js';
 mgmtV1Router.use('/assistant-order', mgmtAssistantOrderRouter);
+
+/** 일정 카테고리 라우트 */
+import { mgmtScheduleCategoriesRouter } from './schedule-categories.route.js';
+mgmtV1Router.use('/schedule-categories', mgmtScheduleCategoriesRouter);
+
+/** 일정 라우트 */
+import { mgmtSchedulesRouter } from './schedules.route.js';
+mgmtV1Router.use('/schedules', mgmtSchedulesRouter);

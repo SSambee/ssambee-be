@@ -269,7 +269,7 @@ export class GradesService {
             grade.lectureEnrollment.lecture.instructor.user.name ??
             '알 수 없음',
           lectureTitle: lectureEnrollment.lecture.title,
-          date: grade.exam.schedule?.startTime ?? grade.createdAt,
+          date: grade.exam.examDate ?? grade.createdAt,
           score: grade.score,
           isPass: grade.isPass,
           rank,

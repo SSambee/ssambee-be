@@ -104,6 +104,7 @@ model Instructor {
   instructorExams Exam[]
   assistants      Assistant[]
   assistantCodes  AssistantCode[]
+  scheduleCategories ScheduleCategory[]
   schedules       Schedule[]
   ownedMaterials  Material[]       @relation("MaterialOwner")
   instructorPosts InstructorPost[]
@@ -364,7 +365,6 @@ model Exam {
   questions Question[]
   grades    Grade[]
   clinics   Clinic[]
-  schedule  Schedule?
 
   // [Performance] 강의 내 시험 목록 조회
   @@unique([lectureId, id])
@@ -515,8 +515,6 @@ model Clinic {
   instructorId String?     @map("instructor_id")
   instructor   Instructor? @relation(fields: [instructorId], references: [id], onDelete: Cascade)
 
-  schedule Schedule?
-
   // 인덱스 및 제약 조건
   // 한 수강생이 동일한 시험에 대해 중복 클리닉을 받지 않도록 유니크 설정 (필요시)
   @@unique([lectureEnrollmentId, examId])
@@ -530,27 +528,47 @@ model Clinic {
 // 7. OPERATION SUPPORT (운영 지원)
 // --------------------------------------------------------
 
+model ScheduleCategory {
+  id           String   @id @default(cuid(2))
+  instructorId String   @map("instructor_id")
+
+  name String
+  color String
+
+  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  schedules    Schedule[]
+
+  @@unique([instructorId, name])
+  @@unique([instructorId, color])
+  @@index([instructorId])
+  @@map("schedule_categories")
+}
+
 model Schedule {
   id           String   @id @default(cuid(2))
   instructorId String   @map("instructor_id")
+
+  authorName String @map("author_name")
+  authorRole String @map("author_role")
+
   title        String
+  memo         String? @db.Text
   startTime    DateTime @map("start_time")
   endTime      DateTime @map("end_time")
 
-  linkedExamId   String? @unique @map("linked_exam_id")
-  linkedClinicId String? @unique @map("linked_clinic_id")
+  categoryId   String?   @map("category_id")
+  category     ScheduleCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime? @updatedAt @map("updated_at")
 
   instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
-  linkedExam   Exam?      @relation(fields: [linkedExamId], references: [id])
-  linkedClinic Clinic?    @relation(fields: [linkedClinicId], references: [id])
 
-  // [Performance] 기간별 일정 조회
   @@index([instructorId, startTime])
   @@map("schedules")
 }
+
+
 
 model Material {
   id           String  @id @default(cuid(2))
