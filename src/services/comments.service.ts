@@ -74,7 +74,7 @@ export class CommentsService {
         break;
       case UserType.PARENT:
         throw new ForbiddenException(
-          `학부모는 댓글을 ${comment ? '수정/삭제' : '작성'}할 수 없습니다.`,
+          '학부모는 댓글을 수정/삭제할 수 없습니다.',
         );
       default:
         throw new ForbiddenException('권한이 없습니다.');
