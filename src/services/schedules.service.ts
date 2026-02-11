@@ -6,7 +6,6 @@ import {
 } from '../err/http.exception.js';
 import { SchedulesRepository } from '../repos/schedules.repo.js';
 import { ScheduleCategoryRepository } from '../repos/schedule-categories.repo.js';
-import { addHours } from 'date-fns';
 import { parseToUtc } from '../utils/date.util.js';
 
 export class SchedulesService {
@@ -73,39 +72,13 @@ export class SchedulesService {
   async getSchedules(
     instructorId: string,
     query: {
-      startTime?: string;
-      endTime?: string;
+      startTime: string;
+      endTime: string;
       category?: string;
     },
   ) {
-    let start: Date | undefined;
-    let end: Date | undefined;
-
-    // 한국 시간(KST) Offset: +9h
-    const KST_OFFSET = 9;
-
-    if (query.startTime) {
-      start = parseToUtc(query.startTime);
-    }
-    if (query.endTime) {
-      end = parseToUtc(query.endTime);
-    }
-
-    // 기본: startTime/endTime이 모두 없으면 이번 달 (KST 기준)
-    if (!query.startTime && !query.endTime) {
-      const now = new Date(); // Server UTC Now
-      const kstNow = addHours(now, KST_OFFSET);
-      const year = kstNow.getUTCFullYear();
-      const month = kstNow.getUTCMonth() + 1; // 1-based
-
-      start = parseToUtc(
-        `${year}-${String(month).padStart(2, '0')}-01T00:00:00`,
-      );
-      const lastDay = new Date(year, month, 0).getDate();
-      end = parseToUtc(
-        `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}T23:59:59.999`,
-      );
-    }
+    const start = parseToUtc(query.startTime);
+    const end = parseToUtc(query.endTime);
 
     // 카테고리 필터
     let categoryId: string | null | undefined = undefined;

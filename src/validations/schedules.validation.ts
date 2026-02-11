@@ -63,19 +63,21 @@ export const updateScheduleSchema = z
 
 export const getSchedulesQuerySchema = z.object({
   startTime: z
-    .string()
+    .string({
+      message: '조회 시작 날짜가 필요합니다.',
+    })
     .datetime({
       message:
         '시작일시는 ISO 8601 형식이어야 합니다. (예: 2024-01-01T09:00:00Z)',
-    })
-    .optional(),
+    }),
   endTime: z
-    .string()
+    .string({
+      message: '조회 종료 날짜가 필요합니다.',
+    })
     .datetime({
       message:
         '종료일시는 ISO 8601 형식이어야 합니다. (예: 2024-01-01T10:00:00Z)',
-    })
-    .optional(),
+    }),
   category: z.string().optional(), // 'other' or categoryId
 });
 

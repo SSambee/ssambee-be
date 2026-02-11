@@ -105,7 +105,10 @@ describe('SchedulesService', () => {
       const schedules = [mockSchedule];
       (mockSchedulesRepo.findMany as jest.Mock).mockResolvedValue(schedules);
 
-      const result = await service.getSchedules(mockInstructorId, {});
+      const result = await service.getSchedules(mockInstructorId, {
+        startTime: '2024-02-01T00:00:00Z',
+        endTime: '2024-02-01T23:59:59Z',
+      });
 
       expect(mockSchedulesRepo.findMany).toHaveBeenCalled();
       expect(result).toEqual(schedules);
