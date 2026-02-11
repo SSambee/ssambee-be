@@ -6,7 +6,8 @@ import {
 } from '../err/http.exception.js';
 import { SchedulesRepository } from '../repos/schedules.repo.js';
 import { ScheduleCategoryRepository } from '../repos/schedule-categories.repo.js';
-import { startOfMonth, endOfMonth, addHours } from 'date-fns';
+import { addHours } from 'date-fns';
+import { parseToUtc } from '../utils/date.util.js';
 
 export class SchedulesService {
   constructor(
@@ -43,9 +44,9 @@ export class SchedulesService {
       }
     }
 
-    // 2. 값 변환
-    const startTime = new Date(data.startTime);
-    const endTime = new Date(data.endTime);
+    // 2. 값 변환 (KST -> UTC)
+    const startTime = parseToUtc(data.startTime);
+    const endTime = parseToUtc(data.endTime);
 
     if (startTime > endTime) {
       throw new ConflictException(
@@ -72,83 +73,38 @@ export class SchedulesService {
   async getSchedules(
     instructorId: string,
     query: {
-      startDate?: string;
-      endDate?: string;
+      startTime?: string;
+      endTime?: string;
       category?: string;
     },
   ) {
-    let start: Date;
-    let end: Date;
+    let start: Date | undefined;
+    let end: Date | undefined;
 
     // 한국 시간(KST) Offset: +9h
     const KST_OFFSET = 9;
 
-    /**
-     * KST 기준 날짜 문자열(YYYY-MM-DD)을 받아, 해당 날짜의 0시 or 23:59:59.999 (UTC)로 변환
-     * 예: "2024-02-01" (KST) -> 2024-01-31T15:00:00Z (UTC)
-     */
-    const parseKstDate = (dateStr: string, isEnd = false) => {
-      // 1. UTC 기준 Date 생성 (로컬 타임존의 간섭을 피하기 위해 ISO 포맷 사용)
-      // "2024-02-01T00:00:00Z" -> UTC 0시
-      const utcBase = new Date(
-        `${dateStr}T${isEnd ? '23:59:59.999' : '00:00:00'}Z`,
-      );
+    if (query.startTime) {
+      start = parseToUtc(query.startTime);
+    }
+    if (query.endTime) {
+      end = parseToUtc(query.endTime);
+    }
 
-      // 2. KST(+9) -> UTC 변환이므로 9시간을 빼줌
-      return addHours(utcBase, -KST_OFFSET);
-    };
-
-    /**
-     * 특정 날짜(UTC Date)가 속한 "KST 기준 월"의 시작/끝 구하기
-     */
-    const getKstMonthRange = (baseDate: Date) => {
-      // 1. UTC Date -> KST 가상 Date (시간만 +9 이동)
-      const kstVirtual = addHours(baseDate, KST_OFFSET);
-
-      // 2. 가상 Date 기준으로 월의 시작/끝 계산
-      const kstStartOfMonth = startOfMonth(kstVirtual);
-      const kstEndOfMonth = endOfMonth(kstVirtual);
-
-      // 3. 다시 UTC로 복원 (-9)
-      return {
-        start: addHours(kstStartOfMonth, -KST_OFFSET),
-        end: addHours(kstEndOfMonth, -KST_OFFSET),
-      };
-    };
-
-    if (query.startDate && query.endDate) {
-      // 명시된 기간 (KST 기준)
-      start = parseKstDate(query.startDate);
-      end = parseKstDate(query.endDate, true);
-    } else if (query.startDate) {
-      // 시작일이 속한 월 전체 (KST 기준)
-      // "2024-02-01" -> 2024, 2, 1
-      const [yearStr, monthStr] = query.startDate.split('-');
-      const year = parseInt(yearStr, 10);
-      const month = parseInt(monthStr, 10);
-
-      // 1. 해당 월 1일 00:00:00 (KST) -> UTC
-      // KST는 UTC+9 이므로, UTC로는 "1일 00시 - 9시간" = "전달 말일 15시"
-      // Date.UTC(year, monthIndex, day, hour, minute, second)
-      // monthIndex는 0-based
-      const kstStartOfMonth = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
-      start = addHours(kstStartOfMonth, -KST_OFFSET);
-
-      // 2. 해당 월 말일 23:59:59.999 (KST) -> UTC
-      // endOfMonth는 "주어진 날짜가 속한 달의 마지막 순간"을 반환
-      // 여기서 주의: endOfMonth(UTC Date)는 UTC 기준으로 계산됨.
-      // 따라서 "KST 기준 1일"인 `start`를 넣으면, 만약 `start`가 전 달로 넘어갔다면(1일 00시 -9시간 = 전 달), 전 달의 마지막 날을 계산해버림.
-      // 그러므로 KST 기준 날짜(가상)를 만들어서 endOfMonth를 구하고, 다시 -9시간 해야 함.
-
-      const kstVirtualDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0)); // 이것은 UTC 값이지만 KST 시각이라 가정하고 다룸
-      const kstEndOfMonth = endOfMonth(kstVirtualDate); // KST 기준 말일 23:59:59.999
-      end = addHours(kstEndOfMonth, -KST_OFFSET);
-    } else {
-      // 기본: 이번 달 (KST 기준)
+    // 기본: startTime/endTime이 모두 없으면 이번 달 (KST 기준)
+    if (!query.startTime && !query.endTime) {
       const now = new Date(); // Server UTC Now
-      const range = getKstMonthRange(now);
-      start = range.start;
-      end = range.end;
+      const kstNow = addHours(now, KST_OFFSET);
+      const year = kstNow.getUTCFullYear();
+      const month = kstNow.getUTCMonth() + 1; // 1-based
+
+      start = parseToUtc(
+        `${year}-${String(month).padStart(2, '0')}-01T00:00:00`,
+      );
+      const lastDay = new Date(year, month, 0).getDate();
+      end = parseToUtc(
+        `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}T23:59:59.999`,
+      );
     }
 
     // 카테고리 필터
@@ -224,9 +180,9 @@ export class SchedulesService {
 
     // DB 저장된 시간(UTC)
 
-    // 입력값(ISO String) -> Date(UTC)
-    const newStart = data.startTime ? new Date(data.startTime) : currentStart;
-    const newEnd = data.endTime ? new Date(data.endTime) : currentEnd;
+    // 입력값(ISO String) -> Date(UTC) - KST로 해석
+    const newStart = data.startTime ? parseToUtc(data.startTime) : currentStart;
+    const newEnd = data.endTime ? parseToUtc(data.endTime) : currentEnd;
 
     // 간단한 유효성 검사 (시작일 > 종료일 불가)
     if (newStart > newEnd) {
@@ -238,8 +194,8 @@ export class SchedulesService {
     return this.schedulesRepo.update(id, {
       title: data.title,
       memo: data.memo,
-      startTime: data.startTime ? new Date(data.startTime) : undefined,
-      endTime: data.endTime ? new Date(data.endTime) : undefined,
+      startTime: data.startTime ? newStart : undefined,
+      endTime: data.endTime ? newEnd : undefined,
       categoryId: data.categoryId,
     });
   }

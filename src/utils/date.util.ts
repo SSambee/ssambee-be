@@ -29,26 +29,10 @@ export function toKstIsoString(date: Date | null | undefined): string | null {
  * @returns UTC Date 객체
  */
 export function parseToUtc(dateString: string): Date {
-  // 1. 기본 parseISO는 타임존이 없으면 로컬 시간으로 해석하지만,
-  //    여기서는 "타임존이 없으면 KST"라는 규칙을 적용해야 함.
-
-  // 타임존 오프셋(+, -) 또는 Z가 포함되어 있는지 확인
-  const hasTimezone = /([+-]\d{2}:?\d{2}|Z)$/.test(dateString);
-
-  if (hasTimezone) {
-    // 타임존이 명시된 경우: 표준 방식대로 파싱 (해당 타임존 -> UTC 자동 변환됨)
-    const date = parseISO(dateString);
-    if (!isValid(date)) throw new Error('Invalid date string');
-    return date;
-  } else {
-    // 타임존이 없는 경우: KST로 간주
-    // date-fns-tz의 fromZonedTime과 유사한 로직을 수행해야 하지만,
-    // 문자열에 +09:00을 붙여서 파싱하는 것이 가장 확실함.
-    const kstString = `${dateString}+09:00`;
-    const date = parseISO(kstString);
-    if (!isValid(date)) throw new Error('Invalid date string');
-    return date;
-  }
+  // 타임존이 명시된 경우: 표준 방식대로 파싱 (해당 타임존 -> UTC 자동 변환됨)
+  const date = parseISO(dateString);
+  if (!isValid(date)) throw new Error('Invalid date string');
+  return date;
 }
 
 /**

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { SchedulesService } from '../services/schedules.service.js';
 import { successResponse } from '../utils/response.util.js';
 import { getInstructorIdOrThrow, getAuthUser } from '../utils/user.util.js';
+import { transformDateFieldsToKst } from '../utils/date.util.js';
 import {
   CreateScheduleDto,
   UpdateScheduleDto,
@@ -32,10 +33,17 @@ export class SchedulesController {
         data,
       );
 
+      const kstResult = transformDateFieldsToKst(result, [
+        'startTime',
+        'endTime',
+        'createdAt',
+        'updatedAt',
+      ]);
+
       return successResponse(res, {
         statusCode: 201,
         message: '일정이 생성되었습니다.',
-        data: result,
+        data: kstResult,
       });
     } catch (error) {
       next(error);
@@ -53,8 +61,15 @@ export class SchedulesController {
         query,
       );
 
+      const kstResult = transformDateFieldsToKst(result, [
+        'startTime',
+        'endTime',
+        'createdAt',
+        'updatedAt',
+      ]);
+
       return successResponse(res, {
-        data: result,
+        data: kstResult,
       });
     } catch (error) {
       next(error);
@@ -72,8 +87,15 @@ export class SchedulesController {
         id,
       );
 
+      const kstResult = transformDateFieldsToKst(result, [
+        'startTime',
+        'endTime',
+        'createdAt',
+        'updatedAt',
+      ]);
+
       return successResponse(res, {
-        data: result,
+        data: kstResult,
       });
     } catch (error) {
       next(error);
@@ -93,9 +115,16 @@ export class SchedulesController {
         data,
       );
 
+      const kstResult = transformDateFieldsToKst(result, [
+        'startTime',
+        'endTime',
+        'createdAt',
+        'updatedAt',
+      ]);
+
       return successResponse(res, {
         message: '일정이 수정되었습니다.',
-        data: result,
+        data: kstResult,
       });
     } catch (error) {
       next(error);

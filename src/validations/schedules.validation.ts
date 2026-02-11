@@ -60,16 +60,21 @@ export const updateScheduleSchema = z
 
 /** 일정 목록 조회 쿼리 스키마 */
 // YYYY-MM-DD 형식 정규식
-const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 export const getSchedulesQuerySchema = z.object({
-  startDate: z
+  startTime: z
     .string()
-    .regex(DATE_REGEX, '날짜 형식은 YYYY-MM-DD 여야 합니다.')
+    .datetime({
+      message:
+        '시작일시는 ISO 8601 형식이어야 합니다. (예: 2024-01-01T09:00:00Z)',
+    })
     .optional(),
-  endDate: z
+  endTime: z
     .string()
-    .regex(DATE_REGEX, '날짜 형식은 YYYY-MM-DD 여야 합니다.')
+    .datetime({
+      message:
+        '종료일시는 ISO 8601 형식이어야 합니다. (예: 2024-01-01T10:00:00Z)',
+    })
     .optional(),
   category: z.string().optional(), // 'other' or categoryId
 });
