@@ -41,3 +41,7 @@ mgmtV1Router.use('/materials', mgmtMaterialsRouter);
 /** 지시 생성 라우트 */
 import { mgmtAssistantOrderRouter } from './assistant-order.route.js';
 mgmtV1Router.use('/assistant-order', mgmtAssistantOrderRouter);
+
+/** 일정 카테고리 라우트 */
+import { mgmtScheduleCategoriesRouter } from './schedule-categories.route.js';
+mgmtV1Router.use('/schedule-categories', mgmtScheduleCategoriesRouter);

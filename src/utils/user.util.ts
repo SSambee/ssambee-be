@@ -18,3 +18,17 @@ export const getProfileOrThrow = (req: Request) => {
 export const getProfileIdOrThrow = (req: Request) => {
   return getProfileOrThrow(req).id;
 };
+
+export const getInstructorIdOrThrow = (req: Request) => {
+  const profile = getProfileOrThrow(req) as ProfileBase & {
+    instructorId?: string;
+  };
+
+  // 강사인 경우 본인 ID
+  if (!profile.instructorId) {
+    return profile.id;
+  }
+
+  // 조교인 경우 instructorId
+  return profile.instructorId;
+};
