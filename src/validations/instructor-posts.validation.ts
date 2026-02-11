@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { PostScope, TargetRole } from '../constants/posts.constant.js';
+import { PostType } from '../constants/posts.constant.js';
 
 export const createInstructorPostSchema = z.object({
   title: z.string().min(1, '제목은 필수입니다.'),
@@ -44,6 +45,8 @@ export const getInstructorPostsQuerySchema = z.object({
     .enum([PostScope.GLOBAL, PostScope.LECTURE, PostScope.SELECTED])
     .optional(),
   search: z.string().optional(),
+  // 게시물 유형 필터: 공지/자료
+  postType: z.enum([PostType.NOTICE, PostType.SHARE]).optional(),
 });
 
 export const instructorPostParamsSchema = z.object({

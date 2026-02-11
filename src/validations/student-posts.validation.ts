@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { StudentPostStatus } from '../constants/posts.constant.js';
+import {
+  StudentPostStatus,
+  AnswerStatus,
+  InquiryWriterType,
+} from '../constants/posts.constant.js';
 
 export const createStudentPostSchema = z.object({
   title: z.string().min(1, '제목은 필수입니다.'),
@@ -18,6 +22,20 @@ export const getStudentPostsQuerySchema = z.object({
   lectureId: z.cuid2().optional(),
   status: z
     .enum([StudentPostStatus.PENDING, StudentPostStatus.RESOLVED])
+    .optional(),
+  answerStatus: z
+    .enum([
+      AnswerStatus.BEFORE,
+      AnswerStatus.REGISTERED,
+      AnswerStatus.COMPLETED,
+    ])
+    .optional(),
+  writerType: z
+    .enum([
+      InquiryWriterType.ALL,
+      InquiryWriterType.STUDENT,
+      InquiryWriterType.PARENT,
+    ])
     .optional(),
   search: z.string().optional(),
 });
