@@ -5,6 +5,8 @@ import { svcChildrenRouter } from './children.route.js';
 import { svcGradesRouter } from './grades.route.js';
 import { svcClinicsRouter } from './clinics.route.js';
 import { svcMaterialsRouter } from './materials.route.js';
+import { svcStudentPostsRouter } from './student-posts.route.js';
+import { svcInstructorPostsRouter } from './instructor-posts.route.js';
 
 export const svcV1Router = Router();
 
@@ -23,5 +25,11 @@ svcV1Router.use('/grades', svcGradesRouter);
 /** 클리닉 라우트 */
 svcV1Router.use('/clinics', svcClinicsRouter);
 
-/** 자료 라우터 (경로 자체 포함) */
+/** 자료 라우터 */
 svcV1Router.use('/materials', svcMaterialsRouter);
+
+/** 학생 질문 라우트 */
+svcV1Router.use('/student-posts', svcStudentPostsRouter);
+
+/** 강사 공지 라우트 */
+svcV1Router.use('/instructor-posts', svcInstructorPostsRouter);

@@ -33,16 +33,29 @@ export class MaterialsRepository {
       limit: number;
       type?: string;
       search?: string;
+      instructorId?: string;
     },
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
-    const { lectureId, page, limit, type, search } = params;
+    const { lectureId, page, limit, type, search, instructorId } = params;
     const skip = (page - 1) * limit;
 
     const where: Prisma.MaterialWhereInput = {
       deletedAt: null,
-      ...(lectureId && { lectureId }),
+      ...(instructorId && { instructorId }),
+      ...(lectureId && {
+        OR: [
+          { lectureId },
+          {
+            instructorPostAttachments: {
+              some: {
+                instructorPost: { lectureId },
+              },
+            },
+          },
+        ],
+      }),
       ...(type && { type }),
       ...(search && {
         title: { contains: search, mode: 'insensitive' },

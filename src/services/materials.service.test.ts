@@ -21,6 +21,7 @@ import {
   mockLectures,
   mockMaterials,
   mockInstructor,
+  mockProfiles,
 } from '../test/fixtures/index.js';
 import {
   UploadMaterialDto,
@@ -53,6 +54,7 @@ describe('MaterialsService', () => {
     } as unknown as jest.Mocked<FileStorageService>;
 
     permissionService = createMockPermissionService();
+    assistantRepo.findAllByInstructorId.mockResolvedValue([]);
 
     service = new MaterialsService(
       materialsRepo,
@@ -155,7 +157,7 @@ describe('MaterialsService', () => {
 
       expect(fileStorageService.upload).toHaveBeenCalledWith(
         mockFile,
-        expect.stringMatching(/^materials\/\d{4}\/\d{2}\/.*\.pdf$/),
+        expect.stringMatching(/^paper\/\d{4}\/\d{2}\/.*\.pdf$/),
       );
 
       expect(materialsRepo.create).toHaveBeenCalledWith(
@@ -193,7 +195,10 @@ describe('MaterialsService', () => {
 
       expect(lecturesRepo.findById).not.toHaveBeenCalled();
 
-      expect(fileStorageService.upload).toHaveBeenCalled();
+      expect(fileStorageService.upload).toHaveBeenCalledWith(
+        mockFile,
+        expect.stringMatching(/^paper\/\d{4}\/\d{2}\/.*\.pdf$/),
+      );
 
       expect(materialsRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -228,8 +233,67 @@ describe('MaterialsService', () => {
       expect(result.pagination.totalCount).toBe(1);
       expect(result.materials[0].file?.url).toContain('/api/mgmt/v1/materials');
       expect(result.materials[0]).toHaveProperty('writer');
+      expect(result.materials[0].writer).toBe('이강사'); // Instructor is not masked
       expect(result.materials[0]).toHaveProperty('date');
       expect(result.materials[0]).toHaveProperty('className');
+    });
+
+    it('활성 조교인 경우 이름을 마스킹하지 않아야 한다', async () => {
+      const query: GetMaterialsQueryDto & { lectureId: string } = {
+        page: 1,
+        limit: 10,
+        lectureId: mockLectures.basic.id,
+      };
+      lecturesRepo.findById.mockResolvedValue(mockLectures.basic);
+
+      const assistantName = '김조교';
+      materialsRepo.findMany.mockResolvedValue({
+        materials: [
+          {
+            ...mockMaterials.basic,
+            authorName: assistantName,
+            authorRole: UserType.ASSISTANT,
+          },
+        ],
+        totalCount: 1,
+      });
+
+      assistantRepo.findAllByInstructorId.mockResolvedValue([
+        { ...mockProfiles.assistant, user: { name: assistantName } },
+      ]);
+
+      const result = await service.getMaterials(
+        query,
+        UserType.INSTRUCTOR,
+        mockInstructor.id,
+      );
+
+      expect(result.materials[0].writer).toBe(assistantName);
+    });
+
+    it('라이브러리 자료 조회 시 현재 강사의 ID로 필터링해야 한다', async () => {
+      const query: GetMaterialsQueryDto = { page: 1, limit: 10 };
+      const instructorId = 'instructor-1';
+
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        instructorId,
+      );
+      materialsRepo.findMany.mockResolvedValue({
+        materials: [],
+        totalCount: 0,
+      });
+
+      await service.getMaterials(query, UserType.INSTRUCTOR, instructorId);
+
+      expect(permissionService.getEffectiveInstructorId).toHaveBeenCalledWith(
+        UserType.INSTRUCTOR,
+        instructorId,
+      );
+      expect(materialsRepo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          instructorId,
+        }),
+      );
     });
   });
 
@@ -308,6 +372,149 @@ describe('MaterialsService', () => {
           'other-student',
         ),
       ).rejects.toThrow();
+    });
+
+    it('다른 강사의 라이브러리 자료를 상세 조회하려고 하면 ForbiddenException이 발생해야 한다', async () => {
+      const mockMaterial = {
+        ...mockMaterials.basic,
+        lectureId: null,
+        instructorId: 'instructor-a',
+      };
+      materialsRepo.findById.mockResolvedValue(mockMaterial);
+
+      permissionService.validateInstructorAccess.mockRejectedValue(
+        new ForbiddenException('해당 권한이 없습니다.'),
+      );
+
+      await expect(
+        service.getMaterialDetail(
+          mockMaterial.id,
+          UserType.INSTRUCTOR,
+          'instructor-b',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(permissionService.validateInstructorAccess).toHaveBeenCalledWith(
+        'instructor-a',
+        UserType.INSTRUCTOR,
+        'instructor-b',
+      );
+    });
+  });
+
+  describe('getDownloadUrl', () => {
+    it('다른 강사의 라이브러리 자료를 다운로드하려고 하면 ForbiddenException이 발생해야 한다', async () => {
+      const mockMaterial = {
+        ...mockMaterials.basic,
+        lectureId: null,
+        instructorId: 'instructor-a',
+      };
+      materialsRepo.findById.mockResolvedValue(mockMaterial);
+
+      permissionService.validateInstructorAccess.mockRejectedValue(
+        new ForbiddenException('해당 권한이 없습니다.'),
+      );
+
+      await expect(
+        service.getDownloadUrl(
+          mockMaterial.id,
+          UserType.INSTRUCTOR,
+          'instructor-b',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('본인의 라이브러리 자료 다운로드 시 프레사인 URL을 반환해야 한다', async () => {
+      const mockMaterial = {
+        ...mockMaterials.basic,
+        lectureId: null,
+        instructorId: 'instructor-a',
+      };
+      materialsRepo.findById.mockResolvedValue(mockMaterial);
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        'instructor-a',
+      );
+      fileStorageService.getPresignedUrl.mockResolvedValue('presigned-url');
+
+      const result = await service.getDownloadUrl(
+        mockMaterial.id,
+        UserType.INSTRUCTOR,
+        'instructor-a',
+      );
+
+      expect(result.url).toBe('presigned-url');
+    });
+
+    it('조교가 담당 강사의 라이브러리 자료를 다운로드 시 성공해야 한다', async () => {
+      const mockMaterial = {
+        ...mockMaterials.basic,
+        lectureId: null,
+        instructorId: 'instructor-a',
+      };
+      materialsRepo.findById.mockResolvedValue(mockMaterial);
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        'instructor-a',
+      );
+      fileStorageService.getPresignedUrl.mockResolvedValue('presigned-url');
+
+      const result = await service.getDownloadUrl(
+        mockMaterial.id,
+        UserType.ASSISTANT,
+        'assistant-a',
+      );
+
+      expect(permissionService.validateInstructorAccess).toHaveBeenCalledWith(
+        'instructor-a',
+        UserType.ASSISTANT,
+        'assistant-a',
+      );
+      expect(result.url).toBe('presigned-url');
+    });
+
+    it('학생이 게시글에 첨부된 라이브러리 자료를 다운로드 시 성공해야 한다', async () => {
+      const mockMaterial = {
+        ...mockMaterials.basic,
+        lectureId: null,
+        instructorId: 'instructor-a',
+      };
+      const mockEnrollment = { enrollmentId: 'enrollment-1' };
+      materialsRepo.findById.mockResolvedValue(mockMaterial);
+      lectureEnrollmentsRepo.findFirstByInstructorIdAndStudentId.mockResolvedValue(
+        mockEnrollment,
+      );
+      materialsRepo.isAccessibleByStudent.mockResolvedValue(true);
+      fileStorageService.getPresignedUrl.mockResolvedValue('presigned-url');
+
+      const result = await service.getDownloadUrl(
+        mockMaterial.id,
+        UserType.STUDENT,
+        'student-1',
+      );
+
+      expect(materialsRepo.isAccessibleByStudent).toHaveBeenCalledWith(
+        mockMaterial.id,
+        'enrollment-1',
+        undefined,
+      );
+      expect(result.url).toBe('presigned-url');
+    });
+
+    it('타인의 라이브러리 자료가 게시글에 첨부되지 않은 경우 학생의 다운로드는 차단되어야 한다', async () => {
+      const mockMaterial = {
+        ...mockMaterials.basic,
+        lectureId: null,
+        instructorId: 'instructor-a',
+      };
+      const mockEnrollment = { enrollmentId: 'enrollment-1' };
+      materialsRepo.findById.mockResolvedValue(mockMaterial);
+      lectureEnrollmentsRepo.findFirstByInstructorIdAndStudentId.mockResolvedValue(
+        mockEnrollment,
+      );
+      materialsRepo.isAccessibleByStudent.mockResolvedValue(false);
+
+      await expect(
+        service.getDownloadUrl(mockMaterial.id, UserType.STUDENT, 'student-1'),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });
