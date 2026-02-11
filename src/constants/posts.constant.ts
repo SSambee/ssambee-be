@@ -15,6 +15,7 @@ export type TargetRole = (typeof TargetRole)[keyof typeof TargetRole];
 export const StudentPostStatus = {
   PENDING: 'PENDING',
   RESOLVED: 'RESOLVED',
+  COMPLETED: 'COMPLETED',
 } as const;
 export type StudentPostStatus =
   (typeof StudentPostStatus)[keyof typeof StudentPostStatus];
