@@ -136,7 +136,94 @@ export class StudentPostsService {
       throw new ForbiddenException('접근 권한이 없습니다.');
     }
 
+    // 학생용 댓글 첨부파일 필터링
+    if (userType === UserType.STUDENT && post.comments) {
+      const filteredComments = await Promise.all(
+        post.comments.map(async (comment) => {
+          // 학생이 해당 댓글의 첨부파일에 접근 가능한지 확인
+          const accessibleAttachments = await this.filterAccessibleAttachments(
+            comment.attachments,
+            post.lectureId,
+            post.instructorId,
+            userType,
+            profileId,
+          );
+          return {
+            ...comment,
+            attachments: accessibleAttachments,
+          };
+        }),
+      );
+
+      return {
+        ...post,
+        comments: filteredComments,
+      };
+    }
+
     return post;
+  }
+
+  /** 학생용 첨부파일 접근 권한 필터링 */
+  private async filterAccessibleAttachments(
+    attachments: Array<{
+      materialId: string | null;
+      material: {
+        id: string;
+        instructorId: string;
+        lectureId: string | null;
+      } | null;
+    }>,
+    lectureId: string | null,
+    instructorId: string,
+    userType: UserType,
+    profileId: string,
+  ): Promise<
+    Array<{
+      materialId: string | null;
+      material: {
+        id: string;
+        instructorId: string;
+        lectureId: string | null;
+      } | null;
+    }>
+  > {
+    if (!attachments || attachments.length === 0) return [];
+
+    const result: typeof attachments = [];
+
+    for (const attachment of attachments) {
+      const material = attachment.material;
+      if (!material) {
+        continue;
+      }
+
+      // 강의 자료인 경우: 해당 강의 수강 여부 확인
+      if (material.lectureId) {
+        const isEnrolled =
+          await this.lectureEnrollmentsRepository.existsByLectureIdAndStudentId(
+            material.lectureId,
+            profileId,
+          );
+        if (!isEnrolled) {
+          continue;
+        }
+      } else {
+        // 라이브러리 자료인 경우: 해당 강사의 수강생인지 확인
+        const enrollment =
+          await this.lectureEnrollmentsRepository.findFirstByInstructorIdAndStudentId(
+            material.instructorId,
+            profileId,
+          );
+        if (!enrollment) {
+          continue;
+        }
+      }
+
+      result.push(attachment);
+    }
+
+    return result;
   }
 
   /** 상태 변경 */
