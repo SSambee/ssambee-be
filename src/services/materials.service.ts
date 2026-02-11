@@ -387,7 +387,7 @@ export class MaterialsService {
       await this.permissionService.validateInstructorAccess(
         material.instructorId,
         userType,
-        effectiveInstructorId, // 번환된 강사 ID 사용
+        profileId,
       );
     } else if (userType === UserType.STUDENT) {
       // 학생: 강의 자료 또는 게시글 첨부 자료 확인
