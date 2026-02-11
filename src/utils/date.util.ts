@@ -1,4 +1,5 @@
 import { toZonedTime, format, fromZonedTime } from 'date-fns-tz';
+export { toZonedTime, format, fromZonedTime };
 import { parseISO, isValid, startOfDay } from 'date-fns';
 
 export const KST_TIMEZONE = 'Asia/Seoul';
@@ -29,10 +30,21 @@ export function toKstIsoString(date: Date | null | undefined): string | null {
  * @returns UTC Date 객체
  */
 export function parseToUtc(dateString: string): Date {
-  // 타임존이 명시된 경우: 표준 방식대로 파싱 (해당 타임존 -> UTC 자동 변환됨)
-  const date = parseISO(dateString);
-  if (!isValid(date)) throw new Error('Invalid date string');
-  return date;
+  // 타임존 오프셋(+, -) 또는 Z가 포함되어 있는지 확인
+  const hasTimezone = /([+-]\d{2}:?\d{2}|Z)$/.test(dateString);
+
+  if (hasTimezone) {
+    // 타임존이 명시된 경우: 표준 방식대로 파싱 (해당 타임존 -> UTC 자동 변환됨)
+    const date = parseISO(dateString);
+    if (!isValid(date)) throw new Error('Invalid date string');
+    return date;
+  } else {
+    // 타임존이 없는 경우: UTC(Z)로 간주
+    const utcString = `${dateString}Z`;
+    const date = parseISO(utcString);
+    if (!isValid(date)) throw new Error('Invalid date string');
+    return date;
+  }
 }
 
 /**

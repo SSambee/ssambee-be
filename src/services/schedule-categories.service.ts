@@ -1,4 +1,4 @@
-import { PrismaClient } from '../generated/prisma/client.js';
+import { PrismaClient, Prisma } from '../generated/prisma/client.js';
 import { ScheduleCategoryRepository } from '../repos/schedule-categories.repo.js';
 import {
   ConflictException,
@@ -38,10 +38,22 @@ export class ScheduleCategoryService {
     }
 
     // 3. 생성
-    return this.scheduleCategoryRepo.create({
-      instructorId,
-      ...data,
-    });
+    try {
+      return await this.scheduleCategoryRepo.create({
+        instructorId,
+        ...data,
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          '이미 존재하는 카테고리 이름 또는 색상입니다.',
+        );
+      }
+      throw error;
+    }
   }
 
   /** 강사의 카테고리 목록 조회 */
@@ -89,7 +101,19 @@ export class ScheduleCategoryService {
     }
 
     // 4. 업데이트
-    return this.scheduleCategoryRepo.update(id, data);
+    try {
+      return await this.scheduleCategoryRepo.update(id, data);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          '이미 존재하는 카테고리 이름 또는 색상입니다.',
+        );
+      }
+      throw error;
+    }
   }
 
   /** 카테고리 삭제 */

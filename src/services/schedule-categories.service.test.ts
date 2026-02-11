@@ -1,6 +1,6 @@
 import { ScheduleCategoryService } from './schedule-categories.service.js';
 import { ScheduleCategoryRepository } from '../repos/schedule-categories.repo.js';
-import { PrismaClient } from '../generated/prisma/client.js';
+import { PrismaClient, Prisma } from '../generated/prisma/client.js';
 import {
   ConflictException,
   ForbiddenException,
@@ -85,6 +85,23 @@ describe('ScheduleCategoryService', () => {
         service.createCategory(mockInstructorId, createDto),
       ).rejects.toThrow(ConflictException);
     });
+
+    it('should throw ConflictException if P2002 error occurs', async () => {
+      (mockRepo.findByInstructorIdAndName as jest.Mock).mockResolvedValue(null);
+      (mockRepo.findByInstructorIdAndColor as jest.Mock).mockResolvedValue(
+        null,
+      );
+
+      const p2002Error = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint violation',
+        { code: 'P2002', clientVersion: '1.0.0' },
+      );
+      (mockRepo.create as jest.Mock).mockRejectedValue(p2002Error);
+
+      await expect(
+        service.createCategory(mockInstructorId, createDto),
+      ).rejects.toThrow(ConflictException);
+    });
   });
 
   describe('getCategoriesByInstructor', () => {
@@ -156,6 +173,24 @@ describe('ScheduleCategoryService', () => {
         service.updateCategory(mockCategory.id, mockInstructorId, {
           name: updateDto.name,
         }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw ConflictException if P2002 error occurs', async () => {
+      (mockRepo.findById as jest.Mock).mockResolvedValue(mockCategory);
+      (mockRepo.findByInstructorIdAndName as jest.Mock).mockResolvedValue(null);
+      (mockRepo.findByInstructorIdAndColor as jest.Mock).mockResolvedValue(
+        null,
+      );
+
+      const p2002Error = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint violation',
+        { code: 'P2002', clientVersion: '1.0.0' },
+      );
+      (mockRepo.update as jest.Mock).mockRejectedValue(p2002Error);
+
+      await expect(
+        service.updateCategory(mockCategory.id, mockInstructorId, updateDto),
       ).rejects.toThrow(ConflictException);
     });
   });
