@@ -133,7 +133,27 @@ export class LectureEnrollmentsRepository {
     return { lectureEnrollments, totalCount };
   }
 
-  /** [NEW] 학부모 자녀 연동(AppParentChildLink) 기준 수강 강의 목록 조회 */
+  /** 학생의 모든 유효 수강 목록 조회 (필터링 데이터 구축용) */
+  async findAllByAppStudentId(
+    appStudentId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return client.lectureEnrollment.findMany({
+      where: {
+        enrollment: {
+          appStudentId,
+          deletedAt: null,
+          status: 'ACTIVE',
+        },
+      },
+      include: {
+        lecture: true,
+      },
+    });
+  }
+
+  /** 학부모 자녀 연동(AppParentChildLink) 기준 수강 강의 목록 조회 */
   async findManyByAppParentLinkId(
     appParentLinkId: string,
     params: {
@@ -191,7 +211,7 @@ export class LectureEnrollmentsRepository {
     return { lectureEnrollments, totalCount };
   }
 
-  /** [NEW] LectureEnrollment 상세 조회 (강의 상세, 성적, 출석, 과제 포함) */
+  /** LectureEnrollment 상세 조회 (강의 상세, 성적, 출석, 과제 포함) */
   async findByIdWithDetails(id: string, tx?: Prisma.TransactionClient) {
     const client = tx ?? this.prisma;
     return await client.lectureEnrollment.findUnique({
@@ -289,6 +309,28 @@ export class LectureEnrollmentsRepository {
         enrollment: {
           appStudentId,
           deletedAt: null,
+        },
+      },
+      include: {
+        enrollment: true,
+      },
+    });
+  }
+
+  /** 학생이 특정 강사의 강의를 수강 중인지 확인하고 첫 번째 Enrollment 반환 */
+  async findFirstByInstructorIdAndStudentId(
+    instructorId: string,
+    appStudentId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return await client.lectureEnrollment.findFirst({
+      where: {
+        enrollment: {
+          instructorId,
+          appStudentId,
+          deletedAt: null,
+          status: 'ACTIVE',
         },
       },
       include: {

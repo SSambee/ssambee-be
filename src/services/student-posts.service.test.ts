@@ -6,11 +6,14 @@ import {
   createMockLecturesRepository,
   createMockCommentsRepository,
 } from '../test/mocks/repo.mock.js';
+import { createMockPermissionService } from '../test/mocks/services.mock.js';
 import { UserType } from '../constants/auth.constant.js';
 import {
   ForbiddenException,
   NotFoundException,
+  BadRequestException,
 } from '../err/http.exception.js';
+import { AuthorRole, StudentPostStatus } from '../constants/posts.constant.js';
 
 describe('StudentPostsService', () => {
   let service: StudentPostsService;
@@ -21,6 +24,7 @@ describe('StudentPostsService', () => {
   >;
   let lecturesRepo: ReturnType<typeof createMockLecturesRepository>;
   let commentsRepo: ReturnType<typeof createMockCommentsRepository>;
+  let permissionService: ReturnType<typeof createMockPermissionService>;
 
   beforeEach(() => {
     studentPostsRepo = createMockStudentPostsRepository();
@@ -28,6 +32,7 @@ describe('StudentPostsService', () => {
     lectureEnrollmentsRepo = createMockLectureEnrollmentsRepository();
     lecturesRepo = createMockLecturesRepository();
     commentsRepo = createMockCommentsRepository();
+    permissionService = createMockPermissionService();
 
     service = new StudentPostsService(
       studentPostsRepo,
@@ -35,7 +40,178 @@ describe('StudentPostsService', () => {
       lectureEnrollmentsRepo,
       lecturesRepo,
       commentsRepo,
+      permissionService,
     );
+  });
+
+  describe('createPost', () => {
+    const VALID_STUDENT_ID = 'student-1';
+    const VALID_LECTURE_ID = 'lecture-1';
+    const VALID_ENROLLMENT_ID = 'enrollment-1';
+    const VALID_INSTRUCTOR_ID = 'instructor-1';
+
+    it('학생이 수강 중인 강의에 질문을 생성하면 성공해야 한다', async () => {
+      const postData = {
+        title: '질문 제목',
+        content: '질문 내용',
+        lectureId: VALID_LECTURE_ID,
+      };
+
+      const mockLecture = {
+        id: VALID_LECTURE_ID,
+        instructorId: VALID_INSTRUCTOR_ID,
+      };
+      const mockEnrollment = {
+        enrollmentId: VALID_ENROLLMENT_ID,
+        lectureId: VALID_LECTURE_ID,
+        studentId: VALID_STUDENT_ID,
+      };
+      const mockFullEnrollment = {
+        id: VALID_ENROLLMENT_ID,
+        instructorId: VALID_INSTRUCTOR_ID,
+        appStudentId: VALID_STUDENT_ID,
+      };
+
+      lecturesRepo.findById.mockResolvedValue(mockLecture);
+      lectureEnrollmentsRepo.findByLectureIdAndStudentId.mockResolvedValue(
+        mockEnrollment,
+      );
+      enrollmentsRepo.findById.mockResolvedValue(mockFullEnrollment);
+      studentPostsRepo.create.mockResolvedValue({
+        id: 'post-1',
+        ...postData,
+        enrollmentId: VALID_ENROLLMENT_ID,
+        instructorId: VALID_INSTRUCTOR_ID,
+        status: StudentPostStatus.PENDING,
+        authorRole: AuthorRole.STUDENT,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const result = await service.createPost(
+        postData,
+        UserType.STUDENT,
+        VALID_STUDENT_ID,
+      );
+
+      expect(result).toBeDefined();
+      expect(studentPostsRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: postData.title,
+          enrollmentId: VALID_ENROLLMENT_ID,
+          instructorId: VALID_INSTRUCTOR_ID,
+        }),
+      );
+    });
+
+    it('강의 ID가 없으면 BadRequestException을 던져야 한다', async () => {
+      await expect(
+        service.createPost(
+          { title: 't', content: 'c' },
+          UserType.STUDENT,
+          VALID_STUDENT_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('수강하지 않는 강의에 질문을 생성하려고 하면 ForbiddenException을 던져야 한다', async () => {
+      const postData = {
+        title: '질문 제목',
+        content: '질문 내용',
+        lectureId: VALID_LECTURE_ID,
+      };
+
+      lecturesRepo.findById.mockResolvedValue({ id: VALID_LECTURE_ID });
+      lectureEnrollmentsRepo.findByLectureIdAndStudentId.mockResolvedValue(
+        null,
+      );
+
+      await expect(
+        service.createPost(postData, UserType.STUDENT, VALID_STUDENT_ID),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('getPostDetail', () => {
+    const VALID_POST_ID = 'post-1';
+    const VALID_STUDENT_ID = 'student-1';
+    const VALID_INSTRUCTOR_ID = 'instructor-1';
+
+    it('학생이 본인의 질문을 조회하면 성공해야 한다', async () => {
+      const mockPost = {
+        id: VALID_POST_ID,
+        title: 'Title',
+        content: 'Content',
+        enrollmentId: 'enrollment-1',
+        instructorId: VALID_INSTRUCTOR_ID,
+        comments: [],
+      };
+      const mockEnrollment = {
+        id: 'enrollment-1',
+        appStudentId: VALID_STUDENT_ID,
+      };
+
+      studentPostsRepo.findById.mockResolvedValue(mockPost);
+      enrollmentsRepo.findById.mockResolvedValue(mockEnrollment);
+
+      const result = await service.getPostDetail(
+        VALID_POST_ID,
+        UserType.STUDENT,
+        VALID_STUDENT_ID,
+      );
+
+      expect(result).toEqual(expect.objectContaining({ id: VALID_POST_ID }));
+    });
+
+    it('학생이 타인의 질문을 조회하면 ForbiddenException을 던져야 한다', async () => {
+      const mockPost = {
+        id: VALID_POST_ID,
+        enrollmentId: 'enrollment-1',
+      };
+      const mockEnrollment = {
+        id: 'enrollment-1',
+        appStudentId: 'other-student',
+      };
+
+      studentPostsRepo.findById.mockResolvedValue(mockPost);
+      enrollmentsRepo.findById.mockResolvedValue(mockEnrollment);
+
+      await expect(
+        service.getPostDetail(
+          VALID_POST_ID,
+          UserType.STUDENT,
+          VALID_STUDENT_ID,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('deletePost', () => {
+    const VALID_POST_ID = 'post-1';
+    const VALID_STUDENT_ID = 'student-1';
+
+    it('학생이 본인의 질문을 삭제하면 성공해야 한다', async () => {
+      const mockPost = {
+        id: VALID_POST_ID,
+        enrollmentId: 'enrollment-1',
+      };
+      const mockEnrollment = {
+        id: 'enrollment-1',
+        appStudentId: VALID_STUDENT_ID,
+      };
+
+      studentPostsRepo.findById.mockResolvedValue(mockPost);
+      enrollmentsRepo.findById.mockResolvedValue(mockEnrollment);
+      studentPostsRepo.delete.mockResolvedValue(mockPost);
+
+      await service.deletePost(
+        VALID_POST_ID,
+        UserType.STUDENT,
+        VALID_STUDENT_ID,
+      );
+
+      expect(studentPostsRepo.delete).toHaveBeenCalledWith(VALID_POST_ID);
+    });
   });
 
   describe('updateComment', () => {

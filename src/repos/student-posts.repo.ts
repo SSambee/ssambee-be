@@ -114,6 +114,19 @@ export class StudentPostsRepository {
     });
   }
 
+  /** 질문 수정 (title, content만 수정 가능) */
+  async update(
+    id: string,
+    data: Prisma.StudentPostUpdateInput,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return client.studentPost.update({
+      where: { id },
+      data,
+    });
+  }
+
   /** 질문 삭제 (Soft Delete 없음, 실제 삭제?) */
   // 기획상 삭제 언급은 없으나 기본 CRUD로 제공
   async delete(id: string, tx?: Prisma.TransactionClient) {

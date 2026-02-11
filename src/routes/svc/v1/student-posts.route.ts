@@ -6,8 +6,13 @@ import {
   updateStudentPostStatusSchema,
   getStudentPostsQuerySchema,
   studentPostParamsSchema,
+  updateStudentPostSchema,
 } from '../../../validations/student-posts.validation.js';
-import { createCommentSchema } from '../../../validations/comments.validation.js';
+import {
+  createCommentSchema,
+  updateCommentSchema,
+  commentEditParamsSchema,
+} from '../../../validations/comments.validation.js';
 
 export const svcStudentPostsRouter = Router();
 
@@ -45,6 +50,21 @@ svcStudentPostsRouter.get(
   studentPostsController.getPostDetail,
 );
 
+/** 질문 수정 */
+svcStudentPostsRouter.patch(
+  '/:postId',
+  validate(studentPostParamsSchema, 'params'),
+  validate(updateStudentPostSchema, 'body'),
+  studentPostsController.updatePost,
+);
+
+/** 질문 삭제 */
+svcStudentPostsRouter.delete(
+  '/:postId',
+  validate(studentPostParamsSchema, 'params'),
+  studentPostsController.deletePost,
+);
+
 /** 질문 상태 변경 (학생이 해결 완료 처리) */
 svcStudentPostsRouter.patch(
   '/:postId/status',
@@ -59,4 +79,19 @@ svcStudentPostsRouter.post(
   validate(studentPostParamsSchema, 'params'),
   validate(createCommentSchema, 'body'),
   commentsController.createComment,
+);
+
+/** 댓글 수정 (본인만 가능) */
+svcStudentPostsRouter.patch(
+  '/:postId/comments/:commentId',
+  validate(commentEditParamsSchema, 'params'),
+  validate(updateCommentSchema, 'body'),
+  commentsController.updateComment,
+);
+
+/** 댓글 삭제 (본인만 가능) */
+svcStudentPostsRouter.delete(
+  '/:postId/comments/:commentId',
+  validate(commentEditParamsSchema, 'params'),
+  commentsController.deleteComment,
 );
