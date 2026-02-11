@@ -13,7 +13,11 @@ export const createStudentPostSchema = z.object({
 });
 
 export const updateStudentPostStatusSchema = z.object({
-  status: z.enum([StudentPostStatus.PENDING, StudentPostStatus.RESOLVED]),
+  status: z.enum([
+    StudentPostStatus.PENDING,
+    StudentPostStatus.RESOLVED,
+    StudentPostStatus.COMPLETED,
+  ]),
 });
 
 export const getStudentPostsQuerySchema = z.object({
@@ -21,7 +25,11 @@ export const getStudentPostsQuerySchema = z.object({
   limit: z.coerce.number().min(1).max(50).default(20),
   lectureId: z.cuid2().optional(),
   status: z
-    .enum([StudentPostStatus.PENDING, StudentPostStatus.RESOLVED])
+    .enum([
+      StudentPostStatus.PENDING,
+      StudentPostStatus.RESOLVED,
+      StudentPostStatus.COMPLETED,
+    ])
     .optional(),
   answerStatus: z
     .enum([
@@ -36,7 +44,8 @@ export const getStudentPostsQuerySchema = z.object({
       InquiryWriterType.STUDENT,
       InquiryWriterType.PARENT,
     ])
-    .optional(),
+    .optional()
+    .default(InquiryWriterType.ALL),
   search: z.string().optional(),
 });
 

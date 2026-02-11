@@ -2,6 +2,7 @@ import { Prisma, PrismaClient } from '../generated/prisma/client.js';
 import {
   AnswerStatus,
   InquiryWriterType,
+  StudentPostStatus,
 } from '../constants/posts.constant.js';
 
 export class StudentPostsRepository {
@@ -93,30 +94,16 @@ export class StudentPostsRepository {
         writerType !== InquiryWriterType.ALL && {
           authorRole: writerType,
         }),
-      // 답변 상태 필터링
+      // 답변 상태 필터링 (answerStatus → StudentPost status 매핑)
+      // BEFORE → PENDING, REGISTERED → RESOLVED, COMPLETED → COMPLETED
       ...(answerStatus === AnswerStatus.BEFORE && {
-        comments: { none: {} },
+        status: StudentPostStatus.PENDING,
       }),
       ...(answerStatus === AnswerStatus.REGISTERED && {
-        comments: {
-          some: {
-            instructorId: null,
-            assistantId: null,
-          },
-          every: {
-            OR: [{ instructorId: null }, { assistantId: null }],
-          },
-        },
+        status: StudentPostStatus.RESOLVED,
       }),
       ...(answerStatus === AnswerStatus.COMPLETED && {
-        comments: {
-          some: {
-            OR: [
-              { instructorId: { not: null } },
-              { assistantId: { not: null } },
-            ],
-          },
-        },
+        status: StudentPostStatus.COMPLETED,
       }),
     };
 
