@@ -112,6 +112,8 @@ const studentPostsRepo = new StudentPostsRepository(prisma);
 const commentsRepo = new CommentsRepository(prisma);
 
 // 2. Instantiate Services (Inject Repos)
+const fileStorageService = new FileStorageService();
+
 const authService = new AuthService(
   instructorRepo,
   assistantRepo,
@@ -143,6 +145,7 @@ const gradesService = new GradesService(
   lectureEnrollmentsRepo,
   attendancesRepo,
   permissionService,
+  fileStorageService,
   prisma,
 );
 
@@ -220,7 +223,6 @@ const assistantsService = new AssistantsService(
   prisma,
 );
 
-const fileStorageService = new FileStorageService();
 const materialsService = new MaterialsService(
   materialsRepo,
   lecturesRepo,

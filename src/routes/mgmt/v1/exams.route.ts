@@ -8,6 +8,7 @@ import {
 } from '../../../validations/exams.validation.js';
 import { submitGradingSchema } from '../../../validations/grades.validation.js';
 import { createClinicsSchema } from '../../../validations/clinics.validation.js';
+import { upload } from '../../../middlewares/multer.middleware.js';
 
 export const mgmtExamsRouter = Router();
 
@@ -72,6 +73,15 @@ mgmtExamsRouter.get(
   '/:examId/grades/lectureEnrollments/:lectureEnrollmentId/report',
   validate(examAndEnrollmentParamSchema, 'params'),
   (req, res, next) => container.gradesController.getGradeReport(req, res, next),
+);
+
+/** 성적표 리포트 파일 업로드 */
+mgmtExamsRouter.post(
+  '/:examId/grades/lectureEnrollments/:lectureEnrollmentId/report/upload',
+  validate(examAndEnrollmentParamSchema, 'params'),
+  upload.single('file'),
+  (req, res, next) =>
+    container.gradesController.uploadGradeReportFile(req, res, next),
 );
 
 /** 통계 산출 및 저장 */

@@ -11,6 +11,7 @@ import { LecturesRepository } from '../repos/lectures.repo.js';
 import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 import { AttendancesRepository } from '../repos/attendances.repo.js';
 import { PermissionService } from './permission.service.js';
+import { FileStorageService } from './filestorage.service.js';
 import type { SubmitGradingDto } from '../validations/grades.validation.js';
 
 export class GradesService {
@@ -21,6 +22,7 @@ export class GradesService {
     private readonly lectureEnrollmentsRepo: LectureEnrollmentsRepository,
     private readonly attendancesRepo: AttendancesRepository,
     private readonly permissionService: PermissionService,
+    private readonly fileStorageService: FileStorageService,
     private readonly prisma: PrismaClient,
   ) {}
 
@@ -490,5 +492,60 @@ export class GradesService {
       attendanceRate,
       questions: questionsWithStats,
     };
+  }
+
+  /** [NEW] 성적표 리포트 파일 업로드 */
+  async uploadGradeReportFile(
+    examId: string,
+    lectureEnrollmentId: string,
+    file: Express.Multer.File,
+    userType: UserType,
+    profileId: string,
+  ) {
+    if (!file) {
+      throw new BadRequestException('파일이 첨부되지 않았습니다.');
+    }
+
+    // 1. 권한 검증 (강사/조교)
+    // 시험 정보 조회를 통해 강사 ID 확인 필요
+    const exam = await this.examsRepo.findById(examId);
+    if (!exam) {
+      throw new NotFoundException('시험 정보를 찾을 수 없습니다.');
+    }
+
+    const lecture = await this.lecturesRepo.findById(exam.lectureId);
+    if (!lecture) {
+      throw new NotFoundException('강의 정보를 찾을 수 없습니다.');
+    }
+
+    await this.permissionService.validateInstructorAccess(
+      lecture.instructorId,
+      userType,
+      profileId,
+    );
+
+    // 2. 파일 업로드 (S3)
+    // Key: report/{examId}/{lectureEnrollmentId}/{uuid}-{originalFilename}
+    const uuid = crypto.randomUUID();
+    const key = `report/${examId}/${lectureEnrollmentId}/${uuid}-${file.originalname}`;
+
+    // FileStorageService.upload는 전체 URL을 반환함
+    const reportUrl = await this.fileStorageService.upload(file, key);
+
+    // 3. DB 업데이트
+    const updatedReport = await this.gradesRepo.updateGradeReportUrl(
+      examId,
+      lectureEnrollmentId,
+      reportUrl,
+    );
+
+    if (!updatedReport) {
+      // 업로드 성공했으나 DB 업데이트 실패 (Grade 없음) -> S3 파일 삭제 고려 가능하나, 여기선 예외만 발생시킴
+      throw new NotFoundException(
+        '성적 정보가 존재하지 않아 리포트를 저장할 수 없습니다.',
+      );
+    }
+
+    return { reportUrl };
   }
 }

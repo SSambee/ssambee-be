@@ -1,6 +1,7 @@
 import type { AuthService } from '../../services/auth.service.js';
 import type { ParentsService } from '../../services/parents.service.js';
 import type { PermissionService } from '../../services/permission.service.js';
+import type { FileStorageService } from '../../services/filestorage.service.js';
 
 /** Mock AuthService 생성 */
 export const createMockAuthService = (): jest.Mocked<AuthService> =>
@@ -34,3 +35,12 @@ export const createMockPermissionService = (): jest.Mocked<PermissionService> =>
     validateInstructorStudentLink: jest.fn(),
     getInstructorIdByAssistantId: jest.fn(),
   }) as unknown as jest.Mocked<PermissionService>;
+
+/** Mock FileStorageService 생성 */
+export const createMockFileStorageService =
+  (): jest.Mocked<FileStorageService> =>
+    ({
+      upload: jest.fn(),
+      getPresignedUrl: jest.fn(),
+      delete: jest.fn(),
+    }) as unknown as jest.Mocked<FileStorageService>;

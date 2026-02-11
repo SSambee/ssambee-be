@@ -163,6 +163,7 @@ export const createMockGradesRepository = () =>
     'findByLectureEnrollmentId',
     'findGradeWithDetailsByExamAndEnrollment',
     'findGradeReportByExamAndEnrollment',
+    'updateGradeReportUrl',
   ]);
 
 /** Mock ClinicsRepository 생성 */

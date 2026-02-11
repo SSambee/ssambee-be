@@ -311,4 +311,42 @@ export class GradesRepository {
       },
     });
   }
+
+  /** [NEW] 성적표 리포트 URL 업데이트 */
+  async updateGradeReportUrl(
+    examId: string,
+    lectureEnrollmentId: string,
+    reportUrl: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+
+    // GradeReport가 이미 존재하는지 확인
+    // Grade ID를 먼저 찾아야 함 (1:1 관계이므로)
+    const grade = await client.grade.findUnique({
+      where: {
+        examId_lectureEnrollmentId: {
+          examId,
+          lectureEnrollmentId,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!grade) return null;
+
+    return await client.gradeReport.upsert({
+      where: { gradeId: grade.id },
+      create: {
+        examId,
+        gradeId: grade.id,
+        lectureEnrollmentId,
+        description: 'Auto-generated Report', // 기본값
+        reportUrl,
+      },
+      update: {
+        reportUrl,
+      },
+    });
+  }
 }

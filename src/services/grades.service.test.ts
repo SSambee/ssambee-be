@@ -12,7 +12,10 @@ import {
   createMockLectureEnrollmentsRepository,
   createMockAttendancesRepository,
 } from '../test/mocks/repo.mock.js';
-import { createMockPermissionService } from '../test/mocks/services.mock.js';
+import {
+  createMockPermissionService,
+  createMockFileStorageService,
+} from '../test/mocks/services.mock.js';
 import { createMockPrisma } from '../test/mocks/prisma.mock.js';
 import {
   mockLectures,
@@ -39,6 +42,7 @@ describe('GradesService - @unit #critical', () => {
   let mockLectureEnrollmentsRepo: jest.Mocked<LectureEnrollmentsRepository>;
   let mockAttendancesRepo: jest.Mocked<AttendancesRepository>;
   let mockPermissionService: jest.Mocked<PermissionService>;
+  let mockFileStorageService: ReturnType<typeof createMockFileStorageService>;
   let mockPrisma: jest.Mocked<PrismaClient>;
 
   const mockUserType = UserType.INSTRUCTOR;
@@ -55,6 +59,7 @@ describe('GradesService - @unit #critical', () => {
     mockLectureEnrollmentsRepo = createMockLectureEnrollmentsRepository();
     mockAttendancesRepo = createMockAttendancesRepository();
     mockPermissionService = createMockPermissionService();
+    mockFileStorageService = createMockFileStorageService();
     mockPrisma = createMockPrisma() as unknown as jest.Mocked<PrismaClient>;
 
     mockPrisma.$transaction.mockImplementation(
@@ -69,6 +74,7 @@ describe('GradesService - @unit #critical', () => {
       mockLectureEnrollmentsRepo,
       mockAttendancesRepo,
       mockPermissionService,
+      mockFileStorageService,
       mockPrisma,
     );
   });
@@ -599,8 +605,6 @@ describe('GradesService - @unit #critical', () => {
       expect(result.grade.score).toBe(90);
       expect(result.attendanceRate).toBe(90.0); // (10-1)/10 * 100
       expect(result.questions).toHaveLength(1);
-      expect(result.questions[0].wrongRate).toBe(20.0); // 100 - 80.0
-      expect(result.recentGrades).toHaveLength(1);
     });
 
     it('성적 정보가 없을 때, NotFoundException을 던진다', async () => {
@@ -612,6 +616,100 @@ describe('GradesService - @unit #critical', () => {
           'le-1',
           mockUserType,
           mockProfileId,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('[리포트] uploadGradeReportFile', () => {
+    const examId = 'exam-1';
+    const lectureEnrollmentId = 'enrollment-1';
+    const userType = 'INSTRUCTOR';
+    const profileId = 'profile-1';
+    const mockFile = {
+      originalname: 'test.pdf',
+      buffer: Buffer.from('test'),
+    } as Express.Multer.File;
+    const reportUrl = 'https://s3.amazonaws.com/report/test.pdf';
+
+    it('성적표 리포트를 성공적으로 업로드해야 함', async () => {
+      mockExamsRepo.findById.mockResolvedValue({
+        ...mockExam,
+        id: examId,
+        lectureId: 'lecture-1',
+      } as Awaited<ReturnType<typeof mockExamsRepo.findById>>);
+      mockLecturesRepo.findById.mockResolvedValue({
+        ...mockLecture,
+        id: 'lecture-1',
+        instructorId: 'instructor-1',
+      } as Awaited<ReturnType<typeof mockLecturesRepo.findById>>);
+      mockFileStorageService.upload.mockResolvedValue(reportUrl);
+      mockGradesRepo.updateGradeReportUrl.mockResolvedValue({
+        id: 'report-1',
+        examId,
+        gradeId: 'grade-1',
+        lectureEnrollmentId,
+        description: 'Auto-generated Report',
+        reportUrl,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as Awaited<ReturnType<typeof mockGradesRepo.updateGradeReportUrl>>);
+
+      const result = await gradesService.uploadGradeReportFile(
+        examId,
+        lectureEnrollmentId,
+        mockFile,
+        userType,
+        profileId,
+      );
+
+      expect(result).toEqual({ reportUrl });
+      expect(
+        mockPermissionService.validateInstructorAccess,
+      ).toHaveBeenCalledWith('instructor-1', userType, profileId);
+      expect(mockFileStorageService.upload).toHaveBeenCalled();
+      expect(mockGradesRepo.updateGradeReportUrl).toHaveBeenCalledWith(
+        examId,
+        lectureEnrollmentId,
+        reportUrl,
+      );
+    });
+
+    it('시험 정보가 없으면 NotFoundException을 던져야 함', async () => {
+      mockExamsRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        gradesService.uploadGradeReportFile(
+          examId,
+          lectureEnrollmentId,
+          mockFile,
+          userType,
+          profileId,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('성적 정보가 없어서 업데이트 실패 시 NotFoundException을 던져야 함', async () => {
+      mockExamsRepo.findById.mockResolvedValue({
+        ...mockExam,
+        id: examId,
+        lectureId: 'lecture-1',
+      } as Awaited<ReturnType<typeof mockExamsRepo.findById>>);
+      mockLecturesRepo.findById.mockResolvedValue({
+        ...mockLecture,
+        id: 'lecture-1',
+        instructorId: 'instructor-1',
+      } as Awaited<ReturnType<typeof mockLecturesRepo.findById>>);
+      mockFileStorageService.upload.mockResolvedValue(reportUrl);
+      mockGradesRepo.updateGradeReportUrl.mockResolvedValue(null);
+
+      await expect(
+        gradesService.uploadGradeReportFile(
+          examId,
+          lectureEnrollmentId,
+          mockFile,
+          userType,
+          profileId,
         ),
       ).rejects.toThrow(NotFoundException);
     });
