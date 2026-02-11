@@ -193,15 +193,16 @@ export class CommentsService {
     const comment = await this.commentsRepository.findById(commentId);
     if (!comment) throw new NotFoundException('댓글을 찾을 수 없습니다.');
 
-    // 댓글이 해당 게시글에 속하는지 검증 (REST semantics 준수)
-    if (postId && postType) {
-      const postIdField =
-        postType === 'instructorPost'
-          ? comment.instructorPostId
-          : comment.studentPostId;
-      if (postIdField !== postId) {
-        throw new NotFoundException('해당 게시글에서 댓글을 찾을 수 없습니다.');
-      }
+    // 댓글이 해당 게시글에 속하는지 검증 (항상 실행)
+    if (!postId || !postType) {
+      throw new BadRequestException('postId와 postType이 필요합니다.');
+    }
+    const postIdField =
+      postType === 'instructorPost'
+        ? comment.instructorPostId
+        : comment.studentPostId;
+    if (postIdField !== postId) {
+      throw new NotFoundException('해당 게시글에서 댓글을 찾을 수 없습니다.');
     }
 
     // 권한 검증
@@ -248,15 +249,16 @@ export class CommentsService {
     const comment = await this.commentsRepository.findById(commentId);
     if (!comment) throw new NotFoundException('댓글을 찾을 수 없습니다.');
 
-    // 댓글이 해당 게시글에 속하는지 검증 (REST semantics 준수)
-    if (postId && postType) {
-      const postIdField =
-        postType === 'instructorPost'
-          ? comment.instructorPostId
-          : comment.studentPostId;
-      if (postIdField !== postId) {
-        throw new NotFoundException('해당 게시글에서 댓글을 찾을 수 없습니다.');
-      }
+    // 댓글이 해당 게시글에 속하는지 검증 (항상 실행)
+    if (!postId || !postType) {
+      throw new BadRequestException('postId와 postType이 필요합니다.');
+    }
+    const postIdField =
+      postType === 'instructorPost'
+        ? comment.instructorPostId
+        : comment.studentPostId;
+    if (postIdField !== postId) {
+      throw new NotFoundException('해당 게시글에서 댓글을 찾을 수 없습니다.');
     }
 
     // 권한 검증
