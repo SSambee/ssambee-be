@@ -147,10 +147,9 @@ export class MaterialsService {
       writer: authorName,
       date: toKstDateOnly(created.createdAt),
       type: toFrontendMaterialType[backendType] || ('OTHER' as const),
-      classId: created.lectureId,
-      className: null,
       file: !isVideo ? { name: created.title, url: downloadUrl } : undefined,
       link: isVideo ? created.fileUrl : undefined,
+      externalDownloadUrl: created.externalDownloadUrl ?? undefined,
     };
   }
 
@@ -242,10 +241,9 @@ export class MaterialsService {
         writer, // 마스킹된 이름 반영
         date: toKstDateOnly(m.createdAt),
         type: type,
-        classId: m.lectureId,
-        className: m.lecture?.title,
         file: !isVideo ? { name: m.title, url: downloadUrl } : undefined,
         link: isVideo ? m.fileUrl : undefined,
+        externalDownloadUrl: m.externalDownloadUrl ?? undefined,
       };
     });
 
@@ -328,10 +326,9 @@ export class MaterialsService {
       type:
         toFrontendMaterialType[material.type as MaterialType] ||
         ('OTHER' as const),
-      classId: updated.lectureId,
-      className: material.lecture?.title,
       file: !isVideo ? { name: updated.title, url: downloadUrl } : undefined,
       link: isVideo ? updated.fileUrl : undefined,
+      externalDownloadUrl: updated.externalDownloadUrl ?? undefined,
     };
   }
 
@@ -418,10 +415,9 @@ export class MaterialsService {
       writer, // 마스킹된 이름 반영
       date: toKstDateOnly(material.createdAt),
       type: type,
-      classId: material.lectureId,
-      className: material.lecture?.title,
       file: !isVideo ? { name: material.title, url: downloadUrl } : undefined,
       link: isVideo ? material.fileUrl : undefined,
+      externalDownloadUrl: material.externalDownloadUrl ?? undefined,
     };
   }
 
