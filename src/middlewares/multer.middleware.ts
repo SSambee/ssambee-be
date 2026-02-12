@@ -1,3 +1,4 @@
+import path from 'path';
 import { Request } from 'express';
 import multer, { FileFilterCallback } from 'multer';
 import { S3Client } from '@aws-sdk/client-s3';
@@ -5,7 +6,6 @@ import { BadRequestException } from '../err/http.exception.js';
 import { config } from '../config/env.config.js';
 
 // S3 Client 설정
-export const bucketName = config.AWS_S3_BUCKET;
 export const s3Client = new S3Client({
   region: config.AWS_REGION,
   credentials: {
@@ -23,7 +23,8 @@ const fileFilter = (
   file: Express.Multer.File,
   done: FileFilterCallback,
 ): void => {
-  const allowedTypes = [
+  // MIME 타입 목록
+  const allowedMimeTypes = [
     // 이미지
     'image/jpeg',
     'image/jpg',
@@ -33,10 +34,6 @@ const fileFilter = (
     // Word
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    // HWP (한국형 한글문서)
-    'application/x-hwp',
-    'application/hwp',
-    'application/x-hwp+zip',
     // Excel
     'application/vnd.ms-excel',
     'application/vnd.ms-excel.sheet.macroEnabled.12', // XLSM
@@ -46,9 +43,21 @@ const fileFilter = (
     'application/vnd.openxmlformats-officedocument.presentationml.presentation', // PPTX
     // 텍스트
     'text/plain',
+    // 알 수 없는 바이너리 파일 (확장자로 체크)
+    'application/octet-stream',
   ];
 
-  if (allowedTypes.includes(file.mimetype)) {
+  // HWP 파일 확장자 (브라우저에서 MIME 타입이 다르게 전송될 수 있음)
+  const allowedExtensions = ['.hwp', '.hwpx'];
+
+  // 파일 확장자 추출
+  const ext = path.extname(file.originalname).toLowerCase();
+
+  // MIME 타입이 허용 목록에 있거나, HWP 확장자이면 허용
+  if (
+    allowedMimeTypes.includes(file.mimetype) ||
+    allowedExtensions.includes(ext)
+  ) {
     done(null, true);
   } else {
     done(new BadRequestException('지원하지 않는 파일 형식입니다.'));

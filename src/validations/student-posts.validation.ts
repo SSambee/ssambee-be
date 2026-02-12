@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { StudentPostStatus } from '../constants/posts.constant.js';
+import {
+  StudentPostStatus,
+  AnswerStatus,
+  InquiryWriterType,
+} from '../constants/posts.constant.js';
 
 export const createStudentPostSchema = z.object({
   title: z.string().min(1, '제목은 필수입니다.'),
@@ -9,7 +13,11 @@ export const createStudentPostSchema = z.object({
 });
 
 export const updateStudentPostStatusSchema = z.object({
-  status: z.enum([StudentPostStatus.PENDING, StudentPostStatus.RESOLVED]),
+  status: z.enum([
+    StudentPostStatus.PENDING,
+    StudentPostStatus.RESOLVED,
+    StudentPostStatus.COMPLETED,
+  ]),
 });
 
 export const getStudentPostsQuerySchema = z.object({
@@ -17,8 +25,27 @@ export const getStudentPostsQuerySchema = z.object({
   limit: z.coerce.number().min(1).max(50).default(20),
   lectureId: z.cuid2().optional(),
   status: z
-    .enum([StudentPostStatus.PENDING, StudentPostStatus.RESOLVED])
+    .enum([
+      StudentPostStatus.PENDING,
+      StudentPostStatus.RESOLVED,
+      StudentPostStatus.COMPLETED,
+    ])
     .optional(),
+  answerStatus: z
+    .enum([
+      AnswerStatus.BEFORE,
+      AnswerStatus.REGISTERED,
+      AnswerStatus.COMPLETED,
+    ])
+    .optional(),
+  writerType: z
+    .enum([
+      InquiryWriterType.ALL,
+      InquiryWriterType.STUDENT,
+      InquiryWriterType.PARENT,
+    ])
+    .optional()
+    .default(InquiryWriterType.ALL),
   search: z.string().optional(),
 });
 

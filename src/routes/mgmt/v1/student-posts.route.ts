@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { container } from '../../../config/container.config.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
 import {
-  updateStudentPostStatusSchema,
+  // updateStudentPostStatusSchema,
   getStudentPostsQuerySchema,
   studentPostParamsSchema,
 } from '../../../validations/student-posts.validation.js';
@@ -38,13 +38,13 @@ mgmtStudentPostsRouter.get(
   studentPostsController.getPostDetail,
 );
 
-/** 질문 상태 변경 (해결/미해결) */
-mgmtStudentPostsRouter.patch(
-  '/:postId/status',
-  validate(studentPostParamsSchema, 'params'),
-  validate(updateStudentPostStatusSchema, 'body'),
-  studentPostsController.updateStatus,
-);
+/** 질문 상태 변경 (완료 처리) */
+// mgmtStudentPostsRouter.patch(
+//   '/:postId/status',
+//   validate(studentPostParamsSchema, 'params'),
+//   validate(updateStudentPostStatusSchema, 'body'),
+//   studentPostsController.updateStatus,
+// );
 
 /** 답변(댓글) 작성 */
 mgmtStudentPostsRouter.post(

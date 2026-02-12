@@ -22,6 +22,7 @@ import {
   mockMaterials,
   mockInstructor,
   mockProfiles,
+  mockEnrollments,
 } from '../test/fixtures/index.js';
 import {
   UploadMaterialDto,
@@ -50,6 +51,7 @@ describe('MaterialsService', () => {
     fileStorageService = {
       upload: jest.fn(),
       getPresignedUrl: jest.fn(),
+      getDownloadPresignedUrl: jest.fn(),
       delete: jest.fn(),
     } as unknown as jest.Mocked<FileStorageService>;
 
@@ -146,6 +148,7 @@ describe('MaterialsService', () => {
         ...mockInstructor,
         user: { name: '이강사' },
       });
+      materialsRepo.create.mockResolvedValue(mockMaterials.basic);
 
       await service.uploadMaterial(
         mockLectures.basic.id,
@@ -157,7 +160,7 @@ describe('MaterialsService', () => {
 
       expect(fileStorageService.upload).toHaveBeenCalledWith(
         mockFile,
-        expect.stringMatching(/^paper\/\d{4}\/\d{2}\/.*\.pdf$/),
+        expect.stringMatching(/^paper\/\d{4}\/\d{2}\/[0-9a-f-]{36}\.pdf$/),
       );
 
       expect(materialsRepo.create).toHaveBeenCalledWith(
@@ -184,6 +187,10 @@ describe('MaterialsService', () => {
         ...mockInstructor,
         user: { name: '이강사' },
       });
+      materialsRepo.create.mockResolvedValue({
+        ...mockMaterials.basic,
+        lectureId: null,
+      });
 
       await service.uploadMaterial(
         undefined,
@@ -197,7 +204,7 @@ describe('MaterialsService', () => {
 
       expect(fileStorageService.upload).toHaveBeenCalledWith(
         mockFile,
-        expect.stringMatching(/^paper\/\d{4}\/\d{2}\/.*\.pdf$/),
+        expect.stringMatching(/^paper\/\d{4}\/\d{2}\/[0-9a-f-]{36}\.pdf$/),
       );
 
       expect(materialsRepo.create).toHaveBeenCalledWith(
@@ -235,7 +242,7 @@ describe('MaterialsService', () => {
       expect(result.materials[0]).toHaveProperty('writer');
       expect(result.materials[0].writer).toBe('이강사'); // Instructor is not masked
       expect(result.materials[0]).toHaveProperty('date');
-      expect(result.materials[0]).toHaveProperty('className');
+      expect(result.materials[0].file?.name).toBeDefined();
     });
 
     it('활성 조교인 경우 이름을 마스킹하지 않아야 한다', async () => {
@@ -434,7 +441,9 @@ describe('MaterialsService', () => {
       permissionService.getEffectiveInstructorId.mockResolvedValue(
         'instructor-a',
       );
-      fileStorageService.getPresignedUrl.mockResolvedValue('presigned-url');
+      fileStorageService.getDownloadPresignedUrl.mockResolvedValue(
+        'presigned-url',
+      );
 
       const result = await service.getDownloadUrl(
         mockMaterial.id,
@@ -455,7 +464,9 @@ describe('MaterialsService', () => {
       permissionService.getEffectiveInstructorId.mockResolvedValue(
         'instructor-a',
       );
-      fileStorageService.getPresignedUrl.mockResolvedValue('presigned-url');
+      fileStorageService.getDownloadPresignedUrl.mockResolvedValue(
+        'presigned-url',
+      );
 
       const result = await service.getDownloadUrl(
         mockMaterial.id,
@@ -477,13 +488,22 @@ describe('MaterialsService', () => {
         lectureId: null,
         instructorId: 'instructor-a',
       };
-      const mockEnrollment = { enrollmentId: 'enrollment-1' };
+      const mockEnrollment = {
+        id: mockEnrollments.active.id,
+        enrollmentId: mockEnrollments.active.id,
+        lectureId: 'lecture-1',
+        registeredAt: new Date(),
+        memo: null,
+        enrollment: mockEnrollments.active,
+      };
       materialsRepo.findById.mockResolvedValue(mockMaterial);
       lectureEnrollmentsRepo.findFirstByInstructorIdAndStudentId.mockResolvedValue(
         mockEnrollment,
       );
       materialsRepo.isAccessibleByStudent.mockResolvedValue(true);
-      fileStorageService.getPresignedUrl.mockResolvedValue('presigned-url');
+      fileStorageService.getDownloadPresignedUrl.mockResolvedValue(
+        'presigned-url',
+      );
 
       const result = await service.getDownloadUrl(
         mockMaterial.id,
@@ -493,7 +513,7 @@ describe('MaterialsService', () => {
 
       expect(materialsRepo.isAccessibleByStudent).toHaveBeenCalledWith(
         mockMaterial.id,
-        'enrollment-1',
+        mockEnrollments.active.id,
         undefined,
       );
       expect(result.url).toBe('presigned-url');
@@ -505,7 +525,14 @@ describe('MaterialsService', () => {
         lectureId: null,
         instructorId: 'instructor-a',
       };
-      const mockEnrollment = { enrollmentId: 'enrollment-1' };
+      const mockEnrollment = {
+        id: mockEnrollments.active.id,
+        enrollmentId: mockEnrollments.active.id,
+        lectureId: 'lecture-1',
+        registeredAt: new Date(),
+        memo: null,
+        enrollment: mockEnrollments.active,
+      };
       materialsRepo.findById.mockResolvedValue(mockMaterial);
       lectureEnrollmentsRepo.findFirstByInstructorIdAndStudentId.mockResolvedValue(
         mockEnrollment,

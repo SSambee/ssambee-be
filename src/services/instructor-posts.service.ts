@@ -25,6 +25,55 @@ export class InstructorPostsService {
     private readonly permissionService: PermissionService,
   ) {}
 
+  /** 공지 타겟 학생 목록 조회 (강사의 모든 강의와 학생 목록) */
+  async getPostTargets(userType: UserType, profileId: string) {
+    // 1. 강사 ID 조회 (조교인 경우 담당 강사 ID)
+    const instructorId = await this.permissionService.getEffectiveInstructorId(
+      userType,
+      profileId,
+    );
+
+    // 2. 해당 강사의 모든 강의 목록 조회
+    const { lectures } = await this.lecturesRepository.findMany({
+      page: 1,
+      limit: 1000, // 모든 강의 조회
+      instructorId,
+    });
+
+    // 3. 각 강의별 학생 목록 조회
+    const lecturesWithStudents = await Promise.all(
+      lectures.map(async (lecture) => {
+        const lectureEnrollments =
+          await this.lectureEnrollmentsRepository.findManyByLectureIdWithEnrollments(
+            lecture.id,
+          );
+
+        return {
+          lectureId: lecture.id,
+          lectureTitle: lecture.title,
+          lectureStatus: lecture.status,
+          students: lectureEnrollments.map((le) => ({
+            enrollmentId: le.enrollment.id,
+            studentName: le.enrollment.studentName,
+            studentPhone: le.enrollment.studentPhone,
+            school: le.enrollment.school,
+            schoolYear: le.enrollment.schoolYear,
+          })),
+          studentCount: lectureEnrollments.length,
+        };
+      }),
+    );
+
+    return {
+      lectures: lecturesWithStudents,
+      totalLectures: lecturesWithStudents.length,
+      totalStudents: lecturesWithStudents.reduce(
+        (sum, le) => sum + le.studentCount,
+        0,
+      ),
+    };
+  }
+
   /** 자료 소유권 검증 */
   private async validateMaterialOwnership(
     materialIds: string[],
@@ -160,6 +209,7 @@ export class InstructorPostsService {
       limit: query.limit,
       instructorId,
       studentFiltering,
+      postType: query.postType,
     });
   }
 

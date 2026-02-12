@@ -247,6 +247,7 @@ const materialsService = new MaterialsService(
   assistantRepo,
   fileStorageService,
   permissionService,
+  prisma,
 );
 
 const instructorPostsService = new InstructorPostsService(

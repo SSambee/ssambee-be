@@ -1,5 +1,6 @@
 import path from 'path';
 import { randomUUID } from 'crypto';
+import { PrismaClient, Prisma } from '../generated/prisma/client.js';
 import { toKstDateOnly } from '../utils/date.util.js';
 import {
   BadRequestException,
@@ -36,6 +37,7 @@ export class MaterialsService {
     private readonly assistantRepository: AssistantRepository,
     private readonly fileStorageService: FileStorageService,
     private readonly permissionService: PermissionService,
+    private readonly Prisma: PrismaClient,
   ) {}
 
   /** 자료 업로드 */
@@ -120,18 +122,38 @@ export class MaterialsService {
       throw new ForbiddenException('자료 업로드 권한이 없습니다.');
     }
 
-    return this.materialsRepository.create({
+    const created = await this.materialsRepository.create({
       instructorId: ownerInstructorId,
       lectureId: null, // 원본 보존을 위해 무조건 null로 저장 (Library-first)
       authorName,
       authorRole,
       title: data.title,
+      filename: file?.originalname ?? '',
       fileUrl,
       type: backendType,
       description: data.description,
       subject: data.subject,
       externalDownloadUrl: data.externalDownloadUrl,
     });
+
+    // 프론트엔드용 응답 형식으로 변환
+    const isVideo = backendType === MaterialType.VIDEO_LINK;
+    const isManagement =
+      userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT;
+    const basePath = isManagement ? '/api/mgmt/v1' : '/api/svc/v1';
+    const downloadUrl = `${basePath}/materials/${created.id}/download`;
+
+    return {
+      id: created.id,
+      title: created.title,
+      description: created.description,
+      writer: authorName,
+      date: toKstDateOnly(created.createdAt),
+      type: toFrontendMaterialType[backendType] || ('OTHER' as const),
+      file: !isVideo ? { name: created.filename, url: downloadUrl } : undefined,
+      link: isVideo ? created.fileUrl : undefined,
+      externalDownloadUrl: created.externalDownloadUrl ?? undefined,
+    };
   }
 
   /** 자료 목록 조회 */
@@ -222,10 +244,9 @@ export class MaterialsService {
         writer, // 마스킹된 이름 반영
         date: toKstDateOnly(m.createdAt),
         type: type,
-        classId: m.lectureId,
-        className: m.lecture?.title,
-        file: !isVideo ? { name: m.title, url: downloadUrl } : undefined,
+        file: !isVideo ? { name: m.filename, url: downloadUrl } : undefined,
         link: isVideo ? m.fileUrl : undefined,
+        externalDownloadUrl: m.externalDownloadUrl ?? undefined,
       };
     });
 
@@ -281,20 +302,47 @@ export class MaterialsService {
       const key = `${prefix}/${year}/${month}/${randomId}${ext}`;
 
       fileUrl = await this.fileStorageService.upload(file, key);
-
-      // 기존 파일 삭제
       await this.fileStorageService.delete(material.fileUrl);
     }
 
-    const updateResult = await this.materialsRepository.update(materialsId, {
+    const updateData: Prisma.MaterialUpdateInput = {
       title: data.title,
       fileUrl,
       description: data.description,
       subject: data.subject,
       externalDownloadUrl: data.externalDownloadUrl,
-    });
+    };
 
-    return updateResult;
+    // 파일이 교체된 경우 filename도 업데이트
+    if (file && material.type !== MaterialType.VIDEO_LINK) {
+      updateData.filename = file.originalname;
+    }
+
+    const updated = await this.materialsRepository.update(
+      materialsId,
+      updateData,
+    );
+
+    // 프론트엔드용 응답 형식으로 변환
+    const isVideo = material.type === MaterialType.VIDEO_LINK;
+    const isManagement =
+      userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT;
+    const basePath = isManagement ? '/api/mgmt/v1' : '/api/svc/v1';
+    const downloadUrl = `${basePath}/materials/${updated.id}/download`;
+
+    return {
+      id: updated.id,
+      title: updated.title,
+      description: updated.description,
+      writer: material.authorName,
+      date: toKstDateOnly(updated.updatedAt),
+      type:
+        toFrontendMaterialType[material.type as MaterialType] ||
+        ('OTHER' as const),
+      file: !isVideo ? { name: updated.filename, url: downloadUrl } : undefined,
+      link: isVideo ? updated.fileUrl : undefined,
+      externalDownloadUrl: updated.externalDownloadUrl ?? undefined,
+    };
   }
 
   /** 자료 삭제 */
@@ -380,10 +428,11 @@ export class MaterialsService {
       writer, // 마스킹된 이름 반영
       date: toKstDateOnly(material.createdAt),
       type: type,
-      classId: material.lectureId,
-      className: material.lecture?.title,
-      file: !isVideo ? { name: material.title, url: downloadUrl } : undefined,
+      file: !isVideo
+        ? { name: material.filename, url: downloadUrl }
+        : undefined,
       link: isVideo ? material.fileUrl : undefined,
+      externalDownloadUrl: material.externalDownloadUrl ?? undefined,
     };
   }
 
@@ -454,8 +503,14 @@ export class MaterialsService {
       return { url: material.fileUrl, type: 'youtube' };
     }
 
-    const presignedUrl = await this.fileStorageService.getPresignedUrl(
+    // 파일 확장자 추출 (S3 URL에서)
+    const fileExt = path.extname(material.fileUrl);
+    const downloadFileName = `${material.title}${fileExt}`;
+
+    const presignedUrl = await this.fileStorageService.getDownloadPresignedUrl(
       material.fileUrl,
+      downloadFileName,
+      3600,
     );
     return { url: presignedUrl, type: 'file' };
   }

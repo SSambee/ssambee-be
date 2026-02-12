@@ -1,4 +1,5 @@
 import { Prisma, PrismaClient } from '../generated/prisma/client.js';
+import { StudentPostStatus } from '../constants/posts.constant.js';
 
 export class CommentsRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -100,5 +101,44 @@ export class CommentsRepository {
     return client.comment.findUnique({
       where: { id },
     });
+  }
+
+  /** 학생 질문에 댓글 작성 + 상태 자동 변경 (트랜잭션) */
+  async createCommentWithStudentPostStatusUpdate(
+    data: {
+      content: string;
+      studentPostId: string;
+      instructorId: string | null;
+      assistantId: string | null;
+      enrollmentId: string | null;
+      materialIds?: string[];
+    },
+    tx?: Prisma.TransactionClient,
+  ) {
+    const execute = async (txClient: Prisma.TransactionClient) => {
+      // 1. 학생 질문 상태를 RESOLVED로 변경
+      await txClient.studentPost.update({
+        where: { id: data.studentPostId },
+        data: { status: StudentPostStatus.RESOLVED },
+      });
+
+      // 2. 댓글 생성 (기존 create 로직 재사용)
+      return this.create(
+        {
+          content: data.content,
+          studentPostId: data.studentPostId,
+          instructorId: data.instructorId,
+          assistantId: data.assistantId,
+          enrollmentId: data.enrollmentId,
+          materialIds: data.materialIds,
+        },
+        txClient,
+      );
+    };
+
+    if (tx) {
+      return execute(tx);
+    }
+    return this.prisma.$transaction(execute);
   }
 }

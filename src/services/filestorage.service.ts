@@ -4,8 +4,28 @@ import {
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { s3Client, bucketName } from '../middlewares/multer.middleware.js';
+import { s3Client } from '../middlewares/multer.middleware.js';
 import { config } from '../config/env.config.js';
+
+/** S3 버킷 타입 정의 */
+export enum BucketType {
+  DOCUMENTS = 'documents',
+  REPORTS = 'reports',
+}
+
+/** 버킷 타입에 따른 버킷 이름 반환 */
+const getBucketName = (
+  bucketType: BucketType = BucketType.DOCUMENTS,
+): string => {
+  switch (bucketType) {
+    case BucketType.DOCUMENTS:
+      return config.AWS_S3_BUCKET_DOCUMENTS;
+    case BucketType.REPORTS:
+      return config.AWS_S3_BUCKET_REPORTS;
+    default:
+      return config.AWS_S3_BUCKET_DOCUMENTS;
+  }
+};
 
 export class FileStorageService {
   // Shared client uses Singleton pattern from middleware
@@ -18,9 +38,15 @@ export class FileStorageService {
    * > 이미 테스트 코드에서도 이 메서드를 호출하지않는다고 주석이 달려있습니다.
    * @param file Multer File 객체
    * @param key 저장할 경로 (예: materials/uuid-filename.pdf)
+   * @param bucketType 버킷 타입 (기본값: documents)
    * @returns 업로드된 파일의 S3 URL (혹은 Key)
    */
-  async upload(file: Express.Multer.File, key: string): Promise<string> {
+  async upload(
+    file: Express.Multer.File,
+    key: string,
+    bucketType: BucketType = BucketType.DOCUMENTS,
+  ): Promise<string> {
+    const bucketName = getBucketName(bucketType);
     const command = new PutObjectCommand({
       Bucket: bucketName,
       Key: key,
@@ -34,15 +60,18 @@ export class FileStorageService {
   }
 
   /**
-   * 다운로드용 Presigned URL 생성
+   * 열람용 Presigned URL 생성 (새 탭에서 열기)
    * @param fileUrl 저장된 파일 URL
    * @param expiresIn 유효 시간 (초)
+   * @param bucketType 버킷 타입 (기본값: documents)
    */
   async getPresignedUrl(
     fileUrl: string,
     expiresIn: number = 3600,
+    bucketType: BucketType = BucketType.DOCUMENTS,
   ): Promise<string> {
     const key = this.extractKeyFromUrl(fileUrl);
+    const bucketName = getBucketName(bucketType);
     const command = new GetObjectCommand({
       Bucket: bucketName,
       Key: key,
@@ -52,11 +81,41 @@ export class FileStorageService {
   }
 
   /**
+   * 다운로드용 Presigned URL 생성 (Content-Disposition: attachment)
+   * @param fileUrl 저장된 파일 URL
+   * @param fileName 다운로드 시 표시될 파일명
+   * @param expiresIn 유효 시간 (초)
+   * @param bucketType 버킷 타입 (기본값: documents)
+   */
+  async getDownloadPresignedUrl(
+    fileUrl: string,
+    fileName: string,
+    expiresIn: number = 3600,
+    bucketType: BucketType = BucketType.DOCUMENTS,
+  ): Promise<string> {
+    const key = this.extractKeyFromUrl(fileUrl);
+    const bucketName = getBucketName(bucketType);
+    const encodedFileName = encodeURIComponent(fileName);
+    const command = new GetObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+      ResponseContentDisposition: `attachment; filename="${encodedFileName}"; filename*=UTF-8''${encodedFileName}`,
+    });
+
+    return getSignedUrl(s3Client, command, { expiresIn });
+  }
+
+  /**
    * 파일 삭제
    * @param fileUrl 저장된 파일 URL
+   * @param bucketType 버킷 타입 (기본값: documents)
    */
-  async delete(fileUrl: string): Promise<void> {
+  async delete(
+    fileUrl: string,
+    bucketType: BucketType = BucketType.DOCUMENTS,
+  ): Promise<void> {
     const key = this.extractKeyFromUrl(fileUrl);
+    const bucketName = getBucketName(bucketType);
     const command = new DeleteObjectCommand({
       Bucket: bucketName,
       Key: key,
