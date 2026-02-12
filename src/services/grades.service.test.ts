@@ -409,14 +409,19 @@ describe('GradesService - @unit #critical', () => {
     });
   });
 
-  describe('[조회] getStudentGradeWithAnswers', () => {
+  describe('[조회] getGradeDetailForInstructor', () => {
     it('유효한 요청에 대해 성적 및 답안 정보를 반환한다', async () => {
       // Arrange
+      const gradeId = 'grade-1';
       const mockGradeWithDetails = {
+        id: gradeId,
         score: 90,
         isPass: true,
+        examId: mockExam.id,
+        lectureEnrollmentId: 'le-1',
         exam: {
           title: '중간고사',
+          lectureId: mockExam.lectureId,
           questions: [
             {
               id: 'q1',
@@ -435,55 +440,58 @@ describe('GradesService - @unit #critical', () => {
         },
         lectureEnrollment: {
           id: 'le-1',
-          registeredAt: new Date(),
-          memo: null,
-          lectureId: mockExam.lectureId,
-          enrollmentId: 'enrollment-1',
           enrollment: {
-            id: 'enrollment-1',
             studentName: '홍길동',
-            studentPhone: '010-1234-5678',
-            school: '서울고등학교',
-            schoolYear: '3',
           },
-          studentAnswers: [
-            {
-              id: 'sa-1',
-              lectureId: mockExam.lectureId,
-              createdAt: new Date(),
-              lectureEnrollmentId: 'le-1',
-              questionId: 'q1',
-              submittedAnswer: 'A',
-              isCorrect: true,
-            },
-          ],
         },
       };
 
-      mockExamsRepo.findById.mockResolvedValue(mockExam);
-      mockLecturesRepo.findById.mockResolvedValue(mockLecture);
-      mockGradesRepo.findGradeWithDetailsByExamAndEnrollment.mockResolvedValue(
+      const mockStudentAnswers = [
+        {
+          id: 'sa-1',
+          lectureId: mockExam.lectureId,
+          createdAt: new Date(),
+          lectureEnrollmentId: 'le-1',
+          questionId: 'q1',
+          submittedAnswer: 'A',
+          isCorrect: true,
+        },
+      ];
+
+      mockGradesRepo.findByIdWithDetails.mockResolvedValue(
         mockGradeWithDetails as unknown as Awaited<
-          ReturnType<
-            typeof mockGradesRepo.findGradeWithDetailsByExamAndEnrollment
-          >
-        >, // Cast to satisfy Prisma's complex nested type
+          ReturnType<typeof mockGradesRepo.findByIdWithDetails>
+        >,
+      );
+      mockLecturesRepo.findById.mockResolvedValue(mockLecture);
+
+      // Mocking prisma.studentAnswer.findMany
+      (mockPrisma.studentAnswer.findMany as jest.Mock).mockResolvedValue(
+        mockStudentAnswers,
       );
 
       // Act
-      const result = await gradesService.getStudentGradeWithAnswers(
-        mockExam.id,
-        'le-1',
+      const result = await gradesService.getGradeDetailForInstructor(
+        gradeId,
         mockUserType,
         mockProfileId,
       );
 
       // Assert
-      expect(mockExamsRepo.findById).toHaveBeenCalledWith(mockExam.id);
+      expect(mockGradesRepo.findByIdWithDetails).toHaveBeenCalledWith(gradeId);
       expect(mockLecturesRepo.findById).toHaveBeenCalledWith(
         mockExam.lectureId,
       );
       expect(mockPermissionService.validateInstructorAccess).toHaveBeenCalled();
+
+      // Verify findMany call arguments
+      expect(mockPrisma.studentAnswer.findMany).toHaveBeenCalledWith({
+        where: {
+          lectureEnrollmentId: 'le-1',
+          question: { examId: mockExam.id },
+        },
+      });
+
       expect(result).toBeDefined();
       expect(result.studentName).toBe('홍길동');
       expect(result.questions).toHaveLength(1);
@@ -492,16 +500,11 @@ describe('GradesService - @unit #critical', () => {
     });
 
     it('성적 정보가 존재하지 않을 때, NotFoundException을 던진다', async () => {
-      mockExamsRepo.findById.mockResolvedValue(mockExam);
-      mockLecturesRepo.findById.mockResolvedValue(mockLecture);
-      mockGradesRepo.findGradeWithDetailsByExamAndEnrollment.mockResolvedValue(
-        null,
-      );
+      mockGradesRepo.findByIdWithDetails.mockResolvedValue(null);
 
       await expect(
-        gradesService.getStudentGradeWithAnswers(
-          mockExam.id,
-          'le-1',
+        gradesService.getGradeDetailForInstructor(
+          'grade-1',
           mockUserType,
           mockProfileId,
         ),
@@ -512,6 +515,7 @@ describe('GradesService - @unit #critical', () => {
   describe('[리포트] getGradeReport', () => {
     it('유효한 요청에 대해 성적 리포트 정보를 반환한다', async () => {
       // Arrange
+      const gradeId = 'grade-1';
       const mockGradeReportData = {
         score: 90,
         rank: 5,
@@ -535,6 +539,7 @@ describe('GradesService - @unit #critical', () => {
           ],
         },
         lectureEnrollment: {
+          id: 'le-1',
           enrollment: {
             studentName: '김철수',
           },
@@ -568,9 +573,9 @@ describe('GradesService - @unit #critical', () => {
         },
       };
 
-      mockGradesRepo.findGradeReportByExamAndEnrollment.mockResolvedValue(
+      mockGradesRepo.findGradeReportByGradeId.mockResolvedValue(
         mockGradeReportData as unknown as Awaited<
-          ReturnType<typeof mockGradesRepo.findGradeReportByExamAndEnrollment>
+          ReturnType<typeof mockGradesRepo.findGradeReportByGradeId>
         >,
       );
       mockAttendancesRepo.getAttendanceStatsByLectureEnrollment.mockResolvedValue(
@@ -582,16 +587,15 @@ describe('GradesService - @unit #critical', () => {
 
       // Act
       const result = await gradesService.getGradeReport(
-        'exam-1',
-        'le-1',
+        gradeId,
         mockUserType,
         mockProfileId,
       );
 
       // Assert
-      expect(
-        mockGradesRepo.findGradeReportByExamAndEnrollment,
-      ).toHaveBeenCalledWith('exam-1', 'le-1');
+      expect(mockGradesRepo.findGradeReportByGradeId).toHaveBeenCalledWith(
+        gradeId,
+      );
       expect(
         mockPermissionService.validateInstructorAccess,
       ).toHaveBeenCalledWith('inst-1', mockUserType, mockProfileId);
@@ -608,22 +612,18 @@ describe('GradesService - @unit #critical', () => {
     });
 
     it('성적 정보가 없을 때, NotFoundException을 던진다', async () => {
-      mockGradesRepo.findGradeReportByExamAndEnrollment.mockResolvedValue(null);
+      mockGradesRepo.findGradeReportByGradeId.mockResolvedValue(null);
 
       await expect(
-        gradesService.getGradeReport(
-          'exam-1',
-          'le-1',
-          mockUserType,
-          mockProfileId,
-        ),
+        gradesService.getGradeReport('grade-1', mockUserType, mockProfileId),
       ).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('[리포트] uploadGradeReportFile', () => {
+    const gradeId = 'grade-1';
     const examId = 'exam-1';
-    const lectureEnrollmentId = 'enrollment-1';
+    const lectureEnrollmentId = 'le-1';
     const userType = 'INSTRUCTOR';
     const profileId = 'profile-1';
     const mockFile = {
@@ -632,81 +632,66 @@ describe('GradesService - @unit #critical', () => {
     } as Express.Multer.File;
     const reportUrl = 'https://s3.amazonaws.com/report/test.pdf';
 
+    const mockGradeData = {
+      id: gradeId,
+      examId,
+      lectureEnrollmentId,
+      lectureEnrollment: {
+        lecture: {
+          id: 'lecture-1',
+          instructorId: 'instructor-1',
+        },
+      },
+    };
+
     it('성적표 리포트를 성공적으로 업로드해야 함', async () => {
-      mockExamsRepo.findById.mockResolvedValue({
-        ...mockExam,
-        id: examId,
-        lectureId: 'lecture-1',
-      } as Awaited<ReturnType<typeof mockExamsRepo.findById>>);
-      mockLecturesRepo.findById.mockResolvedValue({
-        ...mockLecture,
-        id: 'lecture-1',
-        instructorId: 'instructor-1',
-      } as Awaited<ReturnType<typeof mockLecturesRepo.findById>>);
+      mockGradesRepo.findGradeReportByGradeId.mockResolvedValue(
+        mockGradeData as unknown as Awaited<
+          ReturnType<typeof mockGradesRepo.findGradeReportByGradeId>
+        >,
+      );
+
       mockFileStorageService.upload.mockResolvedValue(reportUrl);
-      mockGradesRepo.updateGradeReportUrl.mockResolvedValue({
+      mockGradesRepo.updateGradeReportUrlByGradeId.mockResolvedValue({
         id: 'report-1',
         examId,
-        gradeId: 'grade-1',
+        gradeId,
         lectureEnrollmentId,
         description: 'Auto-generated Report',
         reportUrl,
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as Awaited<ReturnType<typeof mockGradesRepo.updateGradeReportUrl>>);
+      } as Awaited<
+        ReturnType<typeof mockGradesRepo.updateGradeReportUrlByGradeId>
+      >);
 
       const result = await gradesService.uploadGradeReportFile(
-        examId,
-        lectureEnrollmentId,
+        gradeId,
         mockFile,
         userType,
         profileId,
       );
 
       expect(result).toEqual({ reportUrl });
+      expect(mockGradesRepo.findGradeReportByGradeId).toHaveBeenCalledWith(
+        gradeId,
+      );
       expect(
         mockPermissionService.validateInstructorAccess,
       ).toHaveBeenCalledWith('instructor-1', userType, profileId);
       expect(mockFileStorageService.upload).toHaveBeenCalled();
-      expect(mockGradesRepo.updateGradeReportUrl).toHaveBeenCalledWith(
-        examId,
-        lectureEnrollmentId,
+      expect(mockGradesRepo.updateGradeReportUrlByGradeId).toHaveBeenCalledWith(
+        gradeId,
         reportUrl,
       );
     });
 
-    it('시험 정보가 없으면 NotFoundException을 던져야 함', async () => {
-      mockExamsRepo.findById.mockResolvedValue(null);
+    it('성적 정보가 없으면 NotFoundException을 던져야 함', async () => {
+      mockGradesRepo.findGradeReportByGradeId.mockResolvedValue(null);
 
       await expect(
         gradesService.uploadGradeReportFile(
-          examId,
-          lectureEnrollmentId,
-          mockFile,
-          userType,
-          profileId,
-        ),
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('성적 정보가 없어서 업데이트 실패 시 NotFoundException을 던져야 함', async () => {
-      mockExamsRepo.findById.mockResolvedValue({
-        ...mockExam,
-        id: examId,
-        lectureId: 'lecture-1',
-      } as Awaited<ReturnType<typeof mockExamsRepo.findById>>);
-      mockLecturesRepo.findById.mockResolvedValue({
-        ...mockLecture,
-        id: 'lecture-1',
-        instructorId: 'instructor-1',
-      } as Awaited<ReturnType<typeof mockLecturesRepo.findById>>);
-      mockFileStorageService.upload.mockResolvedValue(reportUrl);
-      mockGradesRepo.updateGradeReportUrl.mockResolvedValue(null);
-
-      await expect(
-        gradesService.uploadGradeReportFile(
-          examId,
-          lectureEnrollmentId,
+          gradeId,
           mockFile,
           userType,
           profileId,

@@ -3,12 +3,10 @@ import { container } from '../../../config/container.config.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
 import {
   examIdParamSchema,
-  examAndEnrollmentParamSchema,
   updateExamSchema,
 } from '../../../validations/exams.validation.js';
 import { submitGradingSchema } from '../../../validations/grades.validation.js';
 import { createClinicsSchema } from '../../../validations/clinics.validation.js';
-import { upload } from '../../../middlewares/multer.middleware.js';
 
 export const mgmtExamsRouter = Router();
 
@@ -58,30 +56,6 @@ mgmtExamsRouter.get(
   validate(examIdParamSchema, 'params'),
   (req, res, next) =>
     container.gradesController.getGradesByExam(req, res, next),
-);
-
-/** 수강생별 성적/답안 상세 조회 */
-mgmtExamsRouter.get(
-  '/:examId/grades/lectureEnrollments/:lectureEnrollmentId',
-  validate(examAndEnrollmentParamSchema, 'params'),
-  (req, res, next) =>
-    container.gradesController.getStudentGradeWithAnswers(req, res, next),
-);
-
-/** [NEW] 성적표 리포트 조회 */
-mgmtExamsRouter.get(
-  '/:examId/grades/lectureEnrollments/:lectureEnrollmentId/report',
-  validate(examAndEnrollmentParamSchema, 'params'),
-  (req, res, next) => container.gradesController.getGradeReport(req, res, next),
-);
-
-/** 성적표 리포트 파일 업로드 */
-mgmtExamsRouter.post(
-  '/:examId/grades/lectureEnrollments/:lectureEnrollmentId/report/upload',
-  validate(examAndEnrollmentParamSchema, 'params'),
-  upload.single('file'),
-  (req, res, next) =>
-    container.gradesController.uploadGradeReportFile(req, res, next),
 );
 
 /** 통계 산출 및 저장 */

@@ -329,21 +329,48 @@ export class GradesService {
     };
   }
 
-  /** (관리자용) 수강생별 시험 답안 상세 조회 */
+  /** (관리자용) 수강생 성적/답안 상세 조회 - ID 기반 */
   async getStudentGradeWithAnswers(
     examId: string,
     lectureEnrollmentId: string,
     userType: UserType,
     profileId: string,
   ) {
-    // 1. Exam 확인
-    const exam = await this.examsRepo.findById(examId);
-    if (!exam) {
-      throw new NotFoundException('시험을 찾을 수 없습니다.');
+    const grade = await this.prisma.grade.findUnique({
+      where: {
+        examId_lectureEnrollmentId: {
+          examId,
+          lectureEnrollmentId,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!grade) {
+      throw new NotFoundException('해당 학생의 성적 정보를 찾을 수 없습니다.');
+    }
+
+    return await this.getGradeDetailForInstructor(
+      grade.id,
+      userType,
+      profileId,
+    );
+  }
+
+  /** (관리자용) 성적 상세 조회 - ID 기반 */
+  async getGradeDetailForInstructor(
+    gradeId: string,
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 1. 성적 상세 조회
+    const grade = await this.gradesRepo.findByIdWithDetails(gradeId);
+    if (!grade) {
+      throw new NotFoundException('성적 정보를 찾을 수 없습니다.');
     }
 
     // 2. 권한 검증 (강사/조교)
-    const lecture = await this.lecturesRepo.findById(exam.lectureId);
+    const lecture = await this.lecturesRepo.findById(grade.exam.lectureId);
     if (!lecture) {
       throw new NotFoundException('강의를 찾을 수 없습니다.');
     }
@@ -353,22 +380,26 @@ export class GradesService {
       profileId,
     );
 
-    // 3. 데이터 조회
-    const gradeWithDetails =
-      await this.gradesRepo.findGradeWithDetailsByExamAndEnrollment(
-        examId,
-        lectureEnrollmentId,
-      );
+    // 3. 데이터 가공 (getStudentGradeWithAnswers 로직 재사용/변형)
+    const { questions } = grade.exam;
 
-    if (!gradeWithDetails) {
-      // 성적이 아직 등록되지 않았다면, 답안이라도 있는지 확인 필요하거나 예외 처리
-      // 현재 로직상 성적이 없으면 조회 불가 처리
-      throw new NotFoundException('해당 수강생의 성적 정보가 없습니다.');
-    }
+    // findByIdWithDetails에는 studentAnswers가 포함되어 있지 않음 (repo 확인 필요)
+    // findByIdWithDetails는 questions include함.
+    // studentAnswers는 lectureEnrollment에 include되어 있지 않음 in findByIdWithDetails
+    // 따라서 별도로 가져오거나 repo 메소드를 수정해야 함.
+    // repo의 findByIdWithDetails를 보면 lectureEnrollment.enrollment만 select함.
 
-    // 4. 데이터 가공
-    const { questions } = gradeWithDetails.exam;
-    const { studentAnswers } = gradeWithDetails.lectureEnrollment;
+    // 해결책: studentAnswers를 가져오기 위해 별도 조회 혹은 repo 메소드 수정.
+    // 여기서는 repo에 새로운 메소드를 만들기보다 필요한 데이터를 가져오도록 수정하는게 좋겠으나
+    // 일단 studentAnswers를 가져오는 쿼리를 실행.
+
+    const studentAnswers = await this.prisma.studentAnswer.findMany({
+      where: {
+        lectureEnrollmentId: grade.lectureEnrollmentId,
+        question: { examId: grade.examId },
+      },
+    });
+
     const answerMap = new Map(studentAnswers.map((a) => [a.questionId, a]));
 
     const questionResults = questions.map((q) => {
@@ -386,26 +417,18 @@ export class GradesService {
     });
 
     return {
-      studentName: gradeWithDetails.lectureEnrollment.enrollment.studentName,
-      score: gradeWithDetails.score,
-      isPass: gradeWithDetails.isPass,
-      examTitle: gradeWithDetails.exam.title,
+      studentName: grade.lectureEnrollment.enrollment.studentName,
+      score: grade.score,
+      isPass: grade.isPass,
+      examTitle: grade.exam.title,
       questions: questionResults,
     };
   }
 
-  /** [NEW] 성적표 리포트 조회 (관리자용) */
-  async getGradeReport(
-    examId: string,
-    lectureEnrollmentId: string,
-    userType: UserType,
-    profileId: string,
-  ) {
+  /** [NEW] 성적표 리포트 조회 (관리자용) - ID 기반 */
+  async getGradeReport(gradeId: string, userType: UserType, profileId: string) {
     // 1. 상세 리포트 데이터 조회
-    const gradeData = await this.gradesRepo.findGradeReportByExamAndEnrollment(
-      examId,
-      lectureEnrollmentId,
-    );
+    const gradeData = await this.gradesRepo.findGradeReportByGradeId(gradeId);
 
     if (!gradeData) {
       throw new NotFoundException('해당 성적 정보를 찾을 수 없습니다.');
@@ -424,38 +447,46 @@ export class GradesService {
     // 3. 출석률 계산
     const { totalCount, absentCount } =
       await this.attendancesRepo.getAttendanceStatsByLectureEnrollment(
-        lectureEnrollmentId,
+        lectureEnrollment.id,
       );
 
     let attendanceRate = 0;
     if (totalCount > 0) {
       attendanceRate = ((totalCount - absentCount) / totalCount) * 100;
     }
-    // 소수점 첫째자리 반올림
     attendanceRate = Math.round(attendanceRate * 10) / 10;
 
     // 4. 데이터 가공
 
     // 4-1. 문항별 상세 정보
-    const answerMap = new Map(studentAnswers.map((a) => [a.questionId, a]));
+    // studentAnswers contains all answers for the enrollment. Filter by examId/questionId if needed.
+    // The repo method we added returns all studentAnswers for the enrollment.
+    // We need to map them to the questions of this specific exam.
+
+    // Filter studentAnswers for this exam only
+    const examQuestionIds = new Set(exam.questions.map((q) => q.id));
+    const relevantAnswers = studentAnswers.filter((a) =>
+      examQuestionIds.has(a.questionId),
+    );
+
+    const answerMap = new Map(relevantAnswers.map((a) => [a.questionId, a]));
+
     const questionsWithStats = exam.questions.map((q) => {
       const studentAnswer = answerMap.get(q.id);
       const isCorrect = studentAnswer?.isCorrect ?? false;
-      // 정답률이 있으면 오답률 = 100 - 정답률
       const correctRate = q.statistic?.correctRate ?? 0;
       const wrongRate = parseFloat((100 - correctRate).toFixed(1));
 
       return {
         questionNumber: q.questionNumber,
         content: q.content,
-        source: q.source,
         category: q.category,
         isCorrect,
         wrongRate,
       };
     });
 
-    // 4-2. 최근 시험 이력 (6개)
+    // 4-2. 최근 시험 이력 (6개) - already fetched
     const recentGrades = lectureEnrollment.grades.map((g) => ({
       gradeId: g.id,
       examDate: g.exam.examDate ?? g.exam.createdAt,
@@ -494,10 +525,9 @@ export class GradesService {
     };
   }
 
-  /** [NEW] 성적표 리포트 파일 업로드 */
+  /** [NEW] 성적표 리포트 파일 업로드 - ID 기반 */
   async uploadGradeReportFile(
-    examId: string,
-    lectureEnrollmentId: string,
+    gradeId: string,
     file: Express.Multer.File,
     userType: UserType,
     profileId: string,
@@ -506,17 +536,14 @@ export class GradesService {
       throw new BadRequestException('파일이 첨부되지 않았습니다.');
     }
 
-    // 1. 권한 검증 (강사/조교)
-    // 시험 정보 조회를 통해 강사 ID 확인 필요
-    const exam = await this.examsRepo.findById(examId);
-    if (!exam) {
-      throw new NotFoundException('시험 정보를 찾을 수 없습니다.');
+    // 1. Grade 권한 검증
+    const grade = await this.gradesRepo.findGradeReportByGradeId(gradeId);
+    if (!grade) {
+      throw new NotFoundException('성적 정보를 찾을 수 없습니다.');
     }
 
-    const lecture = await this.lecturesRepo.findById(exam.lectureId);
-    if (!lecture) {
-      throw new NotFoundException('강의 정보를 찾을 수 없습니다.');
-    }
+    const { lectureEnrollment } = grade;
+    const { lecture } = lectureEnrollment;
 
     await this.permissionService.validateInstructorAccess(
       lecture.instructorId,
@@ -525,26 +552,13 @@ export class GradesService {
     );
 
     // 2. 파일 업로드 (S3)
-    // Key: report/{examId}/{lectureEnrollmentId}/{uuid}-{originalFilename}
     const uuid = crypto.randomUUID();
-    const key = `report/${examId}/${lectureEnrollmentId}/${uuid}-${file.originalname}`;
+    const key = `report/${grade.examId}/${grade.lectureEnrollmentId}/${uuid}-${file.originalname}`;
 
-    // FileStorageService.upload는 전체 URL을 반환함
     const reportUrl = await this.fileStorageService.upload(file, key);
 
     // 3. DB 업데이트
-    const updatedReport = await this.gradesRepo.updateGradeReportUrl(
-      examId,
-      lectureEnrollmentId,
-      reportUrl,
-    );
-
-    if (!updatedReport) {
-      // 업로드 성공했으나 DB 업데이트 실패 (Grade 없음) -> S3 파일 삭제 고려 가능하나, 여기선 예외만 발생시킴
-      throw new NotFoundException(
-        '성적 정보가 존재하지 않아 리포트를 저장할 수 없습니다.',
-      );
-    }
+    await this.gradesRepo.updateGradeReportUrlByGradeId(gradeId, reportUrl);
 
     return { reportUrl };
   }

@@ -161,9 +161,8 @@ export const createMockGradesRepository = () =>
     'calculateAverageByExamId',
     'findByIdWithDetails',
     'findByLectureEnrollmentId',
-    'findGradeWithDetailsByExamAndEnrollment',
-    'findGradeReportByExamAndEnrollment',
-    'updateGradeReportUrl',
+    'findGradeReportByGradeId',
+    'updateGradeReportUrlByGradeId',
   ]);
 
 /** Mock ClinicsRepository 생성 */

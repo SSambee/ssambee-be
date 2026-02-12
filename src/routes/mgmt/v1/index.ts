@@ -77,7 +77,8 @@ mgmtV1Router.use('/lectures/:lectureId/assignments', mgmtAssignmentsRouter);
 
 /** 과제 결과 라우트 */
 import { mgmtAssignmentResultsRouter } from './assignment-results.route.js';
-mgmtV1Router.use(
-  '/assignments/:assignmentId/lecture-enrollments/:lectureEnrollmentId',
-  mgmtAssignmentResultsRouter,
-);
+mgmtV1Router.use('/assignment-results', mgmtAssignmentResultsRouter);
+
+/** 성적 라우트 */
+import { mgmtGradesRouter } from './grades.route.js';
+mgmtV1Router.use('/grades', mgmtGradesRouter);
