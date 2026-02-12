@@ -32,7 +32,6 @@
     ]
   },
   "dependencies": {
-    "@aws-sdk/client-cloudfront": "^3.988.0",
     "@aws-sdk/client-s3": "^3.984.0",
     "@aws-sdk/client-ssm": "^3.988.0",
     "@aws-sdk/cloudfront-signer": "^3.988.0",
