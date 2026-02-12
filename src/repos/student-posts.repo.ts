@@ -160,4 +160,34 @@ export class StudentPostsRepository {
       where: { id },
     });
   }
+
+  /** 만료된 PENDING 질문 조회 (배치용) */
+  async findManyPendingExpired(
+    expirationDate: Date,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return client.studentPost.findMany({
+      where: {
+        status: StudentPostStatus.PENDING,
+        createdAt: {
+          lt: expirationDate,
+        },
+      },
+      select: { id: true },
+    });
+  }
+
+  /** 여러 질문 상태 일괄 변경 */
+  async updateManyStatus(
+    ids: string[],
+    status: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return client.studentPost.updateMany({
+      where: { id: { in: ids } },
+      data: { status },
+    });
+  }
 }

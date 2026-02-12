@@ -51,6 +51,7 @@ describe('MaterialsService', () => {
     fileStorageService = {
       upload: jest.fn(),
       getPresignedUrl: jest.fn(),
+      getDownloadPresignedUrl: jest.fn(),
       delete: jest.fn(),
     } as unknown as jest.Mocked<FileStorageService>;
 
@@ -241,7 +242,7 @@ describe('MaterialsService', () => {
       expect(result.materials[0]).toHaveProperty('writer');
       expect(result.materials[0].writer).toBe('이강사'); // Instructor is not masked
       expect(result.materials[0]).toHaveProperty('date');
-      expect(result.materials[0]).toHaveProperty('className');
+      expect(result.materials[0].file?.name).toBeDefined();
     });
 
     it('활성 조교인 경우 이름을 마스킹하지 않아야 한다', async () => {
@@ -440,7 +441,9 @@ describe('MaterialsService', () => {
       permissionService.getEffectiveInstructorId.mockResolvedValue(
         'instructor-a',
       );
-      fileStorageService.getPresignedUrl.mockResolvedValue('presigned-url');
+      fileStorageService.getDownloadPresignedUrl.mockResolvedValue(
+        'presigned-url',
+      );
 
       const result = await service.getDownloadUrl(
         mockMaterial.id,
@@ -461,7 +464,9 @@ describe('MaterialsService', () => {
       permissionService.getEffectiveInstructorId.mockResolvedValue(
         'instructor-a',
       );
-      fileStorageService.getPresignedUrl.mockResolvedValue('presigned-url');
+      fileStorageService.getDownloadPresignedUrl.mockResolvedValue(
+        'presigned-url',
+      );
 
       const result = await service.getDownloadUrl(
         mockMaterial.id,
@@ -496,7 +501,9 @@ describe('MaterialsService', () => {
         mockEnrollment,
       );
       materialsRepo.isAccessibleByStudent.mockResolvedValue(true);
-      fileStorageService.getPresignedUrl.mockResolvedValue('presigned-url');
+      fileStorageService.getDownloadPresignedUrl.mockResolvedValue(
+        'presigned-url',
+      );
 
       const result = await service.getDownloadUrl(
         mockMaterial.id,

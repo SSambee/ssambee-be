@@ -136,14 +136,23 @@ export class StudentPostsService {
     // 권한 검증
     await this.validatePostAccess(post, userType, profileId);
 
-    // 상태 변경 유효성 검사 (학생은 해결됨으로만 변경 가능)
-    if (userType === UserType.STUDENT && status !== StudentPostStatus.PENDING) {
-      // NOTE: validatePostAccess에서 이미 학생 권한 체크를 했지만,
-      // 상태 변경에 대한 추가적인 제약사항이 있다면 여기서 처리
-      // 특정 상태로의 변경 제약은 비즈니스 로직으로 남겨둡니다.
+    // 강사는 상태를 변경할 수 없음 (댓글만 작성 가능)
+    if (userType === UserType.INSTRUCTOR) {
       throw new ForbiddenException(
-        '학생은 해결됨 상태로만 변경할 수 있습니다.',
+        '강사는 질문의 완료 상태를 변경할 수 없습니다. 학생이 완료 처리해야 합니다.',
       );
+    }
+
+    // 학생은 PENDING -> COMPLETED로만 변경 가능 (한 번 완료되면 취소 불가)
+    if (userType === UserType.STUDENT) {
+      if (post.status === StudentPostStatus.COMPLETED) {
+        throw new ForbiddenException('이미 완료된 질문입니다.');
+      }
+      if (status !== StudentPostStatus.COMPLETED) {
+        throw new ForbiddenException(
+          '학생은 완료 상태로만 변경할 수 있습니다.',
+        );
+      }
     }
 
     return this.studentPostsRepository.updateStatus(postId, status);
@@ -387,5 +396,31 @@ export class StudentPostsService {
     }
 
     return result;
+  }
+
+  /** 만료된 질문 자동 완료 처리 (배치용) */
+  async autoCompleteExpiredPosts(expiresInDays: number = 7): Promise<number> {
+    const expirationDate = new Date();
+    expirationDate.setDate(expirationDate.getDate() - expiresInDays);
+
+    // 만료된 PENDING 질문 조회
+    const expiredPosts =
+      await this.studentPostsRepository.findManyPendingExpired(expirationDate);
+
+    if (expiredPosts.length === 0) {
+      return 0;
+    }
+
+    // 일괄 완료 처리
+    const result = await this.studentPostsRepository.updateManyStatus(
+      expiredPosts.map((p) => p.id),
+      StudentPostStatus.COMPLETED,
+    );
+
+    console.log(
+      `[StudentPostsService] ${expiredPosts.length}개의 만료된 질문이 자동 완료 처리되었습니다.`,
+    );
+
+    return result.count;
   }
 }
