@@ -60,6 +60,10 @@ mgmtV1Router.use('/assistant-order', mgmtAssistantOrderRouter);
 import { mgmtScheduleCategoriesRouter } from './schedule-categories.route.js';
 mgmtV1Router.use('/schedule-categories', mgmtScheduleCategoriesRouter);
 
+/** 과제 카테고리 라우트 */
+import { mgmtAssignmentCategoriesRouter } from './assignment-categories.route.js';
+mgmtV1Router.use('/assignment-categories', mgmtAssignmentCategoriesRouter);
+
 /** 일정 라우트 */
 import { mgmtSchedulesRouter } from './schedules.route.js';
 mgmtV1Router.use('/schedules', mgmtSchedulesRouter);

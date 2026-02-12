@@ -8,6 +8,7 @@ import { ParentRepository } from '../repos/parent.repo.js';
 import { AssistantCodeRepository } from '../repos/assistant-code.repo.js';
 import { AssistantOrderRepository } from '../repos/assistant-order.repo.js';
 import { ScheduleCategoryRepository } from '../repos/schedule-categories.repo.js';
+import { AssignmentCategoryRepository } from '../repos/assignment-categories.repo.js';
 import { SchedulesRepository } from '../repos/schedules.repo.js';
 
 import { AuthService } from '../services/auth.service.js';
@@ -83,6 +84,9 @@ import { AssistantOrderController } from '../controllers/assistant-order.control
 import { ScheduleCategoryService } from '../services/schedule-categories.service.js';
 import { ScheduleCategoryController } from '../controllers/schedule-categories.controller.js';
 
+import { AssignmentCategoryService } from '../services/assignment-categories.service.js';
+import { AssignmentCategoryController } from '../controllers/assignment-categories.controller.js';
+
 import { SchedulesService } from '../services/schedules.service.js';
 import { SchedulesController } from '../controllers/schedules.controller.js';
 
@@ -94,6 +98,7 @@ const parentRepo = new ParentRepository(prisma);
 const assistantCodeRepo = new AssistantCodeRepository(prisma);
 const assistantOrderRepo = new AssistantOrderRepository(prisma);
 const scheduleCategoryRepo = new ScheduleCategoryRepository(prisma);
+const assignmentCategoryRepo = new AssignmentCategoryRepository(prisma);
 const schedulesRepo = new SchedulesRepository(prisma);
 const parentChildLinkRepo = new ParentChildLinkRepository(prisma);
 const examsRepo = new ExamsRepository(prisma);
@@ -270,6 +275,11 @@ const scheduleCategoryService = new ScheduleCategoryService(
   prisma,
 );
 
+const assignmentCategoryService = new AssignmentCategoryService(
+  assignmentCategoryRepo,
+  prisma,
+);
+
 const schedulesService = new SchedulesService(
   schedulesRepo,
   scheduleCategoryRepo,
@@ -304,6 +314,9 @@ const assistantOrderController = new AssistantOrderController(
 const scheduleCategoryController = new ScheduleCategoryController(
   scheduleCategoryService,
 );
+const assignmentCategoryController = new AssignmentCategoryController(
+  assignmentCategoryService,
+);
 const schedulesController = new SchedulesController(schedulesService);
 
 const instructorPostsController = new InstructorPostsController(
@@ -336,6 +349,7 @@ export const container = {
   lectureEnrollmentsService,
   assistantsService,
   scheduleCategoryService,
+  assignmentCategoryService,
   schedulesService,
   // Controllers
   authController,
@@ -356,6 +370,7 @@ export const container = {
   assistantsController,
   assistantOrderController,
   scheduleCategoryController,
+  assignmentCategoryController,
   schedulesController,
   // Middlewares
   requireAuth,
