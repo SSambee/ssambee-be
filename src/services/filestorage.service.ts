@@ -86,7 +86,7 @@ export class FileStorageService {
         this.cloudFrontPrivateKey = response.Parameter?.Value || '';
         return this.cloudFrontPrivateKey;
       } catch (error) {
-        console.error('[]FileStorageService] SSM에서 키 가져오기 실패:', error);
+        console.error('[FileStorageService] SSM에서 키 가져오기 실패:', error);
       }
     }
 
