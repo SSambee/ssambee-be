@@ -67,3 +67,10 @@ mgmtV1Router.use('/assignment-categories', mgmtAssignmentCategoriesRouter);
 /** 일정 라우트 */
 import { mgmtSchedulesRouter } from './schedules.route.js';
 mgmtV1Router.use('/schedules', mgmtSchedulesRouter);
+
+/** 과제 라우트 */
+import { mgmtAssignmentsRouter } from './assignments.route.js';
+mgmtV1Router.use('/assignments', mgmtAssignmentsRouter);
+
+/** 강의 내 과제 라우트 (Nested) */
+mgmtV1Router.use('/lectures/:lectureId/assignments', mgmtAssignmentsRouter);
