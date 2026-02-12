@@ -365,7 +365,7 @@ model AssignmentCategory {
 
 // 2. 과제 (특정 강의 내에서 생성된 과제)
 model Assignment {
-  id          String   @id @default(uuid())
+  id          String   @id @default(cuid(2))
   instructorId String   // 강사 참조
   lectureId   String   // 강의 참조
   categoryId  String   // 카테고리 속성 참조
@@ -384,7 +384,7 @@ model Assignment {
 
 // 3. 학생 과제 (학생별 결과)
 model AssignmentResult {
-  id           String   @id @default(uuid())
+  id           String   @id @default(cuid(2))
   assignmentId String   @map("assignment_id")
   lectureEnrollmentId String @map("lecture_enrollment_id")
 
@@ -400,7 +400,7 @@ model AssignmentResult {
 }
 
 model AssignmentOnExamReport {
-  id           String   @id @default(uuid())
+  id           String   @id @default(cuid(2))
   assignmentId String   @map("assignment_id")
   examId       String   @map("exam_id")
 
