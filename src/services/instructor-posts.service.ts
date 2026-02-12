@@ -33,6 +33,10 @@ export class InstructorPostsService {
       profileId,
     );
 
+    if (!instructorId) {
+      throw new ForbiddenException('강사 정보를 찾을 수 없습니다.');
+    }
+
     // 2. 해당 강사의 모든 강의 목록 조회
     const { lectures } = await this.lecturesRepository.findMany({
       page: 1,
@@ -112,6 +116,10 @@ export class InstructorPostsService {
       userType,
       profileId,
     );
+
+    if (!instructorId) {
+      throw new ForbiddenException('강사 정보를 찾을 수 없습니다.');
+    }
 
     // 2. 강의별 공지인 경우 강의 존재 여부 및 권한 확인
     if (data.scope === PostScope.LECTURE) {
