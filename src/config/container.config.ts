@@ -2,6 +2,7 @@ import { prisma } from './db.config.js';
 import { auth } from './auth.config.js';
 
 import { AssignmentsRepository } from '../repos/assignments.repo.js';
+import { AssignmentResultsRepository } from '../repos/assignment-results.repo.js';
 
 import { InstructorRepository } from '../repos/instructor.repo.js';
 import { StudentRepository } from '../repos/student.repo.js';
@@ -95,6 +96,9 @@ import { SchedulesController } from '../controllers/schedules.controller.js';
 import { AssignmentsService } from '../services/assignments.service.js';
 import { AssignmentsController } from '../controllers/assignments.controller.js';
 
+import { AssignmentResultsService } from '../services/assignment-results.service.js';
+import { AssignmentResultsController } from '../controllers/assignment-results.controller.js';
+
 // 1. Instantiate Repositories
 const instructorRepo = new InstructorRepository(prisma);
 const studentRepo = new StudentRepository(prisma);
@@ -112,6 +116,7 @@ const statisticsRepo = new StatisticsRepository(prisma);
 const clinicsRepo = new ClinicsRepository(prisma);
 const materialsRepo = new MaterialsRepository(prisma);
 const assignmentsRepo = new AssignmentsRepository(prisma);
+const assignmentResultsRepo = new AssignmentResultsRepository(prisma);
 
 const lecturesRepo = new LecturesRepository(prisma);
 const enrollmentsRepo = new EnrollmentsRepository(prisma);
@@ -298,6 +303,13 @@ const assignmentsService = new AssignmentsService(
   prisma,
 );
 
+const assignmentResultsService = new AssignmentResultsService(
+  assignmentResultsRepo,
+  assignmentsRepo,
+  lectureEnrollmentsRepo,
+  prisma,
+);
+
 // 3. Instantiate Controllers (Inject Services)
 const authController = new AuthController(authService);
 const lecturesController = new LecturesController(lecturesService);
@@ -331,6 +343,9 @@ const assignmentCategoryController = new AssignmentCategoryController(
 );
 const schedulesController = new SchedulesController(schedulesService);
 const assignmentsController = new AssignmentsController(assignmentsService);
+const assignmentResultsController = new AssignmentResultsController(
+  assignmentResultsService,
+);
 
 const instructorPostsController = new InstructorPostsController(
   instructorPostsService,
@@ -365,6 +380,7 @@ export const container = {
   assignmentCategoryService,
   schedulesService,
   assignmentsService,
+  assignmentResultsService,
   // Controllers
   authController,
   lecturesController,
@@ -387,6 +403,7 @@ export const container = {
   assignmentCategoryController,
   schedulesController,
   assignmentsController,
+  assignmentResultsController,
   // Middlewares
   requireAuth,
   optionalAuth,

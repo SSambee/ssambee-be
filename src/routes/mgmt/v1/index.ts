@@ -74,3 +74,10 @@ mgmtV1Router.use('/assignments', mgmtAssignmentsRouter);
 
 /** 강의 내 과제 라우트 (Nested) */
 mgmtV1Router.use('/lectures/:lectureId/assignments', mgmtAssignmentsRouter);
+
+/** 과제 결과 라우트 */
+import { mgmtAssignmentResultsRouter } from './assignment-results.route.js';
+mgmtV1Router.use(
+  '/assignments/:assignmentId/lecture-enrollments/:lectureEnrollmentId',
+  mgmtAssignmentResultsRouter,
+);
