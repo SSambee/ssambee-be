@@ -29,7 +29,7 @@ mgmtInstructorPostsRouter.use(requireInstructorOrAssistant);
 
 /** 공지 생성 */
 mgmtInstructorPostsRouter.post(
-  '/',
+  '/submit',
   validate(createInstructorPostSchema, 'body'),
   instructorPostsController.createPost,
 );
@@ -39,6 +39,12 @@ mgmtInstructorPostsRouter.get(
   '/',
   validate(getInstructorPostsQuerySchema, 'query'),
   instructorPostsController.getPostList,
+);
+
+/** 공지 타겟 학생 목록 조회 (선택 공지용) */
+mgmtInstructorPostsRouter.get(
+  '/targets',
+  instructorPostsController.getPostTargets,
 );
 
 /** 공지 상세 조회 */

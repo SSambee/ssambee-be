@@ -60,7 +60,7 @@ export class FileStorageService {
   }
 
   /**
-   * 다운로드용 Presigned URL 생성
+   * 열람용 Presigned URL 생성 (새 탭에서 열기)
    * @param fileUrl 저장된 파일 URL
    * @param expiresIn 유효 시간 (초)
    * @param bucketType 버킷 타입 (기본값: documents)
@@ -75,6 +75,31 @@ export class FileStorageService {
     const command = new GetObjectCommand({
       Bucket: bucketName,
       Key: key,
+    });
+
+    return getSignedUrl(s3Client, command, { expiresIn });
+  }
+
+  /**
+   * 다운로드용 Presigned URL 생성 (Content-Disposition: attachment)
+   * @param fileUrl 저장된 파일 URL
+   * @param fileName 다운로드 시 표시될 파일명
+   * @param expiresIn 유효 시간 (초)
+   * @param bucketType 버킷 타입 (기본값: documents)
+   */
+  async getDownloadPresignedUrl(
+    fileUrl: string,
+    fileName: string,
+    expiresIn: number = 3600,
+    bucketType: BucketType = BucketType.DOCUMENTS,
+  ): Promise<string> {
+    const key = this.extractKeyFromUrl(fileUrl);
+    const bucketName = getBucketName(bucketType);
+    const encodedFileName = encodeURIComponent(fileName);
+    const command = new GetObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+      ResponseContentDisposition: `attachment; filename="${encodedFileName}"; filename*=UTF-8''${encodedFileName}`,
     });
 
     return getSignedUrl(s3Client, command, { expiresIn });

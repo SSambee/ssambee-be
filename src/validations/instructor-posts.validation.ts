@@ -62,3 +62,9 @@ export type UpdateInstructorPostDto = z.infer<
 export type GetInstructorPostsQueryDto = z.infer<
   typeof getInstructorPostsQuerySchema
 >;
+
+export const getPostTargetsQuerySchema = z.object({
+  lectureId: z.cuid2(),
+});
+
+export type GetPostTargetsQueryDto = z.infer<typeof getPostTargetsQuerySchema>;

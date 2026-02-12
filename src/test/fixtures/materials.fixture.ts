@@ -11,6 +11,7 @@ export const mockMaterials = {
     authorName: '이강사',
     authorRole: 'INSTRUCTOR',
     title: faker.commerce.productName(),
+    filename: 'sample.pdf',
     fileUrl: faker.internet.url(),
     type: MaterialType.REFERENCE,
     description: faker.commerce.productDescription(),
@@ -31,6 +32,7 @@ export const mockMaterials = {
     authorName: '이강사',
     authorRole: 'INSTRUCTOR',
     title: '유튜브 영상 자료',
+    filename: '', // VIDEO_LINK는 파일이 없으므로 빈 문자열
     fileUrl: 'https://youtube.com/watch?v=mock-video-id',
     type: MaterialType.VIDEO_LINK,
     description: '동영상 설명',
@@ -51,6 +53,7 @@ export const mockMaterials = {
     authorName: '이강사',
     authorRole: 'INSTRUCTOR',
     title: '시험지 자료',
+    filename: 'exam.pdf',
     fileUrl: 'https://s3.aws.com/exams/mock-exam.pdf',
     type: MaterialType.EXAM_PAPER,
     description: '시험지 설명',

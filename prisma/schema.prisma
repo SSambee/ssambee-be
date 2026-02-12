@@ -578,8 +578,9 @@ model Material {
   authorName String @map("author_name")
   authorRole String @map("author_role")
 
-  title   String
-  fileUrl String @map("file_url")
+  title    String
+  filename String @default("") @map("filename")
+  fileUrl  String @map("file_url")
   type    String @default("ETC")
 
   // New fields

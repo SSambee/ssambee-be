@@ -15,6 +15,28 @@ export class InstructorPostsController {
     private readonly instructorPostsService: InstructorPostsService,
   ) {}
 
+  /** 공지 타겟 학생 목록 조회 (강사의 모든 강의와 학생 목록) */
+  getPostTargets = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const profileId = getProfileIdOrThrow(req);
+      const user = getAuthUser(req);
+      const userType = user.userType as UserType;
+
+      const result = await this.instructorPostsService.getPostTargets(
+        userType,
+        profileId,
+      );
+
+      return successResponse(res, {
+        statusCode: 200,
+        data: result,
+        message: '공지 타겟 목록을 조회했습니다.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   /** 공지 생성 */
   createPost = async (req: Request, res: Response, next: NextFunction) => {
     try {
