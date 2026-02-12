@@ -488,8 +488,13 @@ export class MaterialsService {
       return { url: material.fileUrl, type: 'youtube' };
     }
 
-    const presignedUrl = await this.fileStorageService.getPresignedUrl(
+    // 파일 확장자 추출 (S3 URL에서)
+    const fileExt = path.extname(material.fileUrl);
+    const downloadFileName = `${material.title}${fileExt}`;
+
+    const presignedUrl = await this.fileStorageService.getDownloadPresignedUrl(
       material.fileUrl,
+      downloadFileName,
       3600,
     );
     return { url: presignedUrl, type: 'file' };
