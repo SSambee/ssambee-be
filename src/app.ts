@@ -10,6 +10,7 @@ import { toNodeHandler } from 'better-auth/node';
 import { auth } from './config/auth.config.js';
 import { initSentry } from './config/sentry.config.js';
 import * as Sentry from '@sentry/node';
+import './config/redis.config.js';
 
 const app = express();
 
