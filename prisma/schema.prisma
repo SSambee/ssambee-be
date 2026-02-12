@@ -110,6 +110,8 @@ model Instructor {
   instructorPosts InstructorPost[]
   comments        Comment[]
   resolvedPosts   StudentPost[]    @relation("StudentPostResolver")
+  assignments     Assignment[]
+  assignmentCategories AssignmentCategory[]
 
   // [Audit] 성적 수정 이력
   //updatedGradeLogs GradeLog[]
@@ -248,6 +250,8 @@ model Lecture {
   clinics            Clinic[]
   lectureTimes       LectureTime[]
 
+  assignments Assignment[]
+
   instructorPosts InstructorPost[]
   studentPosts    StudentPost[]
   assistantOrders AssistantOrder[]
@@ -299,6 +303,7 @@ model LectureEnrollment {
   clinics        Clinic[]
   attendances    Attendance[]
   gradeReports   GradeReport[]
+  assignmentResults AssignmentResult[]
 
   // 한 수업에 중복 등록 방지
   @@unique([lectureId, enrollmentId])
@@ -340,6 +345,78 @@ model Attendance {
 // 5. EXAM & EVALUATION (평가 및 피드백 레이어)
 // --------------------------------------------------------
 
+// 1. 과제 카테고리 (강사별 커스텀 평가 척도)
+model AssignmentCategory {
+  id           String   @id @default(uuid())
+  instructorId String   // 강사 참조
+  name         String   // 예: "주간 단어 테스트", "독후감 과제"
+  
+  // 프리셋 예시: ["미흡", "보통", "우수"] -> 인덱스 0, 1, 2와 매칭
+  resultPresets String[] 
+  
+  assignments  Assignment[]
+  createdAt    DateTime @default(now())
+
+  instructor Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  @@index([instructorId])
+  @@map("assignment_categories")
+}
+
+// 2. 과제 (특정 강의 내에서 생성된 과제)
+model Assignment {
+  id          String   @id @default(uuid())
+  instructorId String   // 강사 참조
+  lectureId   String   // 강의 참조
+  categoryId  String   // 카테고리 속성 참조
+  title       String   // 과제 이름 (예: 2/12 단어시험)
+  
+  instructor Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  category    AssignmentCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  assignmentResults AssignmentResult[]
+  assignmentsOnExamReport AssignmentOnExamReport[]
+
+  @@index([lectureId])
+  @@index([categoryId])
+  @@map("assignments")
+}
+
+// 3. 학생 과제 (학생별 결과)
+model AssignmentResult {
+  id           String   @id @default(uuid())
+  assignmentId String   @map("assignment_id")
+  lectureEnrollmentId String @map("lecture_enrollment_id")
+
+  resultIndex  Int  @map("result_index")
+  
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  lectureEnrollment LectureEnrollment @relation(fields: [lectureEnrollmentId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, lectureEnrollmentId]) // 한 학생이 한 과제에 중복 점수 방지
+  @@index([assignmentId])
+  @@index([lectureEnrollmentId])
+  @@map("assignment_results")
+}
+
+model AssignmentOnExamReport {
+  id           String   @id @default(uuid())
+  assignmentId String   @map("assignment_id")
+  examId       String   @map("exam_id")
+
+  resultIndex  Int  @map("result_index")
+  
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, examId]) // 한 과제가 한 시험에 중복 등록 방지
+  @@index([assignmentId])
+  @@index([examId])
+  @@map("assignment_on_exam_reports")
+}
+
+// 4. 시험 (특정 강의 내에서 생성된 시험)
+
 model Exam {
   id           String  @id @default(cuid(2))
   lectureId    String  @map("lecture_id")
@@ -367,6 +444,7 @@ model Exam {
   grades    Grade[]
   clinics   Clinic[]
   gradeReports GradeReport[]
+  assignmentsOnExamReport AssignmentOnExamReport[]
 
   // [Performance] 강의 내 시험 목록 조회
   @@unique([lectureId, id])
@@ -475,6 +553,8 @@ model GradeReport {
 
   description String  @db.Text
   reportUrl   String? @map("report_url")
+
+  sentAt    DateTime? @map("sent_at")
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime? @updatedAt @map("updated_at")

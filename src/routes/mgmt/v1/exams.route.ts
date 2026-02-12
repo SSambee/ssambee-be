@@ -77,7 +77,7 @@ mgmtExamsRouter.get(
 
 /** 성적표 리포트 파일 업로드 */
 mgmtExamsRouter.post(
-  '/:examId/grades/lectureEnrollments/:lectureEnrollmentId/report/upload',
+  '/:examId/grades/lectureEnrollments/:lectureEnrollmentId/report/file',
   validate(examAndEnrollmentParamSchema, 'params'),
   upload.single('file'),
   (req, res, next) =>
