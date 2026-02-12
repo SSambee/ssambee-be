@@ -16,6 +16,26 @@ export class AssignmentResultsRepository {
     return client.assignmentResult.create({ data });
   }
 
+  /** ID로 과제 결과 조회 */
+  async findById(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    return client.assignmentResult.findUnique({
+      where: { id },
+      include: {
+        assignment: {
+          include: {
+            category: true,
+          },
+        },
+        lectureEnrollment: {
+          include: {
+            enrollment: true,
+          },
+        },
+      },
+    });
+  }
+
   /** 특정 과제 + 수강생 조합으로 결과 조회 */
   async findByAssignmentAndEnrollment(
     assignmentId: string,
@@ -42,6 +62,27 @@ export class AssignmentResultsRepository {
           },
         },
       },
+    });
+  }
+
+  /** 과제 결과 수정 (Unique ID) */
+  async updateById(
+    id: string,
+    data: { resultIndex: number },
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return client.assignmentResult.update({
+      where: { id },
+      data,
+    });
+  }
+
+  /** 과제 결과 삭제 (Unique ID) */
+  async deleteById(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    return client.assignmentResult.delete({
+      where: { id },
     });
   }
 

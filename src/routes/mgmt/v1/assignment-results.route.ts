@@ -2,9 +2,8 @@ import { Router } from 'express';
 import { container } from '../../../config/container.config.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
 import {
-  createAssignmentResultSchema,
   updateAssignmentResultSchema,
-  assignmentResultParamsSchema,
+  assignmentResultIdParamSchema,
 } from '../../../validations/assignment-results.validation.js';
 
 export const mgmtAssignmentResultsRouter = Router({ mergeParams: true });
@@ -14,43 +13,32 @@ mgmtAssignmentResultsRouter.use(container.requireAuth);
 mgmtAssignmentResultsRouter.use(container.requireInstructorOrAssistant);
 
 /**
- * 과제 결과 생성
- * POST /api/mgmt/v1/assignments/:assignmentId/lecture-enrollments/:lectureEnrollmentId
- */
-mgmtAssignmentResultsRouter.post(
-  '/',
-  validate(assignmentResultParamsSchema, 'params'),
-  validate(createAssignmentResultSchema, 'body'),
-  container.assignmentResultsController.createResult,
-);
-
-/**
  * 과제 결과 조회
- * GET /api/mgmt/v1/assignments/:assignmentId/lecture-enrollments/:lectureEnrollmentId
+ * GET /api/mgmt/v1/assignment-results/:resultId
  */
 mgmtAssignmentResultsRouter.get(
-  '/',
-  validate(assignmentResultParamsSchema, 'params'),
+  '/:resultId',
+  validate(assignmentResultIdParamSchema, 'params'),
   container.assignmentResultsController.getResult,
 );
 
 /**
  * 과제 결과 수정
- * PATCH /api/mgmt/v1/assignments/:assignmentId/lecture-enrollments/:lectureEnrollmentId
+ * PATCH /api/mgmt/v1/assignment-results/:resultId
  */
 mgmtAssignmentResultsRouter.patch(
-  '/',
-  validate(assignmentResultParamsSchema, 'params'),
+  '/:resultId',
+  validate(assignmentResultIdParamSchema, 'params'),
   validate(updateAssignmentResultSchema, 'body'),
   container.assignmentResultsController.updateResult,
 );
 
 /**
  * 과제 결과 삭제
- * DELETE /api/mgmt/v1/assignments/:assignmentId/lecture-enrollments/:lectureEnrollmentId
+ * DELETE /api/mgmt/v1/assignment-results/:resultId
  */
 mgmtAssignmentResultsRouter.delete(
-  '/',
-  validate(assignmentResultParamsSchema, 'params'),
+  '/:resultId',
+  validate(assignmentResultIdParamSchema, 'params'),
   container.assignmentResultsController.deleteResult,
 );

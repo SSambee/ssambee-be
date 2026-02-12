@@ -21,6 +21,7 @@ describe('AssignmentResultsService', () => {
   const mockLectureId = 'lecture-1';
   const mockAssignmentId = 'assignment-1';
   const mockEnrollmentId = 'enrollment-1';
+  const mockResultId = 'result-1';
   const mockResultIndex = 1;
 
   const mockAssignment = {
@@ -39,6 +40,7 @@ describe('AssignmentResultsService', () => {
   };
 
   const mockAssignmentResult = {
+    id: mockResultId,
     assignmentId: mockAssignmentId,
     lectureEnrollmentId: mockEnrollmentId,
     resultIndex: mockResultIndex,
@@ -50,8 +52,9 @@ describe('AssignmentResultsService', () => {
     mockAssignmentResultsRepo = {
       create: jest.fn(),
       findByAssignmentAndEnrollment: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
+      findById: jest.fn(),
+      updateById: jest.fn(),
+      deleteById: jest.fn(),
     };
     mockAssignmentsRepo = {
       findById: jest.fn(),
@@ -113,6 +116,7 @@ describe('AssignmentResultsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
+    // ... other createResult tests remain logically similar, omitted for brevity but should be included if rewriting whole file ...
     it('should throw ForbiddenException if assignment belongs to another instructor', async () => {
       (mockAssignmentsRepo.findById as jest.Mock).mockResolvedValue({
         ...mockAssignment,
@@ -179,7 +183,7 @@ describe('AssignmentResultsService', () => {
           mockInstructorId,
           mockAssignmentId,
           mockEnrollmentId,
-          { resultIndex: 10 }, // Out of range
+          { resultIndex: 10 },
         ),
       ).rejects.toThrow(BadRequestException);
     });
@@ -208,39 +212,34 @@ describe('AssignmentResultsService', () => {
 
   describe('getResult', () => {
     it('should return result if found and authorized', async () => {
-      (
-        mockAssignmentResultsRepo.findByAssignmentAndEnrollment as jest.Mock
-      ).mockResolvedValue(mockAssignmentResult);
-
-      const result = await service.getResult(
-        mockInstructorId,
-        mockAssignmentId,
-        mockEnrollmentId,
+      (mockAssignmentResultsRepo.findById as jest.Mock).mockResolvedValue(
+        mockAssignmentResult,
       );
 
+      const result = await service.getResult(mockInstructorId, mockResultId);
+
+      expect(mockAssignmentResultsRepo.findById).toHaveBeenCalledWith(
+        mockResultId,
+      );
       expect(result).toEqual(mockAssignmentResult);
     });
 
     it('should throw NotFoundException if result not found', async () => {
-      (
-        mockAssignmentResultsRepo.findByAssignmentAndEnrollment as jest.Mock
-      ).mockResolvedValue(null);
+      (mockAssignmentResultsRepo.findById as jest.Mock).mockResolvedValue(null);
 
       await expect(
-        service.getResult(mockInstructorId, mockAssignmentId, mockEnrollmentId),
+        service.getResult(mockInstructorId, mockResultId),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ForbiddenException if instructor does not match', async () => {
-      (
-        mockAssignmentResultsRepo.findByAssignmentAndEnrollment as jest.Mock
-      ).mockResolvedValue({
+      (mockAssignmentResultsRepo.findById as jest.Mock).mockResolvedValue({
         ...mockAssignmentResult,
         assignment: { ...mockAssignment, instructorId: 'other-instructor' },
       });
 
       await expect(
-        service.getResult(mockInstructorId, mockAssignmentId, mockEnrollmentId),
+        service.getResult(mockInstructorId, mockResultId),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -249,63 +248,53 @@ describe('AssignmentResultsService', () => {
     const updateDto = { resultIndex: 2 };
 
     it('should update result successfully', async () => {
-      (
-        mockAssignmentResultsRepo.findByAssignmentAndEnrollment as jest.Mock
-      ).mockResolvedValue(mockAssignmentResult);
-      (mockAssignmentResultsRepo.update as jest.Mock).mockResolvedValue({
+      (mockAssignmentResultsRepo.findById as jest.Mock).mockResolvedValue(
+        mockAssignmentResult,
+      );
+      (mockAssignmentResultsRepo.updateById as jest.Mock).mockResolvedValue({
         ...mockAssignmentResult,
         ...updateDto,
       });
 
       const result = await service.updateResult(
         mockInstructorId,
-        mockAssignmentId,
-        mockEnrollmentId,
+        mockResultId,
         updateDto,
       );
 
-      expect(mockAssignmentResultsRepo.update).toHaveBeenCalledWith(
-        mockAssignmentId,
-        mockEnrollmentId,
+      expect(mockAssignmentResultsRepo.updateById).toHaveBeenCalledWith(
+        mockResultId,
         updateDto,
       );
       expect(result.resultIndex).toBe(updateDto.resultIndex);
     });
 
     it('should throw BadRequestException if new resultIndex is out of range', async () => {
-      (
-        mockAssignmentResultsRepo.findByAssignmentAndEnrollment as jest.Mock
-      ).mockResolvedValue(mockAssignmentResult);
+      (mockAssignmentResultsRepo.findById as jest.Mock).mockResolvedValue(
+        mockAssignmentResult,
+      );
 
       await expect(
-        service.updateResult(
-          mockInstructorId,
-          mockAssignmentId,
-          mockEnrollmentId,
-          { resultIndex: 10 },
-        ),
+        service.updateResult(mockInstructorId, mockResultId, {
+          resultIndex: 10,
+        }),
       ).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('deleteResult', () => {
     it('should delete result successfully', async () => {
-      (
-        mockAssignmentResultsRepo.findByAssignmentAndEnrollment as jest.Mock
-      ).mockResolvedValue(mockAssignmentResult);
-      (mockAssignmentResultsRepo.delete as jest.Mock).mockResolvedValue(
+      (mockAssignmentResultsRepo.findById as jest.Mock).mockResolvedValue(
+        mockAssignmentResult,
+      );
+      (mockAssignmentResultsRepo.deleteById as jest.Mock).mockResolvedValue(
         mockAssignmentResult,
       );
 
-      await service.deleteResult(
-        mockInstructorId,
-        mockAssignmentId,
-        mockEnrollmentId,
-      );
+      await service.deleteResult(mockInstructorId, mockResultId);
 
-      expect(mockAssignmentResultsRepo.delete).toHaveBeenCalledWith(
-        mockAssignmentId,
-        mockEnrollmentId,
+      expect(mockAssignmentResultsRepo.deleteById).toHaveBeenCalledWith(
+        mockResultId,
       );
     });
   });

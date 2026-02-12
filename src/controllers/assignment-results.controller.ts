@@ -16,14 +16,14 @@ export class AssignmentResultsController {
   createResult = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const instructorId = getInstructorIdOrThrow(req);
-      const { assignmentId, lectureEnrollmentId } = req.params;
+      const { assignmentId } = req.params;
       const data = req.body as CreateAssignmentResultDto;
 
       const result = await this.assignmentResultsService.createResult(
         instructorId,
         assignmentId,
-        lectureEnrollmentId,
-        data,
+        data.lectureEnrollmentId,
+        { resultIndex: data.resultIndex },
       );
 
       return successResponse(res, {
@@ -40,12 +40,11 @@ export class AssignmentResultsController {
   getResult = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const instructorId = getInstructorIdOrThrow(req);
-      const { assignmentId, lectureEnrollmentId } = req.params;
+      const { resultId } = req.params;
 
       const result = await this.assignmentResultsService.getResult(
         instructorId,
-        assignmentId,
-        lectureEnrollmentId,
+        resultId,
       );
 
       return successResponse(res, {
@@ -60,13 +59,12 @@ export class AssignmentResultsController {
   updateResult = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const instructorId = getInstructorIdOrThrow(req);
-      const { assignmentId, lectureEnrollmentId } = req.params;
+      const { resultId } = req.params;
       const data = req.body as UpdateAssignmentResultDto;
 
       const result = await this.assignmentResultsService.updateResult(
         instructorId,
-        assignmentId,
-        lectureEnrollmentId,
+        resultId,
         data,
       );
 
@@ -83,13 +81,9 @@ export class AssignmentResultsController {
   deleteResult = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const instructorId = getInstructorIdOrThrow(req);
-      const { assignmentId, lectureEnrollmentId } = req.params;
+      const { resultId } = req.params;
 
-      await this.assignmentResultsService.deleteResult(
-        instructorId,
-        assignmentId,
-        lectureEnrollmentId,
-      );
+      await this.assignmentResultsService.deleteResult(instructorId, resultId);
 
       return successResponse(res, {
         message: '과제 결과가 삭제되었습니다.',

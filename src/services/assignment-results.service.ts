@@ -84,16 +84,8 @@ export class AssignmentResultsService {
   }
 
   /** 과제 결과 조회 */
-  async getResult(
-    instructorId: string,
-    assignmentId: string,
-    lectureEnrollmentId: string,
-  ) {
-    const result =
-      await this.assignmentResultsRepo.findByAssignmentAndEnrollment(
-        assignmentId,
-        lectureEnrollmentId,
-      );
+  async getResult(instructorId: string, resultId: string) {
+    const result = await this.assignmentResultsRepo.findById(resultId);
 
     if (!result) {
       throw new NotFoundException('과제 결과를 찾을 수 없습니다.');
@@ -110,16 +102,11 @@ export class AssignmentResultsService {
   /** 과제 결과 수정 */
   async updateResult(
     instructorId: string,
-    assignmentId: string,
-    lectureEnrollmentId: string,
+    resultId: string,
     data: { resultIndex: number },
   ) {
     // 1. 기존 결과 조회 및 권한 확인
-    const result = await this.getResult(
-      instructorId,
-      assignmentId,
-      lectureEnrollmentId,
-    );
+    const result = await this.getResult(instructorId, resultId);
 
     // 2. resultIndex 유효성 검증
     const categoryPresetsLength =
@@ -131,23 +118,15 @@ export class AssignmentResultsService {
     }
 
     // 3. 수정
-    return this.assignmentResultsRepo.update(
-      assignmentId,
-      lectureEnrollmentId,
-      data,
-    );
+    return this.assignmentResultsRepo.updateById(resultId, data);
   }
 
   /** 과제 결과 삭제 */
-  async deleteResult(
-    instructorId: string,
-    assignmentId: string,
-    lectureEnrollmentId: string,
-  ) {
+  async deleteResult(instructorId: string, resultId: string) {
     // 1. 기존 결과 조회 및 권한 확인
-    await this.getResult(instructorId, assignmentId, lectureEnrollmentId);
+    await this.getResult(instructorId, resultId);
 
     // 2. 삭제
-    return this.assignmentResultsRepo.delete(assignmentId, lectureEnrollmentId);
+    return this.assignmentResultsRepo.deleteById(resultId);
   }
 }

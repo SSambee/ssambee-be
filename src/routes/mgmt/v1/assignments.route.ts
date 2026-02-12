@@ -66,3 +66,16 @@ mgmtAssignmentsRouter.delete(
   validate(assignmentIdParamSchema, 'params'),
   container.assignmentsController.deleteAssignment,
 );
+
+/**
+ * 과제 결과 생성
+ * POST /api/mgmt/v1/assignments/:assignmentId/result
+ */
+import { createAssignmentResultSchema } from '../../../validations/assignment-results.validation.js';
+
+mgmtAssignmentsRouter.post(
+  '/:assignmentId/result',
+  validate(assignmentIdParamSchema, 'params'),
+  validate(createAssignmentResultSchema, 'body'),
+  container.assignmentResultsController.createResult,
+);
