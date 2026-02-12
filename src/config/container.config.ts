@@ -85,6 +85,10 @@ import { ScheduleCategoryController } from '../controllers/schedule-categories.c
 
 import { SchedulesService } from '../services/schedules.service.js';
 import { SchedulesController } from '../controllers/schedules.controller.js';
+/**
+ *  import { redis } from './redis.config.js';
+ *  redis 클라이언트르 컨테이너에 등록하여 필요한 서비스에 주입한다.
+ */
 
 // 1. Instantiate Repositories
 const instructorRepo = new InstructorRepository(prisma);
