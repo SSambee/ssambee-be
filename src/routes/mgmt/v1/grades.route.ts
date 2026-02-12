@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { container } from '../../../config/container.config.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
-import { gradeIdParamSchema } from '../../../validations/grades.validation.js';
+import {
+  gradeIdParamSchema,
+  gradeReportDescriptionSchema,
+} from '../../../validations/grades.validation.js';
 import { upload } from '../../../middlewares/multer.middleware.js';
 
 export const mgmtGradesRouter = Router();
@@ -41,4 +44,15 @@ mgmtGradesRouter.post(
   validate(gradeIdParamSchema, 'params'),
   upload.single('file'),
   gradesController.uploadGradeReportFile,
+);
+
+/**
+ * 성적표 리포트 설명 업데이트
+ * POST /api/mgmt/v1/grades/:gradeId/report/description
+ */
+mgmtGradesRouter.post(
+  '/:gradeId/report/description',
+  validate(gradeIdParamSchema, 'params'),
+  validate(gradeReportDescriptionSchema, 'body'),
+  gradesController.updateGradeReportDescription,
 );

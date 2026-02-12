@@ -566,4 +566,45 @@ export class GradesService {
 
     return { reportUrl };
   }
+
+  /** [NEW] 성적표 리포트 설명 업데이트 - ID 기반 */
+  async updateGradeReportDescription(
+    gradeId: string,
+    description: string,
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 1. Grade 권한 검증 및 데이터 확보
+    // 리포트가 아직 없을 수도 있으므로 Grade를 먼저 조회
+    const grade = await this.gradesRepo.findByIdWithDetails(gradeId);
+    if (!grade) {
+      throw new NotFoundException('성적 정보를 찾을 수 없습니다.');
+    }
+
+    // lecture 정보가 include되어 있지 않으므로 별도 조회
+    const lecture = await this.lecturesRepo.findById(grade.exam.lectureId);
+    if (!lecture) {
+      throw new NotFoundException('강의를 찾을 수 없습니다.');
+    }
+
+    await this.permissionService.validateInstructorAccess(
+      lecture.instructorId,
+      userType,
+      profileId,
+    );
+
+    // 2. DB 업데이트 (Upsert)
+    const result = await this.gradesRepo.updateGradeReportDescriptionByGradeId(
+      gradeId,
+      description,
+    );
+
+    if (!result) {
+      throw new BadRequestException(
+        '성적표 리포트 설명 업데이트에 실패했습니다.',
+      );
+    }
+
+    return result;
+  }
 }

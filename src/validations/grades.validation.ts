@@ -37,3 +37,12 @@ export const gradeIdParamSchema = z.object({
 });
 
 export type GradeIdParamDto = z.infer<typeof gradeIdParamSchema>;
+
+/** 성적표 설명 업데이트 스키마 */
+export const gradeReportDescriptionSchema = z.object({
+  description: z.string(),
+});
+
+export type GradeReportDescriptionDto = z.infer<
+  typeof gradeReportDescriptionSchema
+>;

@@ -286,4 +286,35 @@ export class GradesRepository {
       },
     });
   }
+
+  /** [NEW] 성적표 리포트 설명 업데이트 (Grade ID 기준) */
+  async updateGradeReportDescriptionByGradeId(
+    gradeId: string,
+    description: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+
+    // Grade 조회하여 examId, lectureEnrollmentId 확보
+    const grade = await client.grade.findUnique({
+      where: { id: gradeId },
+      select: { examId: true, lectureEnrollmentId: true },
+    });
+
+    if (!grade) return null;
+
+    return await client.gradeReport.upsert({
+      where: { gradeId },
+      create: {
+        gradeId,
+        examId: grade.examId,
+        lectureEnrollmentId: grade.lectureEnrollmentId,
+        description,
+        reportUrl: null, // 초기 생성 시 null
+      },
+      update: {
+        description,
+      },
+    });
+  }
 }

@@ -210,4 +210,33 @@ export class GradesController {
       next(error);
     }
   };
+
+  /** [NEW] 성적표 리포트 설명 업데이트 핸들러 - ID 기반 */
+  updateGradeReportDescription = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { gradeId } = req.params;
+      const { description } = req.body;
+      const user = getAuthUser(req);
+      const profileId = getProfileIdOrThrow(req);
+      const userType = user.userType as UserType;
+
+      const result = await this.gradesService.updateGradeReportDescription(
+        gradeId,
+        description,
+        userType,
+        profileId,
+      );
+
+      return successResponse(res, {
+        data: result,
+        message: '성적표 리포트 설명 업데이트 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
