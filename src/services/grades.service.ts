@@ -11,7 +11,7 @@ import { LecturesRepository } from '../repos/lectures.repo.js';
 import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 import { AttendancesRepository } from '../repos/attendances.repo.js';
 import { PermissionService } from './permission.service.js';
-import { FileStorageService } from './filestorage.service.js';
+import { FileStorageService, BucketType } from './filestorage.service.js';
 import type { SubmitGradingDto } from '../validations/grades.validation.js';
 
 export class GradesService {
@@ -553,9 +553,13 @@ export class GradesService {
 
     // 2. 파일 업로드 (S3)
     const uuid = crypto.randomUUID();
-    const key = `report/${grade.examId}/${grade.lectureEnrollmentId}/${uuid}-${file.originalname}`;
+    const key = `reports/${grade.examId}/${grade.lectureEnrollmentId}/${uuid}-${file.originalname}`;
 
-    const reportUrl = await this.fileStorageService.upload(file, key);
+    const reportUrl = await this.fileStorageService.upload(
+      file,
+      key,
+      BucketType.REPORTS,
+    );
 
     // 3. DB 업데이트
     await this.gradesRepo.updateGradeReportUrlByGradeId(gradeId, reportUrl);
