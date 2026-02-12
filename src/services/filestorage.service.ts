@@ -8,7 +8,7 @@ import { getSignedUrl as getCloudFrontSignedUrl } from '@aws-sdk/cloudfront-sign
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { s3Client } from '../middlewares/multer.middleware.js';
 import { config } from '../config/env.config.js';
-import { readFileSync } from 'fs';
+import { readFile } from 'fs/promises';
 import { join } from 'path';
 
 /** S3 버킷 타입 정의 */
@@ -68,7 +68,8 @@ export class FileStorageService {
         const resolvedPath = keySource.startsWith('/')
           ? keySource
           : join(process.cwd(), keySource);
-        return readFileSync(resolvedPath, 'utf-8');
+        this.cloudFrontPrivateKey = await readFile(resolvedPath, 'utf-8');
+        return this.cloudFrontPrivateKey;
       } catch (error) {
         console.error('[FileStorageService] 키 로딩 실패:', error);
         return '';
