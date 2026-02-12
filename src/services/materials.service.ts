@@ -120,7 +120,7 @@ export class MaterialsService {
       throw new ForbiddenException('자료 업로드 권한이 없습니다.');
     }
 
-    return this.materialsRepository.create({
+    const created = await this.materialsRepository.create({
       instructorId: ownerInstructorId,
       lectureId: null, // 원본 보존을 위해 무조건 null로 저장 (Library-first)
       authorName,
@@ -132,6 +132,26 @@ export class MaterialsService {
       subject: data.subject,
       externalDownloadUrl: data.externalDownloadUrl,
     });
+
+    // 프론트엔드용 응답 형식으로 변환
+    const isVideo = backendType === MaterialType.VIDEO_LINK;
+    const isManagement =
+      userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT;
+    const basePath = isManagement ? '/api/mgmt/v1' : '/api/svc/v1';
+    const downloadUrl = `${basePath}/materials/${created.id}/download`;
+
+    return {
+      id: created.id,
+      title: created.title,
+      description: created.description,
+      writer: authorName,
+      date: toKstDateOnly(created.createdAt),
+      type: toFrontendMaterialType[backendType] || ('OTHER' as const),
+      classId: created.lectureId,
+      className: null,
+      file: !isVideo ? { name: created.title, url: downloadUrl } : undefined,
+      link: isVideo ? created.fileUrl : undefined,
+    };
   }
 
   /** 자료 목록 조회 */
@@ -281,12 +301,10 @@ export class MaterialsService {
       const key = `${prefix}/${year}/${month}/${randomId}${ext}`;
 
       fileUrl = await this.fileStorageService.upload(file, key);
-
-      // 기존 파일 삭제
       await this.fileStorageService.delete(material.fileUrl);
     }
 
-    const updateResult = await this.materialsRepository.update(materialsId, {
+    const updated = await this.materialsRepository.update(materialsId, {
       title: data.title,
       fileUrl,
       description: data.description,
@@ -294,7 +312,27 @@ export class MaterialsService {
       externalDownloadUrl: data.externalDownloadUrl,
     });
 
-    return updateResult;
+    // 프론트엔드용 응답 형식으로 변환
+    const isVideo = material.type === MaterialType.VIDEO_LINK;
+    const isManagement =
+      userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT;
+    const basePath = isManagement ? '/api/mgmt/v1' : '/api/svc/v1';
+    const downloadUrl = `${basePath}/materials/${updated.id}/download`;
+
+    return {
+      id: updated.id,
+      title: updated.title,
+      description: updated.description,
+      writer: material.authorName,
+      date: toKstDateOnly(updated.updatedAt),
+      type:
+        toFrontendMaterialType[material.type as MaterialType] ||
+        ('OTHER' as const),
+      classId: updated.lectureId,
+      className: material.lecture?.title,
+      file: !isVideo ? { name: updated.title, url: downloadUrl } : undefined,
+      link: isVideo ? updated.fileUrl : undefined,
+    };
   }
 
   /** 자료 삭제 */
@@ -456,6 +494,7 @@ export class MaterialsService {
 
     const presignedUrl = await this.fileStorageService.getPresignedUrl(
       material.fileUrl,
+      3600,
     );
     return { url: presignedUrl, type: 'file' };
   }

@@ -14,7 +14,8 @@ const envSchema = z.object({
   BETTER_AUTH_URL: z.string().url(),
   SENTRY_DSN: z.string(),
   AWS_REGION: z.string().default('ap-northeast-2'),
-  AWS_S3_BUCKET: z.string().default('eduops-dev'),
+  AWS_S3_BUCKET_DOCUMENTS: z.string().default('ssambee-dev-lms-documents'),
+  AWS_S3_BUCKET_REPORTS: z.string().default('ssambee-dev-lms-reports'),
 });
 
 const parseEnvironment = () => {
@@ -28,7 +29,8 @@ const parseEnvironment = () => {
       BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
       SENTRY_DSN: process.env.SENTRY_DSN,
       AWS_REGION: process.env.AWS_REGION,
-      AWS_S3_BUCKET: process.env.AWS_S3_BUCKET,
+      AWS_S3_BUCKET_DOCUMENTS: process.env.AWS_S3_BUCKET_DOCUMENTS,
+      AWS_S3_BUCKET_REPORTS: process.env.AWS_S3_BUCKET_REPORTS,
     });
   } catch (err) {
     if (err instanceof z.ZodError) {

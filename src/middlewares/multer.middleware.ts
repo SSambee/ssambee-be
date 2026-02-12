@@ -5,7 +5,6 @@ import { BadRequestException } from '../err/http.exception.js';
 import { config } from '../config/env.config.js';
 
 // S3 Client 설정
-export const bucketName = config.AWS_S3_BUCKET;
 export const s3Client = new S3Client({
   region: config.AWS_REGION,
   credentials: {

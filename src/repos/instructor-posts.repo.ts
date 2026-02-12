@@ -1,5 +1,6 @@
 import { Prisma, PrismaClient } from '../generated/prisma/client.js';
 import { PostScope } from '../constants/posts.constant.js';
+import { PostType } from '../constants/posts.constant.js';
 
 export type InstructorPostWithDetails = Prisma.InstructorPostGetPayload<{
   include: {
@@ -121,6 +122,8 @@ export class InstructorPostsRepository {
       limit: number;
       targetEnrollmentIds?: string[]; // 학생용 SELECTED 스코프 필터링 (하위 호환)
       studentFiltering?: StudentFiltering;
+      // 게시물 유형 필터: 공지/자료
+      postType?: PostType;
     },
     tx?: Prisma.TransactionClient,
   ) {
@@ -134,6 +137,7 @@ export class InstructorPostsRepository {
       limit,
       targetEnrollmentIds,
       studentFiltering,
+      postType,
     } = params;
     const skip = (page - 1) * limit;
 
@@ -146,6 +150,10 @@ export class InstructorPostsRepository {
           { title: { contains: search, mode: 'insensitive' } },
           { content: { contains: search, mode: 'insensitive' } },
         ],
+      }),
+      // 게시물 유형 필터 (NOTICE: 공지, SHARE: 자료)
+      ...(postType && {
+        isImportant: postType === PostType.NOTICE,
       }),
       // 학생용 복합 필터링 (OR 조건)
       ...(studentFiltering && {

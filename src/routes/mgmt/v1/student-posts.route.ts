@@ -38,7 +38,7 @@ mgmtStudentPostsRouter.get(
   studentPostsController.getPostDetail,
 );
 
-/** 질문 상태 변경 (해결/미해결) */
+/** 질문 상태 변경 (완료 처리) */
 mgmtStudentPostsRouter.patch(
   '/:postId/status',
   validate(studentPostParamsSchema, 'params'),

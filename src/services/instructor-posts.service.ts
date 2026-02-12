@@ -160,6 +160,7 @@ export class InstructorPostsService {
       limit: query.limit,
       instructorId,
       studentFiltering,
+      postType: query.postType,
     });
   }
 
