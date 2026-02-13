@@ -340,6 +340,7 @@ export const container = {
   assistantsService,
   scheduleCategoryService,
   schedulesService,
+  fileStorageService,
   // Controllers
   authController,
   lecturesController,
