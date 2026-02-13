@@ -13,7 +13,12 @@ import {
   NotFoundException,
   BadRequestException,
 } from '../err/http.exception.js';
-import { AuthorRole, StudentPostStatus } from '../constants/posts.constant.js';
+import {
+  AuthorRole,
+  StudentPostStatus,
+  InquiryWriterType,
+  AnswerStatus,
+} from '../constants/posts.constant.js';
 import { mockLectures } from '../test/fixtures/lectures.fixture.js';
 import {
   mockEnrollments,
@@ -426,14 +431,323 @@ describe('StudentPostsService', () => {
     });
   });
 
-  describe('getPosts', () => {
-    it.todo('학생이 본인의 질문 목록을 조회하면 성공해야 한다');
-    it.todo('강사가 담당 학생의 질문 목록을 조회하면 성공해야 한다');
-    it.todo('학부모가 자녀의 질문 목록을 조회하면 성공해야 한다');
-    it.todo(
-      '권한이 없는 사용자가 질문 목록을 조회하면 ForbiddenException을 던져야 한다',
-    );
-    it.todo('존재하지 않는 강의 ID로 조회하면 NotFoundException을 던져야 한다');
+  describe('getPostList', () => {
+    const VALID_STUDENT_ID = 'student-1';
+    const VALID_INSTRUCTOR_ID = 'instructor-1';
+    const VALID_LECTURE_ID = 'lecture-1';
+
+    it('학생이 본인의 질문 목록을 조회하면 성공해야 한다', async () => {
+      const mockPost = mockStudentPost({
+        id: 'post-1',
+        enrollmentId: 'enrollment-1',
+        instructorId: VALID_INSTRUCTOR_ID,
+      });
+
+      studentPostsRepo.findMany.mockResolvedValue({
+        posts: [mockPost],
+        totalCount: 1,
+      });
+
+      const result = await service.getPostList(
+        { page: 1, limit: 10, writerType: InquiryWriterType.ALL },
+        UserType.STUDENT,
+        VALID_STUDENT_ID,
+      );
+
+      expect(studentPostsRepo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          appStudentId: VALID_STUDENT_ID,
+          page: 1,
+          limit: 10,
+        }),
+      );
+      expect(result.totalCount).toBe(1);
+    });
+
+    it('강사가 담당 학생의 질문 목록을 조회하면 성공해야 한다', async () => {
+      const mockPost = mockStudentPost({
+        id: 'post-1',
+        enrollmentId: 'enrollment-1',
+        instructorId: VALID_INSTRUCTOR_ID,
+      });
+
+      studentPostsRepo.findMany.mockResolvedValue({
+        posts: [mockPost],
+        totalCount: 1,
+      });
+
+      const result = await service.getPostList(
+        { page: 1, limit: 10, writerType: InquiryWriterType.ALL },
+        UserType.INSTRUCTOR,
+        VALID_INSTRUCTOR_ID,
+      );
+
+      expect(studentPostsRepo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          instructorId: VALID_INSTRUCTOR_ID,
+          page: 1,
+          limit: 10,
+        }),
+      );
+      expect(result.totalCount).toBe(1);
+    });
+
+    it('조교가 담당 강사의 질문 목록을 조회하면 성공해야 한다', async () => {
+      const assistantId = 'assistant-1';
+      const mockPost = mockStudentPost({
+        id: 'post-1',
+        enrollmentId: 'enrollment-1',
+        instructorId: VALID_INSTRUCTOR_ID,
+      });
+
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        VALID_INSTRUCTOR_ID,
+      );
+      studentPostsRepo.findMany.mockResolvedValue({
+        posts: [mockPost],
+        totalCount: 1,
+      });
+
+      const result = await service.getPostList(
+        { page: 1, limit: 10, writerType: InquiryWriterType.ALL },
+        UserType.ASSISTANT,
+        assistantId,
+      );
+
+      expect(permissionService.getEffectiveInstructorId).toHaveBeenCalledWith(
+        UserType.ASSISTANT,
+        assistantId,
+      );
+      expect(studentPostsRepo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          instructorId: VALID_INSTRUCTOR_ID,
+        }),
+      );
+      expect(result.totalCount).toBe(1);
+    });
+
+    it('학부모가 자녀가 없는 경우 NotFoundException을 던져야 한다', async () => {
+      permissionService.getChildLinks.mockResolvedValue([]);
+
+      await expect(
+        service.getPostList(
+          { page: 1, limit: 10, writerType: InquiryWriterType.ALL },
+          UserType.PARENT,
+          'parent-1',
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('학부모가 자녀가 있는 경우 정상적으로 목록을 조회해야 한다', async () => {
+      const mockPost = mockStudentPost({
+        id: 'post-1',
+        enrollmentId: 'enrollment-1',
+        instructorId: VALID_INSTRUCTOR_ID,
+      });
+
+      permissionService.getChildLinks.mockResolvedValue([
+        { id: 'link-1', childId: 'child-1' },
+      ]);
+      permissionService.getParentEnrollmentIds.mockResolvedValue([
+        'enrollment-1',
+      ]);
+      studentPostsRepo.findMany.mockResolvedValue({
+        posts: [mockPost],
+        totalCount: 1,
+      });
+
+      const result = await service.getPostList(
+        { page: 1, limit: 10, writerType: InquiryWriterType.ALL },
+        UserType.PARENT,
+        'parent-1',
+      );
+
+      expect(permissionService.getChildLinks).toHaveBeenCalledWith('parent-1');
+      expect(permissionService.getParentEnrollmentIds).toHaveBeenCalledWith(
+        'parent-1',
+      );
+      expect(result.totalCount).toBe(1);
+    });
+
+    it('writerType이 STUDENT인 경우 학생이 작성한 질문만 필터링해야 한다', async () => {
+      const mockPost = mockStudentPost({
+        id: 'post-1',
+        enrollmentId: 'enrollment-1',
+        instructorId: VALID_INSTRUCTOR_ID,
+        authorRole: AuthorRole.STUDENT,
+      });
+
+      studentPostsRepo.findMany.mockResolvedValue({
+        posts: [mockPost],
+        totalCount: 1,
+      });
+
+      const result = await service.getPostList(
+        { page: 1, limit: 10, writerType: InquiryWriterType.STUDENT },
+        UserType.INSTRUCTOR,
+        VALID_INSTRUCTOR_ID,
+      );
+
+      expect(studentPostsRepo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          writerType: InquiryWriterType.STUDENT,
+        }),
+      );
+      expect(result.totalCount).toBe(1);
+    });
+
+    it('writerType이 PARENT인 경우 학부모가 작성한 질문만 필터링해야 한다', async () => {
+      studentPostsRepo.findMany.mockResolvedValue({
+        posts: [],
+        totalCount: 0,
+      });
+
+      const result = await service.getPostList(
+        { page: 1, limit: 10, writerType: InquiryWriterType.PARENT },
+        UserType.INSTRUCTOR,
+        VALID_INSTRUCTOR_ID,
+      );
+
+      expect(studentPostsRepo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          writerType: InquiryWriterType.PARENT,
+        }),
+      );
+      expect(result.totalCount).toBe(0);
+    });
+
+    it('writerType이 ALL인 경우 모든 질문을 반환해야 한다', async () => {
+      const mockPost = mockStudentPost({
+        id: 'post-1',
+        enrollmentId: 'enrollment-1',
+        instructorId: VALID_INSTRUCTOR_ID,
+      });
+
+      studentPostsRepo.findMany.mockResolvedValue({
+        posts: [mockPost],
+        totalCount: 1,
+      });
+
+      const result = await service.getPostList(
+        { page: 1, limit: 10, writerType: InquiryWriterType.ALL },
+        UserType.INSTRUCTOR,
+        VALID_INSTRUCTOR_ID,
+      );
+
+      expect(studentPostsRepo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          writerType: InquiryWriterType.ALL,
+        }),
+      );
+      expect(result.totalCount).toBe(1);
+    });
+
+    it('answerStatus 필터가 포함된 경우 정상적으로 목록을 반환해야 한다', async () => {
+      const mockPost = mockStudentPost({
+        id: 'post-1',
+        enrollmentId: 'enrollment-1',
+        instructorId: VALID_INSTRUCTOR_ID,
+        status: StudentPostStatus.PENDING,
+      });
+
+      studentPostsRepo.findMany.mockResolvedValue({
+        posts: [mockPost],
+        totalCount: 1,
+      });
+
+      const result = await service.getPostList(
+        {
+          page: 1,
+          limit: 10,
+          answerStatus: AnswerStatus.BEFORE,
+          writerType: InquiryWriterType.ALL,
+        },
+        UserType.INSTRUCTOR,
+        VALID_INSTRUCTOR_ID,
+      );
+
+      expect(studentPostsRepo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          answerStatus: AnswerStatus.BEFORE,
+        }),
+      );
+      expect(result.totalCount).toBe(1);
+    });
+
+    it('검색어, 페이지네이션 필터가 포함된 경우 정상적으로 목록을 반환해야 한다', async () => {
+      const mockPost = mockStudentPost({
+        id: 'post-1',
+        enrollmentId: 'enrollment-1',
+        instructorId: VALID_INSTRUCTOR_ID,
+      });
+
+      studentPostsRepo.findMany.mockResolvedValue({
+        posts: [mockPost],
+        totalCount: 1,
+      });
+
+      const result = await service.getPostList(
+        {
+          page: 2,
+          limit: 5,
+          search: '질문',
+          writerType: InquiryWriterType.ALL,
+        },
+        UserType.INSTRUCTOR,
+        VALID_INSTRUCTOR_ID,
+      );
+
+      expect(studentPostsRepo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          page: 2,
+          limit: 5,
+          search: '질문',
+        }),
+      );
+      expect(result.totalCount).toBe(1);
+    });
+
+    it('모든 필터링 파라미터가 포함된 경우 정상적으로 목록을 반환해야 한다', async () => {
+      const mockPost = mockStudentPost({
+        id: 'post-1',
+        enrollmentId: 'enrollment-1',
+        instructorId: VALID_INSTRUCTOR_ID,
+        status: StudentPostStatus.PENDING,
+        authorRole: AuthorRole.STUDENT,
+      });
+
+      studentPostsRepo.findMany.mockResolvedValue({
+        posts: [mockPost],
+        totalCount: 1,
+      });
+
+      const result = await service.getPostList(
+        {
+          page: 1,
+          limit: 10,
+          search: '검색어',
+          lectureId: VALID_LECTURE_ID,
+          status: StudentPostStatus.PENDING,
+          answerStatus: AnswerStatus.BEFORE,
+          writerType: InquiryWriterType.STUDENT,
+        },
+        UserType.INSTRUCTOR,
+        VALID_INSTRUCTOR_ID,
+      );
+
+      expect(studentPostsRepo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          page: 1,
+          limit: 10,
+          search: '검색어',
+          lectureId: VALID_LECTURE_ID,
+          status: StudentPostStatus.PENDING,
+          answerStatus: AnswerStatus.BEFORE,
+          writerType: InquiryWriterType.STUDENT,
+        }),
+      );
+      expect(result.totalCount).toBe(1);
+    });
   });
 
   describe('updatePost', () => {
