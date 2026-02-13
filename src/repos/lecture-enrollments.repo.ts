@@ -397,7 +397,7 @@ export class LectureEnrollmentsRepository {
     });
   }
 
-  /** [NEW] 여러 Enrollment ID 중 하나라도 특정 강의를 수강 중인지 확인 (학부모용) */
+  /** 여러 Enrollment ID 중 하나라도 특정 강의를 수강 중인지 확인 (학부모용) */
   async existsByLectureIdAndEnrollmentIds(
     lectureId: string,
     enrollmentIds: string[],
@@ -410,12 +410,16 @@ export class LectureEnrollmentsRepository {
       where: {
         lectureId,
         enrollmentId: { in: enrollmentIds },
+        enrollment: {
+          deletedAt: null,
+          status: 'ACTIVE',
+        },
       },
     });
     return count > 0;
   }
 
-  /** [NEW] 여러 Enrollment ID로 LectureEnrollment 조회 (학부모용) */
+  /** 여러 Enrollment ID로 LectureEnrollment 조회 (학부모용) */
   async findManyByEnrollmentIds(
     enrollmentIds: string[],
     tx?: Prisma.TransactionClient,
