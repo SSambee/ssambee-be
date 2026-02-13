@@ -3,6 +3,7 @@ import { GradesService } from '../services/grades.service.js';
 import { successResponse } from '../utils/response.util.js';
 import { getAuthUser, getProfileIdOrThrow } from '../utils/user.util.js';
 import { UserType } from '../constants/auth.constant.js';
+import { BadRequestException } from '../err/http.exception.js';
 
 export class GradesController {
   constructor(private readonly gradesService: GradesService) {}
@@ -192,7 +193,7 @@ export class GradesController {
       const file = req.file;
 
       if (!file) {
-        throw new Error('파일이 첨부되지 않았습니다.');
+        throw new BadRequestException('파일이 첨부되지 않았습니다.');
       }
 
       const result = await this.gradesService.uploadGradeReportFile(
