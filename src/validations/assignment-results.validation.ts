@@ -13,12 +13,12 @@ export const updateAssignmentResultSchema = z.object({
 
 /** 과제 ID 파라미터 스키마 */
 export const assignmentIdParamSchema = z.object({
-  assignmentId: z.string().uuid('올바른 과제 ID 형식이 아닙니다.'),
+  assignmentId: z.string().cuid2('올바른 과제 ID (CUID2) 형식이 아닙니다.'),
 });
 
 /** 과제 결과 ID 파라미터 스키마 */
 export const assignmentResultIdParamSchema = z.object({
-  resultId: z.string().uuid('올바른 과제 결과 ID 형식이 아닙니다.'),
+  resultId: z.string().cuid2('올바른 과제 결과 ID (CUID2) 형식이 아닙니다.'),
 });
 
 // DTO 타입 추출
