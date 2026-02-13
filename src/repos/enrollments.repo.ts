@@ -150,6 +150,18 @@ export class EnrollmentsRepository {
     });
   }
 
+  /** 여러 ID로 Enrollment 조회 (존재 여부 확인용) */
+  async findByIds(ids: string[], tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    if (!ids || ids.length === 0) return [];
+    return await client.enrollment.findMany({
+      where: {
+        id: { in: ids },
+        deletedAt: null,
+      },
+    });
+  }
+
   /** 수강생 목록 조회 (검색/필터/페이지네이션) - 통합됨 */
   async findMany(
     instructorId: string,

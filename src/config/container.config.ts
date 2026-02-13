@@ -149,6 +149,7 @@ const permissionService = new PermissionService(
   assistantRepo,
   parentChildLinkRepo,
   lectureEnrollmentsRepo,
+  enrollmentsRepo,
 );
 
 const examsService = new ExamsService(
@@ -259,6 +260,7 @@ const instructorPostsService = new InstructorPostsService(
   lecturesRepo,
   materialsRepo,
   lectureEnrollmentsRepo,
+  enrollmentsRepo,
   permissionService,
 );
 const studentPostsService = new StudentPostsService(
@@ -366,6 +368,7 @@ const {
   requireInstructorOrAssistant,
   requireStudent,
   requireParent,
+  requireStudentOrParent,
 } = createRoleMiddlewares();
 
 // 5. Export Wired Instances (Container)
@@ -417,4 +420,5 @@ export const container = {
   requireInstructorOrAssistant,
   requireStudent,
   requireParent,
+  requireStudentOrParent,
 };
