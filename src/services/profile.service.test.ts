@@ -175,7 +175,7 @@ describe('ProfileService - @unit', () => {
 
     it('should throw BadRequestException for unsupported user type', async () => {
       await expect(
-        profileService.getMyProfile('id', UserType.STUDENT),
+        profileService.getMyProfile('id', 'UNKNOWN' as UserType),
       ).rejects.toThrow(BadRequestException);
     });
   });
