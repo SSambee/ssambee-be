@@ -415,7 +415,7 @@ async function main() {
   // 3. REQUEST (INSTRUCTOR_REQUEST)
   await prisma.material.create({
     data: {
-      id: uuidv7(),
+      id: createId(),
       instructorId: instructor.id,
       lectureId: englishLecture.id,
       title: '[조교요청] 교재 오탈자 수정 건',
