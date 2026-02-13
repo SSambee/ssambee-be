@@ -3,43 +3,102 @@ import {
   GetObjectCommand,
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { getSignedUrl as getS3SignedUrl } from '@aws-sdk/s3-request-presigner';
+import { getSignedUrl as getCloudFrontSignedUrl } from '@aws-sdk/cloudfront-signer';
+import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { s3Client } from '../middlewares/multer.middleware.js';
 import { config } from '../config/env.config.js';
+import { readFile } from 'fs/promises';
+import { join } from 'path';
 
 /** S3 버킷 타입 정의 */
-export enum BucketType {
-  DOCUMENTS = 'documents',
-  REPORTS = 'reports',
-}
+export const BucketType = {
+  DOCUMENTS: 'documents',
+  REPORTS: 'reports',
+} as const;
 
-/** 버킷 타입에 따른 버킷 이름 반환 */
+type BucketType = (typeof BucketType)[keyof typeof BucketType];
+
+/** 버킷 이름 반환 헬퍼 */
 const getBucketName = (
   bucketType: BucketType = BucketType.DOCUMENTS,
 ): string => {
-  switch (bucketType) {
-    case BucketType.DOCUMENTS:
-      return config.AWS_S3_BUCKET_DOCUMENTS;
-    case BucketType.REPORTS:
-      return config.AWS_S3_BUCKET_REPORTS;
-    default:
-      return config.AWS_S3_BUCKET_DOCUMENTS;
-  }
+  return bucketType === BucketType.REPORTS
+    ? config.AWS_S3_BUCKET_REPORTS
+    : config.AWS_S3_BUCKET_DOCUMENTS;
+};
+
+/** 버킷 타입에 따른 CloudFront URL  반환*/
+const getCloudFrontUrl = (bucketType: BucketType): string => {
+  return bucketType === BucketType.DOCUMENTS
+    ? config.AWS_CLOUDFRONT_URL_DOCUMENTS
+    : config.AWS_CLOUDFRONT_URL_REPORTS;
 };
 
 export class FileStorageService {
+  private cloudFrontPrivateKey: string | null = null;
+  private readonly ssmClient: SSMClient | null = null;
   // Shared client uses Singleton pattern from middleware
-  constructor() {}
+  constructor() {
+    if (config.ENVIRONMENT === 'development') {
+      this.ssmClient = new SSMClient({ region: config.AWS_REGION });
+    }
+  }
+
+  /**
+   *  프라이빗 키를 가져오는 통합 로직
+   * 1. 메모리 캐시 확인
+   * 2. .env 확인 (Github Secrets 배포 환경용)
+   * 3. 로컬 파일 확인
+   * 4. 위 조건 모두 실패 시 SSM에서 로드 (로컬 개발용)
+   * @returns
+   */
+  private async loadPrivateKey(): Promise<string> {
+    if (this.cloudFrontPrivateKey) return this.cloudFrontPrivateKey;
+
+    const keySource = config.AWS_CLOUDFRONT_PRIVATE_KEY || '';
+    // .env에 직접 키 내용이 있는 경우 (배포 시 GitHub Secrets 주입)
+    if (keySource.includes('BEGIN RSA')) {
+      this.cloudFrontPrivateKey = keySource;
+      return this.cloudFrontPrivateKey;
+    }
+    // 로컬 파일 경로인 경우
+    if (keySource.endsWith('.pem') || keySource.includes('/')) {
+      try {
+        const resolvedPath = keySource.startsWith('/')
+          ? keySource
+          : join(process.cwd(), keySource);
+        this.cloudFrontPrivateKey = await readFile(resolvedPath, 'utf-8');
+        return this.cloudFrontPrivateKey;
+      } catch (error) {
+        console.error('[FileStorageService] 키 로딩 실패:', error);
+        return '';
+      }
+    }
+
+    if (config.ENVIRONMENT === 'development' && this.ssmClient) {
+      try {
+        const command = new GetParameterCommand({
+          Name: '/ssambee/cloudfront/private-key', //aws ssm에 저장된 이름
+          WithDecryption: true,
+        });
+        const response = await this.ssmClient.send(command);
+        this.cloudFrontPrivateKey = response.Parameter?.Value || '';
+        return this.cloudFrontPrivateKey;
+      } catch (error) {
+        console.error('[FileStorageService] SSM에서 키 가져오기 실패:', error);
+      }
+    }
+
+    return '';
+  }
 
   /**
    * 파일 업로드
-   * ! 이부분은 나중에 S3 업로드 전에 이미지 리사이징 같은 가공이 필요할시 multer-s3대신 multer.memoryStorage를 사용해야합니다.
-   * > MaterialsService에서는 multer-s3를 사용하고 있습니다. 이 미들웨어는 파일이 서버에 도착하는 즉시 S3에 업로드한다.
-   * > 이미 테스트 코드에서도 이 메서드를 호출하지않는다고 주석이 달려있습니다.
    * @param file Multer File 객체
    * @param key 저장할 경로 (예: materials/uuid-filename.pdf)
    * @param bucketType 버킷 타입 (기본값: documents)
-   * @returns 업로드된 파일의 S3 URL (혹은 Key)
+   * @returns 업로드된 파일의 URL (CloudFront URL이 설정된 경우 CloudFront URL, 그렇지 않으면 S3 URL)
    */
   async upload(
     file: Express.Multer.File,
@@ -56,7 +115,11 @@ export class FileStorageService {
 
     await s3Client.send(command);
 
-    return `https://${bucketName}.s3.${config.AWS_REGION}.amazonaws.com/${key}`;
+    // CloudFront URL이 설정된 경우 CloudFront URL 반환
+    const cloudFrontUrl = getCloudFrontUrl(bucketType);
+    return cloudFrontUrl
+      ? `https://${cloudFrontUrl}/${key}`
+      : `https://${bucketName}.s3.${config.AWS_REGION}.amazonaws.com/${key}`;
   }
 
   /**
@@ -72,12 +135,32 @@ export class FileStorageService {
   ): Promise<string> {
     const key = this.extractKeyFromUrl(fileUrl);
     const bucketName = getBucketName(bucketType);
+
+    // CloudFront Signed URL 생성 (CloudFront가 설정된 경우)
+    const cloudFrontUrl = getCloudFrontUrl(bucketType);
+    const keyPairId = config.AWS_CLOUDFRONT_KEY_PAIR_ID;
+    const privateKey = await this.loadPrivateKey(); // 비동기 키 획득
+
+    if (cloudFrontUrl && keyPairId && privateKey) {
+      try {
+        return getCloudFrontSignedUrl({
+          url: `https://${cloudFrontUrl}/${key}`,
+          keyPairId,
+          privateKey,
+          dateLessThan: new Date(Date.now() + expiresIn * 1000),
+        });
+      } catch (error) {
+        console.error('[FileStorageService] CF 서명 실패, S3 폴백', error);
+      }
+    }
+
+    // S3 Fallback
     const command = new GetObjectCommand({
       Bucket: bucketName,
       Key: key,
     });
 
-    return getSignedUrl(s3Client, command, { expiresIn });
+    return getS3SignedUrl(s3Client, command, { expiresIn });
   }
 
   /**
@@ -96,13 +179,32 @@ export class FileStorageService {
     const key = this.extractKeyFromUrl(fileUrl);
     const bucketName = getBucketName(bucketType);
     const encodedFileName = encodeURIComponent(fileName);
+
+    // CloudFront Signed URL 생성 (CloudFront가 설정된 경우)
+    const cloudFrontUrl = getCloudFrontUrl(bucketType);
+    const keyPairId = config.AWS_CLOUDFRONT_KEY_PAIR_ID;
+    const privateKey = await this.loadPrivateKey();
+
+    if (cloudFrontUrl && keyPairId && privateKey) {
+      try {
+        return getCloudFrontSignedUrl({
+          url: `https://${cloudFrontUrl}/${key}?response-content-disposition=${encodeURIComponent(`attachment; filename="${encodedFileName}"`)}`,
+          keyPairId,
+          privateKey,
+          dateLessThan: new Date(Date.now() + expiresIn * 1000),
+        });
+      } catch (error) {
+        console.error('[FileStorageService] CF 서명 실패, S3 폴백', error);
+      }
+    }
+
     const command = new GetObjectCommand({
       Bucket: bucketName,
       Key: key,
       ResponseContentDisposition: `attachment; filename="${encodedFileName}"; filename*=UTF-8''${encodedFileName}`,
     });
 
-    return getSignedUrl(s3Client, command, { expiresIn });
+    return getS3SignedUrl(s3Client, command, { expiresIn });
   }
 
   /**
@@ -129,23 +231,22 @@ export class FileStorageService {
     }
   }
 
+  /**
+   * URL에서 파일 키 추출
+   * S3 URL과 CloudFront URL 모두 지원
+   * @param url 파일 URL
+   * @returns S3 키
+   */
   private extractKeyFromUrl(url: string): string {
-    // URL 형태: https://bucket.s3.amazonaws.com/path/to/key
-    // 간단히 도메인 이후 path를 key로 사용
+    // CloudFront URL 형태: https://d123.cloudfront.net/path/to/key
+    // S3 URL 형태: https://bucket.s3.amazonaws.com/path/to/key
     try {
       const urlObj = new URL(url);
       return urlObj.pathname.startsWith('/')
         ? urlObj.pathname.slice(1)
         : urlObj.pathname;
-    } catch (e: unknown) {
-      const errorMessage =
-        e instanceof Error ? e.message : 'Unknown URL Parse Error';
-      // 운영 환경에서도 알 수 있게 경고 로그 출력
-      console.error(
-        `[FileStorageService] 유효하지 않은 URL 입력됨: "${url}" - 원인: ${errorMessage}`,
-      );
-      // 진행을 막기 위해 에러를 다시 던짐
-      throw new Error(`파일 키 추출 실패: ${errorMessage}`);
+    } catch (e) {
+      throw new Error(`파일 키 추출 실패: ${url} ${e}`);
     }
   }
 }
