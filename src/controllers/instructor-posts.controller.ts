@@ -8,6 +8,7 @@ import {
   UpdateInstructorPostDto,
   GetInstructorPostsQueryDto,
 } from '../validations/instructor-posts.validation.js';
+import { getPagingData } from '../utils/pagination.util.js';
 import { transformDateFieldsToKst } from '../utils/date.util.js';
 
 export class InstructorPostsController {
@@ -93,14 +94,16 @@ export class InstructorPostsController {
         'updatedAt',
       ]);
 
-      const kstResult = {
-        posts: kstPosts,
-        totalCount: result.totalCount,
-      };
+      const responseData = getPagingData(
+        kstPosts,
+        result.totalCount,
+        query.page,
+        query.limit,
+      );
 
       return successResponse(res, {
         statusCode: 200,
-        data: kstResult,
+        data: responseData,
         message: '공지 목록을 조회했습니다.',
       });
     } catch (error) {
