@@ -72,7 +72,9 @@ export class StudentPostsController {
           isMine:
             userType === UserType.STUDENT
               ? post.enrollment?.appStudentId === profileId
-              : post.enrollment?.appParentLink?.appParentId === profileId,
+              : userType === UserType.PARENT
+                ? post.enrollment?.appParentLink?.appParentId === profileId
+                : false,
         }),
       );
 
@@ -127,8 +129,10 @@ export class StudentPostsController {
           userType === UserType.STUDENT
             ? (kstResult as StudentPostWithDetails).enrollment?.appStudentId ===
               profileId
-            : (kstResult as StudentPostWithDetails).enrollment?.appParentLink
-                ?.appParentId === profileId,
+            : userType === UserType.PARENT
+              ? (kstResult as StudentPostWithDetails).enrollment?.appParentLink
+                  ?.appParentId === profileId
+              : false,
       };
 
       return successResponse(res, {
