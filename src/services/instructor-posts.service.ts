@@ -569,25 +569,14 @@ export class InstructorPostsService {
 
       // Global: 자녀가 해당 강사의 강의를 하나라도 수강 중인지 확인
       if (post.scope === PostScope.GLOBAL) {
-        const hasEnrollment =
-          await this.lectureEnrollmentsRepository.existsByInstructorIdAndStudentId(
-            post.instructorId,
-            enrollmentIds[0], // 어떤 자녀라도 해당 강사 수강 중이면 OK
-          );
+        const enrollments =
+          await this.enrollmentsRepository.findByIds(enrollmentIds);
+        const hasInstructorEnrollment = enrollments.some(
+          (e) => e.instructorId === post.instructorId,
+        );
 
-        if (!hasEnrollment) {
-          // 모든 자녀에 대해 확인
-          const enrollments =
-            await this.enrollmentsRepository.findByIds(enrollmentIds);
-          const hasInstructorEnrollment = enrollments.some(
-            (e) => e.instructorId === post.instructorId,
-          );
-
-          if (!hasInstructorEnrollment) {
-            throw new ForbiddenException(
-              '자녀가 해당 강사의 수강생이 아닙니다.',
-            );
-          }
+        if (!hasInstructorEnrollment) {
+          throw new ForbiddenException('자녀가 해당 강사의 수강생이 아닙니다.');
         }
       }
 
