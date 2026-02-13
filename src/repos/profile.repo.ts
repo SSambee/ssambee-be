@@ -184,4 +184,180 @@ export class ProfileRepository {
       return assistant;
     });
   }
+
+  /**
+   * 학생 프로필 + Enrollment 기반 강사 목록 조회
+   */
+  async getStudentProfileWithEnrollments(appStudentId: string) {
+    return this.prisma.appStudent.findUnique({
+      where: { id: appStudentId },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true,
+            userType: true,
+          },
+        },
+        enrollments: {
+          where: { deletedAt: null },
+          select: {
+            instructor: {
+              select: {
+                id: true,
+                academy: true,
+                subject: true,
+                user: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * 학생 프로필 업데이트 + 모든 Enrollment 동기화
+   */
+  async updateStudentProfile(
+    appStudentId: string,
+    data: {
+      name?: string;
+      phoneNumber?: string;
+      school?: string;
+      schoolYear?: string;
+    },
+  ) {
+    const { name, ...studentData } = data;
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. AppStudent 조회 (userId 확보)
+      const currentStudent = await tx.appStudent.findUniqueOrThrow({
+        where: { id: appStudentId },
+      });
+
+      // 2. AppStudent 정보 업데이트
+      const student = await tx.appStudent.update({
+        where: { id: appStudentId },
+        data: studentData,
+        include: {
+          user: {
+            select: {
+              name: true,
+              email: true,
+              userType: true,
+            },
+          },
+        },
+      });
+
+      // 3. User.name 업데이트 (있는 경우)
+      if (name) {
+        await tx.user.update({
+          where: { id: currentStudent.userId },
+          data: { name },
+        });
+        student.user.name = name;
+      }
+
+      // 4. 모든 Enrollment 동기화
+      const enrollmentUpdateData: Prisma.EnrollmentUpdateManyMutationInput = {};
+      if (name) enrollmentUpdateData.studentName = name;
+      if (data.phoneNumber)
+        enrollmentUpdateData.studentPhone = data.phoneNumber;
+      if (data.school) enrollmentUpdateData.school = data.school;
+      if (data.schoolYear) enrollmentUpdateData.schoolYear = data.schoolYear;
+
+      if (Object.keys(enrollmentUpdateData).length > 0) {
+        await tx.enrollment.updateMany({
+          where: {
+            appStudentId: appStudentId,
+            deletedAt: null,
+          },
+          data: enrollmentUpdateData,
+        });
+      }
+
+      return student;
+    });
+  }
+
+  /**
+   * 학부모 프로필 + 자녀 링크 목록 조회
+   */
+  async getParentProfileWithChildren(appParentId: string) {
+    return this.prisma.appParent.findUnique({
+      where: { id: appParentId },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true,
+            userType: true,
+          },
+        },
+        childLinks: {
+          select: {
+            id: true,
+            name: true,
+            phoneNumber: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+  }
+
+  /**
+   * 학부모 프로필 업데이트
+   */
+  async updateParentProfile(
+    appParentId: string,
+    data: {
+      name?: string;
+      phoneNumber?: string;
+    },
+  ) {
+    const { name, phoneNumber } = data;
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. AppParent 조회 (userId 확보)
+      const currentParent = await tx.appParent.findUniqueOrThrow({
+        where: { id: appParentId },
+      });
+
+      const updateData: Prisma.AppParentUpdateInput = {};
+      if (phoneNumber) updateData.phoneNumber = phoneNumber;
+
+      // 2. AppParent 정보 업데이트
+      const parent = await tx.appParent.update({
+        where: { id: appParentId },
+        data: updateData,
+        include: {
+          user: {
+            select: {
+              name: true,
+              email: true,
+              userType: true,
+            },
+          },
+        },
+      });
+
+      // 3. User.name 업데이트 (있는 경우)
+      if (name) {
+        await tx.user.update({
+          where: { id: currentParent.userId },
+          data: { name },
+        });
+        parent.user.name = name;
+      }
+
+      return parent;
+    });
+  }
 }

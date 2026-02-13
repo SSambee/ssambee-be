@@ -7,6 +7,7 @@ import { svcClinicsRouter } from './clinics.route.js';
 import { svcMaterialsRouter } from './materials.route.js';
 import { svcStudentPostsRouter } from './student-posts.route.js';
 import { svcInstructorPostsRouter } from './instructor-posts.route.js';
+import { svcMeRouter } from './me.route.js';
 
 export const svcV1Router = Router();
 
@@ -33,3 +34,6 @@ svcV1Router.use('/student-posts', svcStudentPostsRouter);
 
 /** 강사 공지 라우트 */
 svcV1Router.use('/instructor-posts', svcInstructorPostsRouter);
+
+/** 내 정보 라우트 */
+svcV1Router.use('/me', svcMeRouter);

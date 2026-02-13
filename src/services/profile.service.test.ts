@@ -22,6 +22,10 @@ describe('ProfileService - @unit', () => {
       updateInstructorProfile: jest.fn(),
       getAssistantProfileWithInstructorLectures: jest.fn(),
       updateAssistantProfile: jest.fn(),
+      getStudentProfileWithEnrollments: jest.fn(),
+      updateStudentProfile: jest.fn(),
+      getParentProfileWithChildren: jest.fn(),
+      updateParentProfile: jest.fn(),
     } as unknown as jest.Mocked<ProfileRepository>;
     profileService = new ProfileService(mockProfileRepo, mockPrisma);
   });
@@ -279,6 +283,223 @@ describe('ProfileService - @unit', () => {
           },
         );
         expect(result.name).toBe('New Name');
+      });
+    });
+  });
+
+  describe('getMyProfile - Students/Parents', () => {
+    describe('Students', () => {
+      it('should return student profile with instructors list', async () => {
+        const mockProfile = {
+          id: 'student-1',
+          phoneNumber: '010-1111-2222',
+          school: 'ABC High School',
+          schoolYear: 'High 2',
+          createdAt: new Date(),
+          user: {
+            name: 'Student Name',
+            email: 'student@test.com',
+            userType: UserType.STUDENT,
+          },
+          enrollments: [
+            {
+              instructor: {
+                id: 'inst-1',
+                academy: 'Seoul Academy',
+                subject: 'Math',
+                user: { name: 'Instructor A' },
+              },
+            },
+            {
+              instructor: {
+                id: 'inst-2',
+                academy: 'Busan Academy',
+                subject: 'English',
+                user: { name: 'Instructor B' },
+              },
+            },
+          ],
+        };
+
+        mockProfileRepo.getStudentProfileWithEnrollments.mockResolvedValue(
+          mockProfile as unknown as Awaited<
+            ReturnType<ProfileRepository['getStudentProfileWithEnrollments']>
+          >,
+        );
+
+        const result = await profileService.getMyProfile(
+          'student-1',
+          UserType.STUDENT,
+        );
+
+        expect(result).toEqual({
+          id: 'student-1',
+          name: 'Student Name',
+          email: 'student@test.com',
+          phoneNumber: '010-1111-2222',
+          school: 'ABC High School',
+          schoolYear: 'High 2',
+          userType: UserType.STUDENT,
+          createdAt: mockProfile.createdAt,
+          instructors: expect.arrayContaining([
+            {
+              instructorId: 'inst-1',
+              instructorName: 'Instructor A',
+              academy: 'Seoul Academy',
+              subject: 'Math',
+            },
+            {
+              instructorId: 'inst-2',
+              instructorName: 'Instructor B',
+              academy: 'Busan Academy',
+              subject: 'English',
+            },
+          ]),
+        });
+      });
+
+      it('should throw NotFoundException if student profile not found', async () => {
+        mockProfileRepo.getStudentProfileWithEnrollments.mockResolvedValue(
+          null,
+        );
+
+        await expect(
+          profileService.getMyProfile('student-1', UserType.STUDENT),
+        ).rejects.toThrow(NotFoundException);
+      });
+    });
+
+    describe('Parents', () => {
+      it('should return parent profile with children list', async () => {
+        const mockProfile = {
+          id: 'parent-1',
+          phoneNumber: '010-3333-4444',
+          createdAt: new Date(),
+          user: {
+            name: 'Parent Name',
+            email: 'parent@test.com',
+            userType: UserType.PARENT,
+          },
+          childLinks: [
+            {
+              id: 'link-1',
+              name: 'Child A',
+              phoneNumber: '010-1111-1111',
+            },
+            {
+              id: 'link-2',
+              name: 'Child B',
+              phoneNumber: '010-2222-2222',
+            },
+          ],
+        };
+
+        mockProfileRepo.getParentProfileWithChildren.mockResolvedValue(
+          mockProfile as unknown as Awaited<
+            ReturnType<ProfileRepository['getParentProfileWithChildren']>
+          >,
+        );
+
+        const result = await profileService.getMyProfile(
+          'parent-1',
+          UserType.PARENT,
+        );
+
+        expect(result).toEqual({
+          id: 'parent-1',
+          name: 'Parent Name',
+          email: 'parent@test.com',
+          phoneNumber: '010-3333-4444',
+          userType: UserType.PARENT,
+          createdAt: mockProfile.createdAt,
+          children: [
+            { id: 'link-1', name: 'Child A', phoneNumber: '010-1111-1111' },
+            { id: 'link-2', name: 'Child B', phoneNumber: '010-2222-2222' },
+          ],
+        });
+      });
+    });
+  });
+
+  describe('updateMyProfile - Students/Parents', () => {
+    describe('Students', () => {
+      it('should update student profile and sync enrollments', async () => {
+        const updateData = {
+          name: 'New Student Name',
+          phoneNumber: '010-9999-8888',
+          school: 'New School',
+          schoolYear: 'High 3',
+        };
+
+        const mockUpdatedProfile = {
+          id: 'student-1',
+          phoneNumber: '010-9999-8888',
+          school: 'New School',
+          schoolYear: 'High 3',
+          updatedAt: new Date(),
+          user: {
+            name: 'New Student Name',
+            email: 'student@test.com',
+            userType: UserType.STUDENT,
+          },
+        };
+
+        mockProfileRepo.updateStudentProfile.mockResolvedValue(
+          mockUpdatedProfile as unknown as Awaited<
+            ReturnType<ProfileRepository['updateStudentProfile']>
+          >,
+        );
+
+        const result = await profileService.updateMyProfile(
+          'student-1',
+          UserType.STUDENT,
+          updateData,
+        );
+
+        expect(mockProfileRepo.updateStudentProfile).toHaveBeenCalledWith(
+          'student-1',
+          updateData,
+        );
+        expect(result.name).toBe('New Student Name');
+        expect(result.school).toBe('New School');
+      });
+    });
+
+    describe('Parents', () => {
+      it('should update parent profile', async () => {
+        const updateData = {
+          name: 'New Parent Name',
+          phoneNumber: '010-5555-6666',
+        };
+
+        const mockUpdatedProfile = {
+          id: 'parent-1',
+          phoneNumber: '010-5555-6666',
+          updatedAt: new Date(),
+          user: {
+            name: 'New Parent Name',
+            email: 'parent@test.com',
+            userType: UserType.PARENT,
+          },
+        };
+
+        mockProfileRepo.updateParentProfile.mockResolvedValue(
+          mockUpdatedProfile as unknown as Awaited<
+            ReturnType<ProfileRepository['updateParentProfile']>
+          >,
+        );
+
+        const result = await profileService.updateMyProfile(
+          'parent-1',
+          UserType.PARENT,
+          updateData,
+        );
+
+        expect(mockProfileRepo.updateParentProfile).toHaveBeenCalledWith(
+          'parent-1',
+          { name: 'New Parent Name', phoneNumber: '010-5555-6666' },
+        );
+        expect(result.name).toBe('New Parent Name');
       });
     });
   });
