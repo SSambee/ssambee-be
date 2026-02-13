@@ -90,6 +90,7 @@ export const createRoleMiddlewares = () => ({
   ),
   requireStudent: requireUserType(UserType.STUDENT),
   requireParent: requireUserType(UserType.PARENT),
+  requireStudentOrParent: requireUserType(UserType.STUDENT, UserType.PARENT),
 });
 
 /**
