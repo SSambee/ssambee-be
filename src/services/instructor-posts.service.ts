@@ -205,6 +205,9 @@ export class InstructorPostsService {
     if (query.page <= 0) {
       throw new BadRequestException('page는 1 이상이어야 합니다.');
     }
+    if (query.limit <= 0) {
+      throw new BadRequestException('limit은 1 이상이어야 합니다.');
+    }
     if (query.limit > 100) {
       throw new BadRequestException('limit은 100 이하여야 합니다.');
     }
