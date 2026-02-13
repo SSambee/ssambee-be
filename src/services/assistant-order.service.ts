@@ -118,7 +118,11 @@ export class AssistantOrderService {
         limit,
       });
 
+    const stats =
+      await this.assistantOrderRepository.getStatsByInstructorId(instructorId);
+
     return {
+      stats,
       orders,
       pagination: {
         totalCount,

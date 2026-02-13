@@ -119,6 +119,40 @@ export class AssistantOrderRepository {
     return { orders, totalCount };
   }
 
+  async getStatsByInstructorId(
+    instructorId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const [totalCount, inProgressCount, completedCount] = await Promise.all([
+      client.assistantOrder.count({
+        where: {
+          instructorId,
+          createdAt: { gte: thirtyDaysAgo },
+        },
+      }),
+      client.assistantOrder.count({
+        where: {
+          instructorId,
+          createdAt: { gte: thirtyDaysAgo },
+          status: 'IN_PROGRESS',
+        },
+      }),
+      client.assistantOrder.count({
+        where: {
+          instructorId,
+          createdAt: { gte: thirtyDaysAgo },
+          status: 'END',
+        },
+      }),
+    ]);
+
+    return { totalCount, inProgressCount, completedCount };
+  }
+
   async findManyByAssistantId(
     assistantId: string,
     params: {
