@@ -4,7 +4,7 @@ import { AttendanceStatus } from '../../constants/attendances.constant.js';
 import type { AttendanceStats } from '../../utils/attendance.util.js';
 
 /** Mock LectureEnrollment 데이터 */
-export const mockLectureEnrollment = {
+export const mockAttendanceLectureEnrollment = {
   id: 'lecture-enrollment-id-1',
   lectureId: 'lecture-id-1',
   enrollmentId: 'enrollment-id-1',
