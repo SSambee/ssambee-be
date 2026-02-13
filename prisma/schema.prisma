@@ -347,15 +347,15 @@ model Attendance {
 
 // 1. 과제 카테고리 (강사별 커스텀 평가 척도)
 model AssignmentCategory {
-  id           String   @id @default(uuid())
-  instructorId String   // 강사 참조
+  id           String   @id @default(cuid(2))
+  instructorId String   @map("instructor_id") // 강사 참조
   name         String   // 예: "주간 단어 테스트", "독후감 과제"
   
   // 프리셋 예시: ["미흡", "보통", "우수"] -> 인덱스 0, 1, 2와 매칭
-  resultPresets String[] 
+  resultPresets String[] @map("result_presets")
   
   assignments  Assignment[]
-  createdAt    DateTime @default(now())
+  createdAt    DateTime @default(now()) @map("created_at")
 
   instructor Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
 
@@ -365,10 +365,10 @@ model AssignmentCategory {
 
 // 2. 과제 (특정 강의 내에서 생성된 과제)
 model Assignment {
-  id          String   @id @default(cuid(2))
-  instructorId String   // 강사 참조
-  lectureId   String   // 강의 참조
-  categoryId  String   // 카테고리 속성 참조
+  id           String   @id @default(cuid(2))
+  instructorId String   @map("instructor_id")
+  lectureId   String   @map("lecture_id")
+  categoryId  String   @map("category_id")
   title       String   // 과제 이름 (예: 2/12 단어시험)
   
   instructor Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
