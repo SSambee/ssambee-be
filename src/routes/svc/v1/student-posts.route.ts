@@ -23,11 +23,11 @@ const {
   studentPostsController,
   commentsController,
   requireAuth,
-  requireStudent,
+  requireStudentOrParent,
 } = container;
 
 svcStudentPostsRouter.use(requireAuth);
-svcStudentPostsRouter.use(requireStudent); // 학부모 추가 필요
+svcStudentPostsRouter.use(requireStudentOrParent);
 
 /** 질문 생성 */
 svcStudentPostsRouter.post(

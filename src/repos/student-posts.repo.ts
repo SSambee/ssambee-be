@@ -53,6 +53,7 @@ export class StudentPostsRepository {
       instructorId?: string;
       enrollmentId?: string;
       appStudentId?: string;
+      enrollmentIds?: string[]; // [NEW] 학부모용 필터링
       status?: string;
       answerStatus?: AnswerStatus;
       writerType?: InquiryWriterType;
@@ -68,6 +69,7 @@ export class StudentPostsRepository {
       instructorId,
       enrollmentId,
       appStudentId,
+      enrollmentIds, // [NEW]
       status,
       answerStatus,
       writerType,
@@ -82,6 +84,7 @@ export class StudentPostsRepository {
       ...(instructorId && { instructorId }),
       ...(enrollmentId && { enrollmentId }),
       ...(appStudentId && { enrollment: { appStudentId } }),
+      ...(enrollmentIds && { enrollmentId: { in: enrollmentIds } }), // [NEW] 학부모용
       ...(status && { status }),
       ...(search && {
         OR: [
