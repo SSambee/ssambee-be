@@ -382,6 +382,7 @@ export const container = {
   schedulesService,
   assignmentsService,
   assignmentResultsService,
+  fileStorageService,
   // Controllers
   authController,
   lecturesController,

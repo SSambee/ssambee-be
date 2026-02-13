@@ -16,6 +16,10 @@ const envSchema = z.object({
   AWS_REGION: z.string().default('ap-northeast-2'),
   AWS_S3_BUCKET_DOCUMENTS: z.string().default('ssambee-dev-lms-documents'),
   AWS_S3_BUCKET_REPORTS: z.string().default('ssambee-dev-lms-reports'),
+  AWS_CLOUDFRONT_URL_DOCUMENTS: z.string().default(''),
+  AWS_CLOUDFRONT_URL_REPORTS: z.string().default(''),
+  AWS_CLOUDFRONT_KEY_PAIR_ID: z.string().default(''),
+  AWS_CLOUDFRONT_PRIVATE_KEY: z.string().optional().default(''),
 });
 
 const parseEnvironment = () => {
@@ -31,6 +35,10 @@ const parseEnvironment = () => {
       AWS_REGION: process.env.AWS_REGION,
       AWS_S3_BUCKET_DOCUMENTS: process.env.AWS_S3_BUCKET_DOCUMENTS,
       AWS_S3_BUCKET_REPORTS: process.env.AWS_S3_BUCKET_REPORTS,
+      AWS_CLOUDFRONT_URL_DOCUMENTS: process.env.AWS_CLOUDFRONT_URL_DOCUMENTS,
+      AWS_CLOUDFRONT_URL_REPORTS: process.env.AWS_CLOUDFRONT_URL_REPORTS,
+      AWS_CLOUDFRONT_KEY_PAIR_ID: process.env.AWS_CLOUDFRONT_KEY_PAIR_ID,
+      AWS_CLOUDFRONT_PRIVATE_KEY: process.env.AWS_CLOUDFRONT_PRIVATE_KEY,
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
