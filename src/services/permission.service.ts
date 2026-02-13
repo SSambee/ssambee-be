@@ -228,15 +228,11 @@ export class PermissionService {
       return [];
     }
 
-    const enrollmentIds: string[] = [];
-    for (const link of childLinks) {
-      const { enrollments } =
-        await this.enrollmentsRepository.findByAppParentLinkId(link.id, {});
+    const linkIds = childLinks.map((link) => link.id);
+    const enrollments =
+      await this.enrollmentsRepository.findManyByAppParentLinkIds(linkIds);
 
-      enrollmentIds.push(...enrollments.map((e) => e.id));
-    }
-
-    return enrollmentIds;
+    return enrollments.map((e) => e.id);
   }
 
   /** 학부모가 특정 강의에 접근 가능한지 확인 (자녀 수강 여부) */

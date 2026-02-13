@@ -35,6 +35,22 @@ export class EnrollmentsRepository {
     );
   }
 
+  /** 여러 학부모-자녀 연결 ID로 모든 활성 수강 목록 조회 (No Pagination) */
+  async findManyByAppParentLinkIds(
+    appParentLinkIds: string[],
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return await client.enrollment.findMany({
+      where: {
+        appParentLinkId: { in: appParentLinkIds },
+        status: EnrollmentStatus.ACTIVE,
+        deletedAt: null,
+      },
+      orderBy: [{ registeredAt: 'desc' }, { studentName: 'asc' }],
+    });
+  }
+
   /** 강사 ID와 학생 전화번호 목록으로 Enrollment 조회 */
   async findManyByInstructorAndPhones(
     instructorId: string,
