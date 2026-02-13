@@ -100,6 +100,10 @@ export class InstructorPostsController {
       ).map((post) => ({
         ...post,
         lectureTitle: post.lecture?.title || null,
+        isMine:
+          userType === UserType.INSTRUCTOR
+            ? post.instructorId === profileId
+            : post.authorAssistantId === profileId,
       }));
 
       const responseData = getPagingData(
@@ -151,6 +155,12 @@ export class InstructorPostsController {
         ...kstResult,
         lectureTitle:
           (kstResult as InstructorPostWithDetails).lecture?.title || null,
+        isMine:
+          userType === UserType.INSTRUCTOR
+            ? (kstResult as InstructorPostWithDetails).instructorId ===
+              profileId
+            : (kstResult as InstructorPostWithDetails).authorAssistantId ===
+              profileId,
       };
 
       return successResponse(res, {

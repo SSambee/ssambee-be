@@ -11,6 +11,7 @@ import {
 } from '../validations/student-posts.validation.js';
 import { getPagingData } from '../utils/pagination.util.js';
 import { transformDateFieldsToKst } from '../utils/date.util.js';
+import { StudentPostWithDetails } from '../repos/student-posts.repo.js';
 
 export class StudentPostsController {
   constructor(private readonly studentPostsService: StudentPostsService) {}
@@ -65,8 +66,18 @@ export class StudentPostsController {
         'updatedAt',
       ]);
 
+      const postsWithIsMine = (kstPosts as StudentPostWithDetails[]).map(
+        (post) => ({
+          ...post,
+          isMine:
+            userType === UserType.STUDENT
+              ? post.enrollment?.appStudentId === profileId
+              : post.enrollment?.appParentLink?.appParentId === profileId,
+        }),
+      );
+
       const responseData = getPagingData(
-        kstPosts,
+        postsWithIsMine,
         result.totalCount,
         query.page,
         query.limit,
@@ -110,9 +121,19 @@ export class StudentPostsController {
         'updatedAt',
       ]);
 
+      const responseWithIsMine = {
+        ...kstResult,
+        isMine:
+          userType === UserType.STUDENT
+            ? (kstResult as StudentPostWithDetails).enrollment?.appStudentId ===
+              profileId
+            : (kstResult as StudentPostWithDetails).enrollment?.appParentLink
+                ?.appParentId === profileId,
+      };
+
       return successResponse(res, {
         statusCode: 200,
-        data: kstResult,
+        data: responseWithIsMine,
         message: '질문 상세 정보를 조회했습니다.',
       });
     } catch (error) {
@@ -120,7 +141,9 @@ export class StudentPostsController {
     }
   };
 
-  /** 상태 변경 */
+  /** 질문 상태 변경 (학생이 확인 완료 처리)
+   * flow: PENDING (BEFORE) -> RESOLVED (REGISTERED) -> COMPLETED (COMPLETED)
+   */
   updateStatus = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { postId } = req.params;
