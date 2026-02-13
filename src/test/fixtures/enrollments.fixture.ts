@@ -8,6 +8,30 @@ import type {
 import { EnrollmentStatus } from '../../constants/enrollments.constant.js';
 import { mockUsers } from './user.fixture.js';
 import { mockInstructor, mockLectures } from './lectures.fixture.js';
+import type { LectureEnrollment } from '../../generated/prisma/client.js';
+
+/** Mock Enrollment 데이터 */
+export const mockEnrollment = (
+  overrides: Partial<Enrollment> = {},
+): Enrollment => ({
+  id: faker.string.uuid(),
+  instructorId: mockInstructor.id,
+  appStudentId: faker.string.uuid(),
+  appParentLinkId: null,
+  studentName: faker.person.fullName(),
+  studentEmail: null,
+  school: faker.helpers.arrayElement(['서울고등학교', '강남고등학교']),
+  schoolYear: '고1',
+  studentPhone: faker.phone.number({ style: 'national' }),
+  parentPhone: faker.phone.number({ style: 'national' }),
+  status: EnrollmentStatus.ACTIVE,
+  registeredAt: new Date(),
+  memo: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  deletedAt: null,
+  ...overrides,
+});
 
 /** Mock AppStudent 데이터 */
 export const mockStudents = {
@@ -239,6 +263,24 @@ export const mockEnrollments = {
     deletedAt: null,
   } as Enrollment,
 };
+
+/** Mock LectureEnrollment 데이터 */
+export const mockLectureEnrollment = (
+  lectureId: string,
+  enrollmentId: string,
+  overrides: Partial<LectureEnrollment & { enrollment: Enrollment }> = {},
+): LectureEnrollment & { enrollment: Enrollment } => ({
+  id: faker.string.uuid(),
+  lectureId,
+  enrollmentId,
+  registeredAt: new Date(),
+  memo: null,
+  enrollment: {
+    ...mockEnrollments.active,
+    id: enrollmentId,
+  },
+  ...overrides,
+});
 
 /** 수강 등록 요청 DTO */
 export const createEnrollmentRequests = {
