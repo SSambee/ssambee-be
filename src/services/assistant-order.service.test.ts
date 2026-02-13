@@ -26,6 +26,7 @@ describe('AssistantOrderService', () => {
     mockOrderRepo = {
       create: vi.fn(),
       findManyByInstructorId: vi.fn(),
+      getStatsByInstructorId: vi.fn(),
       findManyByAssistantId: vi.fn(),
       findById: vi.fn(),
       update: vi.fn(),
@@ -129,17 +130,25 @@ describe('AssistantOrderService', () => {
   describe('getOrdersByInstructor', () => {
     const instructorId = 'inst-1';
 
-    it('should return orders with pagination', async () => {
+    it('should return orders with pagination and stats', async () => {
       const mockOrders = [
         { id: '1', title: 'Order 1' },
         { id: '2', title: 'Order 2' },
       ];
       const mockTotalCount = 2;
+      const mockStats = {
+        totalCount: 10,
+        inProgressCount: 5,
+        completedCount: 5,
+      };
 
       (mockOrderRepo.findManyByInstructorId as jest.Mock).mockResolvedValue({
         orders: mockOrders,
         totalCount: mockTotalCount,
       });
+      (mockOrderRepo.getStatsByInstructorId as jest.Mock).mockResolvedValue(
+        mockStats,
+      );
 
       const query = { page: 1, limit: 10 };
       const result = await service.getOrdersByInstructor(instructorId, query);
@@ -152,7 +161,11 @@ describe('AssistantOrderService', () => {
           limit: 10,
         },
       );
+      expect(mockOrderRepo.getStatsByInstructorId).toHaveBeenCalledWith(
+        instructorId,
+      );
       expect(result).toEqual({
+        stats: mockStats,
         orders: mockOrders,
         pagination: {
           totalCount: mockTotalCount,
