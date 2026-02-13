@@ -10,6 +10,7 @@ import {
 } from '../validations/instructor-posts.validation.js';
 import { getPagingData } from '../utils/pagination.util.js';
 import { transformDateFieldsToKst } from '../utils/date.util.js';
+import { InstructorPostWithDetails } from '../repos/instructor-posts.repo.js';
 
 export class InstructorPostsController {
   constructor(
@@ -94,8 +95,15 @@ export class InstructorPostsController {
         'updatedAt',
       ]);
 
+      const postsWithLectureTitle = (
+        kstPosts as InstructorPostWithDetails[]
+      ).map((post) => ({
+        ...post,
+        lectureTitle: post.lecture?.title || null,
+      }));
+
       const responseData = getPagingData(
-        kstPosts,
+        postsWithLectureTitle,
         result.totalCount,
         query.page,
         query.limit,
@@ -139,9 +147,15 @@ export class InstructorPostsController {
         'updatedAt',
       ]);
 
+      const responseWithLectureTitle = {
+        ...kstResult,
+        lectureTitle:
+          (kstResult as InstructorPostWithDetails).lecture?.title || null,
+      };
+
       return successResponse(res, {
         statusCode: 200,
-        data: kstResult,
+        data: responseWithLectureTitle,
         message: '공지 상세 정보를 조회했습니다.',
       });
     } catch (error) {
