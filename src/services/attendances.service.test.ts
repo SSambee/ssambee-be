@@ -18,6 +18,7 @@ import {
   createAttendanceRequests,
   mockAttendanceLectureEnrollment,
 } from '../test/fixtures/index.js';
+import { UserType } from '../constants/auth.constant.js';
 import { AttendanceStatus } from '../constants/attendances.constant.js';
 import { CreateBulkAttendancesDto } from '../validations/attendances.validation.js';
 import { PrismaClient, Prisma } from '../generated/prisma/client.js';
