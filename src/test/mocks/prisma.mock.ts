@@ -17,6 +17,9 @@ export const createMockPrisma = () => ({
   grade: {
     findMany: jest.fn(),
   },
+  studentAnswer: {
+    findMany: jest.fn(),
+  },
   $transaction: mockTransaction as jest.Mock,
 });
 

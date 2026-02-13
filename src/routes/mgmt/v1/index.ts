@@ -60,6 +60,25 @@ mgmtV1Router.use('/assistant-order', mgmtAssistantOrderRouter);
 import { mgmtScheduleCategoriesRouter } from './schedule-categories.route.js';
 mgmtV1Router.use('/schedule-categories', mgmtScheduleCategoriesRouter);
 
+/** 과제 카테고리 라우트 */
+import { mgmtAssignmentCategoriesRouter } from './assignment-categories.route.js';
+mgmtV1Router.use('/assignment-categories', mgmtAssignmentCategoriesRouter);
+
 /** 일정 라우트 */
 import { mgmtSchedulesRouter } from './schedules.route.js';
 mgmtV1Router.use('/schedules', mgmtSchedulesRouter);
+
+/** 과제 라우트 */
+import { mgmtAssignmentsRouter } from './assignments.route.js';
+mgmtV1Router.use('/assignments', mgmtAssignmentsRouter);
+
+/** 강의 내 과제 라우트 (Nested) */
+mgmtV1Router.use('/lectures/:lectureId/assignments', mgmtAssignmentsRouter);
+
+/** 과제 결과 라우트 */
+import { mgmtAssignmentResultsRouter } from './assignment-results.route.js';
+mgmtV1Router.use('/assignment-results', mgmtAssignmentResultsRouter);
+
+/** 성적 라우트 */
+import { mgmtGradesRouter } from './grades.route.js';
+mgmtV1Router.use('/grades', mgmtGradesRouter);
