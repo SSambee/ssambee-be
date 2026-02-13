@@ -1,6 +1,9 @@
 import { prisma } from './db.config.js';
 import { auth } from './auth.config.js';
 
+import { AssignmentsRepository } from '../repos/assignments.repo.js';
+import { AssignmentResultsRepository } from '../repos/assignment-results.repo.js';
+
 import { InstructorRepository } from '../repos/instructor.repo.js';
 import { StudentRepository } from '../repos/student.repo.js';
 import { AssistantRepository } from '../repos/assistant.repo.js';
@@ -8,6 +11,7 @@ import { ParentRepository } from '../repos/parent.repo.js';
 import { AssistantCodeRepository } from '../repos/assistant-code.repo.js';
 import { AssistantOrderRepository } from '../repos/assistant-order.repo.js';
 import { ScheduleCategoryRepository } from '../repos/schedule-categories.repo.js';
+import { AssignmentCategoryRepository } from '../repos/assignment-categories.repo.js';
 import { SchedulesRepository } from '../repos/schedules.repo.js';
 
 import { AuthService } from '../services/auth.service.js';
@@ -83,12 +87,21 @@ import { AssistantOrderController } from '../controllers/assistant-order.control
 import { ScheduleCategoryService } from '../services/schedule-categories.service.js';
 import { ScheduleCategoryController } from '../controllers/schedule-categories.controller.js';
 
+import { AssignmentCategoryService } from '../services/assignment-categories.service.js';
+import { AssignmentCategoryController } from '../controllers/assignment-categories.controller.js';
+
 import { SchedulesService } from '../services/schedules.service.js';
 import { SchedulesController } from '../controllers/schedules.controller.js';
 /**
  *  import { redis } from './redis.config.js';
  *  redis 클라이언트르 컨테이너에 등록하여 필요한 서비스에 주입한다.
  */
+
+import { AssignmentsService } from '../services/assignments.service.js';
+import { AssignmentsController } from '../controllers/assignments.controller.js';
+
+import { AssignmentResultsService } from '../services/assignment-results.service.js';
+import { AssignmentResultsController } from '../controllers/assignment-results.controller.js';
 
 // 1. Instantiate Repositories
 const instructorRepo = new InstructorRepository(prisma);
@@ -98,6 +111,7 @@ const parentRepo = new ParentRepository(prisma);
 const assistantCodeRepo = new AssistantCodeRepository(prisma);
 const assistantOrderRepo = new AssistantOrderRepository(prisma);
 const scheduleCategoryRepo = new ScheduleCategoryRepository(prisma);
+const assignmentCategoryRepo = new AssignmentCategoryRepository(prisma);
 const schedulesRepo = new SchedulesRepository(prisma);
 const parentChildLinkRepo = new ParentChildLinkRepository(prisma);
 const examsRepo = new ExamsRepository(prisma);
@@ -105,6 +119,8 @@ const gradesRepo = new GradesRepository(prisma);
 const statisticsRepo = new StatisticsRepository(prisma);
 const clinicsRepo = new ClinicsRepository(prisma);
 const materialsRepo = new MaterialsRepository(prisma);
+const assignmentsRepo = new AssignmentsRepository(prisma);
+const assignmentResultsRepo = new AssignmentResultsRepository(prisma);
 
 const lecturesRepo = new LecturesRepository(prisma);
 const enrollmentsRepo = new EnrollmentsRepository(prisma);
@@ -116,6 +132,8 @@ const studentPostsRepo = new StudentPostsRepository(prisma);
 const commentsRepo = new CommentsRepository(prisma);
 
 // 2. Instantiate Services (Inject Repos)
+const fileStorageService = new FileStorageService();
+
 const authService = new AuthService(
   instructorRepo,
   assistantRepo,
@@ -147,6 +165,7 @@ const gradesService = new GradesService(
   lectureEnrollmentsRepo,
   attendancesRepo,
   permissionService,
+  fileStorageService,
   prisma,
 );
 
@@ -224,7 +243,6 @@ const assistantsService = new AssistantsService(
   prisma,
 );
 
-const fileStorageService = new FileStorageService();
 const materialsService = new MaterialsService(
   materialsRepo,
   lecturesRepo,
@@ -273,9 +291,27 @@ const scheduleCategoryService = new ScheduleCategoryService(
   prisma,
 );
 
+const assignmentCategoryService = new AssignmentCategoryService(
+  assignmentCategoryRepo,
+  prisma,
+);
+
 const schedulesService = new SchedulesService(
   schedulesRepo,
   scheduleCategoryRepo,
+  prisma,
+);
+
+const assignmentsService = new AssignmentsService(
+  assignmentsRepo,
+  assignmentCategoryRepo,
+  prisma,
+);
+
+const assignmentResultsService = new AssignmentResultsService(
+  assignmentResultsRepo,
+  assignmentsRepo,
+  lectureEnrollmentsRepo,
   prisma,
 );
 
@@ -307,7 +343,14 @@ const assistantOrderController = new AssistantOrderController(
 const scheduleCategoryController = new ScheduleCategoryController(
   scheduleCategoryService,
 );
+const assignmentCategoryController = new AssignmentCategoryController(
+  assignmentCategoryService,
+);
 const schedulesController = new SchedulesController(schedulesService);
+const assignmentsController = new AssignmentsController(assignmentsService);
+const assignmentResultsController = new AssignmentResultsController(
+  assignmentResultsService,
+);
 
 const instructorPostsController = new InstructorPostsController(
   instructorPostsService,
@@ -339,7 +382,10 @@ export const container = {
   lectureEnrollmentsService,
   assistantsService,
   scheduleCategoryService,
+  assignmentCategoryService,
   schedulesService,
+  assignmentsService,
+  assignmentResultsService,
   fileStorageService,
   // Controllers
   authController,
@@ -360,7 +406,10 @@ export const container = {
   assistantsController,
   assistantOrderController,
   scheduleCategoryController,
+  assignmentCategoryController,
   schedulesController,
+  assignmentsController,
+  assignmentResultsController,
   // Middlewares
   requireAuth,
   optionalAuth,
