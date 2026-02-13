@@ -1,7 +1,14 @@
 import dotenv from 'dotenv';
 import { z } from 'zod';
+import { loadSecrets } from './secrets.js';
 
 dotenv.config();
+
+/**
+ * 개발 환경일때 먼저 SSM 시크릿을 로드 로컬에 이미 있으면 스킵
+ * 없으면 SSM에서 가져와 process.env에 박아줌
+ */
+await loadSecrets();
 
 const envSchema = z.object({
   ENVIRONMENT: z
@@ -20,10 +27,13 @@ const envSchema = z.object({
   AWS_CLOUDFRONT_URL_REPORTS: z.string().default(''),
   AWS_CLOUDFRONT_KEY_PAIR_ID: z.string().default(''),
   AWS_CLOUDFRONT_PRIVATE_KEY: z.string().optional().default(''),
+  REDIS_URL: z.string().optional(),
+  ALARM_LAMBDA_URL: z.string().optional(),
 });
 
 const parseEnvironment = () => {
   try {
+    // process.env에는 로컬 .env의 값 혹은 SSM에서 가져온 값이 들어갑니다.
     return envSchema.parse({
       ENVIRONMENT: process.env.NODE_ENV,
       PORT: process.env.PORT,
@@ -39,6 +49,8 @@ const parseEnvironment = () => {
       AWS_CLOUDFRONT_URL_REPORTS: process.env.AWS_CLOUDFRONT_URL_REPORTS,
       AWS_CLOUDFRONT_KEY_PAIR_ID: process.env.AWS_CLOUDFRONT_KEY_PAIR_ID,
       AWS_CLOUDFRONT_PRIVATE_KEY: process.env.AWS_CLOUDFRONT_PRIVATE_KEY,
+      REDIS_URL: process.env.REDIS_URL,
+      ALARM_LAMBDA_URL: process.env.ALARM_LAMBDA_URL,
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
