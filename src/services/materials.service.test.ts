@@ -28,6 +28,7 @@ import {
   UploadMaterialDto,
   GetMaterialsQueryDto,
 } from '../../src/validations/materials.validation.js';
+import { PrismaClient } from '../generated/prisma/client.js';
 
 describe('MaterialsService', () => {
   let service: MaterialsService;
@@ -40,6 +41,7 @@ describe('MaterialsService', () => {
   let assistantRepo: ReturnType<typeof createMockAssistantRepository>;
   let fileStorageService: jest.Mocked<FileStorageService>;
   let permissionService: ReturnType<typeof createMockPermissionService>;
+  let prisma: jest.Mocked<PrismaClient>;
 
   beforeEach(() => {
     materialsRepo = createMockMaterialsRepository();
@@ -57,6 +59,7 @@ describe('MaterialsService', () => {
 
     permissionService = createMockPermissionService();
     assistantRepo.findAllByInstructorId.mockResolvedValue([]);
+    prisma = {} as jest.Mocked<PrismaClient>;
 
     service = new MaterialsService(
       materialsRepo,
@@ -66,6 +69,7 @@ describe('MaterialsService', () => {
       assistantRepo,
       fileStorageService,
       permissionService,
+      prisma,
     );
   });
 
@@ -214,6 +218,12 @@ describe('MaterialsService', () => {
         }),
       );
     });
+
+    it('존재하지 않는 강의에 업로드하면 NotFoundException이 발생해야 한다', async () => {});
+    it('강의에 대한 권한이 없는 경우 ForbiddenException이 발생해야 한다', async () => {});
+    it('학생이 라이브러리에 업로드하려고 하면 ForbiddenException이 발생해야 한다', async () => {});
+    it('VIDEO_LINK 타입인데 youtubeUrl이 없으면 BadRequestException이 발생해야 한다', async () => {});
+    it('파일 타입인데 파일이 없으면 BadRequestException이 발생해야 한다', async () => {});
   });
 
   describe('getMaterials', () => {
@@ -302,6 +312,10 @@ describe('MaterialsService', () => {
         }),
       );
     });
+
+    it('존재하지 않는 강의의 자료를 조회하려고 하면 NotFoundException이 발생해야 한다', async () => {});
+    it('강의 자료 조회 권한이 없는 경우 ForbiddenException이 발생해야 한다', async () => {});
+    it('학생이 라이브러리 자료 목록 조회를 시도하면 ForbiddenException이 발생해야 한다', async () => {});
   });
 
   describe('deleteMaterial', () => {
@@ -339,6 +353,9 @@ describe('MaterialsService', () => {
       );
       expect(materialsRepo.softDelete).toHaveBeenCalledWith(mockMaterial.id);
     });
+
+    it('존재하지 않는 자료를 삭제하려고 하면 NotFoundException이 발생해야 한다', async () => {});
+    it('자료 삭제 권한이 없는 경우 ForbiddenException이 발생해야 한다', async () => {});
   });
 
   describe('getMaterialDetail', () => {
@@ -407,6 +424,9 @@ describe('MaterialsService', () => {
         'instructor-b',
       );
     });
+
+    it('존재하지 않는 자료를 상세 조회하면 NotFoundException이 발생해야 한다', async () => {});
+    it('상세 조회 시 강의를 찾을 수 없으면 NotFoundException이 발생해야 한다', async () => {});
   });
 
   describe('getDownloadUrl', () => {
@@ -543,5 +563,10 @@ describe('MaterialsService', () => {
         service.getDownloadUrl(mockMaterial.id, UserType.STUDENT, 'student-1'),
       ).rejects.toThrow(ForbiddenException);
     });
+
+    it('존재하지 않는 자료를 다운로드하려고 하면 NotFoundException이 발생해야 한다', async () => {});
+    it('학생 다운로드 시 수강 중인 강의가 아니면 ForbiddenException이 발생해야 한다', async () => {});
+    it('학생 다운로드 시 강사와의 Enrollment가 없으면 ForbiddenException이 발생해야 한다', async () => {});
+    it('지원하지 않는 사용자 타입이 다운로드를 시도하면 ForbiddenException이 발생해야 한다', async () => {});
   });
 });
