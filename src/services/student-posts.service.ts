@@ -29,12 +29,12 @@ export class StudentPostsService {
 
   /** 질문 생성 (학생/학부모) */
   async createPost(
-    data: CreateStudentPostDto,
+    data: CreateStudentPostDto & { childLinkId?: string }, // [NEW] 학부모용
     userType: UserType,
     profileId: string,
   ) {
     let enrollmentId = '';
-    let authorRole = AuthorRole.STUDENT;
+    let authorRole: string = AuthorRole.STUDENT;
 
     if (userType === UserType.STUDENT) {
       enrollmentId = await this.getStudentEnrollmentForPost(
@@ -43,10 +43,25 @@ export class StudentPostsService {
       );
       authorRole = AuthorRole.STUDENT;
     } else if (userType === UserType.PARENT) {
-      // TODO: 학부모 질문 작성 - 자녀 선택 후 enrollment 조회 로직 필요
-      throw new BadRequestException(
-        '학부모 질문 작성은 아직 지원되지 않습니다.',
+      // [NEW] 학부모 질문 작성
+      if (!data.childLinkId) {
+        throw new BadRequestException('자녀 선택이 필요합니다.');
+      }
+
+      // 자녀 접근 권한 확인
+      const childLink = await this.permissionService.validateChildAccess(
+        userType,
+        profileId,
+        data.childLinkId,
       );
+
+      // 자녀의 enrollment 조회
+      enrollmentId = await this.getParentEnrollmentForPost(
+        data.lectureId,
+        childLink.phoneNumber,
+      );
+
+      authorRole = AuthorRole.PARENT;
     } else {
       throw new ForbiddenException('질문 작성 권한이 없습니다.');
     }
@@ -75,6 +90,7 @@ export class StudentPostsService {
   ) {
     let instructorId: string | undefined;
     let appStudentId: string | undefined;
+    let enrollmentIds: string[] | undefined; // [NEW] 학부모용
 
     if (userType === UserType.INSTRUCTOR) {
       instructorId = profileId;
@@ -87,6 +103,25 @@ export class StudentPostsService {
       );
       if (!id) throw new ForbiddenException('강사 정보를 찾을 수 없습니다.');
       instructorId = id;
+    } else if (userType === UserType.PARENT) {
+      // [NEW] 학부모: 등록된 자녀 링크 확인
+      const childLinks = await this.permissionService.getChildLinks(profileId);
+
+      if (!childLinks || childLinks.length === 0) {
+        throw new NotFoundException('등록된 자녀가 없습니다.');
+      }
+
+      // [NEW] 학부모: 모든 자녀의 enrollment ID 조회
+      enrollmentIds =
+        await this.permissionService.getParentEnrollmentIds(profileId);
+
+      if (!enrollmentIds || enrollmentIds.length === 0) {
+        // 자녀는 있지만 수강 중인 강의가 없는 경우 빈 목록 반환
+        return {
+          posts: [],
+          totalCount: 0,
+        };
+      }
     } else {
       throw new ForbiddenException('접근 권한이 없습니다.');
     }
@@ -95,6 +130,7 @@ export class StudentPostsService {
       ...query,
       instructorId,
       appStudentId,
+      enrollmentIds, // [NEW] 학부모용
     });
   }
 
@@ -253,8 +289,23 @@ export class StudentPostsService {
     }
 
     if (userType === UserType.PARENT) {
-      // TODO: 학부모 권한 검증 로직
-      throw new ForbiddenException('학부모 권한 검증이 구현되지 않았습니다.');
+      // [NEW] 학부모 권한 검증
+      const enrollment = await this.enrollmentsRepository.findById(
+        post.enrollmentId,
+      );
+
+      if (!enrollment?.appParentLinkId) {
+        throw new ForbiddenException('학부모 연결 정보가 없습니다.');
+      }
+
+      // 본인 자녀의 질문인지 확인
+      await this.permissionService.validateChildAccess(
+        userType,
+        profileId,
+        enrollment.appParentLinkId,
+      );
+
+      return;
     }
 
     throw new ForbiddenException('접근 권한이 없습니다.');
@@ -316,6 +367,34 @@ export class StudentPostsService {
     }
 
     return enrollment.enrollmentId;
+  }
+
+  /** [NEW] 학부모 질문 작성을 위한 Enrollment ID 조회 Helper */
+  private async getParentEnrollmentForPost(
+    lectureId: string | undefined,
+    childPhoneNumber: string,
+  ): Promise<string> {
+    if (!lectureId) {
+      throw new BadRequestException('강의 ID는 필수입니다.');
+    }
+
+    const lecture = await this.lecturesRepository.findById(lectureId);
+    if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
+
+    // 자녀 전화번호로 해당 강의의 enrollment 조회
+    const lectureEnrollment =
+      await this.lectureEnrollmentsRepository.findByLectureIdAndStudentPhone(
+        lectureId,
+        childPhoneNumber,
+      );
+
+    if (!lectureEnrollment) {
+      throw new ForbiddenException(
+        '자녀가 해당 강의를 수강하고 있지 않습니다.',
+      );
+    }
+
+    return lectureEnrollment.enrollmentId;
   }
 
   private async processPostComments(
