@@ -9,6 +9,7 @@ import { InstructorPostsRepository } from '../repos/instructor-posts.repo.js';
 import { LecturesRepository } from '../repos/lectures.repo.js';
 import { MaterialsRepository } from '../repos/materials.repo.js';
 import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
+import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import { PermissionService } from './permission.service.js';
 import {
   CreateInstructorPostDto,
@@ -22,11 +23,17 @@ export class InstructorPostsService {
     private readonly lecturesRepository: LecturesRepository,
     private readonly materialsRepository: MaterialsRepository,
     private readonly lectureEnrollmentsRepository: LectureEnrollmentsRepository,
+    private readonly enrollmentsRepository: EnrollmentsRepository,
     private readonly permissionService: PermissionService,
   ) {}
 
   /** 공지 타겟 학생 목록 조회 (강사의 모든 강의와 학생 목록) */
   async getPostTargets(userType: UserType, profileId: string) {
+    // 0. 권한 검증 - 강사/조교만 접근 가능
+    if (userType !== UserType.INSTRUCTOR && userType !== UserType.ASSISTANT) {
+      throw new ForbiddenException('강사 또는 조교만 접근할 수 있습니다.');
+    }
+
     // 1. 강사 ID 조회 (조교인 경우 담당 강사 ID)
     const instructorId = await this.permissionService.getEffectiveInstructorId(
       userType,
@@ -121,7 +128,18 @@ export class InstructorPostsService {
       throw new ForbiddenException('강사 정보를 찾을 수 없습니다.');
     }
 
-    // 2. 강의별 공지인 경우 강의 존재 여부 및 권한 확인
+    // 2. 입력값 검증
+    if (!data.title || data.title.trim() === '') {
+      throw new BadRequestException('제목은 필수입니다.');
+    }
+    if (!data.content || data.content.trim() === '') {
+      throw new BadRequestException('내용은 필수입니다.');
+    }
+    if (data.title.length > 100) {
+      throw new BadRequestException('제목은 100자 이하여야 합니다.');
+    }
+
+    // 3. 강의별 공지인 경우 강의 존재 여부 및 권한 확인
     if (data.scope === PostScope.LECTURE) {
       if (!data.lectureId) {
         throw new BadRequestException('강의 공지는 lectureId가 필수입니다.');
@@ -133,7 +151,7 @@ export class InstructorPostsService {
       }
     }
 
-    // 3. 타겟팅 유효성 검사
+    // 4. 타겟팅 유효성 검사
     if (
       data.scope === PostScope.SELECTED &&
       (!data.targetEnrollmentIds || data.targetEnrollmentIds.length === 0)
@@ -141,12 +159,28 @@ export class InstructorPostsService {
       throw new BadRequestException('선택 공지는 대상 학생 지정이 필수입니다.');
     }
 
-    // 4. 자료 소유권 검증
+    // 4-1. 선택 공지의 경우 enrollment 존재 여부 확인
+    if (data.scope === PostScope.SELECTED && data.targetEnrollmentIds) {
+      const enrollments = await this.enrollmentsRepository.findByIds(
+        data.targetEnrollmentIds,
+      );
+      if (enrollments.length !== data.targetEnrollmentIds.length) {
+        const foundIds = enrollments.map((e) => e.id);
+        const missingIds = data.targetEnrollmentIds.filter(
+          (id) => !foundIds.includes(id),
+        );
+        throw new NotFoundException(
+          `수강생을 찾을 수 없습니다: ${missingIds.join(', ')}`,
+        );
+      }
+    }
+
+    // 5. 자료 소유권 검증
     if (data.materialIds && data.materialIds.length > 0) {
       await this.validateMaterialOwnership(data.materialIds, instructorId);
     }
 
-    // 5. 생성
+    // 6. 생성
     return this.instructorPostsRepository.create({
       title: data.title,
       content: data.content,
@@ -167,6 +201,14 @@ export class InstructorPostsService {
     userType: UserType,
     profileId: string,
   ) {
+    // 페이지네이션 검증
+    if (query.page <= 0) {
+      throw new BadRequestException('page는 1 이상이어야 합니다.');
+    }
+    if (query.limit > 100) {
+      throw new BadRequestException('limit은 100 이하여야 합니다.');
+    }
+
     let instructorId: string | undefined;
     let studentFiltering:
       | {
@@ -176,7 +218,7 @@ export class InstructorPostsService {
         }
       | undefined;
 
-    // 1. 권한 설정 및 필터링 구축
+    // 2. 권한 설정 및 필터링 구축
     if (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) {
       instructorId = await this.permissionService.getEffectiveInstructorId(
         userType,
@@ -207,6 +249,49 @@ export class InstructorPostsService {
           profileId,
         );
       }
+    } else if (userType === UserType.PARENT) {
+      // [NEW] 학부모: 등록된 자녀 링크 확인
+      const childLinks = await this.permissionService.getChildLinks(profileId);
+
+      if (!childLinks || childLinks.length === 0) {
+        throw new NotFoundException('등록된 자녀가 없습니다.');
+      }
+
+      // [NEW] 학부모: 모든 자녀의 수강 정보 조회
+      const enrollmentIds =
+        await this.permissionService.getParentEnrollmentIds(profileId);
+
+      if (!enrollmentIds || enrollmentIds.length === 0) {
+        // 자녀는 있지만 수강 중인 강의가 없는 경우 빈 목록 반환
+        return {
+          posts: [],
+          totalCount: 0,
+        };
+      }
+
+      // 모든 자녀의 LectureEnrollment 조회
+      const lectureEnrollments =
+        await this.lectureEnrollmentsRepository.findManyByEnrollmentIds(
+          enrollmentIds,
+        );
+
+      studentFiltering = {
+        lectureIds: [...new Set(lectureEnrollments.map((e) => e.lectureId))],
+        instructorIds: [
+          ...new Set(lectureEnrollments.map((e) => e.lecture.instructorId)),
+        ],
+        enrollmentIds: enrollmentIds,
+      };
+
+      // 특정 강의 조회 시 권한 확인
+      if (query.lectureId) {
+        await this.permissionService.validateParentLectureAccess(
+          profileId,
+          query.lectureId,
+        );
+      }
+    } else {
+      throw new ForbiddenException('접근 권한이 없습니다.');
     }
 
     return this.instructorPostsRepository.findMany({
@@ -462,6 +547,65 @@ export class InstructorPostsService {
           throw new ForbiddenException('접근 권한이 없습니다.');
         }
       }
+      return;
+    }
+
+    if (userType === UserType.PARENT) {
+      // [NEW] 학부모는 READ만 가능
+      if (action !== 'READ') {
+        throw new ForbiddenException('권한이 없습니다.');
+      }
+
+      // 자녀의 enrollment ID 목록 조회
+      const enrollmentIds =
+        await this.permissionService.getParentEnrollmentIds(profileId);
+
+      if (!enrollmentIds || enrollmentIds.length === 0) {
+        throw new ForbiddenException('등록된 자녀가 없습니다.');
+      }
+
+      // Global: 자녀가 해당 강사의 강의를 하나라도 수강 중인지 확인
+      if (post.scope === PostScope.GLOBAL) {
+        const hasEnrollment =
+          await this.lectureEnrollmentsRepository.existsByInstructorIdAndStudentId(
+            post.instructorId,
+            enrollmentIds[0], // 어떤 자녀라도 해당 강사 수강 중이면 OK
+          );
+
+        if (!hasEnrollment) {
+          // 모든 자녀에 대해 확인
+          const enrollments =
+            await this.enrollmentsRepository.findByIds(enrollmentIds);
+          const hasInstructorEnrollment = enrollments.some(
+            (e) => e.instructorId === post.instructorId,
+          );
+
+          if (!hasInstructorEnrollment) {
+            throw new ForbiddenException(
+              '자녀가 해당 강사의 수강생이 아닙니다.',
+            );
+          }
+        }
+      }
+
+      // Lecture: 자녀가 해당 강의를 수강 중인지 확인
+      if (post.scope === PostScope.LECTURE && post.lectureId) {
+        await this.permissionService.validateParentLectureAccess(
+          profileId,
+          post.lectureId,
+        );
+      }
+
+      // Selected: 자녀가 타겟에 포함되어 있는지 확인
+      if (post.scope === PostScope.SELECTED) {
+        const isTargeted = post.targets.some((target) =>
+          enrollmentIds.includes(target.enrollmentId),
+        );
+        if (!isTargeted) {
+          throw new ForbiddenException('접근 권한이 없습니다.');
+        }
+      }
+
       return;
     }
 
