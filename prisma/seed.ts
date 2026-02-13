@@ -279,7 +279,7 @@ async function main() {
       title: '의정부고 고등영어 1학년　내신반',
       subject: '영어',
       schoolYear: '고1',
-      description: '서울고 고1 대상 내신 대비 과정입니다.',
+      description: '의정부고 고1 대상 내신 대비 과정입니다.',
       status: LectureStatus.IN_PROGRESS,
       startAt: new Date('2026-01-28T10:00:00.000Z'),
       endAt: new Date('2026-03-22T10:00:00.000Z'),
