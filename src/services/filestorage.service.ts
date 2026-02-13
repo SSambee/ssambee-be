@@ -5,11 +5,8 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl as getS3SignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getSignedUrl as getCloudFrontSignedUrl } from '@aws-sdk/cloudfront-signer';
-import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { s3Client } from '../middlewares/multer.middleware.js';
 import { config } from '../config/env.config.js';
-import { readFile } from 'fs/promises';
-import { join } from 'path';
 
 /** S3 버킷 타입 정의 */
 export const BucketType = {
@@ -36,14 +33,7 @@ const getCloudFrontUrl = (bucketType: BucketType): string => {
 };
 
 export class FileStorageService {
-  private cloudFrontPrivateKey: string | null = null;
-  private readonly ssmClient: SSMClient | null = null;
-  // Shared client uses Singleton pattern from middleware
-  constructor() {
-    if (config.ENVIRONMENT === 'development') {
-      this.ssmClient = new SSMClient({ region: config.AWS_REGION });
-    }
-  }
+  constructor() {}
 
   /**
    *  프라이빗 키를 가져오는 통합 로직
@@ -53,44 +43,8 @@ export class FileStorageService {
    * 4. 위 조건 모두 실패 시 SSM에서 로드 (로컬 개발용)
    * @returns
    */
-  private async loadPrivateKey(): Promise<string> {
-    if (this.cloudFrontPrivateKey) return this.cloudFrontPrivateKey;
-
-    const keySource = config.AWS_CLOUDFRONT_PRIVATE_KEY || '';
-    // .env에 직접 키 내용이 있는 경우 (배포 시 GitHub Secrets 주입)
-    if (keySource.includes('BEGIN RSA')) {
-      this.cloudFrontPrivateKey = keySource;
-      return this.cloudFrontPrivateKey;
-    }
-    // 로컬 파일 경로인 경우
-    if (keySource.endsWith('.pem') || keySource.includes('/')) {
-      try {
-        const resolvedPath = keySource.startsWith('/')
-          ? keySource
-          : join(process.cwd(), keySource);
-        this.cloudFrontPrivateKey = await readFile(resolvedPath, 'utf-8');
-        return this.cloudFrontPrivateKey;
-      } catch (error) {
-        console.error('[FileStorageService] 키 로딩 실패:', error);
-        return '';
-      }
-    }
-
-    if (config.ENVIRONMENT === 'development' && this.ssmClient) {
-      try {
-        const command = new GetParameterCommand({
-          Name: '/ssambee/cloudfront/private-key', //aws ssm에 저장된 이름
-          WithDecryption: true,
-        });
-        const response = await this.ssmClient.send(command);
-        this.cloudFrontPrivateKey = response.Parameter?.Value || '';
-        return this.cloudFrontPrivateKey;
-      } catch (error) {
-        console.error('[FileStorageService] SSM에서 키 가져오기 실패:', error);
-      }
-    }
-
-    return '';
+  private loadPrivateKey(): string {
+    return config.AWS_CLOUDFRONT_PRIVATE_KEY;
   }
 
   /**
