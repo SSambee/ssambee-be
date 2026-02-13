@@ -82,3 +82,7 @@ mgmtV1Router.use('/assignment-results', mgmtAssignmentResultsRouter);
 /** 성적 라우트 */
 import { mgmtGradesRouter } from './grades.route.js';
 mgmtV1Router.use('/grades', mgmtGradesRouter);
+
+/** 프로필 라우트 */
+import { mgmtProfileRouter } from './profile.route.js';
+mgmtV1Router.use('/me', mgmtProfileRouter);
