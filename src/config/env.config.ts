@@ -8,7 +8,9 @@ dotenv.config();
  * 개발 환경일때 먼저 SSM 시크릿을 로드 로컬에 이미 있으면 스킵
  * 없으면 SSM에서 가져와 process.env에 박아줌
  */
-await loadSecrets();
+if (process.env.NODE_ENV !== 'test') {
+  await loadSecrets();
+}
 
 const envSchema = z.object({
   ENVIRONMENT: z
