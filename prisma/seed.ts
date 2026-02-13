@@ -276,7 +276,7 @@ async function main() {
     data: {
       id: createId(),
       instructorId: instructor.id,
-      title: '의정부고 고등min 1학년　내신반',
+      title: '의정부고 고등영어 1학년　내신반',
       subject: '영어',
       schoolYear: '고1',
       description: '서울고 고1 대상 내신 대비 과정입니다.',
