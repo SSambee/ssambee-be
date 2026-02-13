@@ -9,7 +9,7 @@ export const createStudentPostSchema = z.object({
   title: z.string().min(1, '제목은 필수입니다.'),
   content: z.string().min(1, '내용은 필수입니다.'),
   lectureId: z.cuid2().optional(), // 특정 강의에 대한 질문일 때
-  // enrollmentId는 인증 정보에서 추출하거나 별도로 처리
+  childLinkId: z.string().optional(), // [NEW] 학부모용: 질문 대상 자녀 연결 ID
 });
 
 export const updateStudentPostStatusSchema = z.object({
