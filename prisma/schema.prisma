@@ -359,6 +359,7 @@ model AssignmentCategory {
 
   instructor Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
 
+  @@unique([instructorId, name])
   @@index([instructorId])
   @@map("assignment_categories")
 }
