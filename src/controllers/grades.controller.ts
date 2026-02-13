@@ -239,4 +239,32 @@ export class GradesController {
       next(error);
     }
   };
+
+  /** [NEW] 성적표 리포트 파일 다운로드 URL 조회 핸들러 - ID 기반 */
+  getGradeReportFileDownload = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { gradeId } = req.params;
+      const user = getAuthUser(req);
+      const profileId = getProfileIdOrThrow(req);
+      const userType = user.userType as UserType;
+
+      const downloadUrl =
+        await this.gradesService.getGradeReportFileDownloadUrl(
+          gradeId,
+          userType,
+          profileId,
+        );
+
+      return successResponse(res, {
+        data: { downloadUrl },
+        message: '다운로드 URL 생성 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

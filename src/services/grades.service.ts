@@ -12,6 +12,7 @@ import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.
 import { AttendancesRepository } from '../repos/attendances.repo.js';
 import { PermissionService } from './permission.service.js';
 import { FileStorageService, BucketType } from './filestorage.service.js';
+import { isProduction } from '../config/env.config.js';
 import type { SubmitGradingDto } from '../validations/grades.validation.js';
 
 export class GradesService {
@@ -606,5 +607,52 @@ export class GradesService {
     }
 
     return result;
+  }
+
+  /** [NEW] 성적표 리포트 파일 다운로드 URL 생성 - ID 기반 */
+  async getGradeReportFileDownloadUrl(
+    gradeId: string,
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 1. Grade 권한 검증 및 데이터 확보
+    const grade = await this.gradesRepo.findGradeReportByGradeId(gradeId);
+    if (!grade) {
+      throw new NotFoundException('성적 정보를 찾을 수 없습니다.');
+    }
+
+    // 2. 권한 검증
+    const { lectureEnrollment } = grade;
+    const { lecture } = lectureEnrollment;
+
+    await this.permissionService.validateInstructorAccess(
+      lecture.instructorId,
+      userType,
+      profileId,
+    );
+
+    // 3. GradeReport 조회
+    const gradeReport = await this.prisma.gradeReport.findUnique({
+      where: { gradeId },
+      select: { reportUrl: true },
+    });
+
+    if (!gradeReport?.reportUrl) {
+      throw new NotFoundException(
+        '업로드된 성적표 파일이 없습니다. 먼저 파일을 업로드해주세요.',
+      );
+    }
+
+    // 4. 유효시간 설정 (개발: 1시간, 프로덕션: 7일)
+    const expiresIn = isProduction() ? 604800 : 3600;
+
+    // 5. Pre-signed URL 생성
+    const downloadUrl = await this.fileStorageService.getPresignedUrl(
+      gradeReport.reportUrl,
+      expiresIn,
+      BucketType.REPORTS,
+    );
+
+    return downloadUrl;
   }
 }

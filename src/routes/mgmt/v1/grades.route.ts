@@ -36,6 +36,17 @@ mgmtGradesRouter.get(
 );
 
 /**
+ * 성적표 리포트 설명 업데이트
+ * POST /api/mgmt/v1/grades/:gradeId/report/description
+ */
+mgmtGradesRouter.post(
+  '/:gradeId/report/description',
+  validate(gradeIdParamSchema, 'params'),
+  validate(gradeReportDescriptionSchema, 'body'),
+  gradesController.updateGradeReportDescription,
+);
+
+/**
  * 성적표 리포트 파일 업로드
  * POST /api/mgmt/v1/grades/:gradeId/report/file-upload
  */
@@ -47,12 +58,11 @@ mgmtGradesRouter.post(
 );
 
 /**
- * 성적표 리포트 설명 업데이트
- * POST /api/mgmt/v1/grades/:gradeId/report/description
+ * 성적표 리포트 파일 다운로드 URL 조회
+ * GET /api/mgmt/v1/grades/:gradeId/report/file-download
  */
-mgmtGradesRouter.post(
-  '/:gradeId/report/description',
+mgmtGradesRouter.get(
+  '/:gradeId/report/file-download',
   validate(gradeIdParamSchema, 'params'),
-  validate(gradeReportDescriptionSchema, 'body'),
-  gradesController.updateGradeReportDescription,
+  gradesController.getGradeReportFileDownload,
 );
