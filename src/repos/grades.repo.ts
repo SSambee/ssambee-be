@@ -256,37 +256,6 @@ export class GradesRepository {
     });
   }
 
-  /** [NEW] 성적표 리포트 URL 업데이트 (Grade ID 기준) */
-  async updateGradeReportUrlByGradeId(
-    gradeId: string,
-    reportUrl: string,
-    tx?: Prisma.TransactionClient,
-  ) {
-    const client = tx ?? this.prisma;
-
-    // Grade 조회하여 examId, lectureEnrollmentId 확보
-    const grade = await client.grade.findUnique({
-      where: { id: gradeId },
-      select: { examId: true, lectureEnrollmentId: true },
-    });
-
-    if (!grade) return null;
-
-    return await client.gradeReport.upsert({
-      where: { gradeId },
-      create: {
-        gradeId,
-        examId: grade.examId,
-        lectureEnrollmentId: grade.lectureEnrollmentId,
-        description: 'Auto-generated Report',
-        reportUrl,
-      },
-      update: {
-        reportUrl,
-      },
-    });
-  }
-
   /** [NEW] 성적표 리포트 설명 업데이트 (Grade ID 기준) */
   async updateGradeReportDescriptionByGradeId(
     gradeId: string,
@@ -314,6 +283,37 @@ export class GradesRepository {
       },
       update: {
         description,
+      },
+    });
+  }
+
+  /** [NEW] 성적표 리포트 URL 업데이트 (Grade ID 기준) */
+  async updateGradeReportUrlByGradeId(
+    gradeId: string,
+    reportUrl: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+
+    // Grade 조회하여 examId, lectureEnrollmentId 확보
+    const grade = await client.grade.findUnique({
+      where: { id: gradeId },
+      select: { examId: true, lectureEnrollmentId: true },
+    });
+
+    if (!grade) return null;
+
+    return await client.gradeReport.upsert({
+      where: { gradeId },
+      create: {
+        gradeId,
+        examId: grade.examId,
+        lectureEnrollmentId: grade.lectureEnrollmentId,
+        description: 'Auto-generated Report',
+        reportUrl,
+      },
+      update: {
+        reportUrl,
       },
     });
   }
