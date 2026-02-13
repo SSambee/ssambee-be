@@ -217,6 +217,16 @@ export class GradesRepository {
               },
               orderBy: { questionNumber: 'asc' },
             },
+            assignmentsOnExamReport: {
+              include: {
+                assignment: {
+                  include: {
+                    category: true,
+                  },
+                },
+              },
+              orderBy: { resultIndex: 'asc' },
+            },
           },
         },
         lectureEnrollment: {
@@ -250,6 +260,16 @@ export class GradesRepository {
               },
               take: 6,
             },
+            assignmentResults: {
+              include: {
+                assignment: true,
+              },
+            },
+          },
+        },
+        gradeReports: {
+          select: {
+            description: true,
           },
         },
       },

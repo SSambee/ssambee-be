@@ -495,6 +495,39 @@ export class GradesService {
       score: g.score,
     }));
 
+    // 4-3. 과제 정보 매핑
+    const { assignmentsOnExamReport } = exam;
+    const { assignmentResults } = lectureEnrollment;
+
+    // AssignmentResult를 Map으로 변환 (빠른 조회)
+    const resultMap = new Map(
+      assignmentResults.map((r) => [r.assignmentId, r]),
+    );
+
+    const assignments = assignmentsOnExamReport.map((aer) => {
+      const { assignment } = aer;
+      const studentResult = resultMap.get(assignment.id);
+
+      // resultIndex로 resultPresets에서 라벨 가져오기
+      let resultLabel: string | null = null;
+      if (studentResult && assignment.category.resultPresets) {
+        resultLabel =
+          assignment.category.resultPresets[studentResult.resultIndex] ?? null;
+      }
+
+      return {
+        assignmentId: assignment.id,
+        title: assignment.title,
+        categoryName: assignment.category.name,
+        resultIndex: studentResult?.resultIndex ?? null,
+        resultLabel,
+      };
+    });
+
+    // 4-4. 성적 리포트 설명
+    const gradeReportDescription =
+      gradeData.gradeReports?.[0]?.description ?? '';
+
     return {
       instructor: {
         name: lecture.instructor.user.name,
@@ -517,11 +550,15 @@ export class GradesService {
         rank: gradeData.rank || 0,
         isPass: gradeData.isPass,
       },
+      gradeReport: {
+        description: gradeReportDescription,
+      },
       lecture: {
         title: lecture.title,
       },
       recentGrades,
       attendanceRate,
+      assignments,
       questions: questionsWithStats,
     };
   }

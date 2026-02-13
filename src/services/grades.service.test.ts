@@ -537,6 +537,18 @@ describe('GradesService - @unit #critical', () => {
               statistic: { correctRate: 80.0 },
             },
           ],
+          assignmentsOnExamReport: [
+            {
+              assignment: {
+                id: 'asgn-1',
+                title: '과제1',
+                category: {
+                  name: '주간테스트',
+                  resultPresets: ['C', 'B', 'A'],
+                },
+              },
+            },
+          ],
         },
         lectureEnrollment: {
           id: 'le-1',
@@ -570,7 +582,18 @@ describe('GradesService - @unit #critical', () => {
               },
             },
           ],
+          assignmentResults: [
+            {
+              assignmentId: 'asgn-1',
+              resultIndex: 2, // 'A'
+            },
+          ],
         },
+        gradeReports: [
+          {
+            description: '성적표 코멘트입니다.',
+          },
+        ],
       };
 
       mockGradesRepo.findGradeReportByGradeId.mockResolvedValue(
@@ -609,6 +632,17 @@ describe('GradesService - @unit #critical', () => {
       expect(result.grade.score).toBe(90);
       expect(result.attendanceRate).toBe(90.0); // (10-1)/10 * 100
       expect(result.questions).toHaveLength(1);
+
+      // New assertions
+      expect(result.gradeReport.description).toBe('성적표 코멘트입니다.');
+      expect(result.assignments).toHaveLength(1);
+      expect(result.assignments[0]).toEqual({
+        assignmentId: 'asgn-1',
+        title: '과제1',
+        categoryName: '주간테스트',
+        resultIndex: 2,
+        resultLabel: 'A',
+      });
     });
 
     it('성적 정보가 없을 때, NotFoundException을 던진다', async () => {
