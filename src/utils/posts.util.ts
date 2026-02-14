@@ -33,6 +33,9 @@ export interface StudentPostStatsFormatted {
  * 학생 질문 통계 포맷팅 헬퍼 함수
  * increaseRate를 계산하고 프론트엔드용 stats 객체를 반환
  *
+ * DRY: 이 헬퍼 함수는 student-posts.service.ts와 instructor-posts.service.ts에서
+ * 공통으로 사용됩니다. 증가율 계산 로직이나 통계 필드가 변경될 때 이 함수만 수정하면 됩니다.
+ *
  * @param statsRaw - studentPostsRepository.getStats()의 원시 데이터
  * @returns 포맷팅된 통계 객체
  */

@@ -135,6 +135,8 @@ export class StudentPostsService {
       enrollmentIds, // [NEW] 학부모용
     });
 
+    // [Stats] 학생 질문 통계 추가 (강사/조교인 경우)
+    // DRY: formatStudentPostStats 헬퍼 함수 사용 - instructor-posts.service.ts와 동일 로직 공유
     let stats = null;
     if (instructorId) {
       const statsRaw = await this.studentPostsRepository.getStats(instructorId);

@@ -314,6 +314,7 @@ export class InstructorPostsService {
     });
 
     // [Stats] 학생 질문 통계 추가 (강사/조교인 경우)
+    // DRY: formatStudentPostStats 헬퍼 함수 사용 - student-posts.service.ts와 동일 로직 공유
     let stats = null;
     if (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) {
       // targetInstructorId는 위 로직에서 이미 구해짐 (강사는 본인, 조교는 소속 강사)
