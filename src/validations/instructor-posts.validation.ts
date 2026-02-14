@@ -13,12 +13,12 @@ export const createInstructorPostSchema = z.object({
     .optional(),
 
   // Lecture Scope일 때 필수 (하지만 Global일 수도 있으므로 optional 처리 후 service에서 검증)
-  lectureId: z.cuid2().optional(),
+  lectureId: z.cuid2().nullable().optional(),
 
   // Selected Scope일 때 필수
-  targetEnrollmentIds: z.array(z.cuid2()).optional(),
+  targetEnrollmentIds: z.array(z.cuid2()).nullable().optional(),
 
-  materialIds: z.array(z.cuid2()).optional(),
+  materialIds: z.array(z.cuid2()).nullable().optional(),
 });
 
 export const updateInstructorPostSchema = z.object({
@@ -32,9 +32,9 @@ export const updateInstructorPostSchema = z.object({
     .enum([TargetRole.ALL, TargetRole.STUDENT, TargetRole.PARENT])
     .optional(),
 
-  lectureId: z.cuid2().optional(),
-  targetEnrollmentIds: z.array(z.cuid2()).optional(),
-  materialIds: z.array(z.cuid2()).optional(),
+  lectureId: z.cuid2().nullable().optional(),
+  targetEnrollmentIds: z.array(z.cuid2()).nullable().optional(),
+  materialIds: z.array(z.cuid2()).nullable().optional(),
 });
 
 export const getInstructorPostsQuerySchema = z.object({
