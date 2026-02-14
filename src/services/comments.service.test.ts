@@ -161,4 +161,100 @@ describe('CommentsService 보안 검증', () => {
       ).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe('게시글 접근 권한 검증 (IDOR)', () => {
+    const instructorId = 'my-instructor-id';
+    const otherInstructorId = 'other-instructor-id';
+    const profileId = instructorId;
+    const userType = UserType.INSTRUCTOR;
+
+    beforeEach(() => {
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        instructorId,
+      );
+      permissionService.validateInstructorAccess.mockImplementation(
+        async (targetId, type, profId) => {
+          const effectiveId =
+            type === UserType.INSTRUCTOR ? profId : 'assistant-logic';
+          if (effectiveId !== targetId) throw new ForbiddenException('권한 없음');
+        },
+      );
+    });
+
+    it('타 강사의 공지에 댓글을 작성하려고 하면 ForbiddenException이 발생해야 한다', async () => {
+      const otherPost = { id: 'other-post', instructorId: otherInstructorId };
+      instructorPostsRepo.findById.mockResolvedValue(otherPost);
+
+      const data = { instructorPostId: 'other-post', content: 'hello' };
+
+      await expect(
+        service.createComment(data, userType, profileId),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('타 강사의 학생 질문에 답변을 작성하려고 하면 ForbiddenException이 발생해야 한다', async () => {
+      const otherStudentPost = {
+        id: 'other-student-post',
+        instructorId: otherInstructorId,
+      };
+      studentPostsRepo.findById.mockResolvedValue(otherStudentPost as any);
+
+      const data = { studentPostId: 'other-student-post', content: 'answer' };
+
+      await expect(
+        service.createComment(data, userType, profileId),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('본인의 댓글이라도 타인의 게시글에 있는 것이라면 수정을 막아야 한다', async () => {
+      // 1. 타인의 게시글 준비
+      const otherPost = { id: 'other-post', instructorId: otherInstructorId };
+      instructorPostsRepo.findById.mockResolvedValue(otherPost);
+
+      // 2. 내 댓글이지만 저 게시글에 속해 있다고 가정 (공격자가 postId를 조작하여 본인 댓글이 있는 것처럼 속이는 경우 등 방지)
+      // 사실 validateAndGetComment가 comment.instructorPostId === postId를 체크하므로,
+      // comment.instructorPostId가 other-post여야 함.
+      const myCommentOnOtherPost = {
+        id: 'my-comment',
+        instructorId: instructorId, // 내꺼
+        instructorPostId: 'other-post', // 하지만 남의 글에 달림 (어떻게든 달았다고 가정)
+      };
+      commentsRepo.findById.mockResolvedValue(myCommentOnOtherPost);
+
+      const data = { content: 'hack' };
+
+      await expect(
+        service.updateComment(
+          'my-comment',
+          data,
+          userType,
+          profileId,
+          'other-post',
+          'instructorPost',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('본인의 댓글이라도 타인의 게시글에 있는 것이라면 삭제를 막아야 한다', async () => {
+      const otherPost = { id: 'other-post', instructorId: otherInstructorId };
+      instructorPostsRepo.findById.mockResolvedValue(otherPost);
+
+      const myCommentOnOtherPost = {
+        id: 'my-comment',
+        instructorId: instructorId,
+        instructorPostId: 'other-post',
+      };
+      commentsRepo.findById.mockResolvedValue(myCommentOnOtherPost);
+
+      await expect(
+        service.deleteComment(
+          'my-comment',
+          userType,
+          profileId,
+          'other-post',
+          'instructorPost',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
 });
