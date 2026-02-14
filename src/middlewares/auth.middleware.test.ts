@@ -60,11 +60,11 @@ describe('Auth Middleware - @unit #critical', () => {
   describe('[RBAC-I01] requireAuth 미들웨어', () => {
     describe('비로그인 시 401 응답', () => {
       it('세션이 없으면 UnauthorizedException을 throw한다', async () => {
-        // Arrange
+        // 준비
         mockAuthService.getSession.mockResolvedValue(null);
         const requireAuth = createRequireAuth(mockAuthService);
 
-        // Act & Assert
+        // 실행 & Assert
         await expect(
           requireAuth(mockReq as Request, mockRes as Response, mockNext),
         ).rejects.toThrow(UnauthorizedException);
@@ -73,7 +73,7 @@ describe('Auth Middleware - @unit #critical', () => {
 
     describe('로그인 시 req.user 설정', () => {
       it('유효한 세션이 있으면 req.user를 설정하고 next()를 호출한다', async () => {
-        // Arrange
+        // 준비
         mockAuthService.getSession.mockResolvedValue({
           user: mockUsers.instructor,
           session: mockSession,
@@ -81,10 +81,10 @@ describe('Auth Middleware - @unit #critical', () => {
         });
         const requireAuth = createRequireAuth(mockAuthService);
 
-        // Act
+        // 실행
         await requireAuth(mockReq as Request, mockRes as Response, mockNext);
 
-        // Assert
+        // 검증
         expect(mockReq.user).toBeDefined();
         expect(mockReq.user?.id).toBe(mockUsers.instructor.id);
         expect(mockReq.user?.userType).toBe(UserType.INSTRUCTOR);
@@ -104,57 +104,57 @@ describe('Auth Middleware - @unit #critical', () => {
 
     describe('강사만 통과', () => {
       it('강사 역할이면 next()를 호출한다', () => {
-        // Arrange
+        // 준비
         mockReq.user = asInstructor();
 
-        // Act
+        // 실행
         requireInstructor(mockReq as Request, mockRes as Response, mockNext);
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith();
       });
 
       it('조교 역할이면 ForbiddenException을 전달한다', () => {
-        // Arrange
+        // 준비
         mockReq.user = asAssistant();
 
-        // Act
+        // 실행
         requireInstructor(mockReq as Request, mockRes as Response, mockNext);
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith(expect.any(ForbiddenException));
       });
 
       it('학생 역할이면 ForbiddenException을 전달한다', () => {
-        // Arrange
+        // 준비
         mockReq.user = asStudent();
 
-        // Act
+        // 실행
         requireInstructor(mockReq as Request, mockRes as Response, mockNext);
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith(expect.any(ForbiddenException));
       });
 
       it('학부모 역할이면 ForbiddenException을 전달한다', () => {
-        // Arrange
+        // 준비
         mockReq.user = asParent();
 
-        // Act
+        // 실행
         requireInstructor(mockReq as Request, mockRes as Response, mockNext);
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith(expect.any(ForbiddenException));
       });
 
       it('user가 없으면 UnauthorizedException을 전달한다', () => {
-        // Arrange
+        // 준비
         mockReq.user = undefined;
 
-        // Act
+        // 실행
         requireInstructor(mockReq as Request, mockRes as Response, mockNext);
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith(
           expect.any(UnauthorizedException),
         );
@@ -174,63 +174,63 @@ describe('Auth Middleware - @unit #critical', () => {
 
     describe('강사/조교 통과', () => {
       it('강사 역할이면 next()를 호출한다', () => {
-        // Arrange
+        // 준비
         mockReq.user = asInstructor();
 
-        // Act
+        // 실행
         requireInstructorOrAssistant(
           mockReq as Request,
           mockRes as Response,
           mockNext,
         );
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith();
       });
 
       it('조교 역할이면 next()를 호출한다', () => {
-        // Arrange
+        // 준비
         mockReq.user = asAssistant();
         mockReq.profile = mockProfiles.assistant;
 
-        // Act
+        // 실행
         requireInstructorOrAssistant(
           mockReq as Request,
           mockRes as Response,
           mockNext,
         );
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith();
       });
 
       it('학생 역할이면 ForbiddenException을 전달한다', () => {
-        // Arrange
+        // 준비
         mockReq.user = asStudent();
 
-        // Act
+        // 실행
         requireInstructorOrAssistant(
           mockReq as Request,
           mockRes as Response,
           mockNext,
         );
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith(expect.any(ForbiddenException));
       });
 
       it('학부모 역할이면 ForbiddenException을 전달한다', () => {
-        // Arrange
+        // 준비
         mockReq.user = asParent();
 
-        // Act
+        // 실행
         requireInstructorOrAssistant(
           mockReq as Request,
           mockRes as Response,
           mockNext,
         );
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith(expect.any(ForbiddenException));
       });
     });
@@ -245,46 +245,46 @@ describe('Auth Middleware - @unit #critical', () => {
 
     describe('학생만 통과', () => {
       it('학생 역할이면 next()를 호출한다', () => {
-        // Arrange
+        // 준비
         mockReq.user = asStudent();
 
-        // Act
+        // 실행
         requireStudent(mockReq as Request, mockRes as Response, mockNext);
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith();
       });
 
       it('강사 역할이면 ForbiddenException을 전달한다', () => {
-        // Arrange
+        // 준비
         mockReq.user = asInstructor();
 
-        // Act
+        // 실행
         requireStudent(mockReq as Request, mockRes as Response, mockNext);
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith(expect.any(ForbiddenException));
       });
 
       it('조교 역할이면 ForbiddenException을 전달한다', () => {
-        // Arrange
+        // 준비
         mockReq.user = asAssistant();
 
-        // Act
+        // 실행
         requireStudent(mockReq as Request, mockRes as Response, mockNext);
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith(expect.any(ForbiddenException));
       });
 
       it('학부모 역할이면 ForbiddenException을 전달한다', () => {
-        // Arrange
+        // 준비
         mockReq.user = asParent();
 
-        // Act
+        // 실행
         requireStudent(mockReq as Request, mockRes as Response, mockNext);
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith(expect.any(ForbiddenException));
       });
     });
@@ -299,35 +299,35 @@ describe('Auth Middleware - @unit #critical', () => {
 
     describe('학부모만 통과', () => {
       it('학부모 역할이면 next()를 호출한다', () => {
-        // Arrange
+        // 준비
         mockReq.user = asParent();
 
-        // Act
+        // 실행
         requireParent(mockReq as Request, mockRes as Response, mockNext);
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith();
       });
 
       it('강사 역할이면 ForbiddenException을 전달한다', () => {
-        // Arrange
+        // 준비
         mockReq.user = asInstructor();
 
-        // Act
+        // 실행
         requireParent(mockReq as Request, mockRes as Response, mockNext);
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith(expect.any(ForbiddenException));
       });
 
       it('학생 역할이면 ForbiddenException을 전달한다', () => {
-        // Arrange
+        // 준비
         mockReq.user = asStudent();
 
-        // Act
+        // 실행
         requireParent(mockReq as Request, mockRes as Response, mockNext);
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith(expect.any(ForbiddenException));
       });
     });
@@ -340,33 +340,33 @@ describe('Auth Middleware - @unit #critical', () => {
   describe('[RBAC-I06] requireUserType 미들웨어', () => {
     describe('잘못된 userType 시 403 응답', () => {
       it('허용되지 않은 역할이면 ForbiddenException을 전달한다', () => {
-        // Arrange
+        // 준비
         mockReq.user = asInstructor();
         const onlyStudentMiddleware = requireUserType(UserType.STUDENT);
 
-        // Act
+        // 실행
         onlyStudentMiddleware(
           mockReq as Request,
           mockRes as Response,
           mockNext,
         );
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith(expect.any(ForbiddenException));
       });
 
       it('여러 역할 중 하나라도 일치하면 통과한다', () => {
-        // Arrange
+        // 준비
         mockReq.user = asInstructor();
         const multiRoleMiddleware = requireUserType(
           UserType.INSTRUCTOR,
           UserType.ASSISTANT,
         );
 
-        // Act
+        // 실행
         multiRoleMiddleware(mockReq as Request, mockRes as Response, mockNext);
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith();
       });
     });
@@ -379,7 +379,7 @@ describe('Auth Middleware - @unit #critical', () => {
   describe('optionalAuth 미들웨어', () => {
     describe('선택적 인증', () => {
       it('세션이 있으면 req.user를 설정하고 next()를 호출한다', async () => {
-        // Arrange
+        // 준비
         mockAuthService.getSession.mockResolvedValue({
           user: mockUsers.instructor,
           session: mockSession,
@@ -387,39 +387,39 @@ describe('Auth Middleware - @unit #critical', () => {
         });
         const optionalAuth = createOptionalAuth(mockAuthService);
 
-        // Act
+        // 실행
         await optionalAuth(mockReq as Request, mockRes as Response, mockNext);
 
-        // Assert
+        // 검증
         expect(mockReq.user).toBeDefined();
         expect(mockReq.user?.id).toBe(mockUsers.instructor.id);
         expect(mockNext).toHaveBeenCalledWith();
       });
 
       it('세션이 없어도 에러 없이 next()를 호출한다', async () => {
-        // Arrange
+        // 준비
         mockAuthService.getSession.mockResolvedValue(null);
         const optionalAuth = createOptionalAuth(mockAuthService);
 
-        // Act
+        // 실행
         await optionalAuth(mockReq as Request, mockRes as Response, mockNext);
 
-        // Assert
+        // 검증
         expect(mockReq.user).toBeUndefined();
         expect(mockNext).toHaveBeenCalledWith();
       });
 
       it('세션 조회 중 에러가 발생해도 next()를 호출한다', async () => {
-        // Arrange
+        // 준비
         mockAuthService.getSession.mockRejectedValue(
           new Error('Session error'),
         );
         const optionalAuth = createOptionalAuth(mockAuthService);
 
-        // Act
+        // 실행
         await optionalAuth(mockReq as Request, mockRes as Response, mockNext);
 
-        // Assert
+        // 검증
         expect(mockReq.user).toBeUndefined();
         expect(mockNext).toHaveBeenCalledWith();
       });

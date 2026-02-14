@@ -15,11 +15,11 @@ import {
 } from '../test/fixtures/index.js';
 
 describe('AuthController - @unit #critical', () => {
-  // Mock AuthService
+  // AuthService Mock 객체
   let mockAuthService: ReturnType<typeof createMockAuthService>;
   let authController: AuthController;
 
-  // Mock Request, Response, NextFunction
+  // Express Request, Response, NextFunction Mock 객체
   let mockReq: Partial<Request>;
   let mockRes: Partial<Response>;
   let mockNext: jest.MockedFunction<NextFunction>;
@@ -27,19 +27,19 @@ describe('AuthController - @unit #critical', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // Create mock AuthService using factory function
+    // 팩토리 함수를 사용하여 AuthService Mock 생성
     mockAuthService = createMockAuthService();
 
-    // Create AuthController with mock service (DI)
+    // 의존성 주입(DI)을 통해 AuthController 생성
     authController = new AuthController(mockAuthService);
 
-    // Setup mock Request
+    // Request Mock 설정
     mockReq = {
       body: {},
       headers: {},
     };
 
-    // Setup mock Response
+    // Response Mock 설정
     mockRes = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn().mockReturnThis(),
@@ -48,7 +48,7 @@ describe('AuthController - @unit #critical', () => {
       setHeader: jest.fn().mockReturnThis(),
     };
 
-    // Setup mock NextFunction
+    // NextFunction Mock 설정
     mockNext = jest.fn();
   });
 
@@ -59,7 +59,7 @@ describe('AuthController - @unit #critical', () => {
   describe('[인증] 회원가입', () => {
     describe('AUTH-01: 강사 회원가입 API', () => {
       it('POST /instructor/signup - 성공 시 201과 사용자 정보 반환', async () => {
-        // Arrange
+        // 준비
         mockReq.body = signUpRequests.instructor;
 
         mockAuthService.signUp.mockResolvedValue({
@@ -69,14 +69,14 @@ describe('AuthController - @unit #critical', () => {
           setCookie: 'session_token=test-cookie',
         });
 
-        // Act
+        // 실행
         await authController.instructorSignUp(
           mockReq as Request,
           mockRes as Response,
           mockNext,
         );
 
-        // Assert
+        // 검증
         expect(mockAuthService.signUp).toHaveBeenCalledWith(
           UserType.INSTRUCTOR,
           mockReq.body,
@@ -99,27 +99,27 @@ describe('AuthController - @unit #critical', () => {
       });
 
       it('POST /instructor/signup - 실패 시 에러를 next로 전달', async () => {
-        // Arrange
+        // 준비
         mockReq.body = signUpRequests.instructor;
 
         const error = new BadRequestException('이미 가입된 전화번호입니다.');
         mockAuthService.signUp.mockRejectedValue(error);
 
-        // Act
+        // 실행
         await authController.instructorSignUp(
           mockReq as Request,
           mockRes as Response,
           mockNext,
         );
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith(error);
       });
     });
 
     describe('AUTH-02: 조교 회원가입 API', () => {
       it('POST /assistant/signup - 성공 시 201과 사용자 정보 반환', async () => {
-        // Arrange
+        // 준비
         mockReq.body = signUpRequests.assistant;
 
         mockAuthService.signUp.mockResolvedValue({
@@ -129,14 +129,14 @@ describe('AuthController - @unit #critical', () => {
           setCookie: 'session_token=test-cookie',
         });
 
-        // Act
+        // 실행
         await authController.assistantSignUp(
           mockReq as Request,
           mockRes as Response,
           mockNext,
         );
 
-        // Assert
+        // 검증
         expect(mockAuthService.signUp).toHaveBeenCalledWith(
           UserType.ASSISTANT,
           mockReq.body,
@@ -147,7 +147,7 @@ describe('AuthController - @unit #critical', () => {
 
     describe('AUTH-03: 학생 회원가입 API', () => {
       it('POST /student/signup - 성공 시 201과 사용자 정보 반환', async () => {
-        // Arrange
+        // 준비
         mockReq.body = signUpRequests.student;
 
         mockAuthService.signUp.mockResolvedValue({
@@ -157,14 +157,14 @@ describe('AuthController - @unit #critical', () => {
           setCookie: 'session_token=test-cookie',
         });
 
-        // Act
+        // 실행
         await authController.studentSignUp(
           mockReq as Request,
           mockRes as Response,
           mockNext,
         );
 
-        // Assert
+        // 검증
         expect(mockAuthService.signUp).toHaveBeenCalledWith(
           UserType.STUDENT,
           mockReq.body,
@@ -175,7 +175,7 @@ describe('AuthController - @unit #critical', () => {
 
     describe('AUTH-04: 학부모 회원가입 API', () => {
       it('POST /parent/signup - 성공 시 201과 사용자 정보 반환', async () => {
-        // Arrange
+        // 준비
         mockReq.body = signUpRequests.parent;
 
         mockAuthService.signUp.mockResolvedValue({
@@ -185,14 +185,14 @@ describe('AuthController - @unit #critical', () => {
           setCookie: 'session_token=test-cookie',
         });
 
-        // Act
+        // 실행
         await authController.parentSignUp(
           mockReq as Request,
           mockRes as Response,
           mockNext,
         );
 
-        // Assert
+        // 검증
         expect(mockAuthService.signUp).toHaveBeenCalledWith(
           UserType.PARENT,
           mockReq.body,
@@ -205,7 +205,7 @@ describe('AuthController - @unit #critical', () => {
   describe('[인증] 로그인', () => {
     describe('AUTH-05: 로그인 API', () => {
       it('POST /signin - 성공 시 200과 세션 쿠키 발급', async () => {
-        // Arrange
+        // 준비
         mockReq.body = {
           ...signInRequests.instructor,
           userType: UserType.INSTRUCTOR,
@@ -219,14 +219,14 @@ describe('AuthController - @unit #critical', () => {
           setCookie: 'session_token=test-cookie',
         });
 
-        // Act
+        // 실행
         await authController.signIn(
           mockReq as Request,
           mockRes as Response,
           mockNext,
         );
 
-        // Assert
+        // 검증
         expect(mockAuthService.signIn).toHaveBeenCalledWith(
           mockReq.body.email,
           mockReq.body.password,
@@ -250,7 +250,7 @@ describe('AuthController - @unit #critical', () => {
       });
 
       it('POST /signin - rememberMe가 false면 세션 쿠키로 설정', async () => {
-        // Arrange
+        // 준비
         mockReq.body = {
           ...signInRequests.instructor,
           userType: UserType.INSTRUCTOR,
@@ -264,14 +264,14 @@ describe('AuthController - @unit #critical', () => {
           setCookie: 'session_token=test-cookie',
         });
 
-        // Act
+        // 실행
         await authController.signIn(
           mockReq as Request,
           mockRes as Response,
           mockNext,
         );
 
-        // Assert
+        // 검증
         expect(mockAuthService.signIn).toHaveBeenCalledWith(
           mockReq.body.email,
           mockReq.body.password,
@@ -285,18 +285,18 @@ describe('AuthController - @unit #critical', () => {
   describe('[인증] 로그아웃', () => {
     describe('AUTH-06: 로그아웃 API', () => {
       it('POST /signout - 성공 시 쿠키 삭제 및 성공 메시지 반환', async () => {
-        // Arrange
+        // 준비
         mockReq.headers = { cookie: 'session_token=test-token' };
         mockAuthService.signOut.mockResolvedValue({ success: true });
 
-        // Act
+        // 실행
         await authController.signOut(
           mockReq as Request,
           mockRes as Response,
           mockNext,
         );
 
-        // Assert
+        // 검증
         expect(mockAuthService.signOut).toHaveBeenCalledWith(mockReq.headers);
         expect(mockRes.json).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -311,7 +311,7 @@ describe('AuthController - @unit #critical', () => {
   describe('[인증] 세션 조회', () => {
     describe('AUTH-07: 세션 조회 API', () => {
       it('GET /session - 유효한 세션 시 사용자 정보 반환', async () => {
-        // Arrange
+        // 준비
         mockReq.headers = { cookie: 'session_token=test-token' };
         mockAuthService.getSession.mockResolvedValue({
           user: mockUsers.instructor,
@@ -319,14 +319,14 @@ describe('AuthController - @unit #critical', () => {
           profile: mockProfiles.instructor,
         });
 
-        // Act
+        // 실행
         await authController.getSession(
           mockReq as Request,
           mockRes as Response,
           mockNext,
         );
 
-        // Assert
+        // 검증
         expect(mockAuthService.getSession).toHaveBeenCalledWith(
           mockReq.headers,
         );
@@ -343,18 +343,18 @@ describe('AuthController - @unit #critical', () => {
       });
 
       it('GET /session - 세션 없을 시 401 에러', async () => {
-        // Arrange
+        // 준비
         mockReq.headers = {};
         mockAuthService.getSession.mockResolvedValue(null);
 
-        // Act
+        // 실행
         await authController.getSession(
           mockReq as Request,
           mockRes as Response,
           mockNext,
         );
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith(
           expect.any(UnauthorizedException),
         );
@@ -369,27 +369,27 @@ describe('AuthController - @unit #critical', () => {
   describe('[예외] 에러 핸들링', () => {
     describe('ERR-01: 중복 이메일', () => {
       it('중복 이메일 회원가입 시 에러를 next로 전달', async () => {
-        // Arrange
+        // 준비
         mockReq.body = signUpRequests.instructor;
 
         const error = new BadRequestException('이미 존재하는 이메일입니다.');
         mockAuthService.signUp.mockRejectedValue(error);
 
-        // Act
+        // 실행
         await authController.instructorSignUp(
           mockReq as Request,
           mockRes as Response,
           mockNext,
         );
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith(error);
       });
     });
 
     describe('ERR-02: 잘못된 비밀번호', () => {
       it('잘못된 비밀번호 로그인 시 에러를 next로 전달', async () => {
-        // Arrange
+        // 준비
         mockReq.body = {
           email: mockUsers.instructor.email,
           password: 'wrong-password',
@@ -401,21 +401,21 @@ describe('AuthController - @unit #critical', () => {
         );
         mockAuthService.signIn.mockRejectedValue(error);
 
-        // Act
+        // 실행
         await authController.signIn(
           mockReq as Request,
           mockRes as Response,
           mockNext,
         );
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith(error);
       });
     });
 
     describe('ERR-04: 잘못된 조교 코드', () => {
       it('유효하지 않은 조교 코드 사용 시 에러를 next로 전달', async () => {
-        // Arrange
+        // 준비
         mockReq.body = {
           ...signUpRequests.assistant,
           signupCode: 'INVALID-CODE',
@@ -426,14 +426,14 @@ describe('AuthController - @unit #critical', () => {
         );
         mockAuthService.signUp.mockRejectedValue(error);
 
-        // Act
+        // 실행
         await authController.assistantSignUp(
           mockReq as Request,
           mockRes as Response,
           mockNext,
         );
 
-        // Assert
+        // 검증
         expect(mockNext).toHaveBeenCalledWith(error);
       });
     });
@@ -445,7 +445,7 @@ describe('AuthController - @unit #critical', () => {
 
   describe('쿠키 설정', () => {
     it('session에 token이 있으면 쿠키에 설정한다', async () => {
-      // Arrange
+      // 준비
       mockReq.body = {
         ...signInRequests.instructor,
         userType: UserType.INSTRUCTOR,
@@ -458,14 +458,14 @@ describe('AuthController - @unit #critical', () => {
         setCookie: 'session_token=test-cookie',
       });
 
-      // Act
+      // 실행
       await authController.signIn(
         mockReq as Request,
         mockRes as Response,
         mockNext,
       );
 
-      // Assert
+      // 검증
       expect(mockRes.setHeader).toHaveBeenCalledWith(
         'Set-Cookie',
         'session_token=test-cookie',
@@ -473,7 +473,7 @@ describe('AuthController - @unit #critical', () => {
     });
 
     it('result.token이 있으면 쿠키에 설정한다 (session이 없는 경우)', async () => {
-      // Arrange
+      // 준비
       mockReq.body = {
         ...signInRequests.instructor,
         userType: UserType.INSTRUCTOR,
@@ -486,14 +486,14 @@ describe('AuthController - @unit #critical', () => {
         setCookie: 'session_token=test-cookie',
       });
 
-      // Act
+      // 실행
       await authController.signIn(
         mockReq as Request,
         mockRes as Response,
         mockNext,
       );
 
-      // Assert
+      // 검증
       expect(mockRes.setHeader).toHaveBeenCalledWith(
         'Set-Cookie',
         'session_token=test-cookie',

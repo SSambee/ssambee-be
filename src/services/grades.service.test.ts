@@ -81,7 +81,7 @@ describe('GradesService - @unit #critical', () => {
 
   describe('[채점] submitGrading', () => {
     it('강사가 올바른 정보로 채점 결과를 제출할 때, 점수 계산이 정확하면 제출이 성공하고 성적 정보가 반환된다', async () => {
-      // Arrange
+      // 준비
       const data = submitGradingRequests.basic;
       const mockQuestionsList = [
         mockQuestions.multipleChoice,
@@ -103,7 +103,7 @@ describe('GradesService - @unit #critical', () => {
       mockExamsRepo.findQuestionsByExamId.mockResolvedValue(mockQuestionsList);
       mockGradesRepo.upsertGrade.mockResolvedValue(mockGrades.basic);
 
-      // Act
+      // 실행
       const result = await gradesService.submitGrading(
         mockExam.id,
         data,
@@ -111,7 +111,7 @@ describe('GradesService - @unit #critical', () => {
         mockProfileId,
       );
 
-      // Assert
+      // 검증
       expect(mockExamsRepo.findById).toHaveBeenCalledWith(mockExam.id);
       expect(mockLecturesRepo.findById).toHaveBeenCalledWith(
         mockExam.lectureId,
@@ -411,7 +411,7 @@ describe('GradesService - @unit #critical', () => {
 
   describe('[조회] getGradeDetailForInstructor', () => {
     it('유효한 요청에 대해 성적 및 답안 정보를 반환한다', async () => {
-      // Arrange
+      // 준비
       const gradeId = 'grade-1';
       const mockGradeWithDetails = {
         id: gradeId,
@@ -470,14 +470,14 @@ describe('GradesService - @unit #critical', () => {
         mockStudentAnswers,
       );
 
-      // Act
+      // 실행
       const result = await gradesService.getGradeDetailForInstructor(
         gradeId,
         mockUserType,
         mockProfileId,
       );
 
-      // Assert
+      // 검증
       expect(mockGradesRepo.findByIdWithDetails).toHaveBeenCalledWith(gradeId);
       expect(mockLecturesRepo.findById).toHaveBeenCalledWith(
         mockExam.lectureId,
@@ -514,7 +514,7 @@ describe('GradesService - @unit #critical', () => {
 
   describe('[리포트] getGradeReport', () => {
     it('유효한 요청에 대해 성적 리포트 정보를 반환한다', async () => {
-      // Arrange
+      // 준비
       const gradeId = 'grade-1';
       const mockGradeReportData = {
         score: 90,
@@ -608,14 +608,14 @@ describe('GradesService - @unit #critical', () => {
         },
       );
 
-      // Act
+      // 실행
       const result = await gradesService.getGradeReport(
         gradeId,
         mockUserType,
         mockProfileId,
       );
 
-      // Assert
+      // 검증
       expect(mockGradesRepo.findGradeReportByGradeId).toHaveBeenCalledWith(
         gradeId,
       );

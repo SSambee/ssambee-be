@@ -64,10 +64,10 @@ describe('ClinicsService - @unit #critical', () => {
     const createData = createClinicDto;
 
     it('클리닉 생성을 완료할 때, 시험 정보를 찾을 수 없으면 NotFoundException을 던진다', async () => {
-      // Arrange
+      // 준비
       mockExamsRepo.findById.mockResolvedValue(null);
 
-      // Act & Assert
+      // 실행 & Assert
       await expect(
         clinicsService.completeGrading(examId, createData, userType, profileId),
       ).rejects.toThrow(NotFoundException);
@@ -75,20 +75,20 @@ describe('ClinicsService - @unit #critical', () => {
     });
 
     it('클리닉 생성을 완료할 때, 강의 정보를 찾을 수 없으면 NotFoundException을 던진다', async () => {
-      // Arrange
+      // 준비
       mockExamsRepo.findById.mockResolvedValue(
         mockExams.basic as Awaited<ReturnType<typeof mockExamsRepo.findById>>,
       );
       mockLecturesRepo.findById.mockResolvedValue(null);
 
-      // Act & Assert
+      // 실행 & Assert
       await expect(
         clinicsService.completeGrading(examId, createData, userType, profileId),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('클리닉 생성을 완료할 때, 시험의 채점 상태가 진행 중(IN_PROGRESS)이 아니더라도(예: PENDING) 성공적으로 완료 처리하고 상태를 변경한다', async () => {
-      // Arrange
+      // 준비
       mockExamsRepo.findById.mockResolvedValue({
         ...mockExams.basic,
         gradingStatus: GradingStatus.PENDING,
@@ -102,7 +102,7 @@ describe('ClinicsService - @unit #critical', () => {
       mockClinicsRepo.findFailedGradesByExamId.mockResolvedValue([]);
       mockClinicsRepo.findExistingClinics.mockResolvedValue([]);
 
-      // Act
+      // 실행
       const result = await clinicsService.completeGrading(
         examId,
         createData,
@@ -110,7 +110,7 @@ describe('ClinicsService - @unit #critical', () => {
         profileId,
       );
 
-      // Assert
+      // 검증
       expect(result).toBeDefined();
       expect(mockExamsRepo.updateGradingStatus).toHaveBeenCalledWith(
         examId,
@@ -119,7 +119,7 @@ describe('ClinicsService - @unit #critical', () => {
     });
 
     it('클리닉 생성을 완료할 때, 불합격한 학생들에 대해 클리닉을 생성하고 시험 상태를 완료(COMPLETED)로 변경한다', async () => {
-      // Arrange
+      // 준비
       const mockExam = {
         ...mockExams.basic,
         gradingStatus: GradingStatus.IN_PROGRESS,
@@ -187,7 +187,7 @@ describe('ClinicsService - @unit #critical', () => {
       mockClinicsRepo.findExistingClinics.mockResolvedValue([]);
       mockClinicsRepo.createMany.mockResolvedValue({ count: 2 });
 
-      // Act
+      // 실행
       const result = await clinicsService.completeGrading(
         examId,
         createData,
@@ -195,7 +195,7 @@ describe('ClinicsService - @unit #critical', () => {
         profileId,
       );
 
-      // Assert
+      // 검증
       expect(result.createCount).toBe(2);
       expect(mockClinicsRepo.createMany).toHaveBeenCalled();
       expect(mockExamsRepo.updateGradingStatus).toHaveBeenCalledWith(
@@ -206,7 +206,7 @@ describe('ClinicsService - @unit #critical', () => {
     });
 
     it('클리닉 생성을 완료할 때, 이미 클리닉이 생성된 학생은 제외하고 나머지 학생들에 대해서만 생성한다', async () => {
-      // Arrange
+      // 준비
       const mockExam = {
         ...mockExams.basic,
         gradingStatus: GradingStatus.IN_PROGRESS,
@@ -281,7 +281,7 @@ describe('ClinicsService - @unit #critical', () => {
       );
       mockClinicsRepo.createMany.mockResolvedValue({ count: 1 });
 
-      // Act
+      // 실행
       const result = await clinicsService.completeGrading(
         examId,
         createData,
@@ -289,7 +289,7 @@ describe('ClinicsService - @unit #critical', () => {
         profileId,
       );
 
-      // Assert
+      // 검증
       expect(result.createCount).toBe(1);
       // enroll-1은 이미 존재하므로 enroll-2만 생성 요청되어야 함
       const callArgs = mockClinicsRepo.createMany.mock.calls[0][0];
@@ -302,7 +302,7 @@ describe('ClinicsService - @unit #critical', () => {
     const profileId = mockLectures.basic.instructorId;
 
     it('클리닉 목록을 조회할 때, 강사 계정인 경우 본인의 클리닉 목록과 성적 정보를 함께 반환한다', async () => {
-      // Arrange
+      // 준비
       const clinicsWithRelations = [mockClinicWithRelations].map((c) => ({
         ...c,
         lectureEnrollment: {
@@ -323,14 +323,14 @@ describe('ClinicsService - @unit #critical', () => {
         },
       ]);
 
-      // Act
+      // 실행
       const result = await clinicsService.getClinics(
         UserType.INSTRUCTOR,
         profileId,
         {},
       );
 
-      // Assert
+      // 검증
       expect(result).toHaveLength(1);
       expect(result[0].exam.score).toBe(70);
       expect(result[0].lecture.title).toBe(mockLectures.basic.title);
@@ -344,7 +344,7 @@ describe('ClinicsService - @unit #critical', () => {
     });
 
     it('클리닉 목록을 조회할 때, 조교 계정인 경우 담당 강사의 클리닉 목록을 조회하여 반환한다', async () => {
-      // Arrange
+      // 준비
       const assistantProfileId = 'assistant-id';
       const instructorId = mockLectures.basic.instructorId;
 
@@ -353,14 +353,14 @@ describe('ClinicsService - @unit #critical', () => {
       });
       mockClinicsRepo.findByInstructor.mockResolvedValue([]);
 
-      // Act
+      // 실행
       await clinicsService.getClinics(
         UserType.ASSISTANT,
         assistantProfileId,
         {},
       );
 
-      // Assert
+      // 검증
       expect(mockClinicsRepo.findByInstructor).toHaveBeenCalledWith(
         instructorId,
         {},
@@ -368,7 +368,7 @@ describe('ClinicsService - @unit #critical', () => {
     });
 
     it('클리닉 목록을 조회할 때, 권한이 없는 사용자 유형(예: 학생)이면 BadRequestException을 던진다', async () => {
-      // Act & Assert
+      // 실행 & Assert
       await expect(
         clinicsService.getClinics(UserType.STUDENT, 'student-id', {}),
       ).rejects.toThrow(BadRequestException);
@@ -387,14 +387,14 @@ describe('ClinicsService - @unit #critical', () => {
     };
 
     it('클리닉 정보를 수정할 때, 요청된 ID 중 일부를 찾을 수 없으면 NotFoundException을 던진다', async () => {
-      // Arrange
+      // 준비
       mockClinicsRepo.findByIds.mockResolvedValue([
         mockClinics.pending as Awaited<
           ReturnType<typeof mockClinicsRepo.findByIds>
         >[number],
       ]);
 
-      // Act & Assert
+      // 실행 & Assert
       await expect(
         clinicsService.updateClinics(
           updateData,
@@ -405,7 +405,7 @@ describe('ClinicsService - @unit #critical', () => {
     });
 
     it('클리닉 정보를 수정할 때, 강사에게 권한이 없는 클리닉이 포함되어 있으면 ForbiddenException을 던진다', async () => {
-      // Arrange
+      // 준비
       const otherClinics = [
         { ...mockClinics.pending, instructorId: 'other-instructor' },
         { ...mockClinics.completed, instructorId: 'other-instructor' },
@@ -421,7 +421,7 @@ describe('ClinicsService - @unit #critical', () => {
         new ForbiddenException('해당 권한이 없습니다.'),
       );
 
-      // Act & Assert
+      // 실행 & Assert
       await expect(
         clinicsService.updateClinics(
           updateData,
@@ -432,21 +432,21 @@ describe('ClinicsService - @unit #critical', () => {
     });
 
     it('클리닉 정보를 수정할 때, 모든 조건이 유효하면 클리닉 상태와 메모를 성공적으로 업데이트한다', async () => {
-      // Arrange
+      // 준비
       const myClinics = [mockClinics.pending, mockClinics.completed];
       mockClinicsRepo.findByIds.mockResolvedValue(
         myClinics as Awaited<ReturnType<typeof mockClinicsRepo.findByIds>>,
       );
       mockClinicsRepo.updateMany.mockResolvedValue({ count: 2 });
 
-      // Act
+      // 실행
       const result = await clinicsService.updateClinics(
         updateData,
         UserType.INSTRUCTOR,
         profileId,
       );
 
-      // Assert
+      // 검증
       expect(result.count).toBe(2);
       expect(mockClinicsRepo.updateMany).toHaveBeenCalledWith(
         clinicIds,

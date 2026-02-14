@@ -51,7 +51,7 @@ describe('AssistantsService', () => {
   describe('getAssistantsByInstructor', () => {
     const instructorId = 'inst-1';
 
-    it('should return SIGNED assistants by default', async () => {
+    it('기본적으로 승인된 조교 목록을 반환해야 한다', async () => {
       await service.getAssistantsByInstructor(instructorId);
 
       expect(mockRepo.findManyByInstructorId).toHaveBeenCalledWith(
@@ -60,7 +60,7 @@ describe('AssistantsService', () => {
       );
     });
 
-    it('should return PENDING assistants when status is pending', async () => {
+    it('상태가 대기 중인 조교 목록을 반환해야 한다', async () => {
       await service.getAssistantsByInstructor(instructorId, 'pending');
 
       expect(mockRepo.findManyByInstructorId).toHaveBeenCalledWith(
@@ -69,7 +69,7 @@ describe('AssistantsService', () => {
       );
     });
 
-    it('should return EXPIRED assistants when status is expired', async () => {
+    it('반환해야 한다:  EXPIRED assistants when status is expired', async () => {
       await service.getAssistantsByInstructor(instructorId, 'expired');
 
       expect(mockRepo.findManyByInstructorId).toHaveBeenCalledWith(
@@ -78,7 +78,7 @@ describe('AssistantsService', () => {
       );
     });
 
-    it('should return REJECTED assistants when status is rejected', async () => {
+    it('반환해야 한다:  REJECTED assistants when status is rejected', async () => {
       await service.getAssistantsByInstructor(instructorId, 'rejected');
 
       expect(mockRepo.findManyByInstructorId).toHaveBeenCalledWith(
@@ -93,7 +93,7 @@ describe('AssistantsService', () => {
     const instructorId = 'inst-1';
     const data = { name: 'New Name' };
 
-    it('should update assistant info successfully', async () => {
+    it('조교 정보를 성공적으로 수정해야 한다', async () => {
       (mockRepo.findById as jest.Mock).mockResolvedValue({ instructorId });
 
       await service.updateAssistant(id, instructorId, data);
@@ -101,7 +101,7 @@ describe('AssistantsService', () => {
       expect(mockRepo.update).toHaveBeenCalledWith(id, data);
     });
 
-    it('should throw NotFoundException if assistant not found', async () => {
+    it('에러를 던져야 한다:  NotFoundException if assistant not found', async () => {
       (mockRepo.findById as jest.Mock).mockResolvedValue(null);
 
       await expect(
@@ -109,7 +109,7 @@ describe('AssistantsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw ForbiddenException if instructorId mismatch', async () => {
+    it('에러를 던져야 한다:  ForbiddenException if instructorId mismatch', async () => {
       (mockRepo.findById as jest.Mock).mockResolvedValue({
         instructorId: 'other-inst',
       });
@@ -124,7 +124,7 @@ describe('AssistantsService', () => {
     const id = 'ast-1';
     const instructorId = 'inst-1';
 
-    it('should approve assistant successfully', async () => {
+    it('조교 승인이 성공적으로 완료되어야 한다', async () => {
       (mockRepo.findById as jest.Mock).mockResolvedValue({ instructorId });
 
       await service.approveAssistant(id, instructorId);
@@ -141,7 +141,7 @@ describe('AssistantsService', () => {
     const instructorId = 'inst-1';
     const userId = 'user-1';
 
-    it('should reject assistant and delete user successfully', async () => {
+    it('조교를 거절하고 유저를 성공적으로 삭제해야 한다', async () => {
       (mockRepo.findById as jest.Mock).mockResolvedValue({
         instructorId,
         userId,
@@ -181,7 +181,7 @@ describe('AssistantsService', () => {
     const instructorId = 'inst-1';
     const userId = 'user-1';
 
-    it('should expire assistant and delete user successfully', async () => {
+    it('조교 계정을 만료시키고 유저를 성공적으로 삭제해야 한다', async () => {
       (mockRepo.findById as jest.Mock).mockResolvedValue({
         instructorId,
         userId,

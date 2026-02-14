@@ -42,7 +42,7 @@ describe('AssignmentCategoryService', () => {
       resultPresets: ['Fail', 'Pass', 'Excellent'],
     };
 
-    it('should create a category successfully', async () => {
+    it('성공적으로 카테고리를 생성해야 한다', async () => {
       (mockRepo.findByInstructorIdAndName as jest.Mock).mockResolvedValue(null);
       (mockRepo.create as jest.Mock).mockResolvedValue(mockCategory);
 
@@ -59,7 +59,7 @@ describe('AssignmentCategoryService', () => {
       expect(result).toEqual(mockCategory);
     });
 
-    it('should throw ConflictException if name exists', async () => {
+    it('이름이 중복된 경우 ConflictException을 던져야 한다', async () => {
       (mockRepo.findByInstructorIdAndName as jest.Mock).mockResolvedValue(
         mockCategory,
       );
@@ -69,7 +69,7 @@ describe('AssignmentCategoryService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('should throw ConflictException if P2002 error occurs', async () => {
+    it('DB 제약 조건 위반 시 ConflictException을 던져야 한다', async () => {
       (mockRepo.findByInstructorIdAndName as jest.Mock).mockResolvedValue(null);
 
       const p2002Error = new Prisma.PrismaClientKnownRequestError(
@@ -85,7 +85,7 @@ describe('AssignmentCategoryService', () => {
   });
 
   describe('getCategoriesByInstructor', () => {
-    it('should return categories', async () => {
+    it('목록을 반환해야 한다', async () => {
       const categories = [mockCategory];
       (mockRepo.findByInstructorId as jest.Mock).mockResolvedValue(categories);
 
@@ -99,7 +99,7 @@ describe('AssignmentCategoryService', () => {
   });
 
   describe('getCategoryById', () => {
-    it('should return category if found and authorized', async () => {
+    it('권한이 있는 경우 항목을 반환해야 한다', async () => {
       (mockRepo.findById as jest.Mock).mockResolvedValue(mockCategory);
 
       const result = await service.getCategoryById(
@@ -111,7 +111,7 @@ describe('AssignmentCategoryService', () => {
       expect(result).toEqual(mockCategory);
     });
 
-    it('should throw NotFoundException if category not found', async () => {
+    it('항목을 찾을 수 없으면 NotFoundException을 던져야 한다', async () => {
       (mockRepo.findById as jest.Mock).mockResolvedValue(null);
 
       await expect(
@@ -119,7 +119,7 @@ describe('AssignmentCategoryService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw ForbiddenException if instructor does not match', async () => {
+    it('권한이 없는 경우 ForbiddenException을 던져야 한다', async () => {
       (mockRepo.findById as jest.Mock).mockResolvedValue({
         ...mockCategory,
         instructorId: 'other-instructor',
@@ -137,7 +137,7 @@ describe('AssignmentCategoryService', () => {
       resultPresets: ['C', 'B', 'A'],
     };
 
-    it('should update a category successfully', async () => {
+    it('성공적으로 수정해야 한다', async () => {
       (mockRepo.findById as jest.Mock).mockResolvedValue(mockCategory);
       (mockRepo.findByInstructorIdAndName as jest.Mock).mockResolvedValue(null);
       (mockRepo.update as jest.Mock).mockResolvedValue({
@@ -155,7 +155,7 @@ describe('AssignmentCategoryService', () => {
       expect(result.name).toBe(updateDto.name);
     });
 
-    it('should throw NotFoundException if category not found', async () => {
+    it('항목을 찾을 수 없으면 NotFoundException을 던져야 한다', async () => {
       (mockRepo.findById as jest.Mock).mockResolvedValue(null);
 
       await expect(
@@ -163,7 +163,7 @@ describe('AssignmentCategoryService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw ForbiddenException if instructor does not match', async () => {
+    it('권한이 없는 경우 ForbiddenException을 던져야 한다', async () => {
       (mockRepo.findById as jest.Mock).mockResolvedValue({
         ...mockCategory,
         instructorId: 'other-instructor',
@@ -174,7 +174,7 @@ describe('AssignmentCategoryService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('should throw ConflictException if new name exists', async () => {
+    it('수정하려는 이름이 중복된 경우 ConflictException을 던져야 한다', async () => {
       (mockRepo.findById as jest.Mock).mockResolvedValue(mockCategory);
       (mockRepo.findByInstructorIdAndName as jest.Mock).mockResolvedValue({
         ...mockCategory,
@@ -189,7 +189,7 @@ describe('AssignmentCategoryService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('should throw ConflictException if P2002 error occurs', async () => {
+    it('DB 제약 조건 위반 시 ConflictException을 던져야 한다', async () => {
       (mockRepo.findById as jest.Mock).mockResolvedValue(mockCategory);
       (mockRepo.findByInstructorIdAndName as jest.Mock).mockResolvedValue(null);
 
@@ -206,7 +206,7 @@ describe('AssignmentCategoryService', () => {
   });
 
   describe('deleteCategory', () => {
-    it('should delete a category successfully', async () => {
+    it('성공적으로 삭제해야 한다', async () => {
       (mockRepo.findById as jest.Mock).mockResolvedValue(mockCategory);
       (mockRepo.delete as jest.Mock).mockResolvedValue(mockCategory);
 
@@ -215,7 +215,7 @@ describe('AssignmentCategoryService', () => {
       expect(mockRepo.delete).toHaveBeenCalledWith(mockCategory.id);
     });
 
-    it('should throw NotFoundException if category not found', async () => {
+    it('항목을 찾을 수 없으면 NotFoundException을 던져야 한다', async () => {
       (mockRepo.findById as jest.Mock).mockResolvedValue(null);
 
       await expect(
@@ -223,7 +223,7 @@ describe('AssignmentCategoryService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw ForbiddenException if instructor does not match', async () => {
+    it('권한이 없는 경우 ForbiddenException을 던져야 한다', async () => {
       (mockRepo.findById as jest.Mock).mockResolvedValue({
         ...mockCategory,
         instructorId: 'other-instructor',
