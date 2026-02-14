@@ -12,6 +12,8 @@ import {
 import { getPagingData } from '../utils/pagination.util.js';
 import { transformDateFieldsToKst } from '../utils/date.util.js';
 import { StudentPostWithDetails } from '../repos/student-posts.repo.js';
+import { toFrontendStudentPostStatus } from '../utils/posts.util.js';
+import { StudentPostStatus } from '../constants/posts.constant.js';
 
 export class StudentPostsController {
   constructor(private readonly studentPostsService: StudentPostsService) {}
@@ -38,7 +40,12 @@ export class StudentPostsController {
 
       return successResponse(res, {
         statusCode: 201,
-        data: kstResult,
+        data: {
+          ...kstResult,
+          status: toFrontendStudentPostStatus(
+            result.status as StudentPostStatus,
+          ),
+        },
         message: '질문이 성공적으로 등록되었습니다.',
       });
     } catch (error) {
@@ -66,20 +73,21 @@ export class StudentPostsController {
         'updatedAt',
       ]);
 
-      const postsWithIsMine = (kstPosts as StudentPostWithDetails[]).map(
-        (post) => ({
-          ...post,
-          isMine:
-            userType === UserType.STUDENT
-              ? post.enrollment?.appStudentId === profileId
-              : userType === UserType.PARENT
-                ? post.enrollment?.appParentLink?.appParentId === profileId
-                : false,
-        }),
-      );
+      const postsWithIsMineAndMappedStatus = (
+        kstPosts as StudentPostWithDetails[]
+      ).map((post) => ({
+        ...post,
+        isMine:
+          userType === UserType.STUDENT
+            ? post.enrollment?.appStudentId === profileId
+            : userType === UserType.PARENT
+              ? post.enrollment?.appParentLink?.appParentId === profileId
+              : false,
+        status: toFrontendStudentPostStatus(post.status as StudentPostStatus),
+      }));
 
       const responseData = getPagingData(
-        postsWithIsMine,
+        postsWithIsMineAndMappedStatus,
         result.totalCount,
         query.page,
         query.limit,
@@ -133,6 +141,9 @@ export class StudentPostsController {
               ? (kstResult as StudentPostWithDetails).enrollment?.appParentLink
                   ?.appParentId === profileId
               : false,
+        status: toFrontendStudentPostStatus(
+          kstResult.status as StudentPostStatus,
+        ),
       };
 
       return successResponse(res, {
@@ -171,7 +182,12 @@ export class StudentPostsController {
 
       return successResponse(res, {
         statusCode: 200,
-        data: kstResult,
+        data: {
+          ...kstResult,
+          status: toFrontendStudentPostStatus(
+            result.status as StudentPostStatus,
+          ),
+        },
         message: '질문 상태를 변경했습니다.',
       });
     } catch (error) {
@@ -203,7 +219,12 @@ export class StudentPostsController {
 
       return successResponse(res, {
         statusCode: 200,
-        data: kstResult,
+        data: {
+          ...kstResult,
+          status: toFrontendStudentPostStatus(
+            result.status as StudentPostStatus,
+          ),
+        },
         message: '질문을 수정했습니다.',
       });
     } catch (error) {
