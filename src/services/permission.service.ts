@@ -6,6 +6,7 @@ import {
 import { AssistantRepository } from '../repos/assistant.repo.js';
 import { ParentChildLinkRepository } from '../repos/parent-child-link.repo.js';
 import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
+import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import type { Enrollment } from '../generated/prisma/client.js';
 
 export class PermissionService {
@@ -13,6 +14,7 @@ export class PermissionService {
     private readonly assistantRepository: AssistantRepository,
     private readonly parentChildLinkRepository: ParentChildLinkRepository,
     private readonly lectureEnrollmentsRepository: LectureEnrollmentsRepository,
+    private readonly enrollmentsRepository: EnrollmentsRepository,
   ) {}
 
   /** 강사/조교 쓰기 권한 체크 */
@@ -162,8 +164,8 @@ export class PermissionService {
 
     // 학부모: 자녀의 수강 여부 확인
     if (userType === UserType.PARENT) {
-      // TODO: 학부모 자녀 수강 여부 확인 로직 추가
-      throw new ForbiddenException('학부모 접근은 아직 지원되지 않습니다.');
+      await this.validateParentLectureAccess(profileId, lectureId);
+      return;
     }
 
     throw new ForbiddenException('접근 권한이 없습니다.');
@@ -188,5 +190,77 @@ export class PermissionService {
   ): Promise<string | null> {
     const assistant = await this.assistantRepository.findById(assistantId);
     return assistant?.instructorId || null;
+  }
+
+  // ----------------------------------------------------------------
+  // Parent Permission Methods (NEW)
+  // ----------------------------------------------------------------
+
+  /** 학부모가 특정 Enrollment에 접근 가능한지 확인 */
+  async validateParentEnrollmentAccess(
+    parentProfileId: string,
+    enrollmentId: string,
+  ): Promise<Enrollment> {
+    const enrollment = await this.enrollmentsRepository.findById(enrollmentId);
+    if (!enrollment) {
+      throw new NotFoundException('수강 정보를 찾을 수 없습니다.');
+    }
+
+    if (!enrollment.appParentLinkId) {
+      throw new ForbiddenException('학부모 연결 정보가 없습니다.');
+    }
+
+    await this.validateChildAccess(
+      UserType.PARENT,
+      parentProfileId,
+      enrollment.appParentLinkId,
+    );
+
+    return enrollment;
+  }
+
+  /** 학부모의 모든 자녀 Enrollment ID 목록 조회 */
+  async getParentEnrollmentIds(parentProfileId: string): Promise<string[]> {
+    const childLinks =
+      await this.parentChildLinkRepository.findByAppParentId(parentProfileId);
+
+    if (!childLinks || childLinks.length === 0) {
+      return [];
+    }
+
+    const linkIds = childLinks.map((link) => link.id);
+    const enrollments =
+      await this.enrollmentsRepository.findManyByAppParentLinkIds(linkIds);
+
+    return enrollments.map((e) => e.id);
+  }
+
+  /** 학부모가 특정 강의에 접근 가능한지 확인 (자녀 수강 여부) */
+  async validateParentLectureAccess(
+    parentProfileId: string,
+    lectureId: string,
+  ): Promise<void> {
+    const enrollmentIds = await this.getParentEnrollmentIds(parentProfileId);
+
+    if (!enrollmentIds || enrollmentIds.length === 0) {
+      throw new ForbiddenException('등록된 자녀가 없습니다.');
+    }
+
+    const hasAccess =
+      await this.lectureEnrollmentsRepository.existsByLectureIdAndEnrollmentIds(
+        lectureId,
+        enrollmentIds,
+      );
+
+    if (!hasAccess) {
+      throw new ForbiddenException('자녀가 수강 중인 강의가 아닙니다.');
+    }
+  }
+
+  /** 학부모의 모든 자녀 링크 목록 조회 */
+  async getChildLinks(parentProfileId: string) {
+    return await this.parentChildLinkRepository.findByAppParentId(
+      parentProfileId,
+    );
   }
 }

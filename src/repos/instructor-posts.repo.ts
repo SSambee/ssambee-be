@@ -16,6 +16,7 @@ export type InstructorPostWithDetails = Prisma.InstructorPostGetPayload<{
         };
       };
     };
+    lecture: { select: { title: true } };
     _count: { select: { comments: true } };
   };
 }>;
@@ -83,6 +84,7 @@ export class InstructorPostsRepository {
         authorAssistant: {
           select: { user: { select: { name: true } } },
         },
+        lecture: { select: { title: true } },
         attachments: {
           include: {
             material: true,
@@ -210,6 +212,7 @@ export class InstructorPostsRepository {
               },
             },
           },
+          lecture: { select: { title: true } },
           _count: { select: { comments: true } },
         },
       }),

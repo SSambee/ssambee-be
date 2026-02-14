@@ -8,7 +8,9 @@ import {
   UpdateInstructorPostDto,
   GetInstructorPostsQueryDto,
 } from '../validations/instructor-posts.validation.js';
+import { getPagingData } from '../utils/pagination.util.js';
 import { transformDateFieldsToKst } from '../utils/date.util.js';
+import { InstructorPostWithDetails } from '../repos/instructor-posts.repo.js';
 
 export class InstructorPostsController {
   constructor(
@@ -93,14 +95,27 @@ export class InstructorPostsController {
         'updatedAt',
       ]);
 
-      const kstResult = {
-        posts: kstPosts,
-        totalCount: result.totalCount,
-      };
+      const postsWithLectureTitle = (
+        kstPosts as InstructorPostWithDetails[]
+      ).map((post) => ({
+        ...post,
+        lectureTitle: post.lecture?.title || null,
+        isMine:
+          userType === UserType.INSTRUCTOR
+            ? post.instructorId === profileId
+            : post.authorAssistantId === profileId,
+      }));
+
+      const responseData = getPagingData(
+        postsWithLectureTitle,
+        result.totalCount,
+        query.page,
+        query.limit,
+      );
 
       return successResponse(res, {
         statusCode: 200,
-        data: kstResult,
+        data: responseData,
         message: '공지 목록을 조회했습니다.',
       });
     } catch (error) {
@@ -136,9 +151,21 @@ export class InstructorPostsController {
         'updatedAt',
       ]);
 
+      const responseWithLectureTitle = {
+        ...kstResult,
+        lectureTitle:
+          (kstResult as InstructorPostWithDetails).lecture?.title || null,
+        isMine:
+          userType === UserType.INSTRUCTOR
+            ? (kstResult as InstructorPostWithDetails).instructorId ===
+              profileId
+            : (kstResult as InstructorPostWithDetails).authorAssistantId ===
+              profileId,
+      };
+
       return successResponse(res, {
         statusCode: 200,
-        data: kstResult,
+        data: responseWithLectureTitle,
         message: '공지 상세 정보를 조회했습니다.',
       });
     } catch (error) {

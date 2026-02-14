@@ -396,4 +396,71 @@ export class LectureEnrollmentsRepository {
       },
     });
   }
+
+  /** 여러 Enrollment ID 중 하나라도 특정 강의를 수강 중인지 확인 (학부모용) */
+  async existsByLectureIdAndEnrollmentIds(
+    lectureId: string,
+    enrollmentIds: string[],
+    tx?: Prisma.TransactionClient,
+  ): Promise<boolean> {
+    const client = tx ?? this.prisma;
+    if (!enrollmentIds || enrollmentIds.length === 0) return false;
+
+    const count = await client.lectureEnrollment.count({
+      where: {
+        lectureId,
+        enrollmentId: { in: enrollmentIds },
+        enrollment: {
+          deletedAt: null,
+          status: 'ACTIVE',
+        },
+      },
+    });
+    return count > 0;
+  }
+
+  /** 여러 Enrollment ID로 LectureEnrollment 조회 (학부모용) */
+  async findManyByEnrollmentIds(
+    enrollmentIds: string[],
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    if (!enrollmentIds || enrollmentIds.length === 0) return [];
+
+    return client.lectureEnrollment.findMany({
+      where: {
+        enrollmentId: { in: enrollmentIds },
+      },
+      include: {
+        lecture: {
+          select: {
+            id: true,
+            instructorId: true,
+            title: true,
+          },
+        },
+      },
+    });
+  }
+
+  /** [NEW] 강의 ID와 학생 전화번호로 LectureEnrollment 조회 (학부모 질문 작성용) */
+  async findByLectureIdAndStudentPhone(
+    lectureId: string,
+    studentPhone: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return await client.lectureEnrollment.findFirst({
+      where: {
+        lectureId,
+        enrollment: {
+          studentPhone,
+          deletedAt: null,
+        },
+      },
+      include: {
+        enrollment: true,
+      },
+    });
+  }
 }

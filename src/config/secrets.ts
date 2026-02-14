@@ -31,7 +31,9 @@ export async function loadSecrets() {
 
     console.log(`${env}환경 설정 로드 완료`);
   } catch (error) {
-    console.error('시크릿키 로드 실패', error);
-    process.exit(1);
+    console.warn(
+      'SSM 시크릿 로드 실패 — .env 값으로 계속합니다:',
+      (error as Error).message,
+    );
   }
 }

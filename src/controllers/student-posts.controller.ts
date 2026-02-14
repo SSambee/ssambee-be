@@ -9,7 +9,9 @@ import {
   GetStudentPostsQueryDto,
   UpdateStudentPostDto,
 } from '../validations/student-posts.validation.js';
+import { getPagingData } from '../utils/pagination.util.js';
 import { transformDateFieldsToKst } from '../utils/date.util.js';
+import { StudentPostWithDetails } from '../repos/student-posts.repo.js';
 
 export class StudentPostsController {
   constructor(private readonly studentPostsService: StudentPostsService) {}
@@ -64,14 +66,28 @@ export class StudentPostsController {
         'updatedAt',
       ]);
 
-      const kstResult = {
-        posts: kstPosts,
-        totalCount: result.totalCount,
-      };
+      const postsWithIsMine = (kstPosts as StudentPostWithDetails[]).map(
+        (post) => ({
+          ...post,
+          isMine:
+            userType === UserType.STUDENT
+              ? post.enrollment?.appStudentId === profileId
+              : userType === UserType.PARENT
+                ? post.enrollment?.appParentLink?.appParentId === profileId
+                : false,
+        }),
+      );
+
+      const responseData = getPagingData(
+        postsWithIsMine,
+        result.totalCount,
+        query.page,
+        query.limit,
+      );
 
       return successResponse(res, {
         statusCode: 200,
-        data: kstResult,
+        data: responseData,
         message: '질문 목록을 조회했습니다.',
       });
     } catch (error) {
@@ -107,9 +123,21 @@ export class StudentPostsController {
         'updatedAt',
       ]);
 
+      const responseWithIsMine = {
+        ...kstResult,
+        isMine:
+          userType === UserType.STUDENT
+            ? (kstResult as StudentPostWithDetails).enrollment?.appStudentId ===
+              profileId
+            : userType === UserType.PARENT
+              ? (kstResult as StudentPostWithDetails).enrollment?.appParentLink
+                  ?.appParentId === profileId
+              : false,
+      };
+
       return successResponse(res, {
         statusCode: 200,
-        data: kstResult,
+        data: responseWithIsMine,
         message: '질문 상세 정보를 조회했습니다.',
       });
     } catch (error) {
@@ -117,7 +145,9 @@ export class StudentPostsController {
     }
   };
 
-  /** 상태 변경 */
+  /** 질문 상태 변경 (학생이 확인 완료 처리)
+   * flow: PENDING (BEFORE) -> RESOLVED (REGISTERED) -> COMPLETED (COMPLETED)
+   */
   updateStatus = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { postId } = req.params;

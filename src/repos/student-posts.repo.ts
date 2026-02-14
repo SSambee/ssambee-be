@@ -5,6 +5,30 @@ import {
   StudentPostStatus,
 } from '../constants/posts.constant.js';
 
+export type StudentPostWithDetails = Prisma.StudentPostGetPayload<{
+  include: {
+    enrollment: {
+      select: {
+        appStudentId: true;
+        studentName: true;
+        appStudent: {
+          select: { user: { select: { name: true } } };
+        };
+        appParentLink: { select: { appParentId: true; name: true } };
+      };
+    };
+    comments: {
+      include: {
+        instructor: { select: { user: { select: { name: true } } } };
+        assistant: { select: { user: { select: { name: true } } } };
+        enrollment: { select: { studentName: true } };
+        attachments: { include: { material: true } };
+      };
+    };
+    _count: { select: { comments: true } };
+  };
+}>;
+
 export class StudentPostsRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -29,8 +53,10 @@ export class StudentPostsRepository {
           select: {
             appStudentId: true, // Permission check용
             studentName: true,
-            appStudent: { select: { user: { select: { name: true } } } },
-            appParentLink: { select: { name: true } },
+            appStudent: {
+              select: { user: { select: { name: true } } },
+            },
+            appParentLink: { select: { appParentId: true, name: true } },
           },
         },
         comments: {
@@ -53,6 +79,7 @@ export class StudentPostsRepository {
       instructorId?: string;
       enrollmentId?: string;
       appStudentId?: string;
+      enrollmentIds?: string[]; // [NEW] 학부모용 필터링
       status?: string;
       answerStatus?: AnswerStatus;
       writerType?: InquiryWriterType;
@@ -68,6 +95,7 @@ export class StudentPostsRepository {
       instructorId,
       enrollmentId,
       appStudentId,
+      enrollmentIds, // [NEW]
       status,
       answerStatus,
       writerType,
@@ -82,6 +110,7 @@ export class StudentPostsRepository {
       ...(instructorId && { instructorId }),
       ...(enrollmentId && { enrollmentId }),
       ...(appStudentId && { enrollment: { appStudentId } }),
+      ...(enrollmentIds && { enrollmentId: { in: enrollmentIds } }), // [NEW] 학부모용
       ...(status && { status }),
       ...(search && {
         OR: [
@@ -115,7 +144,11 @@ export class StudentPostsRepository {
         orderBy: { createdAt: 'desc' },
         include: {
           enrollment: {
-            select: { studentName: true },
+            select: {
+              studentName: true,
+              appStudentId: true,
+              appParentLink: { select: { appParentId: true } },
+            },
           },
           _count: { select: { comments: true } },
         },

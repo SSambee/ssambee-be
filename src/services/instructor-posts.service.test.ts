@@ -4,10 +4,11 @@ import {
   createMockLectureEnrollmentsRepository,
   createMockLecturesRepository,
   createMockMaterialsRepository,
+  createMockEnrollmentsRepository,
 } from '../test/mocks/repo.mock.js';
 import { createMockPermissionService } from '../test/mocks/services.mock.js';
 import { UserType } from '../constants/auth.constant.js';
-import { PostScope } from '../constants/posts.constant.js';
+import { PostScope, PostType } from '../constants/posts.constant.js';
 import {
   ForbiddenException,
   NotFoundException,
@@ -26,6 +27,7 @@ import type {
 import type { LecturesRepository } from '../repos/lectures.repo.js';
 import type { MaterialsRepository } from '../repos/materials.repo.js';
 import type { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
+import type { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import type { PermissionService } from './permission.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 
@@ -47,6 +49,7 @@ describe('InstructorPostsService', () => {
   let lecturesRepo: jest.Mocked<LecturesRepository>;
   let materialsRepo: jest.Mocked<MaterialsRepository>;
   let lectureEnrollmentsRepo: jest.Mocked<LectureEnrollmentsRepository>;
+  let enrollmentsRepo: jest.Mocked<EnrollmentsRepository>;
   let permissionService: jest.Mocked<PermissionService>;
 
   beforeEach(() => {
@@ -54,6 +57,7 @@ describe('InstructorPostsService', () => {
     lecturesRepo = createMockLecturesRepository();
     materialsRepo = createMockMaterialsRepository();
     lectureEnrollmentsRepo = createMockLectureEnrollmentsRepository();
+    enrollmentsRepo = createMockEnrollmentsRepository();
     permissionService = createMockPermissionService();
 
     service = new InstructorPostsService(
@@ -61,6 +65,7 @@ describe('InstructorPostsService', () => {
       lecturesRepo,
       materialsRepo,
       lectureEnrollmentsRepo,
+      enrollmentsRepo,
       permissionService,
     );
   });
@@ -419,6 +424,90 @@ describe('InstructorPostsService', () => {
           scope: PostScope.GLOBAL,
           page: 1,
           limit: 5,
+        }),
+      );
+      expect(result.totalCount).toBe(1);
+    });
+
+    it('postType이 NOTICE인 경우 공지 게시글만 필터링하여 반환한다', async () => {
+      const instructorId = mockInstructor.id;
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        instructorId,
+      );
+      instructorPostsRepo.findMany.mockResolvedValue({
+        posts: [mockInstructorPosts.global],
+        totalCount: 1,
+      });
+
+      const result = await service.getPostList(
+        { page: 1, limit: 10, postType: PostType.NOTICE },
+        UserType.INSTRUCTOR,
+        instructorId,
+      );
+
+      expect(instructorPostsRepo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          postType: PostType.NOTICE,
+        }),
+      );
+      expect(result.totalCount).toBe(1);
+    });
+
+    it('postType이 SHARE인 경우 자료 공유 게시글만 필터링하여 반환한다', async () => {
+      const instructorId = mockInstructor.id;
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        instructorId,
+      );
+      instructorPostsRepo.findMany.mockResolvedValue({
+        posts: [],
+        totalCount: 0,
+      });
+
+      const result = await service.getPostList(
+        { page: 1, limit: 10, postType: PostType.SHARE },
+        UserType.INSTRUCTOR,
+        instructorId,
+      );
+
+      expect(instructorPostsRepo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          postType: PostType.SHARE,
+        }),
+      );
+      expect(result.totalCount).toBe(0);
+    });
+
+    it('모든 필터링 파라미터가 포함된 경우 정상적으로 목록을 반환한다', async () => {
+      const instructorId = mockInstructor.id;
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        instructorId,
+      );
+      instructorPostsRepo.findMany.mockResolvedValue({
+        posts: [mockInstructorPosts.global],
+        totalCount: 1,
+      });
+
+      const result = await service.getPostList(
+        {
+          page: 2,
+          limit: 5,
+          search: '검색어',
+          scope: PostScope.GLOBAL,
+          postType: PostType.NOTICE,
+          lectureId: mockLectures.basic.id,
+        },
+        UserType.INSTRUCTOR,
+        instructorId,
+      );
+
+      expect(instructorPostsRepo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          page: 2,
+          limit: 5,
+          search: '검색어',
+          scope: PostScope.GLOBAL,
+          postType: PostType.NOTICE,
+          lectureId: mockLectures.basic.id,
         }),
       );
       expect(result.totalCount).toBe(1);
@@ -804,6 +893,207 @@ describe('InstructorPostsService', () => {
       await service.deletePost(post.id, UserType.INSTRUCTOR, post.instructorId);
 
       expect(instructorPostsRepo.delete).toHaveBeenCalledWith(post.id);
+    });
+  });
+
+  describe('createPost - 추가 검증', () => {
+    it('제목이 빈 문자열이면 BadRequestException이 발생해야 한다', async () => {
+      const instructorId = mockInstructor.id;
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        instructorId,
+      );
+
+      await expect(
+        service.createPost(
+          { title: '', content: 'test', scope: PostScope.GLOBAL },
+          instructorId,
+          UserType.INSTRUCTOR,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('내용이 빈 문자열이면 BadRequestException이 발생해야 한다', async () => {
+      const instructorId = mockInstructor.id;
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        instructorId,
+      );
+
+      await expect(
+        service.createPost(
+          { title: 'test', content: '', scope: PostScope.GLOBAL },
+          instructorId,
+          UserType.INSTRUCTOR,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('제목이 100자를 초과하면 BadRequestException이 발생해야 한다', async () => {
+      const instructorId = mockInstructor.id;
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        instructorId,
+      );
+      const longTitle = 'a'.repeat(101);
+
+      await expect(
+        service.createPost(
+          { title: longTitle, content: 'test', scope: PostScope.GLOBAL },
+          instructorId,
+          UserType.INSTRUCTOR,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('존재하지 않는 lectureId로 강의 공지를 생성하려고 하면 NotFoundException이 발생해야 한다', async () => {
+      const instructorId = mockInstructor.id;
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        instructorId,
+      );
+      lecturesRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.createPost(
+          {
+            title: 'test',
+            content: 'test',
+            scope: PostScope.LECTURE,
+            lectureId: 'non-existent',
+          },
+          instructorId,
+          UserType.INSTRUCTOR,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('존재하지 않는 enrollmentId로 선택 공지를 생성하려고 하면 NotFoundException이 발생해야 한다', async () => {
+      const instructorId = mockInstructor.id;
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        instructorId,
+      );
+      enrollmentsRepo.findByIds.mockResolvedValue([]); // 존재하지 않는 enrollmentId
+
+      await expect(
+        service.createPost(
+          {
+            title: 'test',
+            content: 'test',
+            scope: PostScope.SELECTED,
+            targetEnrollmentIds: ['non-existent'],
+          },
+          instructorId,
+          UserType.INSTRUCTOR,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('updatePost - 추가 검증', () => {
+    it('다른 강사가 작성한 게시글을 수정하려고 하면 ForbiddenException이 발생해야 한다', async () => {
+      const post = {
+        ...mockInstructorPosts.global,
+        instructorId: 'other-instructor',
+      };
+      instructorPostsRepo.findById.mockResolvedValue(post);
+
+      await expect(
+        service.updatePost(
+          post.id,
+          { title: 'updated' },
+          UserType.INSTRUCTOR,
+          'instructor-1',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('강사는 조교가 작성한 게시글을 수정할 수 있어야 한다', async () => {
+      const post = {
+        ...mockInstructorPosts.global,
+        authorAssistantId: 'assistant-1',
+      };
+      instructorPostsRepo.findById.mockResolvedValue(post);
+      instructorPostsRepo.update.mockResolvedValue({
+        ...post,
+        title: 'updated title',
+      });
+
+      const result = await service.updatePost(
+        post.id,
+        { title: 'updated title' },
+        UserType.INSTRUCTOR,
+        post.instructorId,
+      );
+
+      expect(instructorPostsRepo.update).toHaveBeenCalled();
+      expect(result.title).toBe('updated title');
+    });
+  });
+
+  describe('deletePost - 추가 검증', () => {
+    it('학생이 게시글을 삭제하려고 하면 ForbiddenException이 발생해야 한다', async () => {
+      const post = mockInstructorPosts.global;
+      instructorPostsRepo.findById.mockResolvedValue(post);
+
+      await expect(
+        service.deletePost(post.id, UserType.STUDENT, 'student-1'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('학부모가 게시글을 삭제하려고 하면 ForbiddenException이 발생해야 한다', async () => {
+      const post = mockInstructorPosts.global;
+      instructorPostsRepo.findById.mockResolvedValue(post);
+
+      await expect(
+        service.deletePost(post.id, UserType.PARENT, 'parent-1'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('getPostList - 추가 검증', () => {
+    it('page가 0 이하이면 BadRequestException이 발생해야 한다', async () => {
+      const instructorId = mockInstructor.id;
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        instructorId,
+      );
+
+      await expect(
+        service.getPostList(
+          { page: 0, limit: 10 },
+          UserType.INSTRUCTOR,
+          instructorId,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('limit이 100을 초과하면 BadRequestException이 발생해야 한다', async () => {
+      const instructorId = mockInstructor.id;
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        instructorId,
+      );
+
+      await expect(
+        service.getPostList(
+          { page: 1, limit: 101 },
+          UserType.INSTRUCTOR,
+          instructorId,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('getPostDetail - 추가 검증', () => {
+    // Note: deletedAt 필드가 모델에 없어서 관련 테스트 제거
+  });
+
+  describe('getPostTargets - 추가 검증', () => {
+    it('학생이 게시글 대상 목록을 조회하려고 하면 ForbiddenException이 발생해야 한다', async () => {
+      await expect(
+        service.getPostTargets(UserType.STUDENT, 'student-1'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('학부모가 게시글 대상 목록을 조회하려고 하면 ForbiddenException이 발생해야 한다', async () => {
+      await expect(
+        service.getPostTargets(UserType.PARENT, 'parent-1'),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

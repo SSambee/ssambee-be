@@ -86,6 +86,7 @@ export const createMockEnrollmentsRepository = () =>
     'createMany',
     'create',
     'findById',
+    'findByIds',
     'findByIdWithRelations',
     'findByAppStudentId',
     'findByAppParentLinkId',

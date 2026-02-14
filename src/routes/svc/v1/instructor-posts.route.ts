@@ -17,11 +17,11 @@ const {
   instructorPostsController,
   commentsController,
   requireAuth,
-  requireStudent,
+  requireStudentOrParent,
 } = container;
 
 svcInstructorPostsRouter.use(requireAuth);
-svcInstructorPostsRouter.use(requireStudent);
+svcInstructorPostsRouter.use(requireStudentOrParent);
 
 /** 목록 조회 */
 svcInstructorPostsRouter.get(

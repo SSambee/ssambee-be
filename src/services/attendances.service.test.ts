@@ -16,7 +16,7 @@ import {
   mockLectures,
   mockInstructor,
   createAttendanceRequests,
-  mockLectureEnrollment,
+  mockAttendanceLectureEnrollment,
 } from '../test/fixtures/index.js';
 import { UserType } from '../constants/auth.constant.js';
 import { AttendanceStatus } from '../constants/attendances.constant.js';
@@ -27,7 +27,7 @@ describe('AttendancesService - @unit #critical', () => {
   // Mock Dependencies
   let mockAttendancesRepo: ReturnType<typeof createMockAttendancesRepository>;
   let mockEnrollmentsRepo: ReturnType<typeof createMockEnrollmentsRepository>;
-  let mockLectureEnrollmentsRepo: ReturnType<
+  let mockAttendanceLectureEnrollmentsRepo: ReturnType<
     typeof createMockLectureEnrollmentsRepository
   >;
   let mockLecturesRepo: ReturnType<typeof createMockLecturesRepository>;
@@ -46,7 +46,8 @@ describe('AttendancesService - @unit #critical', () => {
     // Create mock dependencies
     mockAttendancesRepo = createMockAttendancesRepository();
     mockEnrollmentsRepo = createMockEnrollmentsRepository();
-    mockLectureEnrollmentsRepo = createMockLectureEnrollmentsRepository();
+    mockAttendanceLectureEnrollmentsRepo =
+      createMockLectureEnrollmentsRepository();
     mockLecturesRepo = createMockLecturesRepository();
     mockAssistantRepo = createMockAssistantRepository();
     mockParentsService = createMockParentsService();
@@ -57,7 +58,7 @@ describe('AttendancesService - @unit #critical', () => {
     attendancesService = new AttendancesService(
       mockAttendancesRepo,
       mockEnrollmentsRepo,
-      mockLectureEnrollmentsRepo,
+      mockAttendanceLectureEnrollmentsRepo,
       mockLecturesRepo,
       mockAssistantRepo,
       mockParentsService,
@@ -95,16 +96,16 @@ describe('AttendancesService - @unit #critical', () => {
         mockPermissionService.validateInstructorAccess.mockResolvedValue();
 
         // Mock LectureEnrollments (Enrollment 정보 포함)
-        mockLectureEnrollmentsRepo.findManyByLectureIdWithEnrollments.mockResolvedValue(
+        mockAttendanceLectureEnrollmentsRepo.findManyByLectureIdWithEnrollments.mockResolvedValue(
           [
             {
-              ...mockLectureEnrollment,
+              ...mockAttendanceLectureEnrollment,
               enrollmentId: enrollmentId,
             } as unknown as Prisma.LectureEnrollmentGetPayload<{
               include: { enrollment: true };
             }>,
             {
-              ...mockLectureEnrollment,
+              ...mockAttendanceLectureEnrollment,
               id: 'lecture-enrollment-id-2',
               enrollmentId: 'enrollment-id-2',
             } as unknown as Prisma.LectureEnrollmentGetPayload<{
@@ -144,7 +145,7 @@ describe('AttendancesService - @unit #critical', () => {
         expect(result).toHaveLength(2);
         expect(mockLecturesRepo.findById).toHaveBeenCalledWith(lectureId);
         expect(
-          mockLectureEnrollmentsRepo.findManyByLectureIdWithEnrollments,
+          mockAttendanceLectureEnrollmentsRepo.findManyByLectureIdWithEnrollments,
         ).toHaveBeenCalledWith(lectureId);
         expect(mockAttendancesRepo.upsert).toHaveBeenCalledTimes(2);
       });
@@ -166,10 +167,10 @@ describe('AttendancesService - @unit #critical', () => {
 
       it('해당 강의의 수강생이 아닌 enrollmentId로 출결 등록을 시도하면 NotFoundException을 던진다', async () => {
         mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
-        mockLectureEnrollmentsRepo.findManyByLectureIdWithEnrollments.mockResolvedValue(
+        mockAttendanceLectureEnrollmentsRepo.findManyByLectureIdWithEnrollments.mockResolvedValue(
           [
             {
-              ...mockLectureEnrollment,
+              ...mockAttendanceLectureEnrollment,
               enrollmentId: 'valid-enrollment-id',
             } as unknown as Prisma.LectureEnrollmentGetPayload<{
               include: { enrollment: true };
@@ -209,9 +210,9 @@ describe('AttendancesService - @unit #critical', () => {
     describe('ATT-03: 단일 출결 등록 성공', () => {
       it('강사가 특정 강의의 수강생에 대해 출결 정보를 등록하거나 수정할 수 있다', async () => {
         // Mock LectureEnrollment 찾기
-        mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValue(
+        mockAttendanceLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValue(
           {
-            ...mockLectureEnrollment,
+            ...mockAttendanceLectureEnrollment,
             enrollment: { instructorId: instructorId },
           } as unknown as Prisma.LectureEnrollmentGetPayload<{
             include: { enrollment: true };
@@ -232,7 +233,7 @@ describe('AttendancesService - @unit #critical', () => {
 
         expect(result).toEqual(mockAttendances.present);
         expect(
-          mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId,
+          mockAttendanceLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId,
         ).toHaveBeenCalledWith(lectureId, enrollmentId);
         expect(mockAttendancesRepo.upsert).toHaveBeenCalledWith(
           expect.anything(),
@@ -248,7 +249,7 @@ describe('AttendancesService - @unit #critical', () => {
 
     describe('ATT-04: 단일 출결 등록 실패', () => {
       it('해당 강의에 등록되지 않은 수강생이면 NotFoundException을 던진다', async () => {
-        mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValue(
+        mockAttendanceLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValue(
           null,
         );
 
@@ -273,9 +274,9 @@ describe('AttendancesService - @unit #critical', () => {
     describe('ATT-05: 출결 조회 성공', () => {
       it('권한이 있는 사용자가 특정 수강생의 전체 출결 목록과 통계를 조회할 수 있다', async () => {
         // Mock LectureEnrollment
-        mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValue(
+        mockAttendanceLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValue(
           {
-            ...mockLectureEnrollment,
+            ...mockAttendanceLectureEnrollment,
             enrollment: { ...mockEnrollments.active },
           } as unknown as Prisma.LectureEnrollmentGetPayload<{
             include: { enrollment: true };
@@ -304,13 +305,13 @@ describe('AttendancesService - @unit #critical', () => {
         expect(result.stats.totalCount).toBe(3);
         expect(
           mockAttendancesRepo.findByLectureEnrollmentId,
-        ).toHaveBeenCalledWith(mockLectureEnrollment.id);
+        ).toHaveBeenCalledWith(mockAttendanceLectureEnrollment.id);
       });
     });
 
     describe('ATT-06: 출결 조회 실패', () => {
       it('해당 강의에 등록되지 않은 수강생이면 NotFoundException을 던진다', async () => {
-        mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValue(
+        mockAttendanceLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValue(
           null,
         );
 

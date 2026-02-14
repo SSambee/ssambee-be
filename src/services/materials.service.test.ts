@@ -8,6 +8,7 @@ import { UserType } from '../../src/constants/auth.constant.js';
 import {
   BadRequestException,
   ForbiddenException,
+  NotFoundException,
 } from '../../src/err/http.exception.js';
 import {
   createMockMaterialsRepository,
@@ -28,6 +29,7 @@ import {
   UploadMaterialDto,
   GetMaterialsQueryDto,
 } from '../../src/validations/materials.validation.js';
+import { PrismaClient } from '../generated/prisma/client.js';
 
 describe('MaterialsService', () => {
   let service: MaterialsService;
@@ -40,6 +42,7 @@ describe('MaterialsService', () => {
   let assistantRepo: ReturnType<typeof createMockAssistantRepository>;
   let fileStorageService: jest.Mocked<FileStorageService>;
   let permissionService: ReturnType<typeof createMockPermissionService>;
+  let prisma: jest.Mocked<PrismaClient>;
 
   beforeEach(() => {
     materialsRepo = createMockMaterialsRepository();
@@ -57,6 +60,7 @@ describe('MaterialsService', () => {
 
     permissionService = createMockPermissionService();
     assistantRepo.findAllByInstructorId.mockResolvedValue([]);
+    prisma = {} as jest.Mocked<PrismaClient>;
 
     service = new MaterialsService(
       materialsRepo,
@@ -66,6 +70,7 @@ describe('MaterialsService', () => {
       assistantRepo,
       fileStorageService,
       permissionService,
+      prisma,
     );
   });
 
@@ -214,6 +219,73 @@ describe('MaterialsService', () => {
         }),
       );
     });
+
+    it('존재하지 않는 강의에 업로드하면 NotFoundException이 발생해야 한다', async () => {
+      lecturesRepo.findById.mockResolvedValue(null);
+      await expect(
+        service.uploadMaterial(
+          'non-existent',
+          { title: 'T', type: FrontendMaterialType.PAPER },
+          undefined,
+          UserType.INSTRUCTOR,
+          'prof',
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('강의에 대한 권한이 없는 경우 ForbiddenException이 발생해야 한다', async () => {
+      const mockLecture = mockLectures.basic;
+      lecturesRepo.findById.mockResolvedValue(mockLecture);
+      permissionService.validateInstructorAccess.mockRejectedValue(
+        new ForbiddenException(),
+      );
+
+      await expect(
+        service.uploadMaterial(
+          mockLecture.id,
+          { title: 'T', type: FrontendMaterialType.PAPER },
+          undefined,
+          UserType.INSTRUCTOR,
+          'other-prof',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('학생이 라이브러리에 업로드하려고 하면 ForbiddenException이 발생해야 한다', async () => {
+      await expect(
+        service.uploadMaterial(
+          undefined,
+          { title: 'T', type: FrontendMaterialType.PAPER },
+          undefined,
+          UserType.STUDENT,
+          'student',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('VIDEO_LINK 타입인데 youtubeUrl이 없으면 BadRequestException이 발생해야 한다', async () => {
+      await expect(
+        service.uploadMaterial(
+          undefined,
+          { title: 'T', type: FrontendMaterialType.VIDEO },
+          undefined,
+          UserType.INSTRUCTOR,
+          'prof',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('파일 타입인데 파일이 없으면 BadRequestException이 발생해야 한다', async () => {
+      await expect(
+        service.uploadMaterial(
+          undefined,
+          { title: 'T', type: FrontendMaterialType.PAPER },
+          undefined,
+          UserType.INSTRUCTOR,
+          'prof',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('getMaterials', () => {
@@ -302,6 +374,44 @@ describe('MaterialsService', () => {
         }),
       );
     });
+
+    it('존재하지 않는 강의의 자료를 조회하려고 하면 NotFoundException이 발생해야 한다', async () => {
+      lecturesRepo.findById.mockResolvedValue(null);
+      await expect(
+        service.getMaterials(
+          { page: 1, limit: 10, lectureId: 'non-existent' },
+          UserType.INSTRUCTOR,
+          'prof',
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('강의 자료 조회 권한이 없는 경우 ForbiddenException이 발생해야 한다', async () => {
+      const mockLecture = mockLectures.basic;
+      lecturesRepo.findById.mockResolvedValue(mockLecture);
+      permissionService.validateLectureReadAccess.mockRejectedValue(
+        new ForbiddenException(),
+      );
+
+      await expect(
+        service.getMaterials(
+          { page: 1, limit: 10, lectureId: mockLecture.id },
+          UserType.STUDENT,
+          'other-student',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('학생이 라이브러리 자료 목록 조회를 시도하면 ForbiddenException이 발생해야 한다', async () => {
+      permissionService.getEffectiveInstructorId.mockResolvedValue(null);
+      await expect(
+        service.getMaterials(
+          { page: 1, limit: 10 },
+          UserType.STUDENT,
+          'student',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
   });
 
   describe('deleteMaterial', () => {
@@ -338,6 +448,29 @@ describe('MaterialsService', () => {
         mockMaterial.fileUrl,
       );
       expect(materialsRepo.softDelete).toHaveBeenCalledWith(mockMaterial.id);
+    });
+
+    it('존재하지 않는 자료를 삭제하려고 하면 NotFoundException이 발생해야 한다', async () => {
+      materialsRepo.findById.mockResolvedValue(null);
+      await expect(
+        service.deleteMaterial('non-existent', UserType.INSTRUCTOR, 'prof'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('자료 삭제 권한이 없는 경우 ForbiddenException이 발생해야 한다', async () => {
+      const mockMaterial = mockMaterials.basic;
+      materialsRepo.findById.mockResolvedValue(mockMaterial);
+      permissionService.validateInstructorAccess.mockRejectedValue(
+        new ForbiddenException(),
+      );
+
+      await expect(
+        service.deleteMaterial(
+          mockMaterial.id,
+          UserType.INSTRUCTOR,
+          'other-prof',
+        ),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -406,6 +539,23 @@ describe('MaterialsService', () => {
         UserType.INSTRUCTOR,
         'instructor-b',
       );
+    });
+
+    it('존재하지 않는 자료를 상세 조회하면 NotFoundException이 발생해야 한다', async () => {
+      materialsRepo.findById.mockResolvedValue(null);
+      await expect(
+        service.getMaterialDetail('non-existent', UserType.INSTRUCTOR, 'prof'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('상세 조회 시 강의를 찾을 수 없으면 NotFoundException이 발생해야 한다', async () => {
+      const mockMaterial = mockMaterials.basic; // has lectureId
+      materialsRepo.findById.mockResolvedValue(mockMaterial);
+      lecturesRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.getMaterialDetail(mockMaterial.id, UserType.INSTRUCTOR, 'prof'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -541,6 +691,48 @@ describe('MaterialsService', () => {
 
       await expect(
         service.getDownloadUrl(mockMaterial.id, UserType.STUDENT, 'student-1'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('존재하지 않는 자료를 다운로드하려고 하면 NotFoundException이 발생해야 한다', async () => {
+      materialsRepo.findById.mockResolvedValue(null);
+      await expect(
+        service.getDownloadUrl('non-existent', UserType.INSTRUCTOR, 'prof'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('학생 다운로드 시 수강 중인 강의가 아니면 ForbiddenException이 발생해야 한다', async () => {
+      const mockMaterial = mockMaterials.basic; // has lectureId
+      materialsRepo.findById.mockResolvedValue(mockMaterial);
+      lectureEnrollmentsRepo.existsByLectureIdAndStudentId.mockResolvedValue(
+        false,
+      );
+
+      await expect(
+        service.getDownloadUrl(mockMaterial.id, UserType.STUDENT, 'student'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('학생 다운로드 시 강사와의 Enrollment가 없으면 ForbiddenException이 발생해야 한다', async () => {
+      const mockMaterial = { ...mockMaterials.basic, lectureId: null };
+      materialsRepo.findById.mockResolvedValue(mockMaterial);
+      lectureEnrollmentsRepo.findFirstByInstructorIdAndStudentId.mockResolvedValue(
+        null,
+      );
+
+      await expect(
+        service.getDownloadUrl(mockMaterial.id, UserType.STUDENT, 'student'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('지원하지 않는 사용자 타입이 다운로드를 시도하면 ForbiddenException이 발생해야 한다', async () => {
+      materialsRepo.findById.mockResolvedValue(mockMaterials.basic);
+      await expect(
+        service.getDownloadUrl(
+          mockMaterials.basic.id,
+          UserType.PARENT,
+          'parent',
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
   });
