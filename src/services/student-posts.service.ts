@@ -120,18 +120,47 @@ export class StudentPostsService {
         return {
           posts: [],
           totalCount: 0,
+          stats: null,
         };
       }
     } else {
       throw new ForbiddenException('접근 권한이 없습니다.');
     }
 
-    return this.studentPostsRepository.findMany({
+    const result = await this.studentPostsRepository.findMany({
       ...query,
       instructorId,
       appStudentId,
       enrollmentIds, // [NEW] 학부모용
     });
+
+    let stats = null;
+    if (instructorId) {
+      const statsRaw = await this.studentPostsRepository.getStats(instructorId);
+
+      // 증가율 계산: (이번달 - 지난달) / 지난달 * 100
+      let increaseRate = 0;
+      if (statsRaw.lastMonthCount > 0) {
+        increaseRate =
+          ((statsRaw.thisMonthCount - statsRaw.lastMonthCount) /
+            statsRaw.lastMonthCount) *
+          100;
+      }
+
+      stats = {
+        totalCount: statsRaw.totalCount,
+        increaseRate: `${parseFloat(increaseRate.toFixed(1))}%`,
+        unansweredCount: statsRaw.unansweredCount,
+        unansweredCriteria: statsRaw.unansweredCriteria,
+        answeredThisMonthCount: statsRaw.answeredThisMonthCount,
+        processingCount: statsRaw.processingCount,
+      };
+    }
+
+    return {
+      ...result,
+      stats,
+    };
   }
 
   /** 질문 상세 조회 */
