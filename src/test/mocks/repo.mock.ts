@@ -223,6 +223,7 @@ export const createMockStudentPostsRepository = () =>
     'findMany',
     'updateStatus',
     'delete',
+    'getStats',
   ]);
 
 /** Mock CommentsRepository 생성 */
