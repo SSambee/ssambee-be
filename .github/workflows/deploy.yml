@@ -53,20 +53,13 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
+          build-args: |
+            NODE_VERSION=22
 
   deploy:
-    name: Deploy to EC2
+    name: Deploy to EC2 (Docker Swarm)
     needs: build-and-push
-    runs-on: [self-hosted, Linux, X64] #  EC2에 설치된 self-hosted runner 가 이 작업을 잡게
-
-    env:
-      NODE_ENV: ${{ secrets.NODE_ENV }}
-      PORT: ${{ secrets.PORT }}
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      FRONT_URL: ${{ secrets.FRONT_URL }}
-      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
-      BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
-      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+    runs-on: [self-hosted, Linux, X64]
 
     steps:
       - name: Checkout code
@@ -74,41 +67,52 @@ jobs:
 
       - name: Create .env file
         run: |
-            # 환경 변수 파일 생성
-            echo "NODE_ENV=$NODE_ENV" > .env
-            echo "PORT=$PORT" >> .env
-            echo "DATABASE_URL=$DATABASE_URL" >> .env
-            echo "FRONT_URL=$FRONT_URL" >> .env
-            echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET" >> .env
-            echo "BETTER_AUTH_URL=$BETTER_AUTH_URL" >> .env
-            echo "SENTRY_DSN=$SENTRY_DSN" >> .env
+          # 리포지토리 이름을 소문자로 변환 (Docker 이미지 규격 준수)
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
 
-            # 리포지토리 이름을 소문자로 변환
-            RAW_IMAGE_NAME="${{ github.repository }}"
-            echo "GITHUB_REPOSITORY=${RAW_IMAGE_NAME,,}" >> .env
-            chmod 644 .env
+          cat <<EOF > .env
+          NODE_ENV=${{ secrets.NODE_ENV }}
+          PORT=${{ secrets.PORT }}
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          FRONT_URL=${{ secrets.FRONT_URL }}
+          BETTER_AUTH_SECRET=${{ secrets.BETTER_AUTH_SECRET }}
+          BETTER_AUTH_URL=${{ secrets.BETTER_AUTH_URL }}
+          SENTRY_DSN=${{ secrets.SENTRY_DSN }}
+          DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}
+          AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION=${{ secrets.AWS_REGION }}
+          AWS_S3_BUCKET_DOCUMENTS=${{ secrets.AWS_S3_BUCKET_DOCUMENTS }}
+          AWS_S3_BUCKET_REPORTS=${{ secrets.AWS_S3_BUCKET_REPORTS }}
+          AWS_CLOUDFRONT_URL_DOCUMENTS=${{ secrets.AWS_CLOUDFRONT_URL_DOCUMENTS }}
+          AWS_CLOUDFRONT_URL_REPORTS=${{ secrets.AWS_CLOUDFRONT_URL_REPORTS }}
+          AWS_CLOUDFRONT_KEY_PAIR_ID=${{ secrets.AWS_CLOUDFRONT_KEY_PAIR_ID }}
+          REDIS_URL=${{ secrets.REDIS_URL }}
+          ALARM_LAMBDA_URL=${{ secrets.ALARM_LAMBDA_URL }}
+          GHCR_IMAGE=ghcr.io/${REPO_LOWER}:latest
+          EOF
+          chmod 600 .env
 
-      # 생성된 .env와 필요한 소스들을(Sparse Checkout한것) 실행 위치로 복사한다.
       - name: Sync files to app directory
         run: |
-            # 기존 app 폴더가 있다면 소유권을 먼저 확보
-            sudo chown -R ec2-user:ec2-user /home/ec2-user/app || true
-            # 러너 워크스페이스의 내용을 /home/ec2-user/app으로 동기화
-            cp -r ./* /home/ec2-user/app/
-            # 복사 후 다시 한번 전체 소유권을 ec2-user로 강제하기!
-            sudo chown -R ec2-user:ec2-user /home/ec2-user/app/
-            cp .env /home/ec2-user/app/
+          sudo chown -R ec2-user:ec2-user /home/ec2-user/app || true
+          cp -r ./* /home/ec2-user/app/
+          cp .env /home/ec2-user/app/
+          sudo chown -R ec2-user:ec2-user /home/ec2-user/app/
       
       - name: Log in to GHCR
         run: |
           echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
 
-      - name: Execute Blue-Green Deployment
+      - name: Execute Swarm Deployment
         run: |
-            # 러너의 workspace 폴더에서 직접 실행
-            cd /home/ec2-user/app
-            chmod +x deploy.sh
-            ./deploy.sh
+          cd /home/ec2-user/app
+          chmod +x deploy.sh
+          if [ "${{ github.ref_name }}" == "main" ]; then
+            ./deploy.sh prod
+          else
+            ./deploy.sh dev
+          fi
 
       - name: Clean up unused images
         if: always()

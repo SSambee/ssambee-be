@@ -1,4 +1,4 @@
-FROM node:24-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
@@ -17,8 +17,11 @@ RUN pnpm exec prisma generate
 RUN pnpm run build 
 
 # 프로덕션 이미지 빌드
-FROM node:24-alpine
+FROM node:22-alpine
 WORKDIR /app
+
+# 헬스체크를 위한 curl 설치
+RUN apk add --no-cache curl
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
