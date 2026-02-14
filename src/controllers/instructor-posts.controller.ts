@@ -115,7 +115,10 @@ export class InstructorPostsController {
 
       return successResponse(res, {
         statusCode: 200,
-        data: responseData,
+        data: {
+          ...responseData,
+          stats: result.stats,
+        },
         message: '공지 목록을 조회했습니다.',
       });
     } catch (error) {
