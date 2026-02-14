@@ -190,8 +190,8 @@ export class InstructorPostsService {
       lectureId: data.lectureId || null,
       instructorId,
       authorAssistantId: userType === UserType.ASSISTANT ? profileId : null,
-      materialIds: data.materialIds,
-      targetEnrollmentIds: data.targetEnrollmentIds,
+      materialIds: data.materialIds || undefined,
+      targetEnrollmentIds: data.targetEnrollmentIds || undefined,
     });
   }
 
@@ -412,7 +412,7 @@ export class InstructorPostsService {
 
     if (
       targetScope === PostScope.SELECTED &&
-      data.targetEnrollmentIds !== undefined &&
+      data.targetEnrollmentIds &&
       data.targetEnrollmentIds.length === 0
     ) {
       throw new BadRequestException('선택 공지는 대상 학생 지정이 필수입니다.');
@@ -442,10 +442,10 @@ export class InstructorPostsService {
       (data.targetRole === undefined || data.targetRole === post.targetRole) &&
       (data.lectureId === undefined || data.lectureId === post.lectureId) &&
       (data.materialIds === undefined ||
-        JSON.stringify([...data.materialIds].sort()) ===
+        JSON.stringify([...(data.materialIds || [])].sort()) ===
           JSON.stringify(currentMaterialIds)) &&
       (data.targetEnrollmentIds === undefined ||
-        JSON.stringify([...data.targetEnrollmentIds].sort()) ===
+        JSON.stringify([...(data.targetEnrollmentIds || [])].sort()) ===
           JSON.stringify(currentTargetEnrollmentIds));
 
     if (isRedundant) {
@@ -459,8 +459,8 @@ export class InstructorPostsService {
       scope: data.scope,
       targetRole: data.targetRole,
       lectureId: data.lectureId,
-      materialIds: data.materialIds,
-      targetEnrollmentIds: data.targetEnrollmentIds,
+      materialIds: data.materialIds || undefined,
+      targetEnrollmentIds: data.targetEnrollmentIds || undefined,
     });
   }
 
