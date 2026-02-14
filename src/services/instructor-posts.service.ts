@@ -18,6 +18,7 @@ import {
 } from '../validations/instructor-posts.validation.js';
 
 import { StudentPostsRepository } from '../repos/student-posts.repo.js';
+import { formatStudentPostStats } from '../utils/posts.util.js';
 
 export class InstructorPostsService {
   constructor(
@@ -319,23 +320,7 @@ export class InstructorPostsService {
       if (instructorId) {
         const statsRaw =
           await this.studentPostsRepository.getStats(instructorId);
-
-        let increaseRate = 0;
-        if (statsRaw.lastMonthCount > 0) {
-          increaseRate =
-            ((statsRaw.thisMonthCount - statsRaw.lastMonthCount) /
-              statsRaw.lastMonthCount) *
-            100;
-        }
-
-        stats = {
-          totalCount: statsRaw.totalCount,
-          increaseRate: `${parseFloat(increaseRate.toFixed(1))}%`,
-          unansweredCount: statsRaw.unansweredCount,
-          unansweredCriteria: statsRaw.unansweredCriteria,
-          answeredThisMonthCount: statsRaw.answeredThisMonthCount,
-          processingCount: statsRaw.processingCount,
-        };
+        stats = formatStudentPostStats(statsRaw);
       }
     }
 

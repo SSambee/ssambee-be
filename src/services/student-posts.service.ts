@@ -16,6 +16,7 @@ import { LecturesRepository } from '../repos/lectures.repo.js';
 import { CommentsRepository } from '../repos/comments.repo.js';
 import { PermissionService } from './permission.service.js';
 import { StudentPost, Comment } from '../generated/prisma/client.js';
+import { formatStudentPostStats } from '../utils/posts.util.js';
 
 export class StudentPostsService {
   constructor(
@@ -137,24 +138,7 @@ export class StudentPostsService {
     let stats = null;
     if (instructorId) {
       const statsRaw = await this.studentPostsRepository.getStats(instructorId);
-
-      // 증가율 계산: (이번달 - 지난달) / 지난달 * 100
-      let increaseRate = 0;
-      if (statsRaw.lastMonthCount > 0) {
-        increaseRate =
-          ((statsRaw.thisMonthCount - statsRaw.lastMonthCount) /
-            statsRaw.lastMonthCount) *
-          100;
-      }
-
-      stats = {
-        totalCount: statsRaw.totalCount,
-        increaseRate: `${parseFloat(increaseRate.toFixed(1))}%`,
-        unansweredCount: statsRaw.unansweredCount,
-        unansweredCriteria: statsRaw.unansweredCriteria,
-        answeredThisMonthCount: statsRaw.answeredThisMonthCount,
-        processingCount: statsRaw.processingCount,
-      };
+      stats = formatStudentPostStats(statsRaw);
     }
 
     return {
