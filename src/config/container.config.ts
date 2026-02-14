@@ -103,6 +103,10 @@ import { AssignmentsController } from '../controllers/assignments.controller.js'
 import { AssignmentResultsService } from '../services/assignment-results.service.js';
 import { AssignmentResultsController } from '../controllers/assignment-results.controller.js';
 
+import { ProfileRepository } from '../repos/profile.repo.js';
+import { ProfileService } from '../services/profile.service.js';
+import { ProfileController } from '../controllers/profile.controller.js';
+
 // 1. Instantiate Repositories
 const instructorRepo = new InstructorRepository(prisma);
 const studentRepo = new StudentRepository(prisma);
@@ -130,9 +134,12 @@ const attendancesRepo = new AttendancesRepository(prisma);
 const instructorPostsRepo = new InstructorPostsRepository(prisma);
 const studentPostsRepo = new StudentPostsRepository(prisma);
 const commentsRepo = new CommentsRepository(prisma);
+const profileRepo = new ProfileRepository(prisma);
 
 // 2. Instantiate Services (Inject Repos)
 const fileStorageService = new FileStorageService();
+
+const profileService = new ProfileService(profileRepo, prisma);
 
 const authService = new AuthService(
   instructorRepo,
@@ -413,6 +420,7 @@ export const container = {
   schedulesController,
   assignmentsController,
   assignmentResultsController,
+  profileController: new ProfileController(profileService),
   // Middlewares
   requireAuth,
   optionalAuth,
