@@ -319,7 +319,7 @@ describe('ExamsService - @unit #critical', () => {
   });
 
   describe('getExamById', () => {
-    it('반환해야 한다:  exam with enrollments', async () => {
+    it('시험 권한이 있는 사용자가 조회를 요청할 때, 수강생 목록을 포함한 시험 정보가 반환된다', async () => {
       const mockExamWithEnrollments = {
         id: mockExamId,
         lectureId: mockLectureId,
@@ -361,7 +361,7 @@ describe('ExamsService - @unit #critical', () => {
       expect((result as ExamDetailWithEnrollments).enrollments).toHaveLength(1);
     });
 
-    it('에러를 던져야 한다:  NotFoundException if exam not found', async () => {
+    it('존재하지 않는 시험을 조회할 때, NotFoundException을 던진다', async () => {
       mockExamsRepo.findByIdWithEnrollments.mockResolvedValue(null);
 
       await expect(
