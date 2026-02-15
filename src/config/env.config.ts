@@ -33,6 +33,7 @@ const envSchema = z.object({
   ALARM_LAMBDA_URL: z.string().optional(),
   LOG_LAMBDA_URL: z.string().optional(),
   LOG_LAMBDA_API_KEY: z.string().optional(),
+  LAMBDA_URL: z.string().optional(),
 });
 
 const parseEnvironment = () => {
@@ -57,6 +58,7 @@ const parseEnvironment = () => {
       ALARM_LAMBDA_URL: process.env.ALARM_LAMBDA_URL,
       LOG_LAMBDA_URL: process.env.LOG_LAMBDA_URL,
       LOG_LAMBDA_API_KEY: process.env.LOG_LAMBDA_API_KEY,
+      LAMBDA_URL: process.env.LAMBDA_URL,
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
