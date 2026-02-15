@@ -262,23 +262,6 @@ const materialsService = new MaterialsService(
   prisma,
 );
 
-const instructorPostsService = new InstructorPostsService(
-  instructorPostsRepo,
-  lecturesRepo,
-  materialsRepo,
-  lectureEnrollmentsRepo,
-  enrollmentsRepo,
-  permissionService,
-  studentPostsRepo,
-);
-const studentPostsService = new StudentPostsService(
-  studentPostsRepo,
-  enrollmentsRepo,
-  lectureEnrollmentsRepo,
-  lecturesRepo,
-  commentsRepo,
-  permissionService,
-);
 const commentsService = new CommentsService(
   commentsRepo,
   instructorPostsRepo,
@@ -287,6 +270,27 @@ const commentsService = new CommentsService(
   lectureEnrollmentsRepo,
   materialsRepo,
   permissionService,
+  parentChildLinkRepo,
+);
+
+const instructorPostsService = new InstructorPostsService(
+  instructorPostsRepo,
+  lecturesRepo,
+  materialsRepo,
+  lectureEnrollmentsRepo,
+  enrollmentsRepo,
+  permissionService,
+  studentPostsRepo,
+  commentsService,
+);
+const studentPostsService = new StudentPostsService(
+  studentPostsRepo,
+  enrollmentsRepo,
+  lectureEnrollmentsRepo,
+  lecturesRepo,
+  commentsRepo,
+  permissionService,
+  commentsService,
 );
 
 const assistantOrderService = new AssistantOrderService(
