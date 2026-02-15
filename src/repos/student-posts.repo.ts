@@ -6,7 +6,17 @@ import {
 } from '../constants/posts.constant.js';
 
 export type StudentPostWithDetails = Prisma.StudentPostGetPayload<{
-  include: {
+  select: {
+    id: true;
+    status: true;
+    title: true;
+    content: true;
+    createdAt: true;
+    updatedAt: true;
+    enrollmentId: true;
+    authorRole: true;
+    instructorId: true;
+    lectureId: true;
     enrollment: {
       select: {
         appStudentId: true;
@@ -18,7 +28,16 @@ export type StudentPostWithDetails = Prisma.StudentPostGetPayload<{
       };
     };
     comments: {
-      include: {
+      select: {
+        id: true;
+        content: true;
+        createdAt: true;
+        updatedAt: true;
+        instructorPostId: true;
+        studentPostId: true;
+        instructorId: true;
+        assistantId: true;
+        enrollmentId: true;
         instructor: { select: { user: { select: { name: true } } } };
         assistant: { select: { user: { select: { name: true } } } };
         enrollment: {
@@ -28,7 +47,15 @@ export type StudentPostWithDetails = Prisma.StudentPostGetPayload<{
             appParentLink: { select: { appParentId: true } };
           };
         };
-        attachments: { include: { material: true } };
+        attachments: {
+          select: {
+            id: true;
+            filename: true;
+            fileUrl: true;
+            materialId: true;
+            material: true;
+          };
+        };
       };
     };
     _count: { select: { comments: true } };
