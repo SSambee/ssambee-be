@@ -5,6 +5,7 @@ import { UserType, AssistantStatus } from '../src/constants/auth.constant.js';
 import { EnrollmentStatus } from '../src/constants/enrollments.constant.js';
 import { LectureStatus } from '../src/constants/lectures.constant.js';
 import { QuestionType } from '../src/constants/exams.constant.js';
+import { MaterialType } from '../src/constants/materials.constant.js';
 import {
   PostScope,
   TargetRole,
@@ -369,7 +370,7 @@ async function main() {
       title: '고1 필수 영단어 100선',
       filename: 'vocab_100.pdf',
       fileUrl: 'https://example.com/vocab.pdf',
-      type: 'REFERENCE',
+      type: MaterialType.OTHER,
       authorName: '나카무라 유키토',
       authorRole: 'INSTRUCTOR',
       createdAt: now,
@@ -387,7 +388,7 @@ async function main() {
       title: '2025학년도 3월 모의고사 기출문제',
       filename: 'mock_exam_2025_03.pdf',
       fileUrl: 'https://example.com/mock_exam.pdf',
-      type: 'EXAM_PAPER',
+      type: MaterialType.PAPER,
       authorName: '나카무라 유키토',
       authorRole: 'INSTRUCTOR',
       createdAt: now,
@@ -404,7 +405,7 @@ async function main() {
       title: '고1 필수 영문법 - 관계대명사 편',
       filename: 'grammar_video_link',
       fileUrl: 'https://www.youtube.com/watch?v=example',
-      type: 'VIDEO_LINK',
+      type: MaterialType.VIDEO,
       authorName: '나카무라 유키토',
       authorRole: 'INSTRUCTOR',
       createdAt: now,
@@ -421,7 +422,7 @@ async function main() {
       title: '[조교요청] 교재 오탈자 수정 건',
       filename: 'typo_fix_request.docx',
       fileUrl: 'https://example.com/request.docx',
-      type: 'INSTRUCTOR_REQUEST',
+      type: MaterialType.REQUEST,
       authorName: '나카무라 유키토',
       authorRole: 'INSTRUCTOR',
       createdAt: now,

@@ -321,14 +321,14 @@ export class StudentPostsRepository {
       client.studentPost.count({
         where: {
           instructorId,
-          status: 'PENDING',
+          status: StudentPostStatus.PENDING,
         },
       }),
       // 지연된 게시글 (BEFORE 상태이고 1시간 이상 지남)
       client.studentPost.count({
         where: {
           instructorId,
-          status: 'PENDING',
+          status: StudentPostStatus.PENDING,
           createdAt: { lt: oneHourAgo },
         },
       }),
@@ -336,14 +336,14 @@ export class StudentPostsRepository {
       client.studentPost.count({
         where: {
           instructorId,
-          status: 'RESOLVED',
+          status: StudentPostStatus.RESOLVED,
         },
       }),
       // 이번 달 답변 완료 (COMPLETED 상태이며, 변경일이 이번 달)
       client.studentPost.count({
         where: {
           instructorId,
-          status: 'COMPLETED',
+          status: StudentPostStatus.COMPLETED,
           updatedAt: { gte: startOfThisMonth },
         },
       }),
