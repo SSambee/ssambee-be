@@ -19,6 +19,7 @@ import {
 
 import { StudentPostsRepository } from '../repos/student-posts.repo.js';
 import { formatStudentPostStats } from '../utils/posts.util.js';
+import { CommentsService } from './comments.service.js';
 
 export class InstructorPostsService {
   constructor(
@@ -29,6 +30,7 @@ export class InstructorPostsService {
     private readonly enrollmentsRepository: EnrollmentsRepository,
     private readonly permissionService: PermissionService,
     private readonly studentPostsRepository: StudentPostsRepository, // [NEW]
+    private readonly commentsService: CommentsService,
   ) {}
 
   /** 공지 타겟 학생 목록 조회 (강사의 모든 강의와 학생 목록) */
@@ -339,6 +341,15 @@ export class InstructorPostsService {
     // 조회 권한 검증
     await this.validatePostAccess(post, userType, profileId, 'READ');
 
+    // 댓글에 isMine 필드 추가
+    const commentsWithIsMine = post.comments.map((comment) =>
+      this.commentsService.addIsMineFieldToComment(
+        comment,
+        userType,
+        profileId,
+      ),
+    );
+
     if (userType === UserType.STUDENT) {
       // 학생용 첨부파일 필터링 (권한이 있는 자료만 노출)
       const accessibleAttachments = await this.filterAccessibleAttachments(
@@ -349,10 +360,14 @@ export class InstructorPostsService {
       return {
         ...post,
         attachments: accessibleAttachments,
+        comments: commentsWithIsMine,
       };
     }
 
-    return post;
+    return {
+      ...post,
+      comments: commentsWithIsMine,
+    };
   }
 
   /** 학생용 첨부파일 접근 권한 필터링 */
