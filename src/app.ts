@@ -43,7 +43,9 @@ if (isDevelopment()) {
 }
 
 // 비동기 Lambda 로깅 (Production 및 환경변수 설정 시 활성화)
-app.use(morgan('combined', { stream: new MorganLambdaStream() }));
+if (config.LOG_LAMBDA_URL) {
+  app.use(morgan('combined', { stream: new MorganLambdaStream() }));
+}
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
