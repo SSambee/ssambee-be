@@ -281,12 +281,12 @@ export class CommentsService {
       case UserType.STUDENT:
         isMine =
           commentWithRelations.enrollment?.appStudentId === profileId &&
-          commentWithRelations.authorRole === 'STUDENT';
+          commentWithRelations.authorRole === AuthorRole.STUDENT;
         break;
       case UserType.PARENT:
         isMine =
           commentWithRelations.enrollment?.appParentLink?.appParentId ===
-            profileId && commentWithRelations.authorRole === 'PARENT';
+            profileId && commentWithRelations.authorRole === AuthorRole.PARENT;
         break;
       case UserType.INSTRUCTOR:
         isMine = commentWithRelations.instructorId === profileId;
