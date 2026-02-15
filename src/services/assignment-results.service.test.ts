@@ -74,7 +74,7 @@ describe('AssignmentResultsService', () => {
   describe('createResult', () => {
     const createDto = { resultIndex: 1 };
 
-    it('should create a result successfully', async () => {
+    it('성공적으로 결과를 생성해야 한다', async () => {
       (mockAssignmentsRepo.findById as jest.Mock).mockResolvedValue(
         mockAssignment,
       );
@@ -103,7 +103,7 @@ describe('AssignmentResultsService', () => {
       expect(result).toEqual(mockAssignmentResult);
     });
 
-    it('should throw NotFoundException if assignment not found', async () => {
+    it('에러를 던져야 한다:  NotFoundException if assignment not found', async () => {
       (mockAssignmentsRepo.findById as jest.Mock).mockResolvedValue(null);
 
       await expect(
@@ -117,7 +117,7 @@ describe('AssignmentResultsService', () => {
     });
 
     // ... other createResult tests remain logically similar, omitted for brevity but should be included if rewriting whole file ...
-    it('should throw ForbiddenException if assignment belongs to another instructor', async () => {
+    it('에러를 던져야 한다:  ForbiddenException if assignment belongs to another instructor', async () => {
       (mockAssignmentsRepo.findById as jest.Mock).mockResolvedValue({
         ...mockAssignment,
         instructorId: 'other-instructor',
@@ -133,7 +133,7 @@ describe('AssignmentResultsService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('should throw NotFoundException if lecture enrollment not found', async () => {
+    it('에러를 던져야 한다:  NotFoundException if lecture enrollment not found', async () => {
       (mockAssignmentsRepo.findById as jest.Mock).mockResolvedValue(
         mockAssignment,
       );
@@ -151,7 +151,7 @@ describe('AssignmentResultsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw BadRequestException if assignment and enrollment belong to different lectures', async () => {
+    it('에러를 던져야 한다:  BadRequestException if assignment and enrollment belong to different lectures', async () => {
       (mockAssignmentsRepo.findById as jest.Mock).mockResolvedValue(
         mockAssignment,
       );
@@ -170,7 +170,7 @@ describe('AssignmentResultsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should throw BadRequestException if resultIndex is out of range', async () => {
+    it('에러를 던져야 한다:  BadRequestException if resultIndex is out of range', async () => {
       (mockAssignmentsRepo.findById as jest.Mock).mockResolvedValue(
         mockAssignment,
       );
@@ -188,7 +188,7 @@ describe('AssignmentResultsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should throw ConflictException if result already exists', async () => {
+    it('에러를 던져야 한다:  ConflictException if result already exists', async () => {
       (mockAssignmentsRepo.findById as jest.Mock).mockResolvedValue(
         mockAssignment,
       );
@@ -211,7 +211,7 @@ describe('AssignmentResultsService', () => {
   });
 
   describe('getResult', () => {
-    it('should return result if found and authorized', async () => {
+    it('권한이 있는 경우 결과를 반환해야 한다', async () => {
       (mockAssignmentResultsRepo.findById as jest.Mock).mockResolvedValue(
         mockAssignmentResult,
       );
@@ -224,7 +224,7 @@ describe('AssignmentResultsService', () => {
       expect(result).toEqual(mockAssignmentResult);
     });
 
-    it('should throw NotFoundException if result not found', async () => {
+    it('에러를 던져야 한다:  NotFoundException if result not found', async () => {
       (mockAssignmentResultsRepo.findById as jest.Mock).mockResolvedValue(null);
 
       await expect(
@@ -232,7 +232,7 @@ describe('AssignmentResultsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw ForbiddenException if instructor does not match', async () => {
+    it('권한이 없는 경우 ForbiddenException을 던져야 한다', async () => {
       (mockAssignmentResultsRepo.findById as jest.Mock).mockResolvedValue({
         ...mockAssignmentResult,
         assignment: { ...mockAssignment, instructorId: 'other-instructor' },
@@ -247,7 +247,7 @@ describe('AssignmentResultsService', () => {
   describe('updateResult', () => {
     const updateDto = { resultIndex: 2 };
 
-    it('should update result successfully', async () => {
+    it('성공적으로 결과를 수정해야 한다', async () => {
       (mockAssignmentResultsRepo.findById as jest.Mock).mockResolvedValue(
         mockAssignmentResult,
       );
@@ -269,7 +269,7 @@ describe('AssignmentResultsService', () => {
       expect(result.resultIndex).toBe(updateDto.resultIndex);
     });
 
-    it('should throw BadRequestException if new resultIndex is out of range', async () => {
+    it('에러를 던져야 한다:  BadRequestException if new resultIndex is out of range', async () => {
       (mockAssignmentResultsRepo.findById as jest.Mock).mockResolvedValue(
         mockAssignmentResult,
       );
@@ -283,7 +283,7 @@ describe('AssignmentResultsService', () => {
   });
 
   describe('deleteResult', () => {
-    it('should delete result successfully', async () => {
+    it('성공적으로 결과를 삭제해야 한다', async () => {
       (mockAssignmentResultsRepo.findById as jest.Mock).mockResolvedValue(
         mockAssignmentResult,
       );

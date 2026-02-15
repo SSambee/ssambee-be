@@ -56,7 +56,7 @@ describe('AssignmentsService', () => {
       categoryId: mockCategoryId,
     };
 
-    it('should create an assignment successfully', async () => {
+    it('성공적으로 과제를 생성해야 한다', async () => {
       (mockCategoryRepo.findById as jest.Mock).mockResolvedValue(mockCategory);
       (mockAssignmentsRepo.create as jest.Mock).mockResolvedValue(
         mockAssignment,
@@ -79,7 +79,7 @@ describe('AssignmentsService', () => {
       expect(result).toEqual(mockAssignment);
     });
 
-    it('should throw NotFoundException if category not found', async () => {
+    it('항목을 찾을 수 없으면 NotFoundException을 던져야 한다', async () => {
       (mockCategoryRepo.findById as jest.Mock).mockResolvedValue(null);
 
       await expect(
@@ -87,7 +87,7 @@ describe('AssignmentsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw ForbiddenException if category belongs to another instructor', async () => {
+    it('타 강사의 카테고리인 경우 ForbiddenException을 던져야 한다', async () => {
       (mockCategoryRepo.findById as jest.Mock).mockResolvedValue({
         ...mockCategory,
         instructorId: 'other-instructor',
@@ -100,7 +100,7 @@ describe('AssignmentsService', () => {
   });
 
   describe('getAssignments', () => {
-    it('should return assignments', async () => {
+    it('과제 목록을 반환해야 한다', async () => {
       const assignments = [mockAssignment];
       (mockAssignmentsRepo.findByInstructorId as jest.Mock).mockResolvedValue(
         assignments,
@@ -120,7 +120,7 @@ describe('AssignmentsService', () => {
   });
 
   describe('getAssignmentById', () => {
-    it('should return assignment if found and authorized', async () => {
+    it('권한이 있는 경우 과제를 반환해야 한다', async () => {
       (mockAssignmentsRepo.findByIdWithResults as jest.Mock).mockResolvedValue(
         mockAssignment,
       );
@@ -136,7 +136,7 @@ describe('AssignmentsService', () => {
       expect(result).toEqual(mockAssignment);
     });
 
-    it('should throw NotFoundException if assignment not found', async () => {
+    it('에러를 던져야 한다:  NotFoundException if assignment not found', async () => {
       (mockAssignmentsRepo.findByIdWithResults as jest.Mock).mockResolvedValue(
         null,
       );
@@ -146,7 +146,7 @@ describe('AssignmentsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw ForbiddenException if instructor does not match', async () => {
+    it('권한이 없는 경우 ForbiddenException을 던져야 한다', async () => {
       (mockAssignmentsRepo.findByIdWithResults as jest.Mock).mockResolvedValue({
         ...mockAssignment,
         instructorId: 'other-instructor',
@@ -163,7 +163,7 @@ describe('AssignmentsService', () => {
       title: 'Updated Title',
     };
 
-    it('should update assignment successfully', async () => {
+    it('성공적으로 과제를 수정해야 한다', async () => {
       (mockAssignmentsRepo.findById as jest.Mock).mockResolvedValue(
         mockAssignment,
       );
@@ -185,7 +185,7 @@ describe('AssignmentsService', () => {
       expect(result.title).toBe(updateDto.title);
     });
 
-    it('should throw NotFoundException if assignment not found', async () => {
+    it('에러를 던져야 한다:  NotFoundException if assignment not found', async () => {
       (mockAssignmentsRepo.findById as jest.Mock).mockResolvedValue(null);
 
       await expect(
@@ -197,7 +197,7 @@ describe('AssignmentsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should check category permission if categoryId is updated', async () => {
+    it('카테고리 수정 시 권한을 확인해야 한다', async () => {
       const updateCategoryDto = { categoryId: 'new-category' };
       (mockAssignmentsRepo.findById as jest.Mock).mockResolvedValue(
         mockAssignment,
@@ -226,7 +226,7 @@ describe('AssignmentsService', () => {
   });
 
   describe('deleteAssignment', () => {
-    it('should delete assignment successfully', async () => {
+    it('성공적으로 과제를 삭제해야 한다', async () => {
       (mockAssignmentsRepo.findById as jest.Mock).mockResolvedValue(
         mockAssignment,
       );
@@ -241,7 +241,7 @@ describe('AssignmentsService', () => {
       );
     });
 
-    it('should throw NotFoundException if assignment not found', async () => {
+    it('에러를 던져야 한다:  NotFoundException if assignment not found', async () => {
       (mockAssignmentsRepo.findById as jest.Mock).mockResolvedValue(null);
 
       await expect(

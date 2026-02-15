@@ -91,7 +91,7 @@ describe('AttendancesService - @unit #critical', () => {
 
     describe('ATT-01: 단체 출결 등록 성공', () => {
       it('강사가 자신의 강의에 대해 여러 명의 출결 정보를 한 번에 등록하거나 수정할 수 있다', async () => {
-        // Arrange
+        // 준비
         mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
         mockPermissionService.validateInstructorAccess.mockResolvedValue();
 
@@ -133,7 +133,7 @@ describe('AttendancesService - @unit #critical', () => {
           },
         ];
 
-        // Act
+        // 실행
         const result = await attendancesService.createBulkAttendances(
           lectureId,
           { ...mockCreateBulkData, attendances: requests },
@@ -141,7 +141,7 @@ describe('AttendancesService - @unit #critical', () => {
           instructorId,
         );
 
-        // Assert
+        // 검증
         expect(result).toHaveLength(2);
         expect(mockLecturesRepo.findById).toHaveBeenCalledWith(lectureId);
         expect(

@@ -109,7 +109,7 @@ describe('EnrollmentsService - @unit #critical', () => {
 
     describe('ENR-01: 수강 생성 성공', () => {
       it('강사가 자신의 강의에 수강생 등록을 요청할 때, 수강 정보가 생성되고 반환된다', async () => {
-        // Arrange
+        // 준비
         mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
         mockPermissionService.validateInstructorAccess.mockResolvedValue();
         mockEnrollmentsRepo.findManyByInstructorAndPhones.mockResolvedValue([]); // 기존 수강생 없음
@@ -140,7 +140,7 @@ describe('EnrollmentsService - @unit #critical', () => {
           },
         );
 
-        // Act
+        // 실행
         const result = await enrollmentsService.createEnrollment(
           lectureId,
           {
@@ -152,7 +152,7 @@ describe('EnrollmentsService - @unit #critical', () => {
           instructorId,
         );
 
-        // Assert
+        // 검증
         expect(result).toBeDefined();
         expect(mockLecturesRepo.findById).toHaveBeenCalledWith(lectureId);
         expect(
@@ -402,7 +402,7 @@ describe('EnrollmentsService - @unit #critical', () => {
     const enrollmentIds = ['e-1', 'e-2', 'e-3'];
 
     it('성공: 새로운 학생들을 일괄 등록한다', async () => {
-      // Arrange
+      // 준비
       mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
       mockPermissionService.validateInstructorAccess.mockResolvedValue();
       mockLectureEnrollmentsRepo.findManyByLectureId.mockResolvedValue([]); // 기존 등록 없음
@@ -412,7 +412,7 @@ describe('EnrollmentsService - @unit #critical', () => {
         >,
       );
 
-      // Act
+      // 실행
       const result = await enrollmentsService.createEnrollmentMigration(
         lectureId,
         { enrollmentIds, memo: 'migration memo' },
@@ -420,7 +420,7 @@ describe('EnrollmentsService - @unit #critical', () => {
         instructorId,
       );
 
-      // Assert
+      // 검증
       expect(result.count).toBe(3);
       expect(mockLectureEnrollmentsRepo.createMany).toHaveBeenCalledWith(
         enrollmentIds.map((eid) => ({
@@ -432,7 +432,7 @@ describe('EnrollmentsService - @unit #critical', () => {
     });
 
     it('성공: 중복된 학생은 제외하고 새로운 학생만 등록한다', async () => {
-      // Arrange
+      // 준비
       mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
       mockPermissionService.validateInstructorAccess.mockResolvedValue();
       mockLectureEnrollmentsRepo.findManyByLectureId.mockResolvedValue([
@@ -447,7 +447,7 @@ describe('EnrollmentsService - @unit #critical', () => {
         ReturnType<LectureEnrollmentsRepository['createMany']>
       >);
 
-      // Act
+      // 실행
       const result = await enrollmentsService.createEnrollmentMigration(
         lectureId,
         { enrollmentIds },
@@ -455,7 +455,7 @@ describe('EnrollmentsService - @unit #critical', () => {
         instructorId,
       );
 
-      // Assert
+      // 검증
       expect(result.count).toBe(2);
       expect(mockLectureEnrollmentsRepo.createMany).toHaveBeenCalledWith([
         { lectureId, enrollmentId: 'e-2' },
@@ -464,7 +464,7 @@ describe('EnrollmentsService - @unit #critical', () => {
     });
 
     it('성공: 모든 학생이 이미 등록된 경우 등록하지 않는다', async () => {
-      // Arrange
+      // 준비
       mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
       mockPermissionService.validateInstructorAccess.mockResolvedValue();
       mockLectureEnrollmentsRepo.findManyByLectureId.mockResolvedValue(
@@ -473,7 +473,7 @@ describe('EnrollmentsService - @unit #critical', () => {
         >,
       );
 
-      // Act
+      // 실행
       const result = await enrollmentsService.createEnrollmentMigration(
         lectureId,
         { enrollmentIds },
@@ -481,7 +481,7 @@ describe('EnrollmentsService - @unit #critical', () => {
         instructorId,
       );
 
-      // Assert
+      // 검증
       expect(result.count).toBe(0);
       expect(mockLectureEnrollmentsRepo.createMany).not.toHaveBeenCalled();
     });

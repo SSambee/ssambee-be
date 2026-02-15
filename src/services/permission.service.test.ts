@@ -48,28 +48,28 @@ describe('PermissionService - @unit #critical', () => {
 
     describe('PERM-01: 강사 ID 추출 성공', () => {
       it('강사(INSTRUCTOR)가 요청했을 때, 본인의 ID를 유효한 강사 ID로 반환해야 한다', async () => {
-        // Act
+        // 실행
         const effectiveId = await permissionService.getEffectiveInstructorId(
           UserType.INSTRUCTOR,
           instructorId,
         );
 
-        // Assert
+        // 검증
         expect(effectiveId).toBe(instructorId);
       });
 
       it('조교(ASSISTANT)가 요청했을 때, 담당 강사의 ID를 유효한 강사 ID로 반환해야 한다', async () => {
-        // Arrange
+        // 준비
         const assistantId = mockAssistants.basic.id;
         mockAssistantRepo.findById.mockResolvedValue(mockAssistants.basic);
 
-        // Act
+        // 실행
         const effectiveId = await permissionService.getEffectiveInstructorId(
           UserType.ASSISTANT,
           assistantId,
         );
 
-        // Assert
+        // 검증
         expect(effectiveId).toBe(mockAssistants.basic.instructorId);
         expect(mockAssistantRepo.findById).toHaveBeenCalledWith(assistantId);
       });
@@ -425,7 +425,7 @@ describe('PermissionService - @unit #critical', () => {
           ),
         ).resolves.toBeUndefined();
 
-        // Assert
+        // 검증
         expect(mockValidateChildAccess).toHaveBeenCalledWith(
           UserType.PARENT,
           parentId,
