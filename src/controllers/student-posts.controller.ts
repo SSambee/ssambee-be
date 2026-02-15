@@ -95,7 +95,10 @@ export class StudentPostsController {
 
       return successResponse(res, {
         statusCode: 200,
-        data: responseData,
+        data: {
+          ...responseData,
+          stats: result.stats,
+        },
         message: '질문 목록을 조회했습니다.',
       });
     } catch (error) {

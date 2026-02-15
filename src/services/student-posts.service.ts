@@ -16,6 +16,7 @@ import { LecturesRepository } from '../repos/lectures.repo.js';
 import { CommentsRepository } from '../repos/comments.repo.js';
 import { PermissionService } from './permission.service.js';
 import { StudentPost, Comment } from '../generated/prisma/client.js';
+import { formatStudentPostStats } from '../utils/posts.util.js';
 
 export class StudentPostsService {
   constructor(
@@ -120,18 +121,32 @@ export class StudentPostsService {
         return {
           posts: [],
           totalCount: 0,
+          stats: null,
         };
       }
     } else {
       throw new ForbiddenException('접근 권한이 없습니다.');
     }
 
-    return this.studentPostsRepository.findMany({
+    const result = await this.studentPostsRepository.findMany({
       ...query,
       instructorId,
       appStudentId,
       enrollmentIds, // [NEW] 학부모용
     });
+
+    // [Stats] 학생 질문 통계 추가 (강사/조교인 경우)
+    // DRY: formatStudentPostStats 헬퍼 함수 사용 - instructor-posts.service.ts와 동일 로직 공유
+    let stats = null;
+    if (instructorId) {
+      const statsRaw = await this.studentPostsRepository.getStats(instructorId);
+      stats = formatStudentPostStats(statsRaw);
+    }
+
+    return {
+      ...result,
+      stats,
+    };
   }
 
   /** 질문 상세 조회 */

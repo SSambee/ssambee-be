@@ -223,4 +223,101 @@ export class StudentPostsRepository {
       data: { status },
     });
   }
+
+  /** 강사별 질문 통계 조회 */
+  async getStats(instructorId: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    const now = new Date();
+
+    // 1. 이번 달 기준 (1일 00:00:00)
+    const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // 2. 지난 달 기준 (1일 00:00:00 ~ 말일 23:59:59)
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
+
+    // 3. 지연 기준 (1시간 전)
+    const oneHourAgo = new Date(now);
+    oneHourAgo.setHours(now.getHours() - 1);
+
+    const [
+      totalCount,
+      thisMonthCount,
+      lastMonthCount,
+      unansweredCount,
+      delayedCount,
+      processingCount,
+      answeredThisMonthCount,
+    ] = await Promise.all([
+      // 전체 누적 게시글
+      client.studentPost.count({
+        where: { instructorId },
+      }),
+      // 이번 달 생성된 게시글
+      client.studentPost.count({
+        where: {
+          instructorId,
+          createdAt: { gte: startOfThisMonth },
+        },
+      }),
+      // 지난 달 생성된 게시글
+      client.studentPost.count({
+        where: {
+          instructorId,
+          createdAt: {
+            gte: startOfLastMonth,
+            lte: endOfLastMonth,
+          },
+        },
+      }),
+      // 미답변 게시글 (BEFORE 상태 전체)
+      client.studentPost.count({
+        where: {
+          instructorId,
+          status: 'PENDING',
+        },
+      }),
+      // 지연된 게시글 (BEFORE 상태이고 1시간 이상 지남)
+      client.studentPost.count({
+        where: {
+          instructorId,
+          status: 'PENDING',
+          createdAt: { lt: oneHourAgo },
+        },
+      }),
+      // 답변 진행 중 (REGISTERED 상태)
+      client.studentPost.count({
+        where: {
+          instructorId,
+          status: 'RESOLVED',
+        },
+      }),
+      // 이번 달 답변 완료 (COMPLETED 상태이며, 변경일이 이번 달)
+      client.studentPost.count({
+        where: {
+          instructorId,
+          status: 'COMPLETED',
+          updatedAt: { gte: startOfThisMonth },
+        },
+      }),
+    ]);
+
+    return {
+      totalCount,
+      thisMonthCount,
+      lastMonthCount,
+      unansweredCount,
+      processingCount,
+      unansweredCriteria: delayedCount,
+      answeredThisMonthCount,
+    };
+  }
 }

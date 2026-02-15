@@ -5,6 +5,7 @@ import {
   createMockLecturesRepository,
   createMockMaterialsRepository,
   createMockEnrollmentsRepository,
+  createMockStudentPostsRepository,
 } from '../test/mocks/repo.mock.js';
 import { createMockPermissionService } from '../test/mocks/services.mock.js';
 import { UserType } from '../constants/auth.constant.js';
@@ -28,6 +29,7 @@ import type { LecturesRepository } from '../repos/lectures.repo.js';
 import type { MaterialsRepository } from '../repos/materials.repo.js';
 import type { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 import type { EnrollmentsRepository } from '../repos/enrollments.repo.js';
+import type { StudentPostsRepository } from '../repos/student-posts.repo.js';
 import type { PermissionService } from './permission.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 
@@ -50,6 +52,7 @@ describe('InstructorPostsService', () => {
   let materialsRepo: jest.Mocked<MaterialsRepository>;
   let lectureEnrollmentsRepo: jest.Mocked<LectureEnrollmentsRepository>;
   let enrollmentsRepo: jest.Mocked<EnrollmentsRepository>;
+  let studentPostsRepo: jest.Mocked<StudentPostsRepository>;
   let permissionService: jest.Mocked<PermissionService>;
 
   beforeEach(() => {
@@ -58,6 +61,7 @@ describe('InstructorPostsService', () => {
     materialsRepo = createMockMaterialsRepository();
     lectureEnrollmentsRepo = createMockLectureEnrollmentsRepository();
     enrollmentsRepo = createMockEnrollmentsRepository();
+    studentPostsRepo = createMockStudentPostsRepository();
     permissionService = createMockPermissionService();
 
     service = new InstructorPostsService(
@@ -67,7 +71,18 @@ describe('InstructorPostsService', () => {
       lectureEnrollmentsRepo,
       enrollmentsRepo,
       permissionService,
+      studentPostsRepo,
     );
+
+    studentPostsRepo.getStats.mockResolvedValue({
+      totalCount: 0,
+      thisMonthCount: 0,
+      lastMonthCount: 0,
+      unansweredCount: 0,
+      processingCount: 0,
+      answeredThisMonthCount: 0,
+      unansweredCriteria: 0,
+    });
   });
 
   describe('getPostTargets', () => {
@@ -511,6 +526,43 @@ describe('InstructorPostsService', () => {
         }),
       );
       expect(result.totalCount).toBe(1);
+    });
+
+    it('강사 또는 조교가 조회할 경우 통계 정보가 포맷팅되어 반환되어야 한다', async () => {
+      const instructorId = mockInstructor.id;
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        instructorId,
+      );
+
+      studentPostsRepo.getStats.mockResolvedValue({
+        totalCount: 100,
+        thisMonthCount: 10,
+        lastMonthCount: 5,
+        unansweredCount: 2,
+        processingCount: 3,
+        answeredThisMonthCount: 1,
+        unansweredCriteria: 1,
+      });
+
+      instructorPostsRepo.findMany.mockResolvedValue({
+        posts: [],
+        totalCount: 0,
+      });
+
+      const result = await service.getPostList(
+        { page: 1, limit: 10 },
+        UserType.INSTRUCTOR,
+        instructorId,
+      );
+
+      expect(result.stats).toEqual({
+        totalCount: 100,
+        increaseRate: '100%',
+        unansweredCount: 2,
+        unansweredCriteria: 1,
+        processingCount: 3,
+        answeredThisMonthCount: 1,
+      });
     });
   });
 

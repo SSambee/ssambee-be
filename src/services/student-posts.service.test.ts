@@ -57,6 +57,16 @@ describe('StudentPostsService', () => {
       commentsRepo,
       permissionService,
     );
+
+    studentPostsRepo.getStats.mockResolvedValue({
+      totalCount: 0,
+      thisMonthCount: 0,
+      lastMonthCount: 0,
+      unansweredCount: 0,
+      processingCount: 0,
+      answeredThisMonthCount: 0,
+      unansweredCriteria: 0,
+    });
   });
 
   describe('createPost', () => {
@@ -490,6 +500,38 @@ describe('StudentPostsService', () => {
         }),
       );
       expect(result.totalCount).toBe(1);
+    });
+
+    it('강사의 경우 통계 정보가 포맷팅되어 반환되어야 한다', async () => {
+      studentPostsRepo.getStats.mockResolvedValue({
+        totalCount: 100, // 전체는 더 많을 수 있음
+        thisMonthCount: 10,
+        lastMonthCount: 5,
+        unansweredCount: 2, // 전체 미답변
+        processingCount: 3,
+        answeredThisMonthCount: 1,
+        unansweredCriteria: 1, // 지연된 건수
+      });
+
+      studentPostsRepo.findMany.mockResolvedValue({
+        posts: [],
+        totalCount: 0,
+      });
+
+      const result = await service.getPostList(
+        { page: 1, limit: 10, writerType: InquiryWriterType.ALL },
+        UserType.INSTRUCTOR,
+        VALID_INSTRUCTOR_ID,
+      );
+
+      expect(result.stats).toEqual({
+        totalCount: 100,
+        increaseRate: '100%',
+        unansweredCount: 2,
+        unansweredCriteria: 1,
+        processingCount: 3,
+        answeredThisMonthCount: 1,
+      });
     });
 
     it('조교가 담당 강사의 질문 목록을 조회하면 성공해야 한다', async () => {

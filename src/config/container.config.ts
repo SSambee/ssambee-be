@@ -269,6 +269,7 @@ const instructorPostsService = new InstructorPostsService(
   lectureEnrollmentsRepo,
   enrollmentsRepo,
   permissionService,
+  studentPostsRepo,
 );
 const studentPostsService = new StudentPostsService(
   studentPostsRepo,

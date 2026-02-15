@@ -17,6 +17,9 @@ import {
   GetInstructorPostsQueryDto,
 } from '../validations/instructor-posts.validation.js';
 
+import { StudentPostsRepository } from '../repos/student-posts.repo.js';
+import { formatStudentPostStats } from '../utils/posts.util.js';
+
 export class InstructorPostsService {
   constructor(
     private readonly instructorPostsRepository: InstructorPostsRepository,
@@ -25,6 +28,7 @@ export class InstructorPostsService {
     private readonly lectureEnrollmentsRepository: LectureEnrollmentsRepository,
     private readonly enrollmentsRepository: EnrollmentsRepository,
     private readonly permissionService: PermissionService,
+    private readonly studentPostsRepository: StudentPostsRepository, // [NEW]
   ) {}
 
   /** 공지 타겟 학생 목록 조회 (강사의 모든 강의와 학생 목록) */
@@ -269,6 +273,7 @@ export class InstructorPostsService {
         return {
           posts: [],
           totalCount: 0,
+          stats: null,
         };
       }
 
@@ -297,7 +302,7 @@ export class InstructorPostsService {
       throw new ForbiddenException('접근 권한이 없습니다.');
     }
 
-    return this.instructorPostsRepository.findMany({
+    const result = await this.instructorPostsRepository.findMany({
       lectureId: query.lectureId,
       scope: query.scope,
       search: query.search,
@@ -307,6 +312,23 @@ export class InstructorPostsService {
       studentFiltering,
       postType: query.postType,
     });
+
+    // [Stats] 학생 질문 통계 추가 (강사/조교인 경우)
+    // DRY: formatStudentPostStats 헬퍼 함수 사용 - student-posts.service.ts와 동일 로직 공유
+    let stats = null;
+    if (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) {
+      // targetInstructorId는 위 로직에서 이미 구해짐 (강사는 본인, 조교는 소속 강사)
+      if (instructorId) {
+        const statsRaw =
+          await this.studentPostsRepository.getStats(instructorId);
+        stats = formatStudentPostStats(statsRaw);
+      }
+    }
+
+    return {
+      ...result,
+      stats,
+    };
   }
 
   /** 공지 상세 조회 */
