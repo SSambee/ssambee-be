@@ -197,6 +197,7 @@ export class InstructorPostsService {
       instructorId,
       authorAssistantId: userType === UserType.ASSISTANT ? profileId : null,
       materialIds: data.materialIds || undefined,
+      attachments: data.attachments || undefined,
       targetEnrollmentIds: data.targetEnrollmentIds || undefined,
     });
   }
@@ -463,9 +464,14 @@ export class InstructorPostsService {
 
     // 변경 없음 확인 (중복 업데이트 방지)
     const currentMaterialIds = post.attachments
-      .map((a) => a.materialId)
-      .filter((id): id is string => !!id)
+      .filter((a) => a.materialId !== null)
+      .map((a) => a.materialId as string)
       .sort();
+    const currentDirectAttachments = post.attachments
+      .filter((a) => a.materialId === null)
+      .map((a) => ({ filename: a.filename, fileUrl: a.fileUrl }))
+      .sort((a, b) => a.filename.localeCompare(b.filename));
+
     const currentTargetEnrollmentIds = post.targets
       .map((t) => t.enrollmentId)
       .sort();
@@ -481,6 +487,12 @@ export class InstructorPostsService {
       (data.materialIds === undefined ||
         JSON.stringify([...(data.materialIds || [])].sort()) ===
           JSON.stringify(currentMaterialIds)) &&
+      (data.attachments === undefined ||
+        JSON.stringify(
+          [...(data.attachments || [])].sort((a, b) =>
+            a.filename.localeCompare(b.filename),
+          ),
+        ) === JSON.stringify(currentDirectAttachments)) &&
       (data.targetEnrollmentIds === undefined ||
         JSON.stringify([...(data.targetEnrollmentIds || [])].sort()) ===
           JSON.stringify(currentTargetEnrollmentIds));
@@ -497,6 +509,7 @@ export class InstructorPostsService {
       targetRole: data.targetRole,
       lectureId: data.lectureId,
       materialIds: data.materialIds || undefined,
+      attachments: data.attachments || undefined,
       targetEnrollmentIds: data.targetEnrollmentIds || undefined,
     });
   }
