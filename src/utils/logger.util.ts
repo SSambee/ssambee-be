@@ -59,8 +59,7 @@ export class MorganLambdaStream implements StreamOptions {
             `[MorganLambdaStream] Lambda responded with status ${res.status}`,
           );
         }
-        // Drain the response body to free the connection
-        return res.text();
+        return res.ok ? res.text() : Promise.resolve();
       })
       .catch((error) => {
         console.error(
