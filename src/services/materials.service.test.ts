@@ -1,9 +1,6 @@
 import { MaterialsService } from '../../src/services/materials.service.js';
 import { FileStorageService } from '../../src/services/filestorage.service.js';
-import {
-  MaterialType,
-  FrontendMaterialType,
-} from '../../src/constants/materials.constant.js';
+import { MaterialType } from '../../src/constants/materials.constant.js';
 import { UserType } from '../../src/constants/auth.constant.js';
 import {
   BadRequestException,
@@ -79,7 +76,7 @@ describe('MaterialsService', () => {
       // Arrange
       const dto: UploadMaterialDto = {
         title: 'Video',
-        type: FrontendMaterialType.VIDEO,
+        type: MaterialType.VIDEO,
         youtubeUrl: 'https://youtube.com/watch?v=123',
       };
       const mockLecture = mockLectures.basic;
@@ -105,7 +102,7 @@ describe('MaterialsService', () => {
       expect(permissionService.validateInstructorAccess).toHaveBeenCalled();
       expect(materialsRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: MaterialType.VIDEO_LINK,
+          type: MaterialType.VIDEO,
           fileUrl: dto.youtubeUrl,
           authorName: '이강사',
           authorRole: UserType.INSTRUCTOR,
@@ -117,7 +114,7 @@ describe('MaterialsService', () => {
     it('잘못된 YouTube 링크인 경우 에러를 던져야 한다', async () => {
       const dto: UploadMaterialDto = {
         title: 'Video',
-        type: FrontendMaterialType.VIDEO,
+        type: MaterialType.VIDEO,
         youtubeUrl: 'https://invalid-url.com',
       };
 
@@ -137,7 +134,7 @@ describe('MaterialsService', () => {
     it('파일 업로드 시 S3 업로드를 호출해야 한다', async () => {
       const dto: UploadMaterialDto = {
         title: 'File',
-        type: FrontendMaterialType.PAPER,
+        type: MaterialType.PAPER,
       };
       const s3Url = 'https://s3.aws.com/test.pdf';
       const mockFile = {
@@ -179,7 +176,7 @@ describe('MaterialsService', () => {
     it('강의 ID 없이 업로드하면(라이브러리) 성공해야 한다', async () => {
       const dto: UploadMaterialDto = {
         title: 'Lib',
-        type: FrontendMaterialType.PAPER,
+        type: MaterialType.PAPER,
       };
       const mockFile = {
         originalname: 'lib.pdf',
@@ -225,7 +222,7 @@ describe('MaterialsService', () => {
       await expect(
         service.uploadMaterial(
           'non-existent',
-          { title: 'T', type: FrontendMaterialType.PAPER },
+          { title: 'T', type: MaterialType.PAPER },
           undefined,
           UserType.INSTRUCTOR,
           'prof',
@@ -243,7 +240,7 @@ describe('MaterialsService', () => {
       await expect(
         service.uploadMaterial(
           mockLecture.id,
-          { title: 'T', type: FrontendMaterialType.PAPER },
+          { title: 'T', type: MaterialType.PAPER },
           undefined,
           UserType.INSTRUCTOR,
           'other-prof',
@@ -255,7 +252,7 @@ describe('MaterialsService', () => {
       await expect(
         service.uploadMaterial(
           undefined,
-          { title: 'T', type: FrontendMaterialType.PAPER },
+          { title: 'T', type: MaterialType.PAPER },
           undefined,
           UserType.STUDENT,
           'student',
@@ -267,7 +264,7 @@ describe('MaterialsService', () => {
       await expect(
         service.uploadMaterial(
           undefined,
-          { title: 'T', type: FrontendMaterialType.VIDEO },
+          { title: 'T', type: MaterialType.VIDEO },
           undefined,
           UserType.INSTRUCTOR,
           'prof',
@@ -279,7 +276,7 @@ describe('MaterialsService', () => {
       await expect(
         service.uploadMaterial(
           undefined,
-          { title: 'T', type: FrontendMaterialType.PAPER },
+          { title: 'T', type: MaterialType.PAPER },
           undefined,
           UserType.INSTRUCTOR,
           'prof',
