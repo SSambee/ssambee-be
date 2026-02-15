@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FrontendMaterialType } from '../constants/materials.constant.js';
+import { MaterialType } from '../constants/materials.constant.js';
 
 export const uploadMaterialSchema = z.object({
   title: z.string().min(1, '제목은 필수 입력 사항입니다.'),
@@ -7,12 +7,12 @@ export const uploadMaterialSchema = z.object({
   subject: z.string().optional(),
   externalDownloadUrl: z.url('유효하지 않은 URL입니다.').optional(),
   type: z.enum([
-    FrontendMaterialType.PAPER,
-    FrontendMaterialType.VIDEO,
-    FrontendMaterialType.REQUEST,
-    FrontendMaterialType.OTHER,
+    MaterialType.PAPER,
+    MaterialType.VIDEO,
+    MaterialType.REQUEST,
+    MaterialType.OTHER,
   ]),
-  // youtubeUrl은 type이 VIDEO_LINK일 때 필수 체크 (Service 레벨에서 추가 검증 가능, 여기서는 형식만)
+  // youtubeUrl은 type이 VIDEO일 때 필수 체크 (Service 레벨에서 추가 검증 가능, 여기서는 형식만)
   youtubeUrl: z.url('유효하지 않은 YouTube URL입니다.').optional(),
 });
 
@@ -30,10 +30,10 @@ export const getMaterialsQuerySchema = z.object({
   limit: z.coerce.number().min(1).max(50).default(20),
   type: z
     .enum([
-      FrontendMaterialType.PAPER,
-      FrontendMaterialType.VIDEO,
-      FrontendMaterialType.REQUEST,
-      FrontendMaterialType.OTHER,
+      MaterialType.PAPER,
+      MaterialType.VIDEO,
+      MaterialType.REQUEST,
+      MaterialType.OTHER,
     ])
     .optional(),
   search: z.string().optional(),
