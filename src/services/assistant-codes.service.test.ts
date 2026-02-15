@@ -26,7 +26,7 @@ describe('AssistantCodesService', () => {
   });
 
   describe('createCode', () => {
-    it('6자리 코드를 생성하고 유효기간과 함께 저장해야 한다', async () => {
+    it('6자리 코드를 생성하고 만료일과 함께 저장해야 한다', async () => {
       const instructorId = 'inst-1';
       const mockCreatedCode = {
         id: 'code-1',
@@ -48,17 +48,17 @@ describe('AssistantCodesService', () => {
         expireAt: expect.any(Date),
       });
 
-      // 유효기간이 대략 24시간 뒤인지 확인
+      // 만료일이 대략 24시간 후인지 확인
       const callArgs = (mockRepo.create as jest.Mock).mock.calls[0][0];
       const now = new Date();
       const expireAt = callArgs.expireAt;
       const diffHours = (expireAt.getTime() - now.getTime()) / (1000 * 60 * 60);
-      expect(diffHours).toBeCloseTo(24, 0); // 24시간 근사치
+      expect(diffHours).toBeCloseTo(24, 0); // 약 24시간
     });
   });
 
   describe('getCodesByInstructor', () => {
-    it('강사의 코드 목록을 반환해야 한다', async () => {
+    it('특정 강사의 인증 코드 목록을 반환해야 한다', async () => {
       const instructorId = 'inst-1';
       const mockCodes = [
         { id: 'code-1', code: '123456', instructorId },
@@ -75,7 +75,7 @@ describe('AssistantCodesService', () => {
   });
 
   describe('validateCode', () => {
-    it('유효한 코드인 경우 true를 반환해야 한다', async () => {
+    it('유효한 인증 코드인 경우 true를 반환해야 한다', async () => {
       const code = 'VALID1';
       (mockRepo.findValidCode as jest.Mock).mockResolvedValue({
         id: 'code-1',
@@ -88,7 +88,7 @@ describe('AssistantCodesService', () => {
       expect(mockRepo.findValidCode).toHaveBeenCalledWith(code);
     });
 
-    it('유효하지 않은 코드인 경우 false를 반환해야 한다', async () => {
+    it('유효하지 않은 인증 코드인 경우 false를 반환해야 한다', async () => {
       const code = 'INVALI';
       (mockRepo.findValidCode as jest.Mock).mockResolvedValue(null);
 
