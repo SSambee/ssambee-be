@@ -881,6 +881,7 @@ model Comment {
   instructorId String? @map("instructor_id")
   assistantId  String? @map("assistant_id")
   enrollmentId String? @map("enrollment_id")
+  authorRole   String? @default("STUDENT") @map("author_role")
 
   instructorPost InstructorPost? @relation(fields: [instructorPostId], references: [id], onDelete: Cascade)
   studentPost    StudentPost?    @relation(fields: [studentPostId], references: [id], onDelete: Cascade)

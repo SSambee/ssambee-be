@@ -1,4 +1,4 @@
-import { PrismaClient } from '../generated/prisma/client.js';
+import { PrismaClient, Enrollment } from '../generated/prisma/client.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { EnrollmentStatus } from '../constants/enrollments.constant.js';
 import { getPagingParams } from '../utils/pagination.util.js';
@@ -159,7 +159,10 @@ export class EnrollmentsRepository {
   }
 
   /** ID로 간단 조회 (권한 체크 및 기본 정보 확인용) */
-  async findById(id: string, tx?: Prisma.TransactionClient) {
+  async findById(
+    id: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<Enrollment | null> {
     const client = tx ?? this.prisma;
     return await client.enrollment.findUnique({
       where: { id },

@@ -7,7 +7,11 @@ import {
   getInstructorPostsQuerySchema,
   instructorPostParamsSchema,
 } from '../../../validations/instructor-posts.validation.js';
-import { createCommentSchema } from '../../../validations/comments.validation.js';
+import {
+  createCommentSchema,
+  updateCommentSchema,
+  commentEditParamsSchema,
+} from '../../../validations/comments.validation.js';
 
 export const mgmtInstructorPostsRouter = Router({ mergeParams: true });
 
@@ -75,4 +79,19 @@ mgmtInstructorPostsRouter.post(
   validate(instructorPostParamsSchema, 'params'),
   validate(createCommentSchema, 'body'),
   commentsController.createComment,
+);
+
+/** 댓글 수정 */
+mgmtInstructorPostsRouter.patch(
+  '/:postId/comments/:commentId',
+  validate(commentEditParamsSchema, 'params'),
+  validate(updateCommentSchema, 'body'),
+  commentsController.updateComment,
+);
+
+/** 댓글 삭제 */
+mgmtInstructorPostsRouter.delete(
+  '/:postId/comments/:commentId',
+  validate(commentEditParamsSchema, 'params'),
+  commentsController.deleteComment,
 );

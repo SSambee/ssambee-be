@@ -17,6 +17,7 @@ import { CommentsRepository } from '../repos/comments.repo.js';
 import { PermissionService } from './permission.service.js';
 import { StudentPost, Comment } from '../generated/prisma/client.js';
 import { formatStudentPostStats } from '../utils/posts.util.js';
+import { CommentsService } from './comments.service.js';
 
 export class StudentPostsService {
   constructor(
@@ -26,6 +27,7 @@ export class StudentPostsService {
     private readonly lecturesRepository: LecturesRepository,
     private readonly commentsRepository: CommentsRepository,
     private readonly permissionService: PermissionService,
+    private readonly commentsService: CommentsService,
   ) {}
 
   /** 질문 생성 (학생/학부모) */
@@ -157,9 +159,9 @@ export class StudentPostsService {
     // 권한 검증
     await this.validatePostAccess(post, userType, profileId);
 
-    // 학생용 댓글 첨부파일 필터링
-    if (userType === UserType.STUDENT && post.comments) {
-      const filteredComments = await this.processPostComments(
+    // 댓글에 isMine 및 첨부파일 필터링 적용
+    if (post.comments) {
+      const processedComments = await this.processPostComments(
         post,
         userType,
         profileId,
@@ -167,7 +169,7 @@ export class StudentPostsService {
 
       return {
         ...post,
-        comments: filteredComments,
+        comments: processedComments,
       };
     }
 
@@ -191,6 +193,13 @@ export class StudentPostsService {
     if (userType === UserType.INSTRUCTOR) {
       throw new ForbiddenException(
         '강사는 질문의 완료 상태를 변경할 수 없습니다. 학생이 완료 처리해야 합니다.',
+      );
+    }
+
+    // 학부모인 경우 본인이 작성한 질문만 상태 변경 가능
+    if (userType === UserType.PARENT && post.authorRole !== AuthorRole.PARENT) {
+      throw new ForbiddenException(
+        '본인이 작성한 질문만 상태를 변경할 수 있습니다.',
       );
     }
 
@@ -236,6 +245,11 @@ export class StudentPostsService {
 
     await this.validatePostAccess(post, userType, profileId);
 
+    // 학부모인 경우 본인이 작성한 질문만 수정 가능
+    if (userType === UserType.PARENT && post.authorRole !== AuthorRole.PARENT) {
+      throw new ForbiddenException('본인이 작성한 질문만 수정할 수 있습니다.');
+    }
+
     if (!data.title && !data.content) {
       throw new BadRequestException('수정할 내용이 없습니다.');
     }
@@ -260,6 +274,11 @@ export class StudentPostsService {
     if (!post) throw new NotFoundException('질문을 찾을 수 없습니다.');
 
     await this.validatePostAccess(post, userType, profileId);
+
+    // 학부모인 경우 본인이 작성한 질문만 삭제 가능
+    if (userType === UserType.PARENT && post.authorRole !== AuthorRole.PARENT) {
+      throw new ForbiddenException('본인이 작성한 질문만 삭제할 수 있습니다.');
+    }
 
     return this.studentPostsRepository.delete(postId);
   }
@@ -304,7 +323,7 @@ export class StudentPostsService {
     }
 
     if (userType === UserType.PARENT) {
-      // [NEW] 학부모 권한 검증
+      // [NEW] 학부모 조회 권한 검증 (자녀의 질문도 조회 가능)
       const enrollment = await this.enrollmentsRepository.findById(
         post.enrollmentId,
       );
@@ -313,7 +332,7 @@ export class StudentPostsService {
         throw new ForbiddenException('학부모 연결 정보가 없습니다.');
       }
 
-      // 본인 자녀의 질문인지 확인
+      // 본인 자녀의 질문인지 확인 (조회용)
       await this.permissionService.validateChildAccess(
         userType,
         profileId,
@@ -421,14 +440,27 @@ export class StudentPostsService {
 
     return Promise.all(
       post.comments.map(async (comment) => {
-        const accessibleAttachments = await this.filterAccessibleAttachments(
-          comment.attachments,
+        // isMine 필드 추가
+        const commentWithIsMine = this.commentsService.addIsMineFieldToComment(
+          comment,
+          userType,
           profileId,
         );
-        return {
-          ...comment,
-          attachments: accessibleAttachments,
-        };
+
+        // 학생인 경우 첨부파일 필터링
+        if (userType === UserType.STUDENT) {
+          const accessibleAttachments = await this.filterAccessibleAttachments(
+            comment.attachments,
+            profileId,
+          );
+          return {
+            ...commentWithIsMine,
+
+            attachments: accessibleAttachments,
+          };
+        }
+
+        return commentWithIsMine;
       }),
     );
   }
