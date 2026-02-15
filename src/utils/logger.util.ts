@@ -52,9 +52,21 @@ export class MorganLambdaStream implements StreamOptions {
         ...(apiKey && { 'x-api-key': apiKey }),
       },
       body: JSON.stringify(payload),
-    }).catch((error) => {
-      // 에러 발생 시 콘솔에만 기록
-      console.error('[MorganLambdaStream] Failed to send log to Lambda:', error);
-    });
+    })
+      .catch((res) => {
+        if (!res.ok) {
+          console.error(
+            `[MorganLambdaStream] Lambda responded with status ${res.status}`,
+          );
+        }
+        // Drain the response body to free the connection
+        return res.text();
+      })
+      .catch((error) => {
+        console.error(
+          '[MorganLambdaStream] Failed to send log to Lambda:',
+          error,
+        );
+      });
   }
 }
