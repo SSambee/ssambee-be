@@ -75,7 +75,7 @@ describe('ParentsService - @unit #critical', () => {
 
     describe('PAR-01: 자녀 등록 성공', () => {
       it('학부모가 신규 자녀를 등록할 때, 자녀 정보가 생성되고 기존 수강 내역이 자동으로 연결된다', async () => {
-        // Arrange
+        // 준비
         mockParentChildLinkRepo.findByParentIdAndPhoneNumber.mockResolvedValue(
           null,
         );
@@ -91,14 +91,14 @@ describe('ParentsService - @unit #critical', () => {
           fn(mockPrisma),
         );
 
-        // Act
+        // 실행
         const result = await parentsService.registerChild(
           UserType.PARENT,
           parentId,
           childData,
         );
 
-        // Assert
+        // 검증
         expect(result).toBeDefined();
         expect(result.id).toBe(mockParentLinks.active.id);
         expect(

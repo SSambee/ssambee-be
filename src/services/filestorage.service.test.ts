@@ -63,17 +63,17 @@ describe('파일 스토리지 서비스', () => {
     };
 
     it('Documents 버킷에 파일을 업로드하면 CloudFront URL을 반환한다', async () => {
-      // Arrange
+      // 준비
       const mockFile = createMockFile({ originalname: 'test.pdf' });
       const key = 'materials/test-uuid.pdf';
       const cloudFrontUrl = config.AWS_CLOUDFRONT_URL_DOCUMENTS;
 
       mockS3ClientSend.mockResolvedValue({});
 
-      // Act
+      // 실행
       const result = await service.upload(mockFile, key, BucketType.DOCUMENTS);
 
-      // Assert
+      // 검증
       expect(result).toBe(`https://${cloudFrontUrl}/${key}`);
       expect(mockS3ClientSend).toHaveBeenCalled();
     });
@@ -122,7 +122,7 @@ describe('파일 스토리지 서비스', () => {
   });
 
   describe('파일 삭제', () => {
-    it('S3에서 파일을 삭제한다', async () => {
+    it('S3에서 파일을 성공적으로 삭제해야 한다', async () => {
       const fileUrl = 'https://d123.cloudfront.net/materials/test.pdf';
 
       mockS3ClientSend.mockResolvedValue({});
@@ -132,7 +132,7 @@ describe('파일 스토리지 서비스', () => {
       expect(mockS3ClientSend).toHaveBeenCalled();
     });
 
-    it('삭제 실패 시 에러를 던지지 않고 gracefully 처리한다', async () => {
+    it('삭제 실패 시 에러를 던지지 않고 정상적으로 처리해야 한다', async () => {
       const fileUrl = 'https://d123.cloudfront.net/materials/test.pdf';
 
       mockS3ClientSend.mockRejectedValue(new Error('S3 delete failed'));
@@ -167,7 +167,7 @@ describe('파일 스토리지 서비스', () => {
       expect(key).toBe('path/to/file.pdf');
     });
 
-    it('잘못된 URL이면 에러를 발생시킨다', () => {
+    it('잘못된 URL인 경우 에러를 발생시켜야 한다', () => {
       const url = 'not-a-valid-url';
 
       expect(() => (service as any).extractKeyFromUrl(url)).toThrow(
@@ -181,13 +181,13 @@ describe('파일 스토리지 서비스', () => {
     const mockSignedUrl = 'https://signed-url.com';
 
     it('CloudFront 설정이 있으면 CloudFront Signed URL을 생성한다', async () => {
-      // Arrange
+      // 준비
       (getCloudFrontSignedUrl as jest.Mock).mockReturnValue(mockSignedUrl);
 
-      // Act
+      // 실행
       const result = await service.getPresignedUrl(fileUrl);
 
-      // Assert
+      // 검증
       expect(result).toBe(mockSignedUrl);
       expect(getCloudFrontSignedUrl).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -199,14 +199,14 @@ describe('파일 스토리지 서비스', () => {
     });
 
     it('CloudFront 설정이 없거나 실패하면 S3 Presigned URL을 생성한다', async () => {
-      // Arrange
+      // 준비
       (config as any).AWS_CLOUDFRONT_KEY_PAIR_ID = '';
       (getS3SignedUrl as jest.Mock).mockResolvedValue(mockSignedUrl);
 
-      // Act
+      // 실행
       const result = await service.getPresignedUrl(fileUrl);
 
-      // Assert
+      // 검증
       expect(result).toBe(mockSignedUrl);
       expect(getS3SignedUrl).toHaveBeenCalled();
     });
@@ -218,13 +218,13 @@ describe('파일 스토리지 서비스', () => {
     const mockDownloadUrl = 'https://signed-download-url.com';
 
     it('CloudFront 설정이 있으면 Content-Disposition이 포함된 CloudFront Signed URL을 생성한다', async () => {
-      // Arrange
+      // 준비
       (getCloudFrontSignedUrl as jest.Mock).mockReturnValue(mockDownloadUrl);
 
-      // Act
+      // 실행
       const result = await service.getDownloadPresignedUrl(fileUrl, fileName);
 
-      // Assert
+      // 검증
       expect(result).toBe(mockDownloadUrl);
       const calledArgs = (getCloudFrontSignedUrl as jest.Mock).mock.calls[0][0];
       expect(calledArgs.url).toContain('response-content-disposition=');
@@ -234,14 +234,14 @@ describe('파일 스토리지 서비스', () => {
     });
 
     it('CloudFront 설정이 없거나 실패하면 ResponseContentDisposition이 포함된 S3 Presigned URL을 생성한다', async () => {
-      // Arrange
+      // 준비
       (config as any).AWS_CLOUDFRONT_KEY_PAIR_ID = '';
       (getS3SignedUrl as jest.Mock).mockResolvedValue(mockDownloadUrl);
 
-      // Act
+      // 실행
       const result = await service.getDownloadPresignedUrl(fileUrl, fileName);
 
-      // Assert
+      // 검증
       expect(result).toBe(mockDownloadUrl);
       const calledArgs = (getS3SignedUrl as jest.Mock).mock.calls[0];
       const command = calledArgs[1];

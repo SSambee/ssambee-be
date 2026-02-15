@@ -78,6 +78,6 @@ export const toFrontendStudentPostStatus = (
     case StudentPostStatus.COMPLETED:
       return AnswerStatus.COMPLETED;
     default:
-      return AnswerStatus.BEFORE; // Default fallback
+      return AnswerStatus.BEFORE; // 기본값: 답변 대기
   }
 };

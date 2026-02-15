@@ -73,7 +73,7 @@ describe('MaterialsService', () => {
 
   describe('uploadMaterial', () => {
     it('유효한 YouTube 링크를 업로드하면 성공해야 한다', async () => {
-      // Arrange
+      // 준비
       const dto: UploadMaterialDto = {
         title: 'Video',
         type: MaterialType.VIDEO,
@@ -89,7 +89,7 @@ describe('MaterialsService', () => {
         user: { name: '이강사' },
       });
 
-      // Act
+      // 실행
       await service.uploadMaterial(
         mockLecture.id,
         dto,
@@ -98,7 +98,7 @@ describe('MaterialsService', () => {
         mockLecture.instructorId,
       );
 
-      // Assert
+      // 검증
       expect(permissionService.validateInstructorAccess).toHaveBeenCalled();
       expect(materialsRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({

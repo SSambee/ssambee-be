@@ -79,7 +79,7 @@ describe('StatisticsService - @unit #critical', () => {
     const profileId = 'instructor-1';
 
     it('시험 통계를 산출할 때, 해당 시험에 대한 강사 권한이 없으면 ForbiddenException을 던진다', async () => {
-      // Arrange
+      // 준비
       mockExamsRepo.findById.mockResolvedValue(
         mockExams.basic as Awaited<ReturnType<typeof mockExamsRepo.findById>>,
       );
@@ -87,7 +87,7 @@ describe('StatisticsService - @unit #critical', () => {
         new ForbiddenException('해당 권한이 없습니다.'),
       );
 
-      // Act & Assert
+      // 실행 & Assert
       await expect(
         statisticsService.calculateAndSaveStatistics(
           examId,
@@ -98,10 +98,10 @@ describe('StatisticsService - @unit #critical', () => {
     });
 
     it('시험 통계를 산출할 때, 시험 정보 자체가 존재하지 않으면 NotFoundException을 던진다', async () => {
-      // Arrange
+      // 준비
       mockExamsRepo.findById.mockResolvedValue(null);
 
-      // Act & Assert
+      // 실행 & Assert
       await expect(
         statisticsService.calculateAndSaveStatistics(
           examId,
@@ -112,26 +112,26 @@ describe('StatisticsService - @unit #critical', () => {
     });
 
     it('시험 통계를 산출할 때, 시험에 등록된 문항이 하나도 없으면 통계 산출을 건너뛰고 빈 배열을 반환한다', async () => {
-      // Arrange
+      // 준비
       mockExamsRepo.findById.mockResolvedValue(
         mockExams.basic as Awaited<ReturnType<typeof mockExamsRepo.findById>>,
       );
       mockExamsRepo.findQuestionsByExamId.mockResolvedValue([]);
 
-      // Act
+      // 실행
       const result = await statisticsService.calculateAndSaveStatistics(
         examId,
         userType,
         profileId,
       );
 
-      // Assert
+      // 검증
       expect(result).toEqual([]);
       expect(mockStatisticsRepo.countGradesByExamId).not.toHaveBeenCalled();
     });
 
     it('시험 통계를 산출할 때, 문항별 정답률과 선택지 변별도를 계산하여 성공적으로 저장한다', async () => {
-      // Arrange
+      // 준비
       const questions = [
         mockQuestions.multipleChoice,
         mockQuestions.shortAnswer,
@@ -213,7 +213,7 @@ describe('StatisticsService - @unit #critical', () => {
         profileId,
       );
 
-      // Assert
+      // 검증
       expect(mockStatisticsRepo.upsertQuestionStatistic).toHaveBeenCalledTimes(
         2,
       );
@@ -254,7 +254,7 @@ describe('StatisticsService - @unit #critical', () => {
     const profileId = 'instructor-1';
 
     it('통계 정보를 조회할 때, 해당 시험에 대한 강사 권한이 없으면 ForbiddenException을 던진다', async () => {
-      // Arrange
+      // 준비
       mockExamsRepo.findById.mockResolvedValue(
         mockExams.basic as Awaited<ReturnType<typeof mockExamsRepo.findById>>,
       );
@@ -262,24 +262,24 @@ describe('StatisticsService - @unit #critical', () => {
         new ForbiddenException('해당 권한이 없습니다.'),
       );
 
-      // Act & Assert
+      // 실행 & Assert
       await expect(
         statisticsService.getStatistics(examId, userType, profileId),
       ).rejects.toThrow(ForbiddenException);
     });
 
     it('통계 정보를 조회할 때, 시험 정보 자체가 존재하지 않으면 NotFoundException을 던진다', async () => {
-      // Arrange
+      // 준비
       mockExamsRepo.findById.mockResolvedValue(null);
 
-      // Act & Assert
+      // 실행 & Assert
       await expect(
         statisticsService.getStatistics(examId, userType, profileId),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('통계 정보를 조회할 때, 저장된 등수 정보를 사용하여 반환한다', async () => {
-      // Arrange
+      // 준비
       // 저장된 rank가 있는 데이터 준비
       const studentGrades = [
         {
@@ -335,14 +335,14 @@ describe('StatisticsService - @unit #critical', () => {
         mockQuestions.multipleChoice,
       ] as Awaited<ReturnType<typeof mockExamsRepo.findQuestionsByExamId>>);
 
-      // Act
+      // 실행
       const result = await statisticsService.getStatistics(
         examId,
         userType,
         profileId,
       );
 
-      // Assert
+      // 검증
       expect(result.studentStats).toHaveLength(3);
       expect(result.studentStats[0].rank).toBe(1);
       expect(result.studentStats[1].rank).toBe(10); // 저장된 등수 사용 확인

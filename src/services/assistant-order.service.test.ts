@@ -60,7 +60,7 @@ describe('AssistantOrderService', () => {
       materialIds: ['mat-1'],
     };
 
-    it('should create order successfully', async () => {
+    it('요청를 성공적으로 생성해야 한다', async () => {
       (mockAssistantRepo.findById as jest.Mock).mockResolvedValue({
         id: assistantId,
         instructorId,
@@ -93,7 +93,7 @@ describe('AssistantOrderService', () => {
       });
     });
 
-    it('should throw NotFoundException if assistant not found', async () => {
+    it('조교를 찾을 수 없으면 NotFoundException을 던져야 한다', async () => {
       (mockAssistantRepo.findById as jest.Mock).mockResolvedValue(null);
 
       await expect(
@@ -101,7 +101,7 @@ describe('AssistantOrderService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw ForbiddenException if assistant belongs to another instructor', async () => {
+    it('다른 강사의 조교이면 ForbiddenException을 던져야 한다', async () => {
       (mockAssistantRepo.findById as jest.Mock).mockResolvedValue({
         id: assistantId,
         instructorId: 'other-inst',
@@ -112,7 +112,7 @@ describe('AssistantOrderService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('should throw ForbiddenException if material belongs to another instructor', async () => {
+    it('다른 강사의 자료이면 ForbiddenException을 던져야 한다', async () => {
       (mockAssistantRepo.findById as jest.Mock).mockResolvedValue({
         id: assistantId,
         instructorId,
@@ -130,7 +130,7 @@ describe('AssistantOrderService', () => {
   describe('getOrdersByInstructor', () => {
     const instructorId = 'inst-1';
 
-    it('should return orders with pagination and stats', async () => {
+    it('페이지네이션과 통계와 함께 요청들을 반환해야 한다', async () => {
       const mockOrders = [
         { id: '1', title: 'Order 1' },
         { id: '2', title: 'Order 2' },
@@ -175,7 +175,7 @@ describe('AssistantOrderService', () => {
       });
     });
 
-    it('should filter by status', async () => {
+    it('상태로 필터링해야 한다', async () => {
       const mockOrders = [{ id: '1', title: 'Order 1' }];
       const mockTotalCount = 1;
 
@@ -201,7 +201,7 @@ describe('AssistantOrderService', () => {
   describe('getOrdersByAssistant', () => {
     const assistantId = 'asst-1';
 
-    it('should return orders with pagination', async () => {
+    it('조교용 요청들을 페이지네이션과 함께 반환해야 한다', async () => {
       const mockOrders = [
         { id: '1', title: 'Order 1' },
         { id: '2', title: 'Order 2' },
@@ -234,7 +234,7 @@ describe('AssistantOrderService', () => {
       });
     });
 
-    it('should filter by status', async () => {
+    it('상태로 필터링해야 한다', async () => {
       const mockOrders = [{ id: '1', title: 'Order 1' }];
       const mockTotalCount = 1;
 
@@ -272,7 +272,7 @@ describe('AssistantOrderService', () => {
       },
     };
 
-    it('should return order for instructor', async () => {
+    it('강사용 요청을 반환해야 한다', async () => {
       (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
 
       const result = await service.getOrderById(
@@ -290,7 +290,7 @@ describe('AssistantOrderService', () => {
       });
     });
 
-    it('should return order for assistant', async () => {
+    it('조교용 요청을 반환해야 한다', async () => {
       (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
 
       const result = await service.getOrderById(
@@ -308,7 +308,7 @@ describe('AssistantOrderService', () => {
       });
     });
 
-    it('should throw NotFoundException if order not found', async () => {
+    it('요청를 찾을 수 없으면 NotFoundException을 던져야 한다', async () => {
       (mockOrderRepo.findById as jest.Mock).mockResolvedValue(null);
 
       await expect(
@@ -316,7 +316,7 @@ describe('AssistantOrderService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw ForbiddenException if instructor accesses other orders', async () => {
+    it('강사가 다른 강사의 요청을 접근하면 ForbiddenException을 던져야 한다', async () => {
       (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
 
       await expect(
@@ -324,7 +324,7 @@ describe('AssistantOrderService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('should throw ForbiddenException if assistant accesses other orders', async () => {
+    it('조교가 다른 조교의 요청을 접근하면 ForbiddenException을 던져야 한다', async () => {
       (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
 
       await expect(
@@ -346,7 +346,7 @@ describe('AssistantOrderService', () => {
       title: 'Updated Title',
     };
 
-    it('should update order successfully', async () => {
+    it('요청를 성공적으로 수정해야 한다', async () => {
       (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
       (mockOrderRepo.update as jest.Mock).mockResolvedValue({
         ...mockOrder,
@@ -367,7 +367,7 @@ describe('AssistantOrderService', () => {
       });
     });
 
-    it('should throw ForbiddenException if user is not instructor', async () => {
+    it('사용자가 강사가 아니면 ForbiddenException을 던져야 한다', async () => {
       (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
 
       await expect(
@@ -375,7 +375,7 @@ describe('AssistantOrderService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('should throw ForbiddenException if instructor updates other order', async () => {
+    it('강사가 다른 강사의 요청을 수정하면 ForbiddenException을 던져야 한다', async () => {
       (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
 
       await expect(
@@ -398,7 +398,7 @@ describe('AssistantOrderService', () => {
       assistantId,
     };
 
-    it('should update status successfully', async () => {
+    it('상태를 성공적으로 수정해야 한다', async () => {
       (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
       (mockOrderRepo.updateStatus as jest.Mock).mockResolvedValue({
         ...mockOrder,
@@ -418,7 +418,7 @@ describe('AssistantOrderService', () => {
       );
     });
 
-    it('should throw ForbiddenException if user is not assistant', async () => {
+    it('사용자가 조교가 아니면 ForbiddenException을 던져야 한다', async () => {
       (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
 
       await expect(
@@ -431,7 +431,7 @@ describe('AssistantOrderService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('should throw ForbiddenException if assistant updates other order', async () => {
+    it('조교가 다른 조교의 요청 상태를 수정하면 ForbiddenException을 던져야 한다', async () => {
       (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
 
       await expect(
@@ -453,7 +453,7 @@ describe('AssistantOrderService', () => {
       instructorId,
     };
 
-    it('should delete order successfully', async () => {
+    it('요청를 성공적으로 삭제해야 한다', async () => {
       (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
 
       await service.deleteOrder(instructorId, orderId);
@@ -461,7 +461,7 @@ describe('AssistantOrderService', () => {
       expect(mockOrderRepo.delete).toHaveBeenCalledWith(orderId);
     });
 
-    it('should throw ForbiddenException if instructor deletes other order', async () => {
+    it('강사가 다른 강사의 요청을 삭제하면 ForbiddenException을 던져야 한다', async () => {
       (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
 
       await expect(service.deleteOrder('other-inst', orderId)).rejects.toThrow(

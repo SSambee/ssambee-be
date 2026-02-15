@@ -32,7 +32,7 @@ describe('ProfileService - @unit', () => {
 
   describe('getMyProfile', () => {
     describe('Instructors', () => {
-      it('should return instructor profile with lectures', async () => {
+      it('반환해야 한다:  instructor profile with lectures', async () => {
         const mockProfile = {
           id: 'inst-1',
           phoneNumber: '010-1234-5678',
@@ -87,7 +87,7 @@ describe('ProfileService - @unit', () => {
         });
       });
 
-      it('should throw NotFoundException if instructor profile not found', async () => {
+      it('에러를 던져야 한다:  NotFoundException if instructor profile not found', async () => {
         mockProfileRepo.getInstructorProfileWithLectures.mockResolvedValue(
           null,
         );
@@ -99,7 +99,7 @@ describe('ProfileService - @unit', () => {
     });
 
     describe('Assistants', () => {
-      it('should return assistant profile with instructor lectures and exclude memo', async () => {
+      it('반환해야 한다:  assistant profile with instructor lectures and exclude memo', async () => {
         const mockProfile = {
           id: 'asst-1',
           phoneNumber: '010-9876-5432',
@@ -162,7 +162,7 @@ describe('ProfileService - @unit', () => {
         });
       });
 
-      it('should throw NotFoundException if assistant profile not found', async () => {
+      it('에러를 던져야 한다:  NotFoundException if assistant profile not found', async () => {
         mockProfileRepo.getAssistantProfileWithInstructorLectures.mockResolvedValue(
           null,
         );
@@ -173,7 +173,7 @@ describe('ProfileService - @unit', () => {
       });
     });
 
-    it('should throw BadRequestException for unsupported user type', async () => {
+    it('에러를 던져야 한다:  BadRequestException for unsupported user type', async () => {
       await expect(
         profileService.getMyProfile('id', 'UNKNOWN' as UserType),
       ).rejects.toThrow(BadRequestException);
@@ -181,14 +181,14 @@ describe('ProfileService - @unit', () => {
   });
 
   describe('updateMyProfile', () => {
-    it('should throw BadRequestException if data is empty', async () => {
+    it('에러를 던져야 한다:  BadRequestException if data is empty', async () => {
       await expect(
         profileService.updateMyProfile('id', UserType.INSTRUCTOR, {}),
       ).rejects.toThrow(BadRequestException);
     });
 
     describe('Instructors', () => {
-      it('should update instructor profile', async () => {
+      it('성공적으로 수정해야 한다:  instructor profile', async () => {
         const updateData = {
           name: 'New Name',
           phoneNumber: '010-0000-0000',
@@ -228,7 +228,7 @@ describe('ProfileService - @unit', () => {
         expect(result.subject).toBe('New Subject');
       });
 
-      it('should throw ConflictException on P2002 error', async () => {
+      it('에러를 던져야 한다:  ConflictException on P2002 error', async () => {
         const error = new Prisma.PrismaClientKnownRequestError('', {
           code: 'P2002',
           clientVersion: '1',
@@ -244,7 +244,7 @@ describe('ProfileService - @unit', () => {
     });
 
     describe('Assistants', () => {
-      it('should update assistant profile filtering allowed fields', async () => {
+      it('성공적으로 수정해야 한다:  assistant profile filtering allowed fields', async () => {
         const updateData = {
           name: 'New Name',
           phoneNumber: '010-0000-0000',
@@ -289,7 +289,7 @@ describe('ProfileService - @unit', () => {
 
   describe('getMyProfile - Students/Parents', () => {
     describe('Students', () => {
-      it('should return student profile with instructors list', async () => {
+      it('반환해야 한다:  student profile with instructors list', async () => {
         const mockProfile = {
           id: 'student-1',
           phoneNumber: '010-1111-2222',
@@ -358,7 +358,7 @@ describe('ProfileService - @unit', () => {
         });
       });
 
-      it('should throw NotFoundException if student profile not found', async () => {
+      it('에러를 던져야 한다:  NotFoundException if student profile not found', async () => {
         mockProfileRepo.getStudentProfileWithEnrollments.mockResolvedValue(
           null,
         );
@@ -370,7 +370,7 @@ describe('ProfileService - @unit', () => {
     });
 
     describe('Parents', () => {
-      it('should return parent profile with children list', async () => {
+      it('반환해야 한다:  parent profile with children list', async () => {
         const mockProfile = {
           id: 'parent-1',
           phoneNumber: '010-3333-4444',
@@ -423,7 +423,7 @@ describe('ProfileService - @unit', () => {
 
   describe('updateMyProfile - Students/Parents', () => {
     describe('Students', () => {
-      it('should update student profile and sync enrollments', async () => {
+      it('성공적으로 수정해야 한다:  student profile and sync enrollments', async () => {
         const updateData = {
           name: 'New Student Name',
           phoneNumber: '010-9999-8888',
@@ -466,7 +466,7 @@ describe('ProfileService - @unit', () => {
     });
 
     describe('Parents', () => {
-      it('should update parent profile', async () => {
+      it('성공적으로 수정해야 한다:  parent profile', async () => {
         const updateData = {
           name: 'New Parent Name',
           phoneNumber: '010-5555-6666',

@@ -176,7 +176,8 @@ describe('CommentsService 보안 검증', () => {
         async (targetId, type, profId) => {
           const effectiveId =
             type === UserType.INSTRUCTOR ? profId : 'assistant-logic';
-          if (effectiveId !== targetId) throw new ForbiddenException('권한 없음');
+          if (effectiveId !== targetId)
+            throw new ForbiddenException('권한 없음');
         },
       );
     });
@@ -197,7 +198,7 @@ describe('CommentsService 보안 검증', () => {
         id: 'other-student-post',
         instructorId: otherInstructorId,
       };
-      studentPostsRepo.findById.mockResolvedValue(otherStudentPost as any);
+      studentPostsRepo.findById.mockResolvedValue(otherStudentPost);
 
       const data = { studentPostId: 'other-student-post', content: 'answer' };
 

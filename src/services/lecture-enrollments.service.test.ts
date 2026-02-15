@@ -56,8 +56,8 @@ describe('LectureEnrollmentsService - @unit', () => {
   });
 
   describe('getLectureEnrollmentDetail', () => {
-    it('유효한 ID로 조회 시 상세 정부와 성적 목록을 반환한다', async () => {
-      // Arrange
+    it('유효한 ID로 조회 시 상세 정보와 성적 목록을 반환한다', async () => {
+      // 준비
       const mockResult = {
         id: mockLectureEnrollmentId,
         lecture: {
@@ -97,14 +97,14 @@ describe('LectureEnrollmentsService - @unit', () => {
       );
       // mockGradesRepo.calculateAverageByExamId, mockStatisticsRepo.countGradesByExamId 호출 제거됨
 
-      // Act
+      // 실행
       const result = await service.getLectureEnrollmentDetail(
         mockLectureEnrollmentId,
         mockUserType,
         mockProfileId,
       );
 
-      // Assert
+      // 검증
       expect(
         mockLectureEnrollmentsRepo.findByIdWithGrades,
       ).toHaveBeenCalledWith(mockLectureEnrollmentId);

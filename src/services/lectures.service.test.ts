@@ -67,7 +67,7 @@ describe('LecturesService - @unit #critical', () => {
   describe('[강의 생성] createLecture', () => {
     describe('LECTURE-01: 강의 생성 성공', () => {
       it('강사가 기본 정보만으로 강의 생성을 요청할 때, 강의가 생성되고 연관 관계가 없는 상태로 반환된다', async () => {
-        // Arrange
+        // 준비
         mockInstructorRepo.findById.mockResolvedValue(mockInstructor);
         mockLecturesRepo.create.mockResolvedValue({
           ...mockLectures.basic,
@@ -79,14 +79,14 @@ describe('LecturesService - @unit #critical', () => {
           fn({}),
         );
 
-        // Act
+        // 실행
         const result = await lecturesService.createLecture(mockInstructor.id, {
           ...createLectureRequests.basic,
           startAt: new Date(createLectureRequests.basic.startAt),
           endAt: new Date(createLectureRequests.basic.endAt),
         });
 
-        // Assert
+        // 검증
         expect(result).toBeDefined();
         expect(result.id).toBe(mockLectures.basic.id);
         expect(mockInstructorRepo.findById).toHaveBeenCalledWith(
@@ -538,19 +538,19 @@ describe('LecturesService - @unit #critical', () => {
 
   describe('[단순 강의 목록 조회] getLectureSimpleList', () => {
     it('강사가 단순 강의 목록 조회를 요청할 때, id, title, status만 포함된 목록이 반환된다', async () => {
-      // Arrange
+      // 준비
       const mockSimpleLectures = [
         { id: 'lecture-1', title: '강의 1', status: 'SCHEDULED' },
         { id: 'lecture-2', title: '강의 2', status: 'IN_PROGRESS' },
       ];
       mockLecturesRepo.findSimpleMany.mockResolvedValue(mockSimpleLectures);
 
-      // Act
+      // 실행
       const result = await lecturesService.getLectureSimpleList(
         mockInstructor.id,
       );
 
-      // Assert
+      // 검증
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual({
         id: 'lecture-1',

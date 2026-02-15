@@ -75,11 +75,11 @@ describe('AuthService - @unit #critical', () => {
   describe('[인증] signUp', () => {
     describe('AUTH-01: 강사 회원가입', () => {
       it('강사가 올바른 정보로 회원가입을 요청할 때, 회원가입이 성공적으로 완료되고 유저 정보가 반환된다', async () => {
-        // Arrange
+        // 준비
         mockInstructorRepo.findByPhoneNumber.mockResolvedValue(null);
         mockInstructorRepo.create.mockResolvedValue(mockProfiles.instructor);
 
-        // Mock Response 객체
+        // Mock 응답 객체
         const mockResponse = {
           ok: true,
           json: jest.fn().mockResolvedValue({
@@ -92,13 +92,13 @@ describe('AuthService - @unit #critical', () => {
         };
         mockBetterAuth.handler.mockResolvedValue(mockResponse);
 
-        // Act
+        // 실행
         const result = await authService.signUp(
           UserType.INSTRUCTOR,
           signUpRequests.instructor,
         );
 
-        // Assert
+        // 검증
         expect(result.user).toEqual(mockUsers.instructor);
         expect(result.session).toEqual(mockSession);
         expect(mockInstructorRepo.findByPhoneNumber).toHaveBeenCalledWith(
@@ -107,12 +107,12 @@ describe('AuthService - @unit #critical', () => {
       });
 
       it('강사가 이미 가입된 전화번호로 회원가입을 요청할 때, BadRequestException을 던진다', async () => {
-        // Arrange
+        // 준비
         mockInstructorRepo.findByPhoneNumber.mockResolvedValue(
           mockProfiles.instructor,
         );
 
-        // Act & Assert
+        // 실행 & Assert
         await expect(
           authService.signUp(UserType.INSTRUCTOR, signUpRequests.instructor),
         ).rejects.toThrow(BadRequestException);
@@ -124,7 +124,7 @@ describe('AuthService - @unit #critical', () => {
 
     describe('AUTH-02: 조교 회원가입 (조교 코드 검증)', () => {
       it('조교가 유효한 조교 코드로 회원가입을 요청할 때, 회원가입이 성공적으로 완료된다', async () => {
-        // Arrange
+        // 준비
         mockAssistantRepo.findByPhoneNumber.mockResolvedValue(null);
         mockAssistantCodeRepo.findValidCode.mockResolvedValue(
           mockAssistantCode,
@@ -132,7 +132,7 @@ describe('AuthService - @unit #critical', () => {
         mockAssistantCodeRepo.markAsUsed.mockResolvedValue(mockAssistantCode);
         mockAssistantRepo.create.mockResolvedValue(mockProfiles.assistant);
 
-        // Mock Response 객체
+        // Mock 응답 객체
         const mockResponse = {
           ok: true,
           json: jest.fn().mockResolvedValue({
@@ -149,13 +149,13 @@ describe('AuthService - @unit #critical', () => {
           fn({}),
         );
 
-        // Act
+        // 실행
         const result = await authService.signUp(
           UserType.ASSISTANT,
           signUpRequests.assistant,
         );
 
-        // Assert
+        // 검증
         expect(result.user.userType).toBe(UserType.ASSISTANT);
         expect(mockAssistantCodeRepo.findValidCode).toHaveBeenCalledWith(
           signUpRequests.assistant.signupCode,
@@ -170,14 +170,14 @@ describe('AuthService - @unit #critical', () => {
       });
 
       it('조교가 조교 코드 없이 회원가입을 요청할 때, BadRequestException을 던진다', async () => {
-        // Arrange
+        // 준비
         const dataWithoutCode = {
           ...signUpRequests.assistant,
           signupCode: undefined,
         };
         mockAssistantRepo.findByPhoneNumber.mockResolvedValue(null);
 
-        // Mock Response 객체
+        // Mock 응답 객체
         const mockResponse = {
           ok: true,
           json: jest.fn().mockResolvedValue({
@@ -190,18 +190,18 @@ describe('AuthService - @unit #critical', () => {
         };
         mockBetterAuth.handler.mockResolvedValue(mockResponse);
 
-        // Act & Assert
+        // 실행
         await expect(
           authService.signUp(UserType.ASSISTANT, dataWithoutCode),
         ).rejects.toThrow(BadRequestException);
       });
 
       it('조교가 유효하지 않은 조교 코드로 회원가입을 요청할 때, BadRequestException을 던진다', async () => {
-        // Arrange
+        // 준비
         mockAssistantRepo.findByPhoneNumber.mockResolvedValue(null);
         mockAssistantCodeRepo.findValidCode.mockResolvedValue(null);
 
-        // Mock Response 객체
+        // Mock 응답 객체
         const mockResponse = {
           ok: true,
           json: jest.fn().mockResolvedValue({
@@ -214,7 +214,7 @@ describe('AuthService - @unit #critical', () => {
         };
         mockBetterAuth.handler.mockResolvedValue(mockResponse);
 
-        // Act & Assert
+        // 실행
         await expect(
           authService.signUp(UserType.ASSISTANT, signUpRequests.assistant),
         ).rejects.toThrow(BadRequestException);
@@ -226,11 +226,11 @@ describe('AuthService - @unit #critical', () => {
 
     describe('AUTH-03: 학생 회원가입', () => {
       it('학생이 올바른 정보로 회원가입을 요청할 때, 회원가입이 성공적으로 완료된다', async () => {
-        // Arrange
+        // 준비
         mockStudentRepo.findByPhoneNumber.mockResolvedValue(null);
         mockStudentRepo.create.mockResolvedValue(mockProfiles.student);
 
-        // Mock Response 객체
+        // Mock 응답 객체
         const mockResponse = {
           ok: true,
           json: jest.fn().mockResolvedValue({
@@ -243,13 +243,13 @@ describe('AuthService - @unit #critical', () => {
         };
         mockBetterAuth.handler.mockResolvedValue(mockResponse);
 
-        // Act
+        // 실행
         const result = await authService.signUp(
           UserType.STUDENT,
           signUpRequests.student,
         );
 
-        // Assert
+        // 검증
         expect(result.user.userType).toBe(UserType.STUDENT);
         expect(mockStudentRepo.create).toHaveBeenCalled();
         expect(
@@ -263,11 +263,11 @@ describe('AuthService - @unit #critical', () => {
 
     describe('AUTH-04: 학부모 회원가입', () => {
       it('학부모가 올바른 정보로 회원가입을 요청할 때, 회원가입이 성공적으로 완료된다', async () => {
-        // Arrange
+        // 준비
         mockParentRepo.findByPhoneNumber.mockResolvedValue(null);
         mockParentRepo.create.mockResolvedValue(mockProfiles.parent);
 
-        // Mock Response 객체
+        // Mock 응답 객체
         const mockResponse = {
           ok: true,
           json: jest.fn().mockResolvedValue({
@@ -280,13 +280,13 @@ describe('AuthService - @unit #critical', () => {
         };
         mockBetterAuth.handler.mockResolvedValue(mockResponse);
 
-        // Act
+        // 실행
         const result = await authService.signUp(
           UserType.PARENT,
           signUpRequests.parent,
         );
 
-        // Assert
+        // 검증
         expect(result.user.userType).toBe(UserType.PARENT);
         expect(mockParentRepo.create).toHaveBeenCalled();
       });
@@ -296,14 +296,14 @@ describe('AuthService - @unit #critical', () => {
   describe('[인증] signIn', () => {
     describe('AUTH-05: 로그인 성공', () => {
       it('사용자가 올바른 자격 증명으로 로그인을 요청할 때, 로그인이 성공하고 사용자 정보가 반환된다', async () => {
-        // Arrange
+        // 준비
         (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
           id: mockUsers.instructor.id,
           email: mockUsers.instructor.email,
           userType: UserType.INSTRUCTOR,
         });
 
-        // Mock Response 객체
+        // Mock 응답 객체
         const mockResponse = {
           ok: true,
           json: jest.fn().mockResolvedValue({
@@ -320,7 +320,7 @@ describe('AuthService - @unit #critical', () => {
           mockProfiles.instructor,
         );
 
-        // Act
+        // 실행
         const result = await authService.signIn(
           mockUsers.instructor.email,
           'password123',
@@ -328,7 +328,7 @@ describe('AuthService - @unit #critical', () => {
           false,
         );
 
-        // Assert
+        // 검증
         expect(result.user).toEqual(mockUsers.instructor);
         expect(result.session).toEqual(mockSession);
         expect(result.profile).toEqual(mockProfiles.instructor);
@@ -337,14 +337,14 @@ describe('AuthService - @unit #critical', () => {
 
     describe('AUTH-08: userType 불일치 로그인', () => {
       it('사용자가 가입된 역할과 다른 역할로 로그인을 시도할 때, ForbiddenException을 던진다', async () => {
-        // Arrange - 강사로 가입된 유저가 학생으로 로그인 시도
+        // 준비 - 강사로 가입된 유저가 학생으로 로그인 시도
         (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
           id: mockUsers.instructor.id,
           email: mockUsers.instructor.email,
           userType: UserType.INSTRUCTOR,
         });
 
-        // Act & Assert
+        // 실행
         await expect(
           authService.signIn(
             mockUsers.instructor.email,
@@ -368,7 +368,7 @@ describe('AuthService - @unit #critical', () => {
   describe('[인증] getSession', () => {
     describe('AUTH-07: 세션 조회', () => {
       it('사용자가 유효한 세션으로 조회를 요청할 때, 사용자 및 프로필 정보가 반환된다', async () => {
-        // Arrange
+        // 준비
         const headers = { cookie: 'session_token=test-token' };
 
         mockBetterAuth.api.getSession.mockResolvedValue({
@@ -380,24 +380,24 @@ describe('AuthService - @unit #critical', () => {
           mockProfiles.instructor,
         );
 
-        // Act
+        // 실행
         const result = await authService.getSession(headers);
 
-        // Assert
+        // 검증
         expect(result).not.toBeNull();
         expect(result?.user).toEqual(mockUsers.instructor);
         expect(result?.profile).toEqual(mockProfiles.instructor);
       });
 
       it('사용자가 유효하지 않은 세션으로 조회를 요청할 때, null이 반환된다', async () => {
-        // Arrange
+        // 준비
         const headers = {};
         mockBetterAuth.api.getSession.mockResolvedValue(null);
 
-        // Act
+        // 실행
         const result = await authService.getSession(headers);
 
-        // Assert
+        // 검증
         expect(result).toBeNull();
       });
     });
@@ -406,14 +406,14 @@ describe('AuthService - @unit #critical', () => {
   describe('[인증] signOut', () => {
     describe('AUTH-06: 로그아웃', () => {
       it('사용자가 로그아웃을 요청할 때, better-auth API가 호출되고 세션이 종료된다', async () => {
-        // Arrange
+        // 준비
         const headers = { cookie: 'session_token=test-token' };
         mockBetterAuth.api.signOut.mockResolvedValue({ success: true });
 
-        // Act
+        // 실행
         await authService.signOut(headers);
 
-        // Assert
+        // 검증
         expect(mockBetterAuth.api.signOut).toHaveBeenCalledWith({
           headers: headers,
         });
@@ -425,7 +425,7 @@ describe('AuthService - @unit #critical', () => {
   describe('[권한] 역할별 프로필 조회', () => {
     describe('RBAC-U01: 강사 프로필 조회', () => {
       it('강사가 세션 조회를 요청할 때, 강사 프로필 정보가 포함되어 반환된다', async () => {
-        // Arrange
+        // 준비
         mockBetterAuth.api.getSession.mockResolvedValue({
           user: mockUsers.instructor,
           session: mockSession,
@@ -434,10 +434,10 @@ describe('AuthService - @unit #critical', () => {
           mockProfiles.instructor,
         );
 
-        // Act
+        // 실행
         const result = await authService.getSession({});
 
-        // Assert
+        // 검증
         expect(mockInstructorRepo.findByUserId).toHaveBeenCalledWith(
           mockUsers.instructor.id,
         );
@@ -447,7 +447,7 @@ describe('AuthService - @unit #critical', () => {
 
     describe('RBAC-U02: 조교 프로필 조회', () => {
       it('조교가 세션 조회를 요청할 때, 조교 프로필 정보가 포함되어 반환된다', async () => {
-        // Arrange
+        // 준비
         mockBetterAuth.api.getSession.mockResolvedValue({
           user: mockUsers.assistant,
           session: mockSession,
@@ -456,10 +456,10 @@ describe('AuthService - @unit #critical', () => {
           mockProfiles.assistant,
         );
 
-        // Act
+        // 실행
         const result = await authService.getSession({});
 
-        // Assert
+        // 검증
         expect(mockAssistantRepo.findByUserId).toHaveBeenCalledWith(
           mockUsers.assistant.id,
         );
@@ -469,17 +469,17 @@ describe('AuthService - @unit #critical', () => {
 
     describe('RBAC-U03: 학생/학부모 프로필 분리 조회', () => {
       it('학생이 세션 조회를 요청할 때, 학생 프로필 정보가 포함되어 반환된다', async () => {
-        // Arrange
+        // 준비
         mockBetterAuth.api.getSession.mockResolvedValue({
           user: mockUsers.student,
           session: mockSession,
         });
         mockStudentRepo.findByUserId.mockResolvedValue(mockProfiles.student);
 
-        // Act
+        // 실행
         const result = await authService.getSession({});
 
-        // Assert
+        // 검증
         expect(mockStudentRepo.findByUserId).toHaveBeenCalledWith(
           mockUsers.student.id,
         );
@@ -487,17 +487,17 @@ describe('AuthService - @unit #critical', () => {
       });
 
       it('학부모가 세션 조회를 요청할 때, 학부모 프로필 정보가 포함되어 반환된다', async () => {
-        // Arrange
+        // 준비
         mockBetterAuth.api.getSession.mockResolvedValue({
           user: mockUsers.parent,
           session: mockSession,
         });
         mockParentRepo.findByUserId.mockResolvedValue(mockProfiles.parent);
 
-        // Act
+        // 실행
         const result = await authService.getSession({});
 
-        // Assert
+        // 검증
         expect(mockParentRepo.findByUserId).toHaveBeenCalledWith(
           mockUsers.parent.id,
         );
@@ -510,13 +510,13 @@ describe('AuthService - @unit #critical', () => {
   describe('[예외] 에러 핸들링', () => {
     describe('ERR-01: 프로필 생성 실패 시 롤백', () => {
       it('회원가입 중 프로필 생성에 실패할 때, 생성된 유저 정보가 롤백(삭제)된다', async () => {
-        // Arrange
+        // 준비
         mockInstructorRepo.findByPhoneNumber.mockResolvedValue(null);
         mockInstructorRepo.create.mockRejectedValue(
           new Error('Profile creation failed'),
         );
 
-        // Mock Response 객체
+        // Mock 응답 객체
         const mockResponse = {
           ok: true,
           json: jest.fn().mockResolvedValue({
@@ -529,7 +529,7 @@ describe('AuthService - @unit #critical', () => {
         };
         mockBetterAuth.handler.mockResolvedValue(mockResponse);
 
-        // Act & Assert
+        // 실행 & Assert
         await expect(
           authService.signUp(UserType.INSTRUCTOR, signUpRequests.instructor),
         ).rejects.toThrow('Profile creation failed');
@@ -544,16 +544,16 @@ describe('AuthService - @unit #critical', () => {
 
   describe('AUTH-09: 회원 탈퇴', () => {
     it('사용자가 회원 탈퇴를 요청할 때, Better Auth의 deleteUser API가 호출된다', async () => {
-      // Arrange
+      // 준비
       const headers = { cookie: 'test-session-cookie' };
       mockBetterAuth.api.deleteUser.mockResolvedValue({
         success: true,
       });
 
-      // Act
+      // 실행
       await authService.withdraw(headers);
 
-      // Assert
+      // 검증
       expect(mockBetterAuth.api.deleteUser).toHaveBeenCalledWith({
         headers: expect.anything(),
         body: {},
@@ -566,7 +566,7 @@ describe('AuthService - @unit #critical', () => {
     const headers = { authorization: 'Bearer token' };
 
     it('관리자가 회원 탈퇴를 요청할 때, Better Auth의 removeUser API가 호출된다', async () => {
-      // Arrange
+      // 준비
       (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
         id: userId,
         userType: UserType.ASSISTANT,
@@ -575,10 +575,10 @@ describe('AuthService - @unit #critical', () => {
         success: true,
       });
 
-      // Act
+      // 실행
       await authService.deleteUserById(userId, headers);
 
-      // Assert
+      // 검증
       expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
         where: { id: userId },
         select: { id: true, userType: true },
@@ -590,23 +590,23 @@ describe('AuthService - @unit #critical', () => {
     });
 
     it('존재하지 않는 사용자일 경우 NotFoundException을 던진다', async () => {
-      // Arrange
+      // 준비
       (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(null);
 
-      // Act & Assert
+      // 실행
       await expect(authService.deleteUserById(userId, headers)).rejects.toThrow(
         NotFoundException,
       );
     });
 
     it('조교가 아닌 사용자를 삭제하려 하면 ForbiddenException을 던진다', async () => {
-      // Arrange
+      // 준비
       (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
         id: userId,
         userType: UserType.STUDENT,
       });
 
-      // Act & Assert
+      // 실행
       await expect(authService.deleteUserById(userId, headers)).rejects.toThrow(
         ForbiddenException,
       );

@@ -70,7 +70,7 @@ describe('ExamsService - @unit #critical', () => {
 
   describe('[조회] getExamsByLectureId', () => {
     it('강의 권한이 있는 사용자가 조회를 요청할 때, 강의에 포함된 시험 목록이 반환된다', async () => {
-      // Arrange
+      // 준비
       const exams = [
         {
           ...mockExams.basic,
@@ -86,14 +86,14 @@ describe('ExamsService - @unit #critical', () => {
       );
       mockExamsRepo.findByLectureId.mockResolvedValue(exams);
 
-      // Act
+      // 실행
       const result = await examsService.getExamsByLectureId(
         mockLectureId,
         mockUserType,
         mockProfileId,
       );
 
-      // Assert
+      // 검증
       expect(mockLecturesRepo.findById).toHaveBeenCalledWith(mockLectureId);
       expect(
         mockPermissionService.validateInstructorAccess,
@@ -114,7 +114,7 @@ describe('ExamsService - @unit #critical', () => {
     });
 
     it('시험이 COMPLETED 상태이고 미완료 클리닉이 있으면 hasClinic이 true로 반환된다', async () => {
-      // Arrange
+      // 준비
       const exams = [
         {
           ...mockExams.basic,
@@ -126,14 +126,14 @@ describe('ExamsService - @unit #critical', () => {
       mockLecturesRepo.findById.mockResolvedValue(mockLecture);
       mockExamsRepo.findByLectureId.mockResolvedValue(exams);
 
-      // Act
+      // 실행
       const result = await examsService.getExamsByLectureId(
         mockLectureId,
         mockUserType,
         mockProfileId,
       );
 
-      // Assert
+      // 검증
       expect(result[0].hasClinic).toBe(true);
     });
 
@@ -319,7 +319,7 @@ describe('ExamsService - @unit #critical', () => {
   });
 
   describe('getExamById', () => {
-    it('should return exam with enrollments', async () => {
+    it('시험 권한이 있는 사용자가 조회를 요청할 때, 수강생 목록을 포함한 시험 정보가 반환된다', async () => {
       const mockExamWithEnrollments = {
         id: mockExamId,
         lectureId: mockLectureId,
@@ -361,7 +361,7 @@ describe('ExamsService - @unit #critical', () => {
       expect((result as ExamDetailWithEnrollments).enrollments).toHaveLength(1);
     });
 
-    it('should throw NotFoundException if exam not found', async () => {
+    it('존재하지 않는 시험을 조회할 때, NotFoundException을 던진다', async () => {
       mockExamsRepo.findByIdWithEnrollments.mockResolvedValue(null);
 
       await expect(
@@ -372,7 +372,7 @@ describe('ExamsService - @unit #critical', () => {
 
   describe('getExamsByInstructor', () => {
     it('강사가 조회를 요청할 때, 본인의 시험 목록이 반환된다', async () => {
-      // Arrange
+      // 준비
       const exams = [
         {
           ...mockExams.basic,
@@ -388,13 +388,13 @@ describe('ExamsService - @unit #critical', () => {
       );
       mockExamsRepo.findByInstructorId.mockResolvedValue(exams);
 
-      // Act
+      // 실행
       const result = await examsService.getExamsByInstructor(
         UserType.INSTRUCTOR,
         mockProfileId,
       );
 
-      // Assert
+      // 검증
       expect(
         mockPermissionService.getEffectiveInstructorId,
       ).toHaveBeenCalledWith(UserType.INSTRUCTOR, mockProfileId);
@@ -412,7 +412,7 @@ describe('ExamsService - @unit #critical', () => {
     });
 
     it('조교가 조회를 요청할 때, 담당 강사의 시험 목록이 반환된다', async () => {
-      // Arrange
+      // 준비
       const mockAssistantId = 'assistant-1';
       const exams = [
         {
@@ -429,13 +429,13 @@ describe('ExamsService - @unit #critical', () => {
       );
       mockExamsRepo.findByInstructorId.mockResolvedValue(exams);
 
-      // Act
+      // 실행
       const result = await examsService.getExamsByInstructor(
         UserType.ASSISTANT,
         mockAssistantId,
       );
 
-      // Assert
+      // 검증
       expect(
         mockPermissionService.getEffectiveInstructorId,
       ).toHaveBeenCalledWith(UserType.ASSISTANT, mockAssistantId);
