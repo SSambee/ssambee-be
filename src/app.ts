@@ -7,6 +7,10 @@ import { config, isDevelopment, isProduction } from './config/env.config.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { disconnectDB } from './config/db.config.js';
 import { MorganLambdaStream } from './utils/logger.util.js';
+import {
+  startSystemMonitoring,
+  stopSystemMonitoring,
+} from './utils/monitor.util.js';
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from './config/auth.config.js';
 import { initSentry } from './config/sentry.config.js';
@@ -68,10 +72,16 @@ app.use(errorHandler);
 const server = app.listen(config.PORT, () => {
   console.log(`🚀 Server running on http://localhost:${config.PORT}`);
   console.log(`📦 Environment: ${config.ENVIRONMENT}`);
+
+  // 시스템 모니터링 시작 (1분 주기)
+  startSystemMonitoring();
 });
 
 const gracefulShutdown = async () => {
   console.log('🛑 Received kill signal, shutting down gracefully');
+
+  // 0. 모니터링 중지
+  stopSystemMonitoring();
 
   // 1. 새로운 요청 거부 및 기존 요청 처리 완료 대기 (Promise로 래핑)
   const closeServer = new Promise<void>((resolve, reject) => {

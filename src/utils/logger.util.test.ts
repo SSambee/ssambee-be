@@ -15,9 +15,13 @@ describe('MorganLambdaStream', () => {
 
   beforeEach(() => {
     stream = new MorganLambdaStream();
-    fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(() =>
-      Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200 }))
-    );
+    fetchSpy = jest
+      .spyOn(global, 'fetch')
+      .mockImplementation(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ success: true }), { status: 200 }),
+        ),
+      );
   });
 
   afterEach(() => {
@@ -28,14 +32,17 @@ describe('MorganLambdaStream', () => {
     const logMessage = 'GET /health 200';
     stream.write(logMessage);
 
-    expect(fetchSpy).toHaveBeenCalledWith('https://example.com/log', expect.objectContaining({
-      method: 'POST',
-      headers: expect.objectContaining({
-        'Content-Type': 'application/json',
-        'x-api-key': 'test-api-key',
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://example.com/log',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+          'x-api-key': 'test-api-key',
+        }),
+        body: expect.stringContaining(logMessage),
       }),
-      body: expect.stringContaining(logMessage),
-    }));
+    );
 
     const payload = JSON.parse(fetchSpy.mock.calls[0][1].body);
     expect(payload.log).toBe(logMessage);
@@ -45,28 +52,32 @@ describe('MorganLambdaStream', () => {
 
   it('should not send log when URL is missing', () => {
     // Override mock for this test
-    (config as any).LOG_LAMBDA_URL = undefined;
+    config.LOG_LAMBDA_URL = undefined;
 
     stream.write('test');
 
     expect(fetchSpy).not.toHaveBeenCalled();
 
     // Restore mock
-    (config as any).LOG_LAMBDA_URL = 'https://example.com/log';
+    config.LOG_LAMBDA_URL = 'https://example.com/log';
   });
 
   it('should handle fetch errors gracefully', async () => {
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
-    fetchSpy.mockImplementation(() => Promise.reject(new Error('Network error')));
+    fetchSpy.mockImplementation(() =>
+      Promise.reject(new Error('Network error')),
+    );
 
     stream.write('test');
 
     // Wait for the async catch block to execute
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[MorganLambdaStream] Failed to send log to Lambda'),
-      expect.any(Error)
+      expect.stringContaining(
+        '[MorganLambdaStream] Failed to send log to Lambda',
+      ),
+      expect.any(Error),
     );
   });
 });
