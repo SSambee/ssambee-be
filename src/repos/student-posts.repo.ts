@@ -64,7 +64,13 @@ export class StudentPostsRepository {
           include: {
             instructor: { select: { user: { select: { name: true } } } },
             assistant: { select: { user: { select: { name: true } } } },
-            enrollment: { select: { studentName: true } },
+            enrollment: {
+              select: {
+                studentName: true,
+                appStudentId: true,
+                appParentLink: { select: { appParentId: true } },
+              },
+            },
             attachments: { include: { material: true } },
           },
         },
