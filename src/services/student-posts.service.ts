@@ -450,13 +450,12 @@ export class StudentPostsService {
         // 학생인 경우 첨부파일 필터링
         if (userType === UserType.STUDENT) {
           const accessibleAttachments = await this.filterAccessibleAttachments(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            comment.attachments as any,
+            comment.attachments,
             profileId,
           );
           return {
             ...commentWithIsMine,
-             
+
             attachments: accessibleAttachments,
           };
         }

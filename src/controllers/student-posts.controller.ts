@@ -13,7 +13,7 @@ import { getPagingData } from '../utils/pagination.util.js';
 import { transformDateFieldsToKst } from '../utils/date.util.js';
 import { StudentPostWithDetails } from '../repos/student-posts.repo.js';
 import { toFrontendStudentPostStatus } from '../utils/posts.util.js';
-import { StudentPostStatus } from '../constants/posts.constant.js';
+import { StudentPostStatus, AuthorRole } from '../constants/posts.constant.js';
 
 export class StudentPostsController {
   constructor(private readonly studentPostsService: StudentPostsService) {}
@@ -79,9 +79,11 @@ export class StudentPostsController {
         ...post,
         isMine:
           userType === UserType.STUDENT
-            ? post.enrollment?.appStudentId === profileId
+            ? post.enrollment?.appStudentId === profileId &&
+              post.authorRole === AuthorRole.STUDENT
             : userType === UserType.PARENT
-              ? post.enrollment?.appParentLink?.appParentId === profileId
+              ? post.enrollment?.appParentLink?.appParentId === profileId &&
+                post.authorRole === AuthorRole.PARENT
               : false,
         status: toFrontendStudentPostStatus(post.status as StudentPostStatus),
       }));
@@ -139,10 +141,14 @@ export class StudentPostsController {
         isMine:
           userType === UserType.STUDENT
             ? (kstResult as StudentPostWithDetails).enrollment?.appStudentId ===
-              profileId
+                profileId &&
+              (kstResult as StudentPostWithDetails).authorRole ===
+                AuthorRole.STUDENT
             : userType === UserType.PARENT
               ? (kstResult as StudentPostWithDetails).enrollment?.appParentLink
-                  ?.appParentId === profileId
+                  ?.appParentId === profileId &&
+                (kstResult as StudentPostWithDetails).authorRole ===
+                  AuthorRole.PARENT
               : false,
         status: toFrontendStudentPostStatus(
           kstResult.status as StudentPostStatus,
