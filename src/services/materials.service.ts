@@ -7,12 +7,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '../err/http.exception.js';
-import {
-  MaterialType,
-  toBackendMaterialType,
-  toFrontendMaterialType,
-  FrontendMaterialType,
-} from '../constants/materials.constant.js';
+import { MaterialType } from '../constants/materials.constant.js';
 import { UserType } from '../constants/auth.constant.js';
 import { MaterialsRepository } from '../repos/materials.repo.js';
 import { LecturesRepository } from '../repos/lectures.repo.js';
@@ -79,9 +74,7 @@ export class MaterialsService {
 
     let fileUrl: string;
 
-    const backendType = toBackendMaterialType[data.type];
-
-    if (backendType === MaterialType.VIDEO_LINK) {
+    if (data.type === MaterialType.VIDEO) {
       if (!data.youtubeUrl) {
         throw new BadRequestException('동영상 링크가 필요합니다.');
       }
@@ -130,14 +123,14 @@ export class MaterialsService {
       title: data.title,
       filename: file?.originalname ?? '',
       fileUrl,
-      type: backendType,
+      type: data.type,
       description: data.description,
       subject: data.subject,
       externalDownloadUrl: data.externalDownloadUrl,
     });
 
     // 프론트엔드용 응답 형식으로 변환
-    const isVideo = backendType === MaterialType.VIDEO_LINK;
+    const isVideo = data.type === MaterialType.VIDEO;
     const isManagement =
       userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT;
     const basePath = isManagement ? '/api/mgmt/v1' : '/api/svc/v1';
@@ -149,7 +142,7 @@ export class MaterialsService {
       description: created.description,
       writer: authorName,
       date: toKstDateOnly(created.createdAt),
-      type: toFrontendMaterialType[backendType] || ('OTHER' as const),
+      type: data.type,
       file: !isVideo ? { name: created.filename, url: downloadUrl } : undefined,
       link: isVideo ? created.fileUrl : undefined,
       externalDownloadUrl: created.externalDownloadUrl ?? undefined,
@@ -160,7 +153,7 @@ export class MaterialsService {
   async getMaterials(
     query: GetMaterialsQueryDto & {
       lectureId?: string;
-      type?: FrontendMaterialType;
+      type?: MaterialType;
     },
     userType: UserType,
     profileId: string,
@@ -191,14 +184,9 @@ export class MaterialsService {
       finalInstructorId = effectiveId;
     }
 
-    const queryWithBackendType = {
-      ...query,
-      type: query.type ? toBackendMaterialType[query.type] : undefined,
-    };
-
     // 목록 조회
     const { materials, totalCount } = await this.materialsRepository.findMany({
-      ...queryWithBackendType,
+      ...query,
       instructorId: finalInstructorId,
     });
 
@@ -218,11 +206,7 @@ export class MaterialsService {
     );
 
     const mappedMaterials = materials.map((m) => {
-      // MaterialType Mapping
-      const type =
-        toFrontendMaterialType[m.type as MaterialType] || ('OTHER' as const);
-
-      const isVideo = m.type === MaterialType.VIDEO_LINK;
+      const isVideo = m.type === MaterialType.VIDEO;
       const isManagement =
         userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT;
       const basePath = isManagement ? '/api/mgmt/v1' : '/api/svc/v1';
@@ -243,7 +227,7 @@ export class MaterialsService {
         description: m.description,
         writer, // 마스킹된 이름 반영
         date: toKstDateOnly(m.createdAt),
-        type: type,
+        type: m.type as MaterialType,
         file: !isVideo ? { name: m.filename, url: downloadUrl } : undefined,
         link: isVideo ? m.fileUrl : undefined,
         externalDownloadUrl: m.externalDownloadUrl ?? undefined,
@@ -283,22 +267,20 @@ export class MaterialsService {
 
     let fileUrl = material.fileUrl;
 
-    // 유튜브 링크 수정 (VIDEO_LINK 타입인 경우)
-    if (data.youtubeUrl && material.type === MaterialType.VIDEO_LINK) {
+    // 유튜브 링크 수정 (VIDEO 타입인 경우)
+    if (data.youtubeUrl && material.type === MaterialType.VIDEO) {
       fileUrl = this.validateYouTubeUrl(data.youtubeUrl);
     }
 
-    // 파일 교체 (VIDEO_LINK 타입이 아닌 경우)
-    if (file && material.type !== MaterialType.VIDEO_LINK) {
+    // 파일 교체 (VIDEO 타입이 아닌 경우)
+    if (file && material.type !== MaterialType.VIDEO) {
       // 새 파일 업로드
       const randomId = randomUUID();
       const ext = path.extname(file.originalname);
       const now = new Date();
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, '0');
-      const prefix =
-        toFrontendMaterialType[material.type as MaterialType]?.toLowerCase() ||
-        'other';
+      const prefix = material.type.toLowerCase();
       const key = `${prefix}/${year}/${month}/${randomId}${ext}`;
 
       fileUrl = await this.fileStorageService.upload(file, key);
@@ -314,7 +296,7 @@ export class MaterialsService {
     };
 
     // 파일이 교체된 경우 filename도 업데이트
-    if (file && material.type !== MaterialType.VIDEO_LINK) {
+    if (file && material.type !== MaterialType.VIDEO) {
       updateData.filename = file.originalname;
     }
 
@@ -324,7 +306,7 @@ export class MaterialsService {
     );
 
     // 프론트엔드용 응답 형식으로 변환
-    const isVideo = material.type === MaterialType.VIDEO_LINK;
+    const isVideo = material.type === MaterialType.VIDEO;
     const isManagement =
       userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT;
     const basePath = isManagement ? '/api/mgmt/v1' : '/api/svc/v1';
@@ -336,9 +318,7 @@ export class MaterialsService {
       description: updated.description,
       writer: material.authorName,
       date: toKstDateOnly(updated.updatedAt),
-      type:
-        toFrontendMaterialType[material.type as MaterialType] ||
-        ('OTHER' as const),
+      type: material.type as MaterialType,
       file: !isVideo ? { name: updated.filename, url: downloadUrl } : undefined,
       link: isVideo ? updated.fileUrl : undefined,
       externalDownloadUrl: updated.externalDownloadUrl ?? undefined,
@@ -410,12 +390,7 @@ export class MaterialsService {
       }
     }
 
-    // MaterialType Mapping
-    const type =
-      toFrontendMaterialType[material.type as MaterialType] ||
-      ('OTHER' as const);
-
-    const isVideo = material.type === MaterialType.VIDEO_LINK;
+    const isVideo = material.type === MaterialType.VIDEO;
     const isManagement =
       userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT;
     const basePath = isManagement ? '/api/mgmt/v1' : '/api/svc/v1';
@@ -427,7 +402,7 @@ export class MaterialsService {
       description: material.description,
       writer, // 마스킹된 이름 반영
       date: toKstDateOnly(material.createdAt),
-      type: type,
+      type: material.type as MaterialType,
       file: !isVideo
         ? { name: material.filename, url: downloadUrl }
         : undefined,
@@ -499,7 +474,7 @@ export class MaterialsService {
       throw new ForbiddenException('접근 권한이 없습니다.');
     }
 
-    if (material.type === MaterialType.VIDEO_LINK) {
+    if (material.type === MaterialType.VIDEO) {
       return { url: material.fileUrl, type: 'youtube' };
     }
 

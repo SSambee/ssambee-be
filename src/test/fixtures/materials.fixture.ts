@@ -13,7 +13,7 @@ export const mockMaterials = {
     title: faker.commerce.productName(),
     filename: 'sample.pdf',
     fileUrl: faker.internet.url(),
-    type: MaterialType.REFERENCE,
+    type: MaterialType.OTHER,
     description: faker.commerce.productDescription(),
     subject: '수학',
     externalDownloadUrl: null,
@@ -32,9 +32,9 @@ export const mockMaterials = {
     authorName: '이강사',
     authorRole: 'INSTRUCTOR',
     title: '유튜브 영상 자료',
-    filename: '', // VIDEO_LINK는 파일이 없으므로 빈 문자열
+    filename: '', // VIDEO는 파일이 없으므로 빈 문자열
     fileUrl: 'https://youtube.com/watch?v=mock-video-id',
-    type: MaterialType.VIDEO_LINK,
+    type: MaterialType.VIDEO,
     description: '동영상 설명',
     subject: '수학',
     externalDownloadUrl: null,
@@ -55,7 +55,7 @@ export const mockMaterials = {
     title: '시험지 자료',
     filename: 'exam.pdf',
     fileUrl: 'https://s3.aws.com/exams/mock-exam.pdf',
-    type: MaterialType.EXAM_PAPER,
+    type: MaterialType.PAPER,
     description: '시험지 설명',
     subject: '수학',
     externalDownloadUrl: null,
@@ -72,12 +72,12 @@ export const mockMaterials = {
 export const mockMaterialRequest = {
   upload: {
     title: '새로운 강의 자료',
-    type: MaterialType.REFERENCE,
+    type: MaterialType.OTHER,
     description: '자료 설명입니다.',
   },
   video: {
     title: '새로운 영상 자료',
-    type: MaterialType.VIDEO_LINK,
+    type: MaterialType.VIDEO,
     youtubeUrl: 'https://youtube.com/watch?v=new-video',
   },
 };
