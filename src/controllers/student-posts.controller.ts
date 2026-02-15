@@ -122,19 +122,19 @@ export class StudentPostsController {
         profileId,
       );
 
-      const rawResult = result;
+      const rawResult = result as Record<string, unknown>;
       if (rawResult.comments) {
-        rawResult.comments = transformDateFieldsToKst(rawResult.comments, [
-          'createdAt',
-          'updatedAt',
-        ]);
+        rawResult.comments = transformDateFieldsToKst(
+          rawResult.comments as Array<Record<string, unknown>>,
+          ['createdAt', 'updatedAt'] as never[],
+        );
       }
 
       // 날짜 데이터를 한국 시간으로 변환
       const kstResult = transformDateFieldsToKst(rawResult, [
         'createdAt',
         'updatedAt',
-      ]);
+      ] as never[]);
 
       const responseWithIsMine = {
         ...kstResult,
