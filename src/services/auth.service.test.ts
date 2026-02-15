@@ -79,7 +79,7 @@ describe('AuthService - @unit #critical', () => {
         mockInstructorRepo.findByPhoneNumber.mockResolvedValue(null);
         mockInstructorRepo.create.mockResolvedValue(mockProfiles.instructor);
 
-        // Mock 응답 객체 객체
+        // Mock 응답 객체
         const mockResponse = {
           ok: true,
           json: jest.fn().mockResolvedValue({
@@ -132,7 +132,7 @@ describe('AuthService - @unit #critical', () => {
         mockAssistantCodeRepo.markAsUsed.mockResolvedValue(mockAssistantCode);
         mockAssistantRepo.create.mockResolvedValue(mockProfiles.assistant);
 
-        // Mock 응답 객체 객체
+        // Mock 응답 객체
         const mockResponse = {
           ok: true,
           json: jest.fn().mockResolvedValue({
@@ -177,7 +177,7 @@ describe('AuthService - @unit #critical', () => {
         };
         mockAssistantRepo.findByPhoneNumber.mockResolvedValue(null);
 
-        // Mock 응답 객체 객체
+        // Mock 응답 객체
         const mockResponse = {
           ok: true,
           json: jest.fn().mockResolvedValue({
@@ -190,7 +190,7 @@ describe('AuthService - @unit #critical', () => {
         };
         mockBetterAuth.handler.mockResolvedValue(mockResponse);
 
-        // 실행 & Assert
+        // 실행
         await expect(
           authService.signUp(UserType.ASSISTANT, dataWithoutCode),
         ).rejects.toThrow(BadRequestException);
@@ -201,7 +201,7 @@ describe('AuthService - @unit #critical', () => {
         mockAssistantRepo.findByPhoneNumber.mockResolvedValue(null);
         mockAssistantCodeRepo.findValidCode.mockResolvedValue(null);
 
-        // Mock 응답 객체 객체
+        // Mock 응답 객체
         const mockResponse = {
           ok: true,
           json: jest.fn().mockResolvedValue({
@@ -214,7 +214,7 @@ describe('AuthService - @unit #critical', () => {
         };
         mockBetterAuth.handler.mockResolvedValue(mockResponse);
 
-        // 실행 & Assert
+        // 실행
         await expect(
           authService.signUp(UserType.ASSISTANT, signUpRequests.assistant),
         ).rejects.toThrow(BadRequestException);
@@ -230,7 +230,7 @@ describe('AuthService - @unit #critical', () => {
         mockStudentRepo.findByPhoneNumber.mockResolvedValue(null);
         mockStudentRepo.create.mockResolvedValue(mockProfiles.student);
 
-        // Mock 응답 객체 객체
+        // Mock 응답 객체
         const mockResponse = {
           ok: true,
           json: jest.fn().mockResolvedValue({
@@ -267,7 +267,7 @@ describe('AuthService - @unit #critical', () => {
         mockParentRepo.findByPhoneNumber.mockResolvedValue(null);
         mockParentRepo.create.mockResolvedValue(mockProfiles.parent);
 
-        // Mock 응답 객체 객체
+        // Mock 응답 객체
         const mockResponse = {
           ok: true,
           json: jest.fn().mockResolvedValue({
@@ -303,7 +303,7 @@ describe('AuthService - @unit #critical', () => {
           userType: UserType.INSTRUCTOR,
         });
 
-        // Mock 응답 객체 객체
+        // Mock 응답 객체
         const mockResponse = {
           ok: true,
           json: jest.fn().mockResolvedValue({
@@ -344,7 +344,7 @@ describe('AuthService - @unit #critical', () => {
           userType: UserType.INSTRUCTOR,
         });
 
-        // 실행 & Assert
+        // 실행
         await expect(
           authService.signIn(
             mockUsers.instructor.email,
@@ -516,7 +516,7 @@ describe('AuthService - @unit #critical', () => {
           new Error('Profile creation failed'),
         );
 
-        // Mock 응답 객체 객체
+        // Mock 응답 객체
         const mockResponse = {
           ok: true,
           json: jest.fn().mockResolvedValue({
@@ -593,7 +593,7 @@ describe('AuthService - @unit #critical', () => {
       // 준비
       (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(null);
 
-      // 실행 & Assert
+      // 실행
       await expect(authService.deleteUserById(userId, headers)).rejects.toThrow(
         NotFoundException,
       );
@@ -606,7 +606,7 @@ describe('AuthService - @unit #critical', () => {
         userType: UserType.STUDENT,
       });
 
-      // 실행 & Assert
+      // 실행
       await expect(authService.deleteUserById(userId, headers)).rejects.toThrow(
         ForbiddenException,
       );
