@@ -77,7 +77,10 @@ export class StudentPostsRepository {
   }
 
   /** ID로 상세 조회 (댓글 포함) */
-  async findById(id: string, tx?: Prisma.TransactionClient) {
+  async findById(
+    id: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<StudentPostWithDetails | null> {
     const client = tx ?? this.prisma;
     return client.studentPost.findUnique({
       where: { id },
@@ -107,6 +110,7 @@ export class StudentPostsRepository {
             attachments: { include: { material: true } },
           },
         },
+        _count: { select: { comments: true } },
       },
     });
   }
@@ -119,7 +123,7 @@ export class StudentPostsRepository {
       enrollmentId?: string;
       appStudentId?: string;
       enrollmentIds?: string[]; // [NEW] 학부모용 필터링
-      status?: string;
+      status?: StudentPostStatus;
       answerStatus?: AnswerStatus;
       writerType?: InquiryWriterType;
       search?: string;
@@ -201,7 +205,7 @@ export class StudentPostsRepository {
   /** 상태 변경 (재조회 반환) */
   async updateStatus(
     id: string,
-    status: string,
+    status: StudentPostStatus | string,
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
@@ -253,7 +257,7 @@ export class StudentPostsRepository {
   /** 여러 질문 상태 일괄 변경 */
   async updateManyStatus(
     ids: string[],
-    status: string,
+    status: StudentPostStatus | string,
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;

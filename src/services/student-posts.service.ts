@@ -16,8 +16,12 @@ import { LecturesRepository } from '../repos/lectures.repo.js';
 import { CommentsRepository } from '../repos/comments.repo.js';
 import { PermissionService } from './permission.service.js';
 import { StudentPost, Comment } from '../generated/prisma/client.js';
-import { formatStudentPostStats } from '../utils/posts.util.js';
+import {
+  formatStudentPostStats,
+  toFrontendStudentPostStatus,
+} from '../utils/posts.util.js';
 import { CommentsService } from './comments.service.js';
+import { StudentPostWithDetails } from '../repos/student-posts.repo.js';
 
 export class StudentPostsService {
   constructor(
@@ -137,6 +141,19 @@ export class StudentPostsService {
       enrollmentIds, // [NEW] 학부모용
     });
 
+    const postsWithIsMineAndMappedStatus = result.posts.map((post) => ({
+      ...post,
+      isMine:
+        userType === UserType.STUDENT
+          ? post.enrollment?.appStudentId === profileId &&
+            post.authorRole === AuthorRole.STUDENT
+          : userType === UserType.PARENT
+            ? post.enrollment?.appParentLink?.appParentId === profileId &&
+              post.authorRole === AuthorRole.PARENT
+            : false,
+      status: toFrontendStudentPostStatus(post.status as StudentPostStatus),
+    }));
+
     // [Stats] 학생 질문 통계 추가 (강사/조교인 경우)
     // DRY: formatStudentPostStats 헬퍼 함수 사용 - instructor-posts.service.ts와 동일 로직 공유
     let stats = null;
@@ -146,7 +163,8 @@ export class StudentPostsService {
     }
 
     return {
-      ...result,
+      posts: postsWithIsMineAndMappedStatus,
+      totalCount: result.totalCount,
       stats,
     };
   }
@@ -160,26 +178,31 @@ export class StudentPostsService {
     await this.validatePostAccess(post, userType, profileId);
 
     // 댓글에 isMine 및 첨부파일 필터링 적용
-    if (post.comments) {
-      const processedComments = await this.processPostComments(
-        post,
-        userType,
-        profileId,
-      );
+    const processedComments = post.comments
+      ? await this.processPostComments(post, userType, profileId)
+      : [];
 
-      return {
-        ...post,
-        comments: processedComments,
-      };
-    }
+    const isMine =
+      userType === UserType.STUDENT
+        ? post.enrollment?.appStudentId === profileId &&
+          post.authorRole === AuthorRole.STUDENT
+        : userType === UserType.PARENT
+          ? post.enrollment?.appParentLink?.appParentId === profileId &&
+            post.authorRole === AuthorRole.PARENT
+          : false;
 
-    return post;
+    return {
+      ...post,
+      isMine,
+      status: toFrontendStudentPostStatus(post.status as StudentPostStatus),
+      comments: processedComments,
+    };
   }
 
   /** 상태 변경 */
   async updateStatus(
     postId: string,
-    status: string,
+    status: StudentPostStatus,
     userType: UserType,
     profileId: string,
   ) {

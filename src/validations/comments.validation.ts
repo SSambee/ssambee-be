@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sanitizeString } from '../utils/sanitize.util.js';
 
 /**
  * 댓글 작성 요청 검증 스키마
@@ -6,13 +7,15 @@ import { z } from 'zod';
 export const createCommentSchema = z
   .object({
     /** 댓글 내용 */
-    content: z.string().min(1, '내용은 필수입니다.'),
+    content: z.string().min(1, '내용은 필수입니다.').transform(sanitizeString),
     /** 첨부 자료 ID 목록 (선택) */
     materialIds: z.array(z.cuid2()).optional(),
     /** 강사 게시물 ID (강사 게시물에 댓글 작성 시) */
     instructorPostId: z.cuid2().optional(),
     /** 학생 질문 게시물 ID (학생 질문에 댓글 작성 시) */
     studentPostId: z.cuid2().optional(),
+    /** 부모 댓글 ID (대댓글 작성 시) */
+    parentId: z.cuid2().optional(),
   })
   .refine((d) => !(d.instructorPostId && d.studentPostId), {
     message: 'instructorPostId와 studentPostId를 동시에 지정할 수 없습니다.',
@@ -23,7 +26,7 @@ export const createCommentSchema = z
  */
 export const updateCommentSchema = z.object({
   /** 수정할 내용 */
-  content: z.string().min(1, '내용은 필수입니다.'),
+  content: z.string().min(1, '내용은 필수입니다.').transform(sanitizeString),
   /** 수정할 첨부 자료 ID 목록 (선택) */
   materialIds: z.array(z.cuid2()).optional(),
 });

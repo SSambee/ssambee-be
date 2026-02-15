@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sanitizeString } from '../utils/sanitize.util.js';
 import {
   StudentPostStatus,
   AnswerStatus,
@@ -10,9 +11,9 @@ import {
  */
 export const createStudentPostSchema = z.object({
   /** 제목 */
-  title: z.string().min(1, '제목은 필수입니다.'),
+  title: z.string().min(1, '제목은 필수입니다.').transform(sanitizeString),
   /** 내용 */
-  content: z.string().min(1, '내용은 필수입니다.'),
+  content: z.string().min(1, '내용은 필수입니다.').transform(sanitizeString),
   /** 특정 강의 관련 질문인 경우 강의 ID (선택) */
   lectureId: z.cuid2().optional(),
   /** 질문 대상 자녀 연결 ID (학부모가 작성 시 필수) */
@@ -83,9 +84,9 @@ export const studentPostParamsSchema = z.object({
  */
 export const updateStudentPostSchema = z.object({
   /** 제목 */
-  title: z.string().min(1, '제목은 필수입니다.').optional(),
+  title: z.string().min(1, '제목은 필수입니다.').optional().transform((v) => v ? sanitizeString(v) : v),
   /** 내용 */
-  content: z.string().min(1, '내용은 필수입니다.').optional(),
+  content: z.string().min(1, '내용은 필수입니다.').optional().transform((v) => v ? sanitizeString(v) : v),
 });
 
 /** 학생 질문 작성 DTO 타입 */

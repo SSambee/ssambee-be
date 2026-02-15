@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sanitizeString } from '../utils/sanitize.util.js';
 import { PostScope, TargetRole } from '../constants/posts.constant.js';
 import { PostType } from '../constants/posts.constant.js';
 
@@ -7,9 +8,9 @@ import { PostType } from '../constants/posts.constant.js';
  */
 export const createInstructorPostSchema = z.object({
   /** 제목 */
-  title: z.string().min(1, '제목은 필수입니다.'),
+  title: z.string().min(1, '제목은 필수입니다.').transform(sanitizeString),
   /** 내용 */
-  content: z.string().min(1, '내용은 필수입니다.'),
+  content: z.string().min(1, '내용은 필수입니다.').transform(sanitizeString),
   /** 중요 공지 여부 */
   isImportant: z.boolean().default(false).optional(),
   /** 공개 범위 (전체, 강의별, 선택된 학생) */
@@ -35,9 +36,9 @@ export const createInstructorPostSchema = z.object({
  */
 export const updateInstructorPostSchema = z.object({
   /** 제목 */
-  title: z.string().min(1).optional(),
+  title: z.string().min(1).optional().transform((v) => v ? sanitizeString(v) : v),
   /** 내용 */
-  content: z.string().min(1).optional(),
+  content: z.string().min(1).optional().transform((v) => v ? sanitizeString(v) : v),
   /** 중요 공지 여부 */
   isImportant: z.boolean().optional(),
   /** 공개 범위 */

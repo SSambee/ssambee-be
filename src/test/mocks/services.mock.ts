@@ -2,6 +2,7 @@ import type { AuthService } from '../../services/auth.service.js';
 import type { ParentsService } from '../../services/parents.service.js';
 import type { PermissionService } from '../../services/permission.service.js';
 import type { FileStorageService } from '../../services/filestorage.service.js';
+import type { CommentsService } from '../../services/comments.service.js';
 
 /** Mock AuthService 생성 */
 export const createMockAuthService = (): jest.Mocked<AuthService> =>
@@ -46,3 +47,12 @@ export const createMockFileStorageService =
       getPresignedUrl: jest.fn(),
       delete: jest.fn(),
     }) as unknown as jest.Mocked<FileStorageService>;
+
+/** Mock CommentsService 생성 */
+export const createMockCommentsService = (): jest.Mocked<CommentsService> =>
+  ({
+    createComment: jest.fn(),
+    deleteComment: jest.fn(),
+    updateComment: jest.fn(),
+    addIsMineFieldToComment: jest.fn().mockImplementation((c) => ({ ...c, isMine: false })),
+  }) as unknown as jest.Mocked<CommentsService>;

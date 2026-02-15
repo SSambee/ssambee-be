@@ -878,6 +878,8 @@ model Comment {
   instructorPostId String? @map("instructor_post_id")
   studentPostId    String? @map("student_post_id")
 
+  parentId String? @map("parent_id")
+
   instructorId String? @map("instructor_id")
   assistantId  String? @map("assistant_id")
   enrollmentId String? @map("enrollment_id")
@@ -885,6 +887,9 @@ model Comment {
 
   instructorPost InstructorPost? @relation(fields: [instructorPostId], references: [id], onDelete: Cascade)
   studentPost    StudentPost?    @relation(fields: [studentPostId], references: [id], onDelete: Cascade)
+
+  parent  Comment?  @relation("CommentToComment", fields: [parentId], references: [id], onDelete: Cascade)
+  replies Comment[] @relation("CommentToComment")
 
   instructor Instructor? @relation(fields: [instructorId], references: [id])
   assistant  Assistant?  @relation(fields: [assistantId], references: [id])
@@ -894,6 +899,7 @@ model Comment {
 
   @@index([instructorPostId])
   @@index([studentPostId])
+  @@index([parentId])
   @@map("comments")
 }
 

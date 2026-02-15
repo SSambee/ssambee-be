@@ -19,6 +19,19 @@ import {
 } from '../validations/comments.validation.js';
 import { StudentPostStatus, AuthorRole } from '../constants/posts.constant.js';
 
+export interface CommentMinimal {
+  enrollmentId?: string | null;
+  enrollment?: {
+    appStudentId?: string | null;
+    appParentLink?: {
+      appParentId?: string | null;
+    } | null;
+  } | null;
+  instructorId?: string | null;
+  assistantId?: string | null;
+  authorRole?: string | null;
+}
+
 export class CommentsService {
   constructor(
     private readonly commentsRepository: CommentsRepository,
@@ -31,7 +44,7 @@ export class CommentsService {
     private readonly parentChildLinkRepository: ParentChildLinkRepository,
   ) {}
 
-  /** 댓글 및 게시글 연관성 검증 */
+  /** 댓글 및 게시글 연관성 검증 및 게시글 접근 권한 확인 */
   private async validateAndGetComment(
     commentId: string,
     postId: string,
@@ -51,24 +64,135 @@ export class CommentsService {
       throw new NotFoundException('해당 게시글에서 댓글을 찾을 수 없습니다.');
     }
 
-    // 게시글 접근 권한 검증 (강사/조교 IDOR 방지)
-    if (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) {
-      const repo =
-        postType === 'instructorPost'
-          ? this.instructorPostsRepository
-          : this.studentPostsRepository;
-      const post = await repo.findById(postId);
-
+    // 게시글 접근 권한 검증 (IDOR 방지)
+    if (postType === 'instructorPost') {
+      const post = await this.instructorPostsRepository.findById(postId);
       if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
 
-      await this.permissionService.validateInstructorAccess(
-        post.instructorId,
-        userType,
-        profileId,
-      );
+      // 강사/조교: 담당 강사의 글인지 확인
+      if (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) {
+        await this.permissionService.validateInstructorAccess(
+          post.instructorId,
+          userType,
+          profileId,
+        );
+      } else if (userType === UserType.STUDENT) {
+        // 학생: 게시글 접근 권한(수강 여부 등) 확인
+        await this.validateInstructorPostReadAccessForStudent(post, profileId);
+      } else if (userType === UserType.PARENT) {
+        // 학부모: 자녀의 게시글 접근 권한 확인
+        await this.validateInstructorPostReadAccessForParent(post, profileId);
+      }
+    } else {
+      const post = await this.studentPostsRepository.findById(postId);
+      if (!post) throw new NotFoundException('질문을 찾을 수 없습니다.');
+
+      // 강사/조교: 담당 강사에게 온 질문인지 확인
+      if (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) {
+        await this.permissionService.validateInstructorAccess(
+          post.instructorId,
+          userType,
+          profileId,
+        );
+      } else if (userType === UserType.STUDENT) {
+        // 학생: 본인의 질문인지 확인
+        const enrollment = await this.enrollmentsRepository.findById(
+          post.enrollmentId,
+        );
+        if (enrollment?.appStudentId !== profileId) {
+          throw new ForbiddenException('본인의 질문에만 접근할 수 있습니다.');
+        }
+      } else if (userType === UserType.PARENT) {
+        // 학부모: 자녀의 질문인지 확인
+        const enrollment = await this.enrollmentsRepository.findById(
+          post.enrollmentId,
+        );
+        if (
+          !enrollment?.appParentLinkId ||
+          !(await this.isChildOfParent(enrollment.appParentLinkId, profileId))
+        ) {
+          throw new ForbiddenException('자녀의 질문에만 접근할 수 있습니다.');
+        }
+      }
     }
 
     return comment;
+  }
+
+  /** 학생의 강사 공지 접근 권한 확인 (IDOR 방지) */
+  private async validateInstructorPostReadAccessForStudent(
+    post: NonNullable<
+      Awaited<ReturnType<InstructorPostsRepository['findById']>>
+    >,
+    studentProfileId: string,
+  ) {
+    const { PostScope } = await import('../constants/posts.constant.js');
+
+    if (post.scope === PostScope.GLOBAL) {
+      await this.permissionService.validateInstructorStudentLink(
+        post.instructorId,
+        studentProfileId,
+      );
+    } else if (post.scope === PostScope.LECTURE && post.lectureId) {
+      const isEnrolled =
+        await this.lectureEnrollmentsRepository.existsByLectureIdAndStudentId(
+          post.lectureId,
+          studentProfileId,
+        );
+      if (!isEnrolled) throw new ForbiddenException('수강 중인 강의의 공지가 아닙니다.');
+    } else if (post.scope === PostScope.SELECTED) {
+      const isTargeted = post.targets.some(
+        (t) => t.enrollment?.appStudentId === studentProfileId,
+      );
+      if (!isTargeted) throw new ForbiddenException('접근 권한이 없는 공지입니다.');
+    }
+  }
+
+  /** 학부모의 강사 공지 접근 권한 확인 (IDOR 방지) */
+  private async validateInstructorPostReadAccessForParent(
+    post: NonNullable<
+      Awaited<ReturnType<InstructorPostsRepository['findById']>>
+    >,
+    parentProfileId: string,
+  ) {
+    const { PostScope } = await import('../constants/posts.constant.js');
+    const enrollmentIds =
+      await this.permissionService.getParentEnrollmentIds(parentProfileId);
+
+    if (post.scope === PostScope.GLOBAL) {
+      const enrollments =
+        await this.enrollmentsRepository.findByIds(enrollmentIds);
+      const hasLink = enrollments.some(
+        (e) => e.instructorId === post.instructorId,
+      );
+      if (!hasLink) throw new ForbiddenException('자녀가 해당 강사의 수강생이 아닙니다.');
+    } else if (post.scope === PostScope.LECTURE && post.lectureId) {
+      const hasAccess =
+        await this.lectureEnrollmentsRepository.existsByLectureIdAndEnrollmentIds(
+          post.lectureId,
+          enrollmentIds,
+        );
+      if (!hasAccess) throw new ForbiddenException('자녀가 수강 중인 강의의 공지가 아닙니다.');
+    } else if (post.scope === PostScope.SELECTED) {
+      const isTargeted = post.targets.some((t) =>
+        enrollmentIds.includes(t.enrollmentId),
+      );
+      if (!isTargeted) throw new ForbiddenException('자녀가 대상인 공지가 아닙니다.');
+    }
+  }
+
+  /** 자녀 연결 여부 확인 헬퍼 */
+  private async isChildOfParent(childLinkId: string, parentProfileId: string) {
+    try {
+      await this.permissionService.validateChildAccess(
+        UserType.PARENT,
+        parentProfileId,
+        childLinkId,
+      );
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /** 댓글 소유권 검증 */
@@ -267,7 +391,7 @@ export class CommentsService {
   }
 
   /** 댓글에 isMine 필드 추가 (외부 서비스에서 사용) */
-  addIsMineFieldToComment<T extends Record<string, unknown>>(
+  addIsMineFieldToComment<T extends CommentMinimal>(
     comment: T,
     userType: UserType,
     profileId: string,
@@ -276,42 +400,29 @@ export class CommentsService {
   }
 
   /** 댓글에 isMine 필드 추가 */
-  private addIsMineField<T extends Record<string, unknown>>(
+  private addIsMineField<T extends CommentMinimal>(
     comment: T,
     userType: UserType,
     profileId: string,
   ): T & { isMine: boolean } {
     let isMine = false;
 
-    const commentWithRelations = comment as T & {
-      enrollmentId?: string | null;
-      enrollment?: {
-        appStudentId?: string | null;
-        appParentLink?: {
-          appParentId?: string | null;
-        } | null;
-      } | null;
-      instructorId?: string | null;
-      assistantId?: string | null;
-      authorRole?: string | null;
-    };
-
     switch (userType) {
       case UserType.STUDENT:
         isMine =
-          commentWithRelations.enrollment?.appStudentId === profileId &&
-          commentWithRelations.authorRole === AuthorRole.STUDENT;
+          comment.enrollment?.appStudentId === profileId &&
+          comment.authorRole === AuthorRole.STUDENT;
         break;
       case UserType.PARENT:
         isMine =
-          commentWithRelations.enrollment?.appParentLink?.appParentId ===
-            profileId && commentWithRelations.authorRole === AuthorRole.PARENT;
+          comment.enrollment?.appParentLink?.appParentId === profileId &&
+          comment.authorRole === AuthorRole.PARENT;
         break;
       case UserType.INSTRUCTOR:
-        isMine = commentWithRelations.instructorId === profileId;
+        isMine = comment.instructorId === profileId;
         break;
       case UserType.ASSISTANT:
-        isMine = commentWithRelations.assistantId === profileId;
+        isMine = comment.assistantId === profileId;
         break;
     }
 
@@ -365,7 +476,26 @@ export class CommentsService {
       assistantId: userType === UserType.ASSISTANT ? profileId : null,
       enrollmentId: null as string | null,
       authorRole: userType,
+      parentId: data.parentId,
     };
+
+    // 대댓글인 경우 부모 댓글 존재 및 소속 게시글 확인
+    if (data.parentId) {
+      const parentComment = await this.commentsRepository.findById(data.parentId);
+      if (!parentComment) throw new NotFoundException('부모 댓글을 찾을 수 없습니다.');
+
+      const targetPostId = data.instructorPostId || data.studentPostId;
+      const parentPostId = parentComment.instructorPostId || parentComment.studentPostId;
+
+      if (targetPostId !== parentPostId) {
+        throw new BadRequestException('부모 댓글이 해당 게시글에 속하지 않습니다.');
+      }
+
+      // 대댓글의 대댓글(3단계 이상) 제한 여부 기획에 따라 추가 가능 (현재는 2단계까지만 권장하는 경우가 많음)
+      if (parentComment.parentId) {
+        throw new BadRequestException('대댓글에는 댓글을 달 수 없습니다.');
+      }
+    }
 
     let studentPostForStatus: { id: string; status: string } | null = null;
 

@@ -68,28 +68,13 @@ export class StudentPostsController {
       );
 
       // 날짜 데이터를 한국 시간으로 변환
-      const kstPosts = transformDateFieldsToKst(result.posts, [
-        'createdAt',
-        'updatedAt',
-      ]);
-
-      const postsWithIsMineAndMappedStatus = (
-        kstPosts as StudentPostWithDetails[]
-      ).map((post) => ({
-        ...post,
-        isMine:
-          userType === UserType.STUDENT
-            ? post.enrollment?.appStudentId === profileId &&
-              post.authorRole === AuthorRole.STUDENT
-            : userType === UserType.PARENT
-              ? post.enrollment?.appParentLink?.appParentId === profileId &&
-                post.authorRole === AuthorRole.PARENT
-              : false,
-        status: toFrontendStudentPostStatus(post.status as StudentPostStatus),
-      }));
+      const kstPosts = transformDateFieldsToKst(
+        result.posts as unknown as Record<string, unknown>[],
+        ['createdAt', 'updatedAt'],
+      );
 
       const responseData = getPagingData(
-        postsWithIsMineAndMappedStatus,
+        kstPosts,
         result.totalCount,
         query.page,
         query.limit,
@@ -122,11 +107,11 @@ export class StudentPostsController {
         profileId,
       );
 
-      const rawResult = result as Record<string, unknown>;
+      const rawResult = result as unknown as Record<string, unknown>;
       if (rawResult.comments) {
         rawResult.comments = transformDateFieldsToKst(
           rawResult.comments as Array<Record<string, unknown>>,
-          ['createdAt', 'updatedAt'] as never[],
+          ['createdAt', 'updatedAt'],
         );
       }
 
@@ -134,30 +119,11 @@ export class StudentPostsController {
       const kstResult = transformDateFieldsToKst(rawResult, [
         'createdAt',
         'updatedAt',
-      ] as never[]);
-
-      const responseWithIsMine = {
-        ...kstResult,
-        isMine:
-          userType === UserType.STUDENT
-            ? (kstResult as StudentPostWithDetails).enrollment?.appStudentId ===
-                profileId &&
-              (kstResult as StudentPostWithDetails).authorRole ===
-                AuthorRole.STUDENT
-            : userType === UserType.PARENT
-              ? (kstResult as StudentPostWithDetails).enrollment?.appParentLink
-                  ?.appParentId === profileId &&
-                (kstResult as StudentPostWithDetails).authorRole ===
-                  AuthorRole.PARENT
-              : false,
-        status: toFrontendStudentPostStatus(
-          kstResult.status as StudentPostStatus,
-        ),
-      };
+      ]);
 
       return successResponse(res, {
         statusCode: 200,
-        data: responseWithIsMine,
+        data: kstResult,
         message: '질문 상세 정보를 조회했습니다.',
       });
     } catch (error) {

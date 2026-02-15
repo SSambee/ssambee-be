@@ -315,6 +315,15 @@ export class InstructorPostsService {
       postType: query.postType,
     });
 
+    const postsWithIsMine = result.posts.map((post) => ({
+      ...post,
+      lectureTitle: post.lecture?.title || null,
+      isMine:
+        userType === UserType.INSTRUCTOR
+          ? post.instructorId === profileId
+          : post.authorAssistantId === profileId,
+    }));
+
     // [Stats] 학생 질문 통계 추가 (강사/조교인 경우)
     // DRY: formatStudentPostStats 헬퍼 함수 사용 - student-posts.service.ts와 동일 로직 공유
     let stats = null;
@@ -328,7 +337,8 @@ export class InstructorPostsService {
     }
 
     return {
-      ...result,
+      posts: postsWithIsMine,
+      totalCount: result.totalCount,
       stats,
     };
   }
@@ -350,6 +360,19 @@ export class InstructorPostsService {
       ),
     );
 
+    // 게시글 자체의 isMine 추가
+    const isMine =
+      userType === UserType.INSTRUCTOR
+        ? post.instructorId === profileId
+        : post.authorAssistantId === profileId;
+
+    const baseResult = {
+      ...post,
+      lectureTitle: post.lecture?.title || null,
+      isMine,
+      comments: commentsWithIsMine,
+    };
+
     if (userType === UserType.STUDENT) {
       // 학생용 첨부파일 필터링 (권한이 있는 자료만 노출)
       const accessibleAttachments = await this.filterAccessibleAttachments(
@@ -358,16 +381,12 @@ export class InstructorPostsService {
       );
 
       return {
-        ...post,
+        ...baseResult,
         attachments: accessibleAttachments,
-        comments: commentsWithIsMine,
       };
     }
 
-    return {
-      ...post,
-      comments: commentsWithIsMine,
-    };
+    return baseResult;
   }
 
   /** 학생용 첨부파일 접근 권한 필터링 */

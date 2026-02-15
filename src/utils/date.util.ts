@@ -82,26 +82,40 @@ export function startOfDayKst(date: Date): Date {
  * @param dateFields - 변환할 필드명 배열
  * @returns 변환된 객체 (Date 타입 필드가 string으로 변경됨)
  */
-export function transformDateFieldsToKst<T>(
+/**
+ * 객체 내의 특정 날짜 필드들을 KST ISO 문자열로 변환한 결과 타입
+ */
+export type TransformedDateFields<T, K extends keyof T> = {
+  [P in keyof T]: P extends K ? string | null : T[P];
+};
+
+export function transformDateFieldsToKst<T extends Record<string, unknown>, K extends keyof T>(
+  obj: T,
+  dateFields: K[],
+): TransformedDateFields<T, K>;
+export function transformDateFieldsToKst<T extends Record<string, unknown>, K extends keyof T>(
+  obj: T[],
+  dateFields: K[],
+): TransformedDateFields<T, K>[];
+export function transformDateFieldsToKst<T extends Record<string, unknown>, K extends keyof T>(
   obj: T | T[],
-  dateFields: (keyof T)[],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-): any {
-  if (!obj) return obj;
+  dateFields: K[],
+): TransformedDateFields<T, K> | TransformedDateFields<T, K>[] {
+  if (!obj) return obj as never;
 
   // 배열인 경우 재귀 처리
   if (Array.isArray(obj)) {
     return obj.map((item) => transformDateFieldsToKst(item, dateFields));
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = { ...obj } as any;
+  const result = { ...obj };
 
   for (const field of dateFields) {
-    if (result[field] instanceof Date) {
-      result[field] = toKstIsoString(result[field] as Date);
+    const value = result[field];
+    if (value instanceof Date) {
+      (result as Record<string, unknown>)[field as string] = toKstIsoString(value);
     }
   }
 
-  return result;
+  return result as TransformedDateFields<T, K>;
 }

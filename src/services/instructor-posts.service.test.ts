@@ -7,7 +7,10 @@ import {
   createMockEnrollmentsRepository,
   createMockStudentPostsRepository,
 } from '../test/mocks/repo.mock.js';
-import { createMockPermissionService } from '../test/mocks/services.mock.js';
+import {
+  createMockPermissionService,
+  createMockCommentsService,
+} from '../test/mocks/services.mock.js';
 import { UserType } from '../constants/auth.constant.js';
 import { PostScope, PostType } from '../constants/posts.constant.js';
 import {
@@ -31,6 +34,7 @@ import type { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.
 import type { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import type { StudentPostsRepository } from '../repos/student-posts.repo.js';
 import type { PermissionService } from './permission.service.js';
+import type { CommentsService } from './comments.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 
 /** 타입 정의 */
@@ -54,6 +58,7 @@ describe('InstructorPostsService', () => {
   let enrollmentsRepo: jest.Mocked<EnrollmentsRepository>;
   let studentPostsRepo: jest.Mocked<StudentPostsRepository>;
   let permissionService: jest.Mocked<PermissionService>;
+  let commentsService: jest.Mocked<CommentsService>;
 
   beforeEach(() => {
     instructorPostsRepo = createMockInstructorPostsRepository();
@@ -63,6 +68,7 @@ describe('InstructorPostsService', () => {
     enrollmentsRepo = createMockEnrollmentsRepository();
     studentPostsRepo = createMockStudentPostsRepository();
     permissionService = createMockPermissionService();
+    commentsService = createMockCommentsService();
 
     service = new InstructorPostsService(
       instructorPostsRepo,
@@ -72,6 +78,7 @@ describe('InstructorPostsService', () => {
       enrollmentsRepo,
       permissionService,
       studentPostsRepo,
+      commentsService,
     );
 
     studentPostsRepo.getStats.mockResolvedValue({
@@ -643,7 +650,13 @@ describe('InstructorPostsService', () => {
           'student-1',
         );
 
-        expect(result).toEqual(post);
+        expect(result).toEqual(
+          expect.objectContaining({
+            ...post,
+            isMine: false,
+            lectureTitle: null,
+          }),
+        );
         expect(
           permissionService.validateInstructorStudentLink,
         ).toHaveBeenCalledWith(post.instructorId, 'student-1');
@@ -679,7 +692,13 @@ describe('InstructorPostsService', () => {
           'student-1',
         );
 
-        expect(result).toEqual(post);
+        expect(result).toEqual(
+          expect.objectContaining({
+            ...post,
+            isMine: false,
+            lectureTitle: null,
+          }),
+        );
         expect(
           permissionService.validateLectureReadAccess,
         ).toHaveBeenCalledWith(
@@ -726,7 +745,13 @@ describe('InstructorPostsService', () => {
           profileId,
         );
 
-        expect(result).toEqual(post);
+        expect(result).toEqual(
+          expect.objectContaining({
+            ...post,
+            isMine: false,
+            lectureTitle: null,
+          }),
+        );
       });
 
       it('학생이 선택(SELECTED) 공지를 조회할 때, 본인이 타겟에 포함되어 있지 않으면 ForbiddenException이 발생한다', async () => {

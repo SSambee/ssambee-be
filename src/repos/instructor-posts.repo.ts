@@ -12,11 +12,25 @@ export type InstructorPostWithDetails = Prisma.InstructorPostGetPayload<{
     targets: {
       include: {
         enrollment: {
-          select: { appStudentId: true };
+          select: { appStudentId: true, studentName: true };
         };
       };
     };
     lecture: { select: { title: true } };
+    comments: {
+      include: {
+        instructor: { select: { user: { select: { name: true } } } };
+        assistant: { select: { user: { select: { name: true } } } };
+        enrollment: {
+          select: {
+            studentName: true,
+            appStudentId: true,
+            appParentLink: { select: { appParentId: true } },
+          },
+        };
+        attachments: { include: { material: true } };
+      };
+    };
     _count: { select: { comments: true } };
   };
 }>;
@@ -75,7 +89,10 @@ export class InstructorPostsRepository {
   }
 
   /** ID로 상세 조회 (댓글, 첨부파일, 타겟 포함) */
-  async findById(id: string, tx?: Prisma.TransactionClient) {
+  async findById(
+    id: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<InstructorPostWithDetails | null> {
     const client = tx ?? this.prisma;
     return client.instructorPost.findFirst({
       where: { id }, // Soft Delete가 없으므로 그대로 조회 (필요시 추가)
@@ -115,6 +132,7 @@ export class InstructorPostsRepository {
             attachments: { include: { material: true } },
           },
         },
+        _count: { select: { comments: true } },
       },
     });
   }

@@ -4,13 +4,29 @@ import { StudentPostStatus } from '../constants/posts.constant.js';
 export class CommentsRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  /** 댓글 생성 (첨부파일 포함) */
+  /** 댓글 생성 (첨부파일 포함 및 대댓글 지원) */
   async create(
     data: Prisma.CommentUncheckedCreateInput & { materialIds?: string[] },
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
     const { materialIds, ...commentData } = data;
+
+    // 대댓글인 경우 부모 댓글의 존재 여부 및 게시글 일치 여부 확인
+    if (commentData.parentId) {
+      const parentComment = await client.comment.findUnique({
+        where: { id: commentData.parentId },
+      });
+      if (!parentComment) throw new Error('부모 댓글을 찾을 수 없습니다.');
+
+      // 부모 댓글과 게시글 ID가 일치해야 함
+      if (commentData.instructorPostId && parentComment.instructorPostId !== commentData.instructorPostId) {
+        throw new Error('부모 댓글과 게시글 정보가 일치하지 않습니다.');
+      }
+      if (commentData.studentPostId && parentComment.studentPostId !== commentData.studentPostId) {
+        throw new Error('부모 댓글과 게시글 정보가 일치하지 않습니다.');
+      }
+    }
 
     // materialIds가 있으면 Material 정보를 조회하여 filename 포함
     let attachmentsData: { materialId: string; filename: string }[] | undefined;
