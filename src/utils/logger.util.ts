@@ -53,13 +53,12 @@ export class MorganLambdaStream implements StreamOptions {
       },
       body: JSON.stringify(payload),
     })
-      .catch((res) => {
+      .then((res) => {
         if (!res.ok) {
           console.error(
             `[MorganLambdaStream] Lambda responded with status ${res.status}`,
           );
         }
-        return res.ok ? res.text() : Promise.resolve();
       })
       .catch((error) => {
         console.error(
