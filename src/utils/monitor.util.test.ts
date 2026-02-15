@@ -12,6 +12,7 @@ jest.mock('../config/env.config.js', () => ({
 }));
 
 describe('Monitor Utility - @unit', () => {
+  const originalFetch = global.fetch;
   beforeEach(() => {
     jest.clearAllMocks();
     // Mock global fetch
@@ -19,6 +20,10 @@ describe('Monitor Utility - @unit', () => {
       ok: true,
       json: () => Promise.resolve({}),
     });
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
   });
 
   it('should collect metrics and send them via fetch when LAMBDA_URL is set', async () => {
