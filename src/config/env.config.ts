@@ -31,6 +31,8 @@ const envSchema = z.object({
   AWS_CLOUDFRONT_PRIVATE_KEY: z.string().optional().default(''),
   REDIS_URL: z.string().optional(),
   ALARM_LAMBDA_URL: z.string().optional(),
+  LOG_LAMBDA_URL: z.string().optional(),
+  LOG_LAMBDA_API_KEY: z.string().optional(),
 });
 
 const parseEnvironment = () => {
@@ -53,6 +55,8 @@ const parseEnvironment = () => {
       AWS_CLOUDFRONT_PRIVATE_KEY: process.env.AWS_CLOUDFRONT_PRIVATE_KEY,
       REDIS_URL: process.env.REDIS_URL,
       ALARM_LAMBDA_URL: process.env.ALARM_LAMBDA_URL,
+      LOG_LAMBDA_URL: process.env.LOG_LAMBDA_URL,
+      LOG_LAMBDA_API_KEY: process.env.LOG_LAMBDA_API_KEY,
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
