@@ -36,6 +36,8 @@ export class CommentsService {
     commentId: string,
     postId: string,
     postType: 'instructorPost' | 'studentPost',
+    userType: UserType,
+    profileId: string,
   ) {
     const comment = await this.commentsRepository.findById(commentId);
     if (!comment) throw new NotFoundException('댓글을 찾을 수 없습니다.');
@@ -47,6 +49,23 @@ export class CommentsService {
 
     if (postIdField !== postId) {
       throw new NotFoundException('해당 게시글에서 댓글을 찾을 수 없습니다.');
+    }
+
+    // 게시글 접근 권한 검증 (강사/조교 IDOR 방지)
+    if (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) {
+      const repo =
+        postType === 'instructorPost'
+          ? this.instructorPostsRepository
+          : this.studentPostsRepository;
+      const post = await repo.findById(postId);
+
+      if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
+
+      await this.permissionService.validateInstructorAccess(
+        post.instructorId,
+        userType,
+        profileId,
+      );
     }
 
     return comment;
@@ -363,7 +382,7 @@ export class CommentsService {
         data.studentPostId,
       );
     } else {
-      // 강사/조교: 게시글 존재 여부만 확인
+      // 강사/조교: 게시글 존재 여부 및 권한 확인
       const postId = data.instructorPostId || data.studentPostId;
       if (!postId)
         throw new BadRequestException('대상 게시글 ID가 필요합니다.');
@@ -373,6 +392,13 @@ export class CommentsService {
         : this.studentPostsRepository;
       const post = await repo.findById(postId);
       if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
+
+      // 권한 검증
+      await this.permissionService.validateInstructorAccess(
+        post.instructorId,
+        userType,
+        profileId,
+      );
 
       // studentPost이고 PENDING 상태인 경우 나중에 트랜잭션에서 처리
       if (data.studentPostId && 'status' in post) {
@@ -431,6 +457,8 @@ export class CommentsService {
       commentId,
       postId,
       postType,
+      userType,
+      profileId,
     );
     await this.validateCommentOwnership(comment, userType, profileId);
 
@@ -454,6 +482,8 @@ export class CommentsService {
       commentId,
       postId,
       postType,
+      userType,
+      profileId,
     );
     await this.validateCommentOwnership(comment, userType, profileId);
 
