@@ -11,6 +11,7 @@ import { PermissionService } from './permission.service.js';
 import type {
   CreateExamDto,
   UpdateExamDto,
+  UpdateExamReportAssignmentsDto,
 } from '../validations/exams.validation.js';
 
 export class ExamsService {
@@ -219,5 +220,61 @@ export class ExamsService {
 
     // 4. 삭제 처리
     await this.examsRepo.delete(examId);
+  }
+
+  /** 시험 성적표 과제 목록 업데이트 */
+  async updateExamReportAssignments(
+    examId: string,
+    data: UpdateExamReportAssignmentsDto,
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 1. Exam 확인
+    const exam = await this.examsRepo.findById(examId);
+    if (!exam) {
+      throw new NotFoundException('시험을 찾을 수 없습니다.');
+    }
+
+    // 2. 권한 확인
+    await this.permissionService.validateInstructorAccess(
+      exam.instructorId,
+      userType,
+      profileId,
+    );
+
+    // 3. 트랜잭션 처리
+    return await this.prisma.$transaction(async (tx) => {
+      const inputAssignments = data.assignments;
+
+      // 3-1. 기존 과제 연계 조회
+      const existingAssignments =
+        await this.examsRepo.findAssignmentsOnExamReportByExamId(examId, tx);
+
+      const inputAssignmentIds = inputAssignments.map((a) => a.assignmentId);
+
+      // 3-2. Delete: 전달되지 않은 기존 과제 연계 삭제
+      const toDeleteIds = existingAssignments
+        .filter((a) => !inputAssignmentIds.includes(a.assignmentId))
+        .map((a) => a.id);
+
+      if (toDeleteIds.length > 0) {
+        await this.examsRepo.deleteAssignmentsOnExamReport(toDeleteIds, tx);
+      }
+
+      // 3-3. Upsert: 전달된 모든 과제 연계 생성 또는 수정
+      for (const inputAssignment of inputAssignments) {
+        await this.examsRepo.upsertAssignmentOnExamReport(
+          examId,
+          inputAssignment,
+          tx,
+        );
+      }
+
+      // 3-4. 최종 결과 반환
+      return await this.examsRepo.findAssignmentsOnExamReportByExamId(
+        examId,
+        tx,
+      );
+    });
   }
 }

@@ -495,4 +495,149 @@ describe('ExamsService - @unit #critical', () => {
       ).rejects.toThrow(BadRequestException);
     });
   });
+
+  describe('[성적표 과제 연계 수정] updateExamReportAssignments', () => {
+    it('과제 연계를 추가할 때, 새 항목이 생성된다', async () => {
+      const exam = mockExams.basic;
+      const updateDto = {
+        assignments: [
+          { assignmentId: 'assign-1', resultIndex: 0 },
+          { assignmentId: 'assign-2', resultIndex: 1 },
+        ],
+      };
+
+      mockExamsRepo.findById.mockResolvedValue(
+        exam as Awaited<ReturnType<typeof mockExamsRepo.findById>>,
+      );
+      mockExamsRepo.findAssignmentsOnExamReportByExamId.mockResolvedValue([]);
+      mockExamsRepo.upsertAssignmentOnExamReport.mockResolvedValue(
+        {} as unknown as Awaited<
+          ReturnType<typeof mockExamsRepo.upsertAssignmentOnExamReport>
+        >,
+      );
+
+      await examsService.updateExamReportAssignments(
+        mockExamId,
+        updateDto,
+        mockUserType,
+        mockProfileId,
+      );
+
+      expect(mockExamsRepo.findById).toHaveBeenCalledWith(mockExamId);
+      expect(
+        mockPermissionService.validateInstructorAccess,
+      ).toHaveBeenCalledWith(exam.instructorId, mockUserType, mockProfileId);
+      expect(mockExamsRepo.upsertAssignmentOnExamReport).toHaveBeenCalledTimes(
+        2,
+      );
+    });
+
+    it('과제 연계의 resultIndex를 수정할 때, 기존 항목이 업데이트된다', async () => {
+      const exam = mockExams.basic;
+      const existing = [
+        {
+          id: 'rel-1',
+          assignmentId: 'assign-1',
+          examId: mockExamId,
+          resultIndex: 0,
+        },
+      ];
+      const updateDto = {
+        assignments: [
+          { assignmentId: 'assign-1', resultIndex: 2 }, // resultIndex 변경
+        ],
+      };
+
+      mockExamsRepo.findById.mockResolvedValue(
+        exam as Awaited<ReturnType<typeof mockExamsRepo.findById>>,
+      );
+      mockExamsRepo.findAssignmentsOnExamReportByExamId.mockResolvedValue(
+        existing as Awaited<
+          ReturnType<typeof mockExamsRepo.findAssignmentsOnExamReportByExamId>
+        >,
+      );
+      mockExamsRepo.upsertAssignmentOnExamReport.mockResolvedValue(
+        {} as unknown as Awaited<
+          ReturnType<typeof mockExamsRepo.upsertAssignmentOnExamReport>
+        >,
+      );
+
+      await examsService.updateExamReportAssignments(
+        mockExamId,
+        updateDto,
+        mockUserType,
+        mockProfileId,
+      );
+
+      expect(mockExamsRepo.upsertAssignmentOnExamReport).toHaveBeenCalledWith(
+        mockExamId,
+        { assignmentId: 'assign-1', resultIndex: 2 },
+        expect.anything(), // tx
+      );
+    });
+
+    it('과제 연계를 제거할 때, 기존 항목이 삭제된다', async () => {
+      const exam = mockExams.basic;
+      const existing = [
+        {
+          id: 'rel-1',
+          assignmentId: 'assign-1',
+          examId: mockExamId,
+          resultIndex: 0,
+        },
+        {
+          id: 'rel-2',
+          assignmentId: 'assign-2',
+          examId: mockExamId,
+          resultIndex: 1,
+        },
+      ];
+      const updateDto = {
+        assignments: [
+          { assignmentId: 'assign-1', resultIndex: 0 }, // assign-2 제거됨
+        ],
+      };
+
+      mockExamsRepo.findById.mockResolvedValue(
+        exam as Awaited<ReturnType<typeof mockExamsRepo.findById>>,
+      );
+      mockExamsRepo.findAssignmentsOnExamReportByExamId.mockResolvedValue(
+        existing as Awaited<
+          ReturnType<typeof mockExamsRepo.findAssignmentsOnExamReportByExamId>
+        >,
+      );
+      mockExamsRepo.deleteAssignmentsOnExamReport.mockResolvedValue(undefined); // void
+
+      await examsService.updateExamReportAssignments(
+        mockExamId,
+        updateDto,
+        mockUserType,
+        mockProfileId,
+      );
+
+      expect(mockExamsRepo.deleteAssignmentsOnExamReport).toHaveBeenCalledWith(
+        ['rel-2'],
+        expect.anything(), // tx
+      );
+    });
+
+    it('권한이 없는 경우, 에러를 던진다', async () => {
+      const exam = mockExams.basic;
+      mockExamsRepo.findById.mockResolvedValue(
+        exam as Awaited<ReturnType<typeof mockExamsRepo.findById>>,
+      );
+      mockPermissionService.validateInstructorAccess.mockRejectedValue(
+        new Error('Unauthorized'),
+      );
+
+      await expect(
+        examsService.updateExamReportAssignments(
+          mockExamId,
+          { assignments: [] },
+          mockUserType,
+          mockProfileId,
+        ),
+      ).rejects.toThrow('Unauthorized');
+    });
+  });
 });
