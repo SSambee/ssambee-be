@@ -54,7 +54,7 @@ export class InstructorPostsRepository {
       }));
     }
 
-    return client.instructorPost.create({
+    const result = await client.instructorPost.create({
       data: {
         ...postData,
         // 첨부파일 연결
@@ -72,6 +72,8 @@ export class InstructorPostsRepository {
             : undefined,
       },
     });
+
+    return (await this.findById(result.id, client))!;
   }
 
   /** ID로 상세 조회 (댓글, 첨부파일, 타겟 포함) */

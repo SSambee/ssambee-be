@@ -36,6 +36,8 @@ export const createMockPermissionService = (): jest.Mocked<PermissionService> =>
     getInstructorIdByAssistantId: jest.fn(),
     getChildLinks: jest.fn(),
     getParentEnrollmentIds: jest.fn(),
+    validateParentEnrollmentAccess: jest.fn(),
+    validateParentLectureAccess: jest.fn(),
   }) as unknown as jest.Mocked<PermissionService>;
 
 /** Mock FileStorageService 생성 */

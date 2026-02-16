@@ -212,6 +212,47 @@ describe('StudentPostsService', () => {
         ),
       ).rejects.toThrow(ForbiddenException);
     });
+
+    describe('강사/조교 조회 권한 (DDD/TDD)', () => {
+      it('강사가 본인이 담당하지 않는 학생의 질문을 조회하려고 하면 ForbiddenException을 던져야 한다', async () => {
+        const otherInstructorId = 'instructor-2';
+        const mockPost = mockStudentPost({
+          id: VALID_POST_ID,
+          instructorId: otherInstructorId,
+        });
+
+        studentPostsRepo.findById.mockResolvedValue(mockPost);
+
+        await expect(
+          service.getPostDetail(
+            VALID_POST_ID,
+            UserType.INSTRUCTOR,
+            VALID_INSTRUCTOR_ID,
+          ),
+        ).rejects.toThrow(ForbiddenException);
+      });
+
+      it('조교가 본인이 소속되지 않은 강사의 학생 질문을 조회하려고 하면 ForbiddenException을 던져야 한다', async () => {
+        const otherInstructorId = 'instructor-2';
+        const mockPost = mockStudentPost({
+          id: VALID_POST_ID,
+          instructorId: otherInstructorId,
+        });
+
+        permissionService.getEffectiveInstructorId.mockResolvedValue(
+          VALID_INSTRUCTOR_ID,
+        );
+        studentPostsRepo.findById.mockResolvedValue(mockPost);
+
+        await expect(
+          service.getPostDetail(
+            VALID_POST_ID,
+            UserType.ASSISTANT,
+            'assistant-1',
+          ),
+        ).rejects.toThrow(ForbiddenException);
+      });
+    });
   });
 
   describe('deletePost', () => {

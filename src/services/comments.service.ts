@@ -281,6 +281,8 @@ export class CommentsService {
     userType: UserType,
     profileId: string,
   ): T & { isMine: boolean } {
+    if (!comment) return comment as T & { isMine: boolean };
+
     let isMine = false;
 
     const commentWithRelations = comment as T & {
@@ -358,6 +360,26 @@ export class CommentsService {
       throw new BadRequestException(
         'instructorPostId와 studentPostId를 동시에 지정할 수 없습니다.',
       );
+    }
+
+    // 대댓글인 경우 부모 댓글 존재 여부 및 게시글 일치 여부 확인
+    if (data.parentId) {
+      const parentComment = await this.commentsRepository.findById(
+        data.parentId,
+      );
+      if (!parentComment) {
+        throw new NotFoundException('부모 댓글을 찾을 수 없습니다.');
+      }
+
+      const parentPostId =
+        parentComment.instructorPostId || parentComment.studentPostId;
+      const currentPostId = data.instructorPostId || data.studentPostId;
+
+      if (parentPostId !== currentPostId) {
+        throw new BadRequestException(
+          '부모 댓글이 현재 게시글에 속해있지 않습니다.',
+        );
+      }
     }
 
     const writerInfo = {

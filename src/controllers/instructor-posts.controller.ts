@@ -10,7 +10,6 @@ import {
 } from '../validations/instructor-posts.validation.js';
 import { getPagingData } from '../utils/pagination.util.js';
 import { transformDateFieldsToKst } from '../utils/date.util.js';
-import { InstructorPostWithDetails } from '../repos/instructor-posts.repo.js';
 
 export class InstructorPostsController {
   constructor(
@@ -95,16 +94,7 @@ export class InstructorPostsController {
         'updatedAt',
       ]);
 
-      const postsWithLectureTitle = (
-        kstPosts as InstructorPostWithDetails[]
-      ).map((post) => ({
-        ...post,
-        lectureTitle: post.lecture?.title || null,
-        isMine:
-          userType === UserType.INSTRUCTOR
-            ? post.instructorId === profileId
-            : post.authorAssistantId === profileId,
-      }));
+      const postsWithLectureTitle = kstPosts;
 
       const responseData = getPagingData(
         postsWithLectureTitle,
@@ -140,31 +130,21 @@ export class InstructorPostsController {
         profileId,
       );
 
-      const rawResult = result;
-      if (rawResult.comments) {
-        rawResult.comments = transformDateFieldsToKst(rawResult.comments, [
-          'createdAt',
-          'updatedAt',
-        ]);
+      const rawResultObj = result as unknown as Record<string, unknown>;
+      if (rawResultObj.comments) {
+        rawResultObj.comments = transformDateFieldsToKst(
+          rawResultObj.comments as Record<string, unknown>[],
+          ['createdAt', 'updatedAt'],
+        );
       }
 
       // 날짜 데이터를 한국 시간으로 변환
-      const kstResult = transformDateFieldsToKst(rawResult, [
+      const kstResult = transformDateFieldsToKst(rawResultObj, [
         'createdAt',
         'updatedAt',
       ]);
 
-      const responseWithLectureTitle = {
-        ...kstResult,
-        lectureTitle:
-          (kstResult as InstructorPostWithDetails).lecture?.title || null,
-        isMine:
-          userType === UserType.INSTRUCTOR
-            ? (kstResult as InstructorPostWithDetails).instructorId ===
-              profileId
-            : (kstResult as InstructorPostWithDetails).authorAssistantId ===
-              profileId,
-      };
+      const responseWithLectureTitle = kstResult;
 
       return successResponse(res, {
         statusCode: 200,

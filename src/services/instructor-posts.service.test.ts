@@ -318,7 +318,13 @@ describe('InstructorPostsService', () => {
       );
 
       expect(instructorPostsRepo.create).toHaveBeenCalled();
-      expect(result).toEqual(mockInstructorPosts.global);
+      expect(result).toEqual(
+        expect.objectContaining({
+          ...mockInstructorPosts.global,
+          isMine: true,
+          lectureTitle: null,
+        }),
+      );
     });
   });
 
@@ -643,7 +649,13 @@ describe('InstructorPostsService', () => {
           'student-1',
         );
 
-        expect(result).toEqual(post);
+        expect(result).toEqual(
+          expect.objectContaining({
+            ...post,
+            isMine: false,
+            lectureTitle: null,
+          }),
+        );
         expect(
           permissionService.validateInstructorStudentLink,
         ).toHaveBeenCalledWith(post.instructorId, 'student-1');
@@ -679,7 +691,13 @@ describe('InstructorPostsService', () => {
           'student-1',
         );
 
-        expect(result).toEqual(post);
+        expect(result).toEqual(
+          expect.objectContaining({
+            ...post,
+            isMine: false,
+            lectureTitle: null,
+          }),
+        );
         expect(
           permissionService.validateLectureReadAccess,
         ).toHaveBeenCalledWith(
@@ -726,7 +744,13 @@ describe('InstructorPostsService', () => {
           profileId,
         );
 
-        expect(result).toEqual(post);
+        expect(result).toEqual(
+          expect.objectContaining({
+            ...post,
+            isMine: false,
+            lectureTitle: null,
+          }),
+        );
       });
 
       it('학생이 선택(SELECTED) 공지를 조회할 때, 본인이 타겟에 포함되어 있지 않으면 ForbiddenException이 발생한다', async () => {
@@ -750,6 +774,85 @@ describe('InstructorPostsService', () => {
         await expect(
           service.getPostDetail(post.id, UserType.STUDENT, 'student-1'),
         ).rejects.toThrow(ForbiddenException);
+      });
+    });
+
+    describe('학부모 조회 권한 (DDD/TDD)', () => {
+      const parentId = 'parent-1';
+      const childEnrollmentId = 'enrollment-1';
+
+      beforeEach(() => {
+        permissionService.getParentEnrollmentIds.mockResolvedValue([
+          childEnrollmentId,
+        ]);
+      });
+
+      it('학부모가 전체(GLOBAL) 공지를 조회할 때, 자녀가 해당 강사의 강의를 수강 중이면 상세 정보를 반환한다', async () => {
+        const post = mockInstructorPosts.global;
+        instructorPostsRepo.findById.mockResolvedValue(post);
+        enrollmentsRepo.findByIds.mockResolvedValue([
+          { id: childEnrollmentId, instructorId: post.instructorId },
+        ] as unknown as Prisma.Enrollment[]);
+
+        const result = await service.getPostDetail(
+          post.id,
+          UserType.PARENT,
+          parentId,
+        );
+
+        expect(result).toBeDefined();
+        expect(result.id).toBe(post.id);
+      });
+
+      it('학부모가 전체(GLOBAL) 공지를 조회할 때, 자녀가 해당 강사의 강의를 하나도 수강 중이지 않으면 ForbiddenException이 발생한다', async () => {
+        const post = mockInstructorPosts.global;
+        instructorPostsRepo.findById.mockResolvedValue(post);
+        enrollmentsRepo.findByIds.mockResolvedValue([
+          { id: childEnrollmentId, instructorId: 'other-instructor' },
+        ] as unknown as Prisma.Enrollment[]);
+
+        await expect(
+          service.getPostDetail(post.id, UserType.PARENT, parentId),
+        ).rejects.toThrow(ForbiddenException);
+      });
+
+      it('학부모가 강의(LECTURE) 공지를 조회할 때, 자녀가 해당 강의를 수강 중이면 상세 정보를 반환한다', async () => {
+        const post = mockInstructorPosts.lecture;
+        instructorPostsRepo.findById.mockResolvedValue(post);
+        permissionService.validateParentLectureAccess.mockResolvedValue(
+          undefined,
+        );
+
+        const result = await service.getPostDetail(
+          post.id,
+          UserType.PARENT,
+          parentId,
+        );
+
+        expect(result).toBeDefined();
+        expect(permissionService.validateParentLectureAccess).toHaveBeenCalledWith(
+          parentId,
+          post.lectureId,
+        );
+      });
+
+      it('학부모가 선택(SELECTED) 공지를 조회할 때, 자녀가 타겟에 포함되어 있으면 상세 정보를 반환한다', async () => {
+        const post = {
+          ...mockInstructorPosts.selected,
+          targets: [{ enrollmentId: childEnrollmentId }],
+        };
+        instructorPostsRepo.findById.mockResolvedValue(
+          post as unknown as InstructorPostWithDetails,
+        );
+
+        const result = await service.getPostDetail(
+          post.id,
+          UserType.PARENT,
+          parentId,
+        );
+
+        expect(result).toBeDefined();
+        expect(result.id).toBe(post.id);
       });
     });
   });

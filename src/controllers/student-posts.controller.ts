@@ -12,8 +12,6 @@ import {
 import { getPagingData } from '../utils/pagination.util.js';
 import { transformDateFieldsToKst } from '../utils/date.util.js';
 import { StudentPostWithDetails } from '../repos/student-posts.repo.js';
-import { toFrontendStudentPostStatus } from '../utils/posts.util.js';
-import { StudentPostStatus, AuthorRole } from '../constants/posts.constant.js';
 
 export class StudentPostsController {
   constructor(private readonly studentPostsService: StudentPostsService) {}
@@ -40,12 +38,7 @@ export class StudentPostsController {
 
       return successResponse(res, {
         statusCode: 201,
-        data: {
-          ...kstResult,
-          status: toFrontendStudentPostStatus(
-            result.status as StudentPostStatus,
-          ),
-        },
+        data: kstResult,
         message: '질문이 성공적으로 등록되었습니다.',
       });
     } catch (error) {
@@ -73,20 +66,7 @@ export class StudentPostsController {
         'updatedAt',
       ]);
 
-      const postsWithIsMineAndMappedStatus = (
-        kstPosts as StudentPostWithDetails[]
-      ).map((post) => ({
-        ...post,
-        isMine:
-          userType === UserType.STUDENT
-            ? post.enrollment?.appStudentId === profileId &&
-              post.authorRole === AuthorRole.STUDENT
-            : userType === UserType.PARENT
-              ? post.enrollment?.appParentLink?.appParentId === profileId &&
-                post.authorRole === AuthorRole.PARENT
-              : false,
-        status: toFrontendStudentPostStatus(post.status as StudentPostStatus),
-      }));
+      const postsWithIsMineAndMappedStatus = kstPosts;
 
       const responseData = getPagingData(
         postsWithIsMineAndMappedStatus,
@@ -136,24 +116,7 @@ export class StudentPostsController {
         'updatedAt',
       ] as never[]);
 
-      const responseWithIsMine = {
-        ...kstResult,
-        isMine:
-          userType === UserType.STUDENT
-            ? (kstResult as StudentPostWithDetails).enrollment?.appStudentId ===
-                profileId &&
-              (kstResult as StudentPostWithDetails).authorRole ===
-                AuthorRole.STUDENT
-            : userType === UserType.PARENT
-              ? (kstResult as StudentPostWithDetails).enrollment?.appParentLink
-                  ?.appParentId === profileId &&
-                (kstResult as StudentPostWithDetails).authorRole ===
-                  AuthorRole.PARENT
-              : false,
-        status: toFrontendStudentPostStatus(
-          kstResult.status as StudentPostStatus,
-        ),
-      };
+      const responseWithIsMine = kstResult;
 
       return successResponse(res, {
         statusCode: 200,
@@ -191,12 +154,7 @@ export class StudentPostsController {
 
       return successResponse(res, {
         statusCode: 200,
-        data: {
-          ...kstResult,
-          status: toFrontendStudentPostStatus(
-            result.status as StudentPostStatus,
-          ),
-        },
+        data: kstResult,
         message: '질문 상태를 변경했습니다.',
       });
     } catch (error) {
@@ -228,12 +186,7 @@ export class StudentPostsController {
 
       return successResponse(res, {
         statusCode: 200,
-        data: {
-          ...kstResult,
-          status: toFrontendStudentPostStatus(
-            result.status as StudentPostStatus,
-          ),
-        },
+        data: kstResult,
         message: '질문을 수정했습니다.',
       });
     } catch (error) {

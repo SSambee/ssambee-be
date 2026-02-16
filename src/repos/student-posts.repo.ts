@@ -71,9 +71,10 @@ export class StudentPostsRepository {
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
-    return client.studentPost.create({
+    const result = await client.studentPost.create({
       data,
     });
+    return (await this.findById(result.id, client))!;
   }
 
   /** ID로 상세 조회 (댓글 포함) */
@@ -205,10 +206,11 @@ export class StudentPostsRepository {
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
-    return client.studentPost.update({
+    await client.studentPost.update({
       where: { id },
       data: { status },
     });
+    return (await this.findById(id, client))!;
   }
 
   /** 질문 수정 (title, content만 수정 가능) */
@@ -218,10 +220,11 @@ export class StudentPostsRepository {
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
-    return client.studentPost.update({
+    await client.studentPost.update({
       where: { id },
       data,
     });
+    return (await this.findById(id, client))!;
   }
 
   /** 질문 삭제 (Soft Delete 없음, 실제 삭제?) */

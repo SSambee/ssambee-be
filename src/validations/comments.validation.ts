@@ -13,6 +13,8 @@ export const createCommentSchema = z
     instructorPostId: z.cuid2().optional(),
     /** 학생 질문 게시물 ID (학생 질문에 댓글 작성 시) */
     studentPostId: z.cuid2().optional(),
+    /** 부모 댓글 ID (대댓글 작성 시) */
+    parentId: z.cuid2().optional(),
   })
   .refine((d) => !(d.instructorPostId && d.studentPostId), {
     message: 'instructorPostId와 studentPostId를 동시에 지정할 수 없습니다.',

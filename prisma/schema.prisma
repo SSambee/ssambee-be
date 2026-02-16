@@ -878,6 +878,11 @@ model Comment {
   instructorPostId String? @map("instructor_post_id")
   studentPostId    String? @map("student_post_id")
 
+  // Nested comments
+  parentId String?  @map("parent_id")
+  parent   Comment? @relation("CommentToComment", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[] @relation("CommentToComment")
+
   instructorId String? @map("instructor_id")
   assistantId  String? @map("assistant_id")
   enrollmentId String? @map("enrollment_id")

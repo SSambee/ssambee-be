@@ -187,7 +187,7 @@ export class InstructorPostsService {
     }
 
     // 6. 생성
-    return this.instructorPostsRepository.create({
+    const result = await this.instructorPostsRepository.create({
       title: data.title,
       content: data.content,
       scope: data.scope,
@@ -199,6 +199,12 @@ export class InstructorPostsService {
       materialIds: data.materialIds || undefined,
       targetEnrollmentIds: data.targetEnrollmentIds || undefined,
     });
+
+    return {
+      ...result,
+      lectureTitle: result.lecture?.title || null,
+      isMine: true,
+    };
   }
 
   /** 공지 목록 조회 */
@@ -315,20 +321,39 @@ export class InstructorPostsService {
       postType: query.postType,
     });
 
+    const instructorEffectiveId =
+      userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT
+        ? await this.permissionService.getEffectiveInstructorId(
+            userType,
+            profileId,
+          )
+        : null;
+
+    const postsWithDetails = result.posts.map((post) => ({
+      ...post,
+      lectureTitle: post.lecture?.title || null,
+      isMine:
+        userType === UserType.INSTRUCTOR
+          ? post.instructorId === profileId
+          : userType === UserType.ASSISTANT
+            ? post.authorAssistantId === profileId
+            : false,
+    }));
+
     // [Stats] 학생 질문 통계 추가 (강사/조교인 경우)
-    // DRY: formatStudentPostStats 헬퍼 함수 사용 - student-posts.service.ts와 동일 로직 공유
     let stats = null;
     if (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) {
-      // targetInstructorId는 위 로직에서 이미 구해짐 (강사는 본인, 조교는 소속 강사)
-      if (instructorId) {
-        const statsRaw =
-          await this.studentPostsRepository.getStats(instructorId);
+      if (instructorEffectiveId) {
+        const statsRaw = await this.studentPostsRepository.getStats(
+          instructorEffectiveId,
+        );
         stats = formatStudentPostStats(statsRaw);
       }
     }
 
     return {
       ...result,
+      posts: postsWithDetails,
       stats,
     };
   }
@@ -350,6 +375,20 @@ export class InstructorPostsService {
       ),
     );
 
+    const isMine =
+      userType === UserType.INSTRUCTOR
+        ? post.instructorId === profileId
+        : userType === UserType.ASSISTANT
+          ? post.authorAssistantId === profileId
+          : false;
+
+    const baseResult = {
+      ...post,
+      lectureTitle: post.lecture?.title || null,
+      isMine,
+      comments: commentsWithIsMine,
+    };
+
     if (userType === UserType.STUDENT) {
       // 학생용 첨부파일 필터링 (권한이 있는 자료만 노출)
       const accessibleAttachments = await this.filterAccessibleAttachments(
@@ -358,16 +397,12 @@ export class InstructorPostsService {
       );
 
       return {
-        ...post,
+        ...baseResult,
         attachments: accessibleAttachments,
-        comments: commentsWithIsMine,
       };
     }
 
-    return {
-      ...post,
-      comments: commentsWithIsMine,
-    };
+    return baseResult;
   }
 
   /** 학생용 첨부파일 접근 권한 필터링 */
@@ -486,10 +521,14 @@ export class InstructorPostsService {
           JSON.stringify(currentTargetEnrollmentIds));
 
     if (isRedundant) {
-      return post;
+      return {
+        ...post,
+        lectureTitle: post.lecture?.title || null,
+        isMine: true,
+      };
     }
 
-    return this.instructorPostsRepository.update(postId, {
+    const result = (await this.instructorPostsRepository.update(postId, {
       title: data.title,
       content: data.content,
       isImportant: data.isImportant,
@@ -498,7 +537,13 @@ export class InstructorPostsService {
       lectureId: data.lectureId,
       materialIds: data.materialIds || undefined,
       targetEnrollmentIds: data.targetEnrollmentIds || undefined,
-    });
+    }))!;
+
+    return {
+      ...result,
+      lectureTitle: result.lecture?.title || null,
+      isMine: true,
+    };
   }
 
   /** 공지 삭제 */

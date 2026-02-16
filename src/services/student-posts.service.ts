@@ -16,7 +16,10 @@ import { LecturesRepository } from '../repos/lectures.repo.js';
 import { CommentsRepository } from '../repos/comments.repo.js';
 import { PermissionService } from './permission.service.js';
 import { StudentPost, Comment } from '../generated/prisma/client.js';
-import { formatStudentPostStats } from '../utils/posts.util.js';
+import {
+  formatStudentPostStats,
+  toFrontendStudentPostStatus,
+} from '../utils/posts.util.js';
 import { CommentsService } from './comments.service.js';
 
 export class StudentPostsService {
@@ -74,7 +77,7 @@ export class StudentPostsService {
     if (!enrollment)
       throw new NotFoundException('수강 정보를 찾을 수 없습니다.');
 
-    return this.studentPostsRepository.create({
+    const result = await this.studentPostsRepository.create({
       title: data.title,
       content: data.content,
       status: StudentPostStatus.PENDING,
@@ -83,6 +86,12 @@ export class StudentPostsService {
       instructorId: enrollment.instructorId,
       lectureId: data.lectureId || null,
     });
+
+    return {
+      ...result,
+      isMine: true,
+      status: toFrontendStudentPostStatus(result.status as StudentPostStatus),
+    };
   }
 
   /** 질문 목록 조회 */
@@ -137,8 +146,20 @@ export class StudentPostsService {
       enrollmentIds, // [NEW] 학부모용
     });
 
+    const postsWithDetails = result.posts.map((post) => ({
+      ...post,
+      isMine:
+        userType === UserType.STUDENT
+          ? post.enrollment?.appStudentId === profileId &&
+            post.authorRole === AuthorRole.STUDENT
+          : userType === UserType.PARENT
+            ? post.enrollment?.appParentLink?.appParentId === profileId &&
+              post.authorRole === AuthorRole.PARENT
+            : false,
+      status: toFrontendStudentPostStatus(post.status as StudentPostStatus),
+    }));
+
     // [Stats] 학생 질문 통계 추가 (강사/조교인 경우)
-    // DRY: formatStudentPostStats 헬퍼 함수 사용 - instructor-posts.service.ts와 동일 로직 공유
     let stats = null;
     if (instructorId) {
       const statsRaw = await this.studentPostsRepository.getStats(instructorId);
@@ -147,6 +168,7 @@ export class StudentPostsService {
 
     return {
       ...result,
+      posts: postsWithDetails,
       stats,
     };
   }
@@ -159,21 +181,26 @@ export class StudentPostsService {
     // 권한 검증
     await this.validatePostAccess(post, userType, profileId);
 
+    const isMine =
+      userType === UserType.STUDENT
+        ? post.enrollment?.appStudentId === profileId &&
+          post.authorRole === AuthorRole.STUDENT
+        : userType === UserType.PARENT
+          ? post.enrollment?.appParentLink?.appParentId === profileId &&
+            post.authorRole === AuthorRole.PARENT
+          : false;
+
     // 댓글에 isMine 및 첨부파일 필터링 적용
-    if (post.comments) {
-      const processedComments = await this.processPostComments(
-        post,
-        userType,
-        profileId,
-      );
+    const processedComments = post.comments
+      ? await this.processPostComments(post, userType, profileId)
+      : [];
 
-      return {
-        ...post,
-        comments: processedComments,
-      };
-    }
-
-    return post;
+    return {
+      ...post,
+      isMine,
+      status: toFrontendStudentPostStatus(post.status as StudentPostStatus),
+      comments: processedComments,
+    };
   }
 
   /** 상태 변경 */
@@ -215,7 +242,23 @@ export class StudentPostsService {
       }
     }
 
-    return this.studentPostsRepository.updateStatus(postId, status);
+    const result = await this.studentPostsRepository.updateStatus(
+      postId,
+      status,
+    );
+
+    return {
+      ...result,
+      isMine:
+        userType === UserType.STUDENT
+          ? result.enrollment?.appStudentId === profileId &&
+            result.authorRole === AuthorRole.STUDENT
+          : userType === UserType.PARENT
+            ? result.enrollment?.appParentLink?.appParentId === profileId &&
+              result.authorRole === AuthorRole.PARENT
+            : false,
+      status: toFrontendStudentPostStatus(result.status as StudentPostStatus),
+    };
   }
 
   /** 댓글 수정 */
@@ -262,10 +305,16 @@ export class StudentPostsService {
       return post;
     }
 
-    return this.studentPostsRepository.update(postId, {
+    const result = await this.studentPostsRepository.update(postId, {
       title: data.title,
       content: data.content,
     });
+
+    return {
+      ...result,
+      isMine: true,
+      status: toFrontendStudentPostStatus(result.status as StudentPostStatus),
+    };
   }
 
   /** 질문 삭제 (본인만 가능) */

@@ -45,6 +45,21 @@ export class CommentsRepository {
           },
         },
         attachments: { include: { material: true } },
+        replies: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            instructor: { select: { user: { select: { name: true } } } },
+            assistant: { select: { user: { select: { name: true } } } },
+            enrollment: {
+              select: {
+                studentName: true,
+                appStudentId: true,
+                appParentLink: { select: { appParentId: true } },
+              },
+            },
+            attachments: { include: { material: true } },
+          },
+        },
       },
     });
   }
@@ -103,6 +118,21 @@ export class CommentsRepository {
           },
         },
         attachments: { include: { material: true } },
+        replies: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            instructor: { select: { user: { select: { name: true } } } },
+            assistant: { select: { user: { select: { name: true } } } },
+            enrollment: {
+              select: {
+                studentName: true,
+                appStudentId: true,
+                appParentLink: { select: { appParentId: true } },
+              },
+            },
+            attachments: { include: { material: true } },
+          },
+        },
       },
     });
   }
@@ -125,6 +155,7 @@ export class CommentsRepository {
       enrollmentId: string | null;
       authorRole?: string;
       materialIds?: string[];
+      parentId?: string;
     },
     tx?: Prisma.TransactionClient,
   ) {
@@ -145,6 +176,7 @@ export class CommentsRepository {
           enrollmentId: data.enrollmentId,
           authorRole: data.authorRole,
           materialIds: data.materialIds,
+          parentId: data.parentId,
         },
         txClient,
       );
