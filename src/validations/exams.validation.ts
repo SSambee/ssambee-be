@@ -137,22 +137,11 @@ export const examAndEnrollmentParamSchema = z.object({
   lectureEnrollmentId: z.string().min(1),
 });
 
-/** 시험 성적표 과제 연계 개별 항목 스키마 */
-export const assignmentOnExamReportUpsertSchema = z.object({
-  /** 과제 ID */
-  assignmentId: z.string().cuid2(),
-});
-
-/** 시험 성적표 과제 연계 Upsert DTO 타입 */
-export type AssignmentOnExamReportUpsertDto = z.infer<
-  typeof assignmentOnExamReportUpsertSchema
->;
-
 /** 시험 성적표 과제 목록 업데이트 스키마 */
 export const updateExamReportAssignmentsSchema = z.object({
-  /** 성적표에 표시할 과제 목록 (최대 4개) */
+  /** 성적표에 표시할 과제 목록 (ID 배열, 최대 4개) */
   assignments: z
-    .array(assignmentOnExamReportUpsertSchema)
+    .array(z.string().cuid2())
     .max(4, '성적표에 표시할 과제는 최대 4개까지 가능합니다.'),
 });
 

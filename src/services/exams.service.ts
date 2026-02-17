@@ -244,13 +244,11 @@ export class ExamsService {
 
     // 3. 트랜잭션 처리
     return await this.prisma.$transaction(async (tx) => {
-      const inputAssignments = data.assignments;
+      const inputAssignmentIds = data.assignments;
 
       // 3-1. 기존 과제 연계 조회
       const existingAssignments =
         await this.examsRepo.findAssignmentsOnExamReportByExamId(examId, tx);
-
-      const inputAssignmentIds = inputAssignments.map((a) => a.assignmentId);
 
       // 3-2. Delete: 전달되지 않은 기존 과제 연계 삭제
       const toDeleteIds = existingAssignments
@@ -262,10 +260,10 @@ export class ExamsService {
       }
 
       // 3-3. Upsert: 전달된 모든 과제 연계 생성 또는 수정
-      for (const inputAssignment of inputAssignments) {
+      for (const assignmentId of inputAssignmentIds) {
         await this.examsRepo.upsertAssignmentOnExamReport(
           examId,
-          inputAssignment,
+          assignmentId,
           tx,
         );
       }

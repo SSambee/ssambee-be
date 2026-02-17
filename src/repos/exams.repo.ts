@@ -8,7 +8,6 @@ import type {
   CreateExamDto,
   UpdateExamDto,
   QuestionUpsertDto,
-  AssignmentOnExamReportUpsertDto,
 } from '../validations/exams.validation.js';
 
 export type ExamWithQuestions = Exam & { questions: Question[] };
@@ -377,7 +376,7 @@ export class ExamsRepository {
   /** 과제 연계 생성 또는 수정 */
   async upsertAssignmentOnExamReport(
     examId: string,
-    data: AssignmentOnExamReportUpsertDto,
+    assignmentId: string,
     tx?: Prisma.TransactionClient,
   ): Promise<AssignmentOnExamReport> {
     const client = tx ?? this.prisma;
@@ -385,14 +384,14 @@ export class ExamsRepository {
       where: {
         // unique constraint: [assignmentId, examId]
         assignmentId_examId: {
-          assignmentId: data.assignmentId,
+          assignmentId,
           examId,
         },
       },
       update: {},
       create: {
         examId,
-        assignmentId: data.assignmentId,
+        assignmentId,
       },
     });
   }
