@@ -4,6 +4,7 @@ import { validate } from '../../../middlewares/validate.middleware.js';
 import {
   examIdParamSchema,
   updateExamSchema,
+  updateExamReportAssignmentsSchema,
 } from '../../../validations/exams.validation.js';
 import { submitGradingSchema } from '../../../validations/grades.validation.js';
 import { createClinicsSchema } from '../../../validations/clinics.validation.js';
@@ -81,4 +82,13 @@ mgmtExamsRouter.post(
   validate(createClinicsSchema, 'body'),
   (req, res, next) =>
     container.clinicsController.completeGrading(req, res, next),
+);
+
+/** 시험 성적표 과제 목록 업데이트 */
+mgmtExamsRouter.put(
+  '/:examId/report/assignments',
+  validate(examIdParamSchema, 'params'),
+  validate(updateExamReportAssignmentsSchema, 'body'),
+  (req, res, next) =>
+    container.examsController.updateExamReportAssignments(req, res, next),
 );

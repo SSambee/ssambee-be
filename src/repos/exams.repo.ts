@@ -1,5 +1,9 @@
 import { PrismaClient, Prisma } from '../generated/prisma/client.js';
-import type { Exam, Question } from '../generated/prisma/client.js';
+import type {
+  Exam,
+  Question,
+  AssignmentOnExamReport,
+} from '../generated/prisma/client.js';
 import type {
   CreateExamDto,
   UpdateExamDto,
@@ -341,6 +345,54 @@ export class ExamsRepository {
     const client = tx ?? this.prisma;
     await client.exam.delete({
       where: { id },
+    });
+  }
+
+  // --- AssignmentOnExamReport methods ---
+
+  /** 특정 시험의 모든 과제 연계 조회 */
+  async findAssignmentsOnExamReportByExamId(
+    examId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<AssignmentOnExamReport[]> {
+    const client = tx ?? this.prisma;
+    return await client.assignmentOnExamReport.findMany({
+      where: { examId },
+      orderBy: { assignment: { title: 'asc' } }, // 과제 제목 순 정렬
+    });
+  }
+
+  /** 과제 연계 삭제 (여러 개) */
+  async deleteAssignmentsOnExamReport(
+    ids: string[],
+    tx?: Prisma.TransactionClient,
+  ): Promise<void> {
+    const client = tx ?? this.prisma;
+    await client.assignmentOnExamReport.deleteMany({
+      where: { id: { in: ids } },
+    });
+  }
+
+  /** 과제 연계 생성 또는 수정 */
+  async upsertAssignmentOnExamReport(
+    examId: string,
+    assignmentId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<AssignmentOnExamReport> {
+    const client = tx ?? this.prisma;
+    return await client.assignmentOnExamReport.upsert({
+      where: {
+        // unique constraint: [assignmentId, examId]
+        assignmentId_examId: {
+          assignmentId,
+          examId,
+        },
+      },
+      update: {},
+      create: {
+        examId,
+        assignmentId,
+      },
     });
   }
 }

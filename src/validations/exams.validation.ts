@@ -136,3 +136,15 @@ export const examAndEnrollmentParamSchema = z.object({
   /** 강의 수강 ID */
   lectureEnrollmentId: z.string().min(1),
 });
+
+/** 시험 성적표 과제 목록 업데이트 스키마 */
+export const updateExamReportAssignmentsSchema = z.object({
+  /** 성적표에 표시할 과제 목록 (ID 배열, 최대 4개) */
+  assignments: z
+    .array(z.string().cuid2())
+    .max(4, '성적표에 표시할 과제는 최대 4개까지 가능합니다.'),
+});
+
+export type UpdateExamReportAssignmentsDto = z.infer<
+  typeof updateExamReportAssignmentsSchema
+>;

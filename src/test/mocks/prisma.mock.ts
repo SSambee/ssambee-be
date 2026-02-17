@@ -20,6 +20,9 @@ export const createMockPrisma = () => ({
   studentAnswer: {
     findMany: jest.fn(),
   },
+  assignment: {
+    count: jest.fn(),
+  },
   $transaction: mockTransaction as jest.Mock,
 });
 
