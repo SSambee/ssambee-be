@@ -359,7 +359,7 @@ export class ExamsRepository {
     const client = tx ?? this.prisma;
     return await client.assignmentOnExamReport.findMany({
       where: { examId },
-      orderBy: { resultIndex: 'asc' },
+      orderBy: { assignment: { title: 'asc' } }, // 과제 제목 순 정렬
     });
   }
 
@@ -389,13 +389,10 @@ export class ExamsRepository {
           examId,
         },
       },
-      update: {
-        resultIndex: data.resultIndex,
-      },
+      update: {},
       create: {
         examId,
         assignmentId: data.assignmentId,
-        resultIndex: data.resultIndex,
       },
     });
   }

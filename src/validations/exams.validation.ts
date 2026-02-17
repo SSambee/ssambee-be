@@ -141,8 +141,6 @@ export const examAndEnrollmentParamSchema = z.object({
 export const assignmentOnExamReportUpsertSchema = z.object({
   /** 과제 ID */
   assignmentId: z.string().cuid2(),
-  /** 결과 인덱스 (AssignmentCategory의 resultPresets 배열 인덱스) */
-  resultIndex: z.number().int().min(0),
 });
 
 /** 시험 성적표 과제 연계 Upsert DTO 타입 */
