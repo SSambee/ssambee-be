@@ -242,7 +242,22 @@ export class ExamsService {
       profileId,
     );
 
-    // 3. 트랜잭션 처리
+    // 3. 과제 존재 여부 확인
+    if (data.assignments && data.assignments.length > 0) {
+      const count = await this.prisma.assignment.count({
+        where: {
+          id: { in: data.assignments },
+        },
+      });
+
+      if (count !== data.assignments.length) {
+        throw new BadRequestException(
+          '존재하지 않는 과제가 포함되어 있습니다.',
+        );
+      }
+    }
+
+    // 4. 트랜잭션 처리
     return await this.prisma.$transaction(async (tx) => {
       const inputAssignmentIds = data.assignments;
 

@@ -512,6 +512,7 @@ describe('ExamsService - @unit #critical', () => {
           ReturnType<typeof mockExamsRepo.upsertAssignmentOnExamReport>
         >,
       );
+      (mockPrisma.assignment.count as jest.Mock).mockResolvedValue(2);
 
       await examsService.updateExamReportAssignments(
         mockExamId,
@@ -556,6 +557,7 @@ describe('ExamsService - @unit #critical', () => {
         >,
       );
       mockExamsRepo.deleteAssignmentsOnExamReport.mockResolvedValue(undefined); // void
+      (mockPrisma.assignment.count as jest.Mock).mockResolvedValue(1);
 
       await examsService.updateExamReportAssignments(
         mockExamId,
@@ -587,6 +589,31 @@ describe('ExamsService - @unit #critical', () => {
           mockProfileId,
         ),
       ).rejects.toThrow('Unauthorized');
+    });
+    it('존재하지 않는 과제 ID가 포함된 경우, BadRequestException을 던진다', async () => {
+      const exam = mockExams.basic;
+      const updateDto = {
+        assignments: ['valid-id', 'invalid-id'],
+      };
+
+      mockExamsRepo.findById.mockResolvedValue(
+        exam as Awaited<ReturnType<typeof mockExamsRepo.findById>>,
+      );
+      // count mock: 1개만 찾음 (하나가 invalid하므로)
+      (mockPrisma.assignment.count as jest.Mock).mockResolvedValue(1);
+
+      await expect(
+        examsService.updateExamReportAssignments(
+          mockExamId,
+          updateDto,
+          mockUserType,
+          mockProfileId,
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockPrisma.assignment.count).toHaveBeenCalledWith({
+        where: { id: { in: updateDto.assignments } },
+      });
     });
   });
 });
