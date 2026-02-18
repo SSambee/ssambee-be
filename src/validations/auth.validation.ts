@@ -42,7 +42,16 @@ export const signInSchema = z.object({
  */
 export const emailVerificationSchema = z.object({
   email: emailSchema,
-  otp: z.string().min(4).max(8).optional(),
+  otp: z.preprocess((value) => {
+    if (value === null || value === undefined) {
+      return undefined;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length === 0 ? undefined : trimmed;
+    }
+    return value;
+  }, z.string().min(4).max(8).optional()),
 });
 
 /** 이메일 변경 요청 스키마 */

@@ -10,6 +10,7 @@ import { prismaAdapter } from 'better-auth/adapters/prisma';
 import type { PrismaClient } from '../generated/prisma/client.js';
 import { prisma } from './db.config.js';
 import { config, isDevelopment } from './env.config.js';
+import { SIGNUP_PENDING_USER_TYPE } from '../constants/auth.constant.js';
 import {
   sendEmailOtp,
   sendPasswordResetLinkMail,
@@ -55,7 +56,7 @@ export const auth = betterAuth({
       userType: {
         type: 'string',
         required: true,
-        defaultValue: 'STUDENT',
+        defaultValue: SIGNUP_PENDING_USER_TYPE,
       },
     },
   },

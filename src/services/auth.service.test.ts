@@ -1,5 +1,8 @@
 import { AuthService } from './auth.service.js';
-import { UserType } from '../constants/auth.constant.js';
+import {
+  SIGNUP_PENDING_USER_TYPE,
+  UserType,
+} from '../constants/auth.constant.js';
 import {
   ForbiddenException,
   NotFoundException,
@@ -139,6 +142,27 @@ describe('AuthService - @unit #critical', () => {
             false,
           ),
         ).rejects.toThrow('유저 역할이 잘못되었습니다.');
+      });
+    });
+
+    describe('AUTH-14: 가입 미완료 계정 로그인 차단', () => {
+      it('이메일 OTP만 인증된 임시 계정으로 로그인을 시도할 때, UnauthorizedException을 던진다', async () => {
+        (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+          id: 'pending-user-id',
+          email: mockUsers.student.email,
+          userType: SIGNUP_PENDING_USER_TYPE,
+        });
+
+        await expect(
+          authService.signIn(
+            mockUsers.student.email,
+            'password123',
+            UserType.STUDENT,
+            false,
+          ),
+        ).rejects.toThrow(UnauthorizedException);
+
+        expect(mockBetterAuth.handler).not.toHaveBeenCalled();
       });
     });
   });
@@ -418,11 +442,8 @@ describe('AuthService - @unit #critical', () => {
       mockStudentRepo.findByUserId.mockResolvedValue(null);
       mockStudentRepo.create.mockResolvedValue(mockProfiles.student);
 
-      const setPasswordResponse = {
-        ok: true,
-        json: jest.fn().mockResolvedValue({ status: true }),
-        headers: { get: jest.fn().mockReturnValue(null) },
-      };
+      mockBetterAuth.api.setPassword.mockResolvedValue({ status: true });
+
       const updateUserResponse = {
         ok: true,
         json: jest.fn().mockResolvedValue({ status: true }),
@@ -430,9 +451,9 @@ describe('AuthService - @unit #critical', () => {
           get: jest.fn().mockReturnValue('session_token=updated-cookie'),
         },
       };
-      (mockBetterAuth.handler as jest.Mock)
-        .mockResolvedValueOnce(setPasswordResponse)
-        .mockResolvedValueOnce(updateUserResponse);
+      (mockBetterAuth.handler as jest.Mock).mockResolvedValueOnce(
+        updateUserResponse,
+      );
 
       (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
         id: mockUsers.student.id,
@@ -455,6 +476,78 @@ describe('AuthService - @unit #critical', () => {
       expect(result.user.userType).toBe(UserType.STUDENT);
       expect(result.profile).toEqual(mockProfiles.student);
       expect(result.setCookie).toBe('session_token=updated-cookie');
+      expect(mockBetterAuth.api.setPassword).toHaveBeenCalledWith({
+        headers: expect.anything(),
+        body: {
+          newPassword: signUpRequests.student.password,
+        },
+      });
+      const updateUserRequest = (mockBetterAuth.handler as jest.Mock).mock
+        .calls[0][0] as Request;
+      expect(updateUserRequest.headers.get('origin')).toBeTruthy();
+    });
+
+    it('비밀번호가 이미 설정된 재시도 상황에서도 가입 완료가 가능하다', async () => {
+      mockBetterAuth.api.getSession.mockResolvedValue({
+        user: mockUsers.student,
+        session: mockSession,
+      });
+      mockStudentRepo.findByPhoneNumber.mockResolvedValue(null);
+      mockStudentRepo.findByUserId.mockResolvedValue(null);
+      mockStudentRepo.create.mockResolvedValue(mockProfiles.student);
+
+      (mockPrisma.account.findFirst as jest.Mock).mockResolvedValue({
+        id: 'credential-account-id',
+        password: null,
+      });
+
+      mockBetterAuth.api.setPassword.mockRejectedValue(
+        new Error('user already has a password'),
+      );
+
+      const updateUserResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({ status: true }),
+        headers: {
+          get: jest.fn().mockReturnValue('session_token=updated-cookie'),
+        },
+      };
+      (mockBetterAuth.handler as jest.Mock).mockResolvedValueOnce(
+        updateUserResponse,
+      );
+
+      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: mockUsers.student.id,
+        name: mockUsers.student.name,
+        email: mockUsers.student.email,
+        userType: UserType.STUDENT,
+        emailVerified: true,
+        image: null,
+      });
+
+      const result = await authService.completeSignUpWithVerifiedEmail(
+        UserType.STUDENT,
+        {
+          ...signUpRequests.student,
+          email: mockUsers.student.email,
+        },
+        { cookie: 'session_token=otp-session' },
+      );
+
+      expect(result.user.userType).toBe(UserType.STUDENT);
+      expect(result.profile).toEqual(mockProfiles.student);
+      expect(mockBetterAuth.api.setPassword).toHaveBeenCalledWith({
+        headers: expect.anything(),
+        body: {
+          newPassword: signUpRequests.student.password,
+        },
+      });
+      const handlerRequests = (mockBetterAuth.handler as jest.Mock).mock.calls
+        .map(([request]) => request as { url: string })
+        .map((request) => request.url);
+      expect(handlerRequests).toEqual([
+        expect.stringContaining('/api/auth/update-user'),
+      ]);
     });
   });
 

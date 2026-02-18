@@ -7,7 +7,10 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '../err/http.exception.js';
-import { UserType } from '../constants/auth.constant.js';
+import {
+  SIGNUP_PENDING_USER_TYPE,
+  UserType,
+} from '../constants/auth.constant.js';
 import { auth } from '../config/auth.config.js';
 import { InstructorRepository } from '../repos/instructor.repo.js';
 import { AssistantRepository } from '../repos/assistant.repo.js';
@@ -31,6 +34,14 @@ export class AuthService {
   ) {}
 
   private readonly baseURL = config.BETTER_AUTH_URL;
+  private readonly defaultOrigin =
+    config.FRONT_URL?.split(',')
+      .map((url) => url.trim())
+      .filter(Boolean)[0] || config.BETTER_AUTH_URL;
+
+  private isSupportedUserType(value: string): value is UserType {
+    return (Object.values(UserType) as string[]).includes(value);
+  }
 
   private async getAuthErrorMessage(response: Response, fallback: string) {
     try {
@@ -74,6 +85,16 @@ export class AuthService {
       }
     });
 
+    // Better Auth origin check:
+    // cookie가 포함된 민감 요청은 Origin/Referer가 없으면 차단된다.
+    if (
+      requestHeaders.cookie &&
+      !requestHeaders.origin &&
+      !requestHeaders.referer
+    ) {
+      requestHeaders.origin = this.defaultOrigin;
+    }
+
     return requestHeaders;
   }
 
@@ -109,6 +130,84 @@ export class AuthService {
     const setCookie = response.headers.get('set-cookie');
 
     return { data, setCookie };
+  }
+
+  private async ensureCredentialPassword(
+    userId: string,
+    headers: IncomingHttpHeaders,
+    newPassword: string,
+  ) {
+    const credentialAccount = await this.prisma.account.findFirst({
+      where: {
+        userId,
+        providerId: 'credential',
+      },
+      select: {
+        id: true,
+        password: true,
+      },
+    });
+
+    if (credentialAccount?.password) {
+      return;
+    }
+
+    const isAlreadyPasswordError = (error: unknown) => {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'message' in error &&
+        typeof error.message === 'string' &&
+        error.message === 'user already has a password'
+      ) {
+        return true;
+      }
+      return false;
+    };
+
+    const setPasswordApi = this.authClient.api as {
+      setPassword?: (input: {
+        headers: ReturnType<typeof fromNodeHeaders>;
+        body: { newPassword: string };
+      }) => Promise<unknown>;
+    };
+
+    try {
+      if (typeof setPasswordApi.setPassword === 'function') {
+        await setPasswordApi.setPassword({
+          headers: fromNodeHeaders(headers),
+          body: { newPassword },
+        });
+        return;
+      }
+    } catch (error) {
+      if (isAlreadyPasswordError(error)) {
+        return;
+      }
+      const message =
+        error &&
+        typeof error === 'object' &&
+        'message' in error &&
+        typeof error.message === 'string'
+          ? error.message
+          : '비밀번호 설정에 실패했습니다.';
+      throw new BadRequestException(message);
+    }
+
+    try {
+      await this.callAuthHandler<{ status: boolean }>({
+        path: '/set-password',
+        method: 'POST',
+        headers,
+        body: { newPassword },
+        fallbackErrorMessage: '비밀번호 설정에 실패했습니다.',
+      });
+    } catch (error) {
+      if (isAlreadyPasswordError(error)) {
+        return;
+      }
+      throw error;
+    }
   }
 
   /** 이메일 인증코드 발송 */
@@ -278,15 +377,11 @@ export class AuthService {
       throw new BadRequestException('이미 가입이 완료된 계정입니다.');
     }
 
-    await this.callAuthHandler<{ status: boolean }>({
-      path: '/set-password',
-      method: 'POST',
+    await this.ensureCredentialPassword(
+      authSession.user.id,
       headers,
-      body: {
-        newPassword: data.password,
-      },
-      fallbackErrorMessage: '비밀번호 설정에 실패했습니다.',
-    });
+      data.password,
+    );
 
     const { setCookie } = await this.callAuthHandler<{ status: boolean }>({
       path: '/update-user',
@@ -298,6 +393,13 @@ export class AuthService {
       },
       fallbackErrorMessage: '사용자 정보 업데이트에 실패했습니다.',
     });
+
+    if (userType === UserType.INSTRUCTOR) {
+      await this.prisma.user.update({
+        where: { id: authSession.user.id },
+        data: { role: 'instructor' },
+      });
+    }
 
     let profile;
     switch (userType) {
@@ -360,6 +462,12 @@ export class AuthService {
       where: { email },
     });
 
+    if (existingUser?.userType === SIGNUP_PENDING_USER_TYPE) {
+      throw new UnauthorizedException(
+        '회원가입이 완료되지 않았습니다. 이메일 인증 후 가입 절차를 완료해주세요.',
+      );
+    }
+
     if (
       existingUser &&
       (existingUser.userType as UserType) !== requiredUserType
@@ -394,10 +502,18 @@ export class AuthService {
     const { user, session, token } = result as AuthResponse;
     const finalSession = session || (token ? { token } : null);
 
-    const profile = await this.findProfileByUserId(
-      user.userType as UserType,
-      user.id,
-    );
+    if (!this.isSupportedUserType(user.userType)) {
+      throw new UnauthorizedException(
+        '회원가입이 완료되지 않았습니다. 이메일 인증 후 가입 절차를 완료해주세요.',
+      );
+    }
+
+    const profile = await this.findProfileByUserId(user.userType, user.id);
+    if (!profile) {
+      throw new UnauthorizedException(
+        '회원가입이 완료되지 않았습니다. 이메일 인증 후 가입 절차를 완료해주세요.',
+      );
+    }
 
     return {
       user,
