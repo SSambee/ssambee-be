@@ -129,13 +129,13 @@ export class CommentsRepository {
     tx?: Prisma.TransactionClient,
   ) {
     const execute = async (txClient: Prisma.TransactionClient) => {
-      // 1. 학생 질문 상태를 RESOLVED로 변경
+      // 학생 질문 상태를 REGISTERED로 변경
       await txClient.studentPost.update({
         where: { id: data.studentPostId },
-        data: { status: StudentPostStatus.RESOLVED },
+        data: { status: StudentPostStatus.REGISTERED },
       });
 
-      // 2. 댓글 생성 (기존 create 로직 재사용)
+      // 댓글 생성 (기존 create 로직 재사용)
       return this.create(
         {
           content: data.content,

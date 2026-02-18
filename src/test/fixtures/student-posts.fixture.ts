@@ -30,7 +30,7 @@ export const mockStudentPost = (
 ): MockStudentPostDetail => {
   const post = {
     id: faker.string.uuid(),
-    status: StudentPostStatus.PENDING,
+    status: StudentPostStatus.BEFORE,
     title: faker.lorem.sentence(),
     content: faker.lorem.paragraphs(),
     createdAt: new Date(),
