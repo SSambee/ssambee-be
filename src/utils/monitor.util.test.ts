@@ -55,7 +55,7 @@ describe('Monitor Utility - @unit', () => {
     );
   });
 
-  it('should not send metrics if LAMBDA_URL is not set', async () => {
+  it('should not send metrics if ALARM_LAMBDA_URL is not set', async () => {
     const { config } = await import('../config/env.config.js');
     const originalUrl = config.ALARM_LAMBDA_URL;
     config.ALARM_LAMBDA_URL = undefined;

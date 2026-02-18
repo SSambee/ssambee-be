@@ -33,6 +33,7 @@ const envSchema = z.object({
   ALARM_LAMBDA_URL: z.string().optional(),
   MONITOR_LAMBDA_URL: z.string().optional(),
   DISCORD_WEBHOOK_URL: z.string().optional(),
+  INTERNAL_INGEST_SECRET: z.string().optional(),
 });
 
 const parseEnvironment = () => {
@@ -57,6 +58,7 @@ const parseEnvironment = () => {
       ALARM_LAMBDA_URL: process.env.ALARM_LAMBDA_URL,
       MONITOR_LAMBDA_URL: process.env.MONITOR_LAMBDA_URL,
       DISCORD_WEBHOOK_URL: process.env.DISCORD_WEBHOOK_URL,
+      INTERNAL_INGEST_SECRET: process.env.INTERNAL_INGEST_SECRET,
     });
   } catch (err) {
     if (err instanceof z.ZodError) {

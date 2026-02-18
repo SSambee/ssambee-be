@@ -59,7 +59,7 @@ export const sendSystemMetrics = async () => {
     if (usageNum >= ALARM_THRESHOLD && now - lastAlertTime > ALERT_COOLDOWN) {
       metrics.isAlert = true; //람다에게 알람도 쏘라고 알려준다.
       lastAlertTime = now;
-      console.log(`[Monitor] 임계치 초과 알람 생성: (${metrics.memoryUsage}%`);
+      console.log(`[Monitor] 임계치 초과 알람 생성: ${metrics.memoryUsage}%`);
     }
 
     /** 람다로 전송 (DB 저장 + 조건부 알람) */

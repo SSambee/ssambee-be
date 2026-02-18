@@ -44,31 +44,33 @@ redis.on(REDIS_STATUS.ERROR, async (error: Error) => {
     const controller = new AbortController(); // AbortController를 이용한 타임아웃 (5초)
     const timeout = setTimeout(() => controller.abort(), 5000);
 
-    const response = await fetch(config.ALARM_LAMBDA_URL!, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
-      body: JSON.stringify({
-        type: 'REDIS_ERROR',
-        service: 'Upstash-Redis',
-        message: error.message,
-        server:
-          config.ENVIRONMENT === 'production' ? 'Production' : 'Dev/Local',
-        timestamp: new Date().toISOString(),
-        guide:
-          'Upstash 콘솔에서 사용량(30MB) 초과 여부나 네트워크를 확인하세요.',
-      }),
-    });
+    try {
+      const response = await fetch(config.ALARM_LAMBDA_URL!, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          type: 'REDIS_ERROR',
+          service: 'Upstash-Redis',
+          message: error.message,
+          server:
+            config.ENVIRONMENT === 'production' ? 'Production' : 'Dev/Local',
+          timestamp: new Date().toISOString(),
+          guide:
+            'Upstash 콘솔에서 사용량(30MB) 초과 여부나 네트워크를 확인하세요.',
+        }),
+      });
 
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      console.error(`[Redis Webhook] 전송 실패: ${response.status}`);
+      if (!response.ok) {
+        console.error(`[Redis Webhook] 전송 실패: ${response.status}`);
+      }
+    } finally {
+      clearTimeout(timeout);
     }
   } catch (fetchError: unknown) {
     if (fetchError instanceof Error) {
       if (fetchError.name === 'AbortError') {
-        console.error('[Redis Webhook]] 전송 타임아웃 에러');
+        console.error('[Redis Webhook] 전송 타임아웃 에러');
       } else {
         console.error('웹훅 전송 실패:', fetchError);
       }
