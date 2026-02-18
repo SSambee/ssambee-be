@@ -13,8 +13,8 @@ export const TargetRole = {
 export type TargetRole = (typeof TargetRole)[keyof typeof TargetRole];
 
 export const StudentPostStatus = {
-  PENDING: 'PENDING',
-  RESOLVED: 'RESOLVED',
+  BEFORE: 'BEFORE',
+  REGISTERED: 'REGISTERED',
   COMPLETED: 'COMPLETED',
 } as const;
 export type StudentPostStatus =

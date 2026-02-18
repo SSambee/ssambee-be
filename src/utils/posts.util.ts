@@ -63,21 +63,11 @@ export const formatStudentPostStats = (
 
 /**
  * 프론트엔드용 학생 질문 상태 변환
- * Backend: PENDING -> Frontend: BEFORE (답변 대기)
- * Backend: RESOLVED -> Frontend: REGISTERED (답변 완료)
- * Backend: COMPLETED -> Frontend: COMPLETED (확인 완료)
+ * StudentPostStatus와 AnswerStatus가 동일한 값(BEFORE/REGISTERED/COMPLETED)을 사용하므로
+ * 직접 반환합니다.
  */
 export const toFrontendStudentPostStatus = (
   status: StudentPostStatus,
 ): AnswerStatus => {
-  switch (status) {
-    case StudentPostStatus.PENDING:
-      return AnswerStatus.BEFORE;
-    case StudentPostStatus.RESOLVED:
-      return AnswerStatus.REGISTERED;
-    case StudentPostStatus.COMPLETED:
-      return AnswerStatus.COMPLETED;
-    default:
-      return AnswerStatus.BEFORE; // 기본값: 답변 대기
-  }
+  return status as unknown as AnswerStatus;
 };
