@@ -184,8 +184,11 @@ export class StudentPostsService {
           enrollmentIds,
         );
 
+      // 페이지네이션 적용
+      const paginatedResult = result.slice(offset, offset + limit);
+
       return {
-        lectures: result.map((le) => ({
+        lectures: paginatedResult.map((le) => ({
           id: le.lecture.id,
           title: le.lecture.title,
           instructorId: le.lecture.instructorId,
