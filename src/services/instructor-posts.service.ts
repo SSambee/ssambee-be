@@ -214,8 +214,8 @@ export class InstructorPostsService {
     if (query.limit <= 0) {
       throw new BadRequestException('limit은 1 이상이어야 합니다.');
     }
-    if (query.limit > 100) {
-      throw new BadRequestException('limit은 100 이하여야 합니다.');
+    if (query.limit > 50) {
+      throw new BadRequestException('limit은 50 이하여야 합니다.');
     }
 
     let instructorId: string | undefined;
@@ -313,6 +313,7 @@ export class InstructorPostsService {
       instructorId,
       studentFiltering,
       postType: query.postType,
+      orderBy: query.orderBy,
     });
 
     // [Stats] 학생 질문 통계 추가 (강사/조교인 경우)

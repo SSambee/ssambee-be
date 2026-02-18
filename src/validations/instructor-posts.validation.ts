@@ -72,9 +72,11 @@ export const getInstructorPostsQuerySchema = z.object({
     .enum([PostScope.GLOBAL, PostScope.LECTURE, PostScope.SELECTED])
     .optional(),
   /** 검색어 */
-  search: z.string().optional(),
+  search: z.string().trim().optional(),
   /** 게시물 유형 필터 (공지사항, 자료공유) */
   postType: z.enum([PostType.NOTICE, PostType.SHARE]).optional(),
+  /** 정렬 기준 (최신순, 오래된순) */
+  orderBy: z.enum(['latest', 'oldest']).default('latest'),
 });
 
 /**
