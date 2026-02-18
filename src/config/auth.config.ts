@@ -1,5 +1,5 @@
 import { betterAuth } from 'better-auth';
-import { admin } from 'better-auth/plugins';
+import { admin, emailOTP } from 'better-auth/plugins';
 import {
   ac,
   admin as adminRole,
@@ -10,6 +10,11 @@ import { prismaAdapter } from 'better-auth/adapters/prisma';
 import type { PrismaClient } from '../generated/prisma/client.js';
 import { prisma } from './db.config.js';
 import { config, isDevelopment } from './env.config.js';
+import {
+  sendEmailOtp,
+  sendPasswordResetLinkMail,
+  sendVerificationLinkMail,
+} from '../utils/mail.util.js';
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma as unknown as PrismaClient, {
@@ -21,9 +26,28 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
+    sendResetPassword: async ({ user, url }) => {
+      await sendPasswordResetLinkMail({
+        email: user.email,
+        url,
+      });
+    },
+  },
+
+  emailVerification: {
+    sendVerificationEmail: async ({ user, url }) => {
+      await sendVerificationLinkMail({
+        email: user.email,
+        url,
+      });
+    },
   },
 
   user: {
+    changeEmail: {
+      enabled: true,
+      updateEmailWithoutVerification: false,
+    },
     deleteUser: {
       enabled: true,
     },
@@ -67,6 +91,16 @@ export const auth = betterAuth({
         instructor,
       },
       defaultRole: 'user',
+    }),
+    emailOTP({
+      sendVerificationOTP: async ({ email, otp, type }) => {
+        await sendEmailOtp({
+          email,
+          otp,
+          type,
+        });
+      },
+      disableSignUp: false,
     }),
   ],
   databaseHooks: {

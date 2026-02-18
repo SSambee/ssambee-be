@@ -62,7 +62,7 @@ describe('AuthController - @unit #critical', () => {
         // 준비
         mockReq.body = signUpRequests.instructor;
 
-        mockAuthService.signUp.mockResolvedValue({
+        mockAuthService.completeSignUpWithVerifiedEmail.mockResolvedValue({
           user: mockUsers.instructor,
           session: mockSession,
           profile: mockProfiles.instructor,
@@ -77,9 +77,12 @@ describe('AuthController - @unit #critical', () => {
         );
 
         // 검증
-        expect(mockAuthService.signUp).toHaveBeenCalledWith(
+        expect(
+          mockAuthService.completeSignUpWithVerifiedEmail,
+        ).toHaveBeenCalledWith(
           UserType.INSTRUCTOR,
           mockReq.body,
+          mockReq.headers,
         );
         expect(mockRes.status).toHaveBeenCalledWith(201);
         expect(mockRes.json).toHaveBeenCalledWith(
@@ -102,7 +105,9 @@ describe('AuthController - @unit #critical', () => {
         mockReq.body = signUpRequests.instructor;
 
         const error = new BadRequestException('이미 가입된 전화번호입니다.');
-        mockAuthService.signUp.mockRejectedValue(error);
+        mockAuthService.completeSignUpWithVerifiedEmail.mockRejectedValue(
+          error,
+        );
 
         await authController.instructorSignUp(
           mockReq as Request,
@@ -118,7 +123,7 @@ describe('AuthController - @unit #critical', () => {
       it('POST /assistant/signup - 성공 시 201과 사용자 정보 반환', async () => {
         mockReq.body = signUpRequests.assistant;
 
-        mockAuthService.signUp.mockResolvedValue({
+        mockAuthService.completeSignUpWithVerifiedEmail.mockResolvedValue({
           user: mockUsers.assistant,
           session: mockSession,
           profile: mockProfiles.assistant,
@@ -131,9 +136,12 @@ describe('AuthController - @unit #critical', () => {
           mockNext,
         );
 
-        expect(mockAuthService.signUp).toHaveBeenCalledWith(
+        expect(
+          mockAuthService.completeSignUpWithVerifiedEmail,
+        ).toHaveBeenCalledWith(
           UserType.ASSISTANT,
           mockReq.body,
+          mockReq.headers,
         );
         expect(mockRes.status).toHaveBeenCalledWith(201);
       });
@@ -143,7 +151,7 @@ describe('AuthController - @unit #critical', () => {
       it('POST /student/signup - 성공 시 201과 사용자 정보 반환', async () => {
         mockReq.body = signUpRequests.student;
 
-        mockAuthService.signUp.mockResolvedValue({
+        mockAuthService.completeSignUpWithVerifiedEmail.mockResolvedValue({
           user: mockUsers.student,
           session: mockSession,
           profile: mockProfiles.student,
@@ -156,10 +164,9 @@ describe('AuthController - @unit #critical', () => {
           mockNext,
         );
 
-        expect(mockAuthService.signUp).toHaveBeenCalledWith(
-          UserType.STUDENT,
-          mockReq.body,
-        );
+        expect(
+          mockAuthService.completeSignUpWithVerifiedEmail,
+        ).toHaveBeenCalledWith(UserType.STUDENT, mockReq.body, mockReq.headers);
         expect(mockRes.status).toHaveBeenCalledWith(201);
       });
     });
@@ -168,7 +175,7 @@ describe('AuthController - @unit #critical', () => {
       it('POST /parent/signup - 성공 시 201과 사용자 정보 반환', async () => {
         mockReq.body = signUpRequests.parent;
 
-        mockAuthService.signUp.mockResolvedValue({
+        mockAuthService.completeSignUpWithVerifiedEmail.mockResolvedValue({
           user: mockUsers.parent,
           session: mockSession,
           profile: mockProfiles.parent,
@@ -181,10 +188,9 @@ describe('AuthController - @unit #critical', () => {
           mockNext,
         );
 
-        expect(mockAuthService.signUp).toHaveBeenCalledWith(
-          UserType.PARENT,
-          mockReq.body,
-        );
+        expect(
+          mockAuthService.completeSignUpWithVerifiedEmail,
+        ).toHaveBeenCalledWith(UserType.PARENT, mockReq.body, mockReq.headers);
         expect(mockRes.status).toHaveBeenCalledWith(201);
       });
     });
@@ -261,6 +267,125 @@ describe('AuthController - @unit #critical', () => {
           false,
         );
       });
+    });
+  });
+
+  describe('[인증] 이메일 인증(OTP)', () => {
+    it('POST /email-verification - otp 없이 요청하면 인증코드를 발송한다', async () => {
+      mockReq.body = { email: mockUsers.student.email };
+      mockAuthService.requestEmailVerification.mockResolvedValue({
+        status: true,
+      });
+
+      await authController.emailVerification(
+        mockReq as Request,
+        mockRes as Response,
+        mockNext,
+      );
+
+      expect(mockAuthService.requestEmailVerification).toHaveBeenCalledWith(
+        mockUsers.student.email,
+      );
+      expect(mockRes.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'success',
+          message: '이메일 인증코드를 전송했습니다.',
+        }),
+      );
+    });
+
+    it('POST /email-verification - otp 포함 요청이면 인증을 완료하고 쿠키를 설정한다', async () => {
+      mockReq.body = { email: mockUsers.student.email, otp: '123456' };
+      mockAuthService.verifyEmailVerification.mockResolvedValue({
+        user: mockUsers.student,
+        session: { token: 'otp-token' },
+        setCookie: 'session_token=otp-cookie',
+      });
+
+      await authController.emailVerification(
+        mockReq as Request,
+        mockRes as Response,
+        mockNext,
+      );
+
+      expect(mockAuthService.verifyEmailVerification).toHaveBeenCalledWith(
+        mockUsers.student.email,
+        '123456',
+      );
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Set-Cookie',
+        'session_token=otp-cookie',
+      );
+    });
+  });
+
+  describe('[인증] 이메일/비밀번호 관리', () => {
+    it('PATCH /me/email - 이메일 변경 인증 메일을 요청한다', async () => {
+      mockReq.headers = { cookie: 'session_token=test' };
+      mockReq.body = { newEmail: 'new@example.com' };
+      mockAuthService.changeMyEmail.mockResolvedValue({ status: true });
+
+      await authController.changeMyEmail(
+        mockReq as Request,
+        mockRes as Response,
+        mockNext,
+      );
+
+      expect(mockAuthService.changeMyEmail).toHaveBeenCalledWith(
+        mockReq.headers,
+        'new@example.com',
+        undefined,
+      );
+    });
+
+    it('PATCH /me/password - 비밀번호 변경 성공 시 쿠키를 갱신한다', async () => {
+      mockReq.headers = { cookie: 'session_token=test' };
+      mockReq.body = {
+        currentPassword: 'password123!',
+        newPassword: 'newPassword123!',
+        revokeOtherSessions: true,
+      };
+      mockAuthService.changeMyPassword.mockResolvedValue({
+        token: null,
+        user: mockUsers.student,
+        setCookie: 'session_token=updated-cookie',
+      });
+
+      await authController.changeMyPassword(
+        mockReq as Request,
+        mockRes as Response,
+        mockNext,
+      );
+
+      expect(mockAuthService.changeMyPassword).toHaveBeenCalledWith(
+        mockReq.headers,
+        'password123!',
+        'newPassword123!',
+        true,
+      );
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Set-Cookie',
+        'session_token=updated-cookie',
+      );
+    });
+
+    it('POST /find-password - 비밀번호 찾기를 요청한다', async () => {
+      mockReq.body = { email: mockUsers.student.email };
+      mockAuthService.findPassword.mockResolvedValue({
+        status: true,
+        message: '메일 발송 완료',
+      });
+
+      await authController.findPassword(
+        mockReq as Request,
+        mockRes as Response,
+        mockNext,
+      );
+
+      expect(mockAuthService.findPassword).toHaveBeenCalledWith(
+        mockUsers.student.email,
+        undefined,
+      );
     });
   });
 
@@ -345,7 +470,9 @@ describe('AuthController - @unit #critical', () => {
         mockReq.body = signUpRequests.instructor;
 
         const error = new BadRequestException('이미 존재하는 이메일입니다.');
-        mockAuthService.signUp.mockRejectedValue(error);
+        mockAuthService.completeSignUpWithVerifiedEmail.mockRejectedValue(
+          error,
+        );
 
         await authController.instructorSignUp(
           mockReq as Request,
@@ -390,7 +517,9 @@ describe('AuthController - @unit #critical', () => {
         const error = new BadRequestException(
           '유효하지 않거나 만료된 조교가입코드입니다.',
         );
-        mockAuthService.signUp.mockRejectedValue(error);
+        mockAuthService.completeSignUpWithVerifiedEmail.mockRejectedValue(
+          error,
+        );
 
         await authController.assistantSignUp(
           mockReq as Request,

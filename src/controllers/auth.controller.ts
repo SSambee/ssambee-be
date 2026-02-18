@@ -47,9 +47,10 @@ export class AuthController {
     next: NextFunction,
   ) => {
     try {
-      const result = await this.authService.signUp(
+      const result = await this.authService.completeSignUpWithVerifiedEmail(
         UserType.INSTRUCTOR,
         req.body,
+        req.headers,
       );
       this.handleAuthResponse(res, result, '회원가입이 완료되었습니다.', 201);
     } catch (error) {
@@ -60,9 +61,10 @@ export class AuthController {
   /** 조교 회원가입 */
   assistantSignUp = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await this.authService.signUp(
+      const result = await this.authService.completeSignUpWithVerifiedEmail(
         UserType.ASSISTANT,
         req.body,
+        req.headers,
       );
       this.handleAuthResponse(res, result, '회원가입이 완료되었습니다.', 201);
     } catch (error) {
@@ -73,7 +75,11 @@ export class AuthController {
   /** 학생 회원가입 */
   studentSignUp = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await this.authService.signUp(UserType.STUDENT, req.body);
+      const result = await this.authService.completeSignUpWithVerifiedEmail(
+        UserType.STUDENT,
+        req.body,
+        req.headers,
+      );
       this.handleAuthResponse(res, result, '회원가입이 완료되었습니다.', 201);
     } catch (error) {
       next(error);
@@ -83,7 +89,11 @@ export class AuthController {
   /** 학부모 회원가입 */
   parentSignUp = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await this.authService.signUp(UserType.PARENT, req.body);
+      const result = await this.authService.completeSignUpWithVerifiedEmail(
+        UserType.PARENT,
+        req.body,
+        req.headers,
+      );
       this.handleAuthResponse(res, result, '회원가입이 완료되었습니다.', 201);
     } catch (error) {
       next(error);
@@ -103,6 +113,95 @@ export class AuthController {
       );
 
       this.handleAuthResponse(res, result, '로그인 성공', 200);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /** 이메일 인증코드 발송/검증 */
+  emailVerification = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { email, otp } = req.body;
+
+      if (!otp) {
+        await this.authService.requestEmailVerification(email);
+        return successResponse(res, {
+          message: '이메일 인증코드를 전송했습니다.',
+        });
+      }
+
+      const result = await this.authService.verifyEmailVerification(email, otp);
+      if (result.setCookie) {
+        res.setHeader('Set-Cookie', result.setCookie);
+      }
+
+      return successResponse(res, {
+        message: '이메일 인증이 완료되었습니다.',
+        data: {
+          user: result.user,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /** 내 이메일 변경 */
+  changeMyEmail = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { newEmail, callbackURL } = req.body;
+      await this.authService.changeMyEmail(req.headers, newEmail, callbackURL);
+
+      return successResponse(res, {
+        message: '이메일 변경 인증 메일을 전송했습니다.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /** 내 비밀번호 변경 */
+  changeMyPassword = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { currentPassword, newPassword, revokeOtherSessions } = req.body;
+
+      const result = await this.authService.changeMyPassword(
+        req.headers,
+        currentPassword,
+        newPassword,
+        !!revokeOtherSessions,
+      );
+
+      if (result.setCookie) {
+        res.setHeader('Set-Cookie', result.setCookie);
+      }
+
+      return successResponse(res, {
+        message: '비밀번호가 변경되었습니다.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /** 이메일 기반 비밀번호 찾기 */
+  findPassword = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email, redirectTo } = req.body;
+      await this.authService.findPassword(email, redirectTo);
+
+      return successResponse(res, {
+        message:
+          '계정이 존재하면 비밀번호 재설정 메일이 발송됩니다. 메일함을 확인해주세요.',
+      });
     } catch (error) {
       next(error);
     }

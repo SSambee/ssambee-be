@@ -34,6 +34,12 @@ const envSchema = z.object({
   LOG_LAMBDA_URL: z.string().optional(),
   LOG_LAMBDA_API_KEY: z.string().optional(),
   LAMBDA_URL: z.string().optional(),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
+  SMTP_SECURE: z.coerce.boolean().optional(),
 });
 
 const parseEnvironment = () => {
@@ -59,6 +65,12 @@ const parseEnvironment = () => {
       LOG_LAMBDA_URL: process.env.LOG_LAMBDA_URL,
       LOG_LAMBDA_API_KEY: process.env.LOG_LAMBDA_API_KEY,
       LAMBDA_URL: process.env.LAMBDA_URL,
+      SMTP_HOST: process.env.SMTP_HOST,
+      SMTP_PORT: process.env.SMTP_PORT,
+      SMTP_USER: process.env.SMTP_USER,
+      SMTP_PASS: process.env.SMTP_PASS,
+      SMTP_FROM: process.env.SMTP_FROM,
+      SMTP_SECURE: process.env.SMTP_SECURE,
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
