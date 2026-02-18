@@ -8,6 +8,7 @@ import {
   UpdateStudentPostStatusDto,
   GetStudentPostsQueryDto,
   UpdateStudentPostDto,
+  GetMyLecturesQueryDto,
 } from '../validations/student-posts.validation.js';
 import { getPagingData } from '../utils/pagination.util.js';
 import { transformDateFieldsToKst } from '../utils/date.util.js';
@@ -17,6 +18,30 @@ import { StudentPostStatus, AuthorRole } from '../constants/posts.constant.js';
 
 export class StudentPostsController {
   constructor(private readonly studentPostsService: StudentPostsService) {}
+
+  /** 내 수강 강의 목록 조회 */
+  getMyLectures = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const query = req.query as unknown as GetMyLecturesQueryDto;
+      const profileId = getProfileIdOrThrow(req);
+      const user = getAuthUser(req);
+      const userType = user.userType as UserType;
+
+      const result = await this.studentPostsService.getMyLectures(
+        query,
+        userType,
+        profileId,
+      );
+
+      return successResponse(res, {
+        statusCode: 200,
+        data: result,
+        message: '수강 강의 목록을 조회했습니다.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 
   /** 질문 생성 */
   createPost = async (req: Request, res: Response, next: NextFunction) => {
