@@ -1,5 +1,5 @@
 import os from 'node:os';
-import { config, isTest } from '../config/env.config.js';
+import { config, isDevelopment, isTest } from '../config/env.config.js';
 
 /**
  * 전송할 지표 인터페이스
@@ -10,49 +10,68 @@ interface SystemMetrics {
   memoryUsage: string;
   uptime: number;
   timestamp: string;
+  isAlert?: boolean;
 }
 
-/**
- * 시스템 지표를 추출하여 Lambda 엔드포인트로 전송합니다.
- */
-export const sendSystemMetrics = async () => {
-  // 테스트 환경이거나 Lambda URL이 없으면 전송하지 않음
-  if (isTest() || !config.LAMBDA_URL) {
-    return;
-  }
+/** 알람 환경 설정 */
+let lastAlertTime = 0; // 80% 주의, 90% 위험 알람을 위한 간단한 상태 관리
+/** 알람 환경 설정 상수 */
+const ALERT_COOLDOWN = 300000; // 5분
+const ALARM_THRESHOLD = isDevelopment() || isTest() ? 100 : 80;
 
+/** 전송 로직 */
+const postToLambda = async (data: object) => {
+  if (isTest() || !config.ALARM_LAMBDA_URL) return;
+
+  try {
+    const response = await fetch(config.ALARM_LAMBDA_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      console.error(`[Monitor] Lambda 전송 실패 (Status: ${response.status})`);
+    }
+  } catch (error) {
+    console.error('[Monitor] Lambda 네트워크 에러:', error);
+  }
+};
+
+/**시스템 지표를 추출하여 Lambda 엔드포인트로 전송합니다.*/
+export const sendSystemMetrics = async () => {
   try {
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
-    const usage = ((totalMem - freeMem) / totalMem) * 100;
+    const usageNum = totalMem > 0 ? ((totalMem - freeMem) / totalMem) * 100 : 0;
+    const now = Date.now();
 
+    /** 대시보드용 기본 지표 설정 */
     const metrics: SystemMetrics = {
       type: 'SYSTEM_METRIC',
-      cpuLoad: os.loadavg()[0], // 1분 평균 부하
-      memoryUsage: usage.toFixed(2),
+      cpuLoad: os.loadavg()[0],
+      memoryUsage: usageNum.toFixed(2),
       uptime: os.uptime(),
       timestamp: new Date().toISOString(),
     };
 
-    // 비동기 fetch (Fire and Forget)
-    fetch(config.LAMBDA_URL, {
-      method: 'POST',
-      body: JSON.stringify(metrics),
-      headers: { 'Content-Type': 'application/json' },
-    }).catch((err) => {
-      // 서버 로그에는 남기되, 서버 프로세스에 영향을 주지 않도록 함
-      console.error('[Monitor] Failed to send metrics:', err);
-    });
+    /** 임계치 체크 및 알람 플래그 설정 */
+    if (usageNum >= ALARM_THRESHOLD && now - lastAlertTime > ALERT_COOLDOWN) {
+      metrics.isAlert = true; //람다에게 알람도 쏘라고 알려준다.
+      lastAlertTime = now;
+      console.log(`[Monitor] 임계치 초과 알람 생성: (${metrics.memoryUsage}%`);
+    }
+
+    /** 람다로 전송 (DB 저장 + 조건부 알람) */
+    await postToLambda(metrics);
   } catch (error) {
-    console.error('[Monitor] Error gathering metrics:', error);
+    console.error('[Monitor] 지표 수집 중 에러:', error);
   }
 };
 
 let monitoringInterval: NodeJS.Timeout | null = null;
 
-/**
- * 모니터링 주기를 시작합니다.
- */
+/** 모니터링 주기를 시작합니다. */
 export const startSystemMonitoring = (intervalMs: number = 60000) => {
   if (isTest() || monitoringInterval) return;
 
@@ -60,14 +79,10 @@ export const startSystemMonitoring = (intervalMs: number = 60000) => {
   sendSystemMetrics();
 
   // 주기적 실행
-  monitoringInterval = setInterval(() => {
-    sendSystemMetrics();
-  }, intervalMs);
+  monitoringInterval = setInterval(sendSystemMetrics, intervalMs);
 };
 
-/**
- * 모니터링 주기를 중단합니다.
- */
+/** 모니터링 주기를 중단합니다. */
 export const stopSystemMonitoring = () => {
   if (monitoringInterval) {
     clearInterval(monitoringInterval);

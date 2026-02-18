@@ -11,9 +11,7 @@ if (!config.REDIS_URL) {
   throw new Error('REDIS_URL이 환경 변수에 정의되지 않았습니다.');
 }
 
-// singleton
 export const redis = new Redis(config.REDIS_URL, {
-  // 연결 실패 시 재시도 전략
   retryStrategy(times) {
     const delay = Math.min(times * 50, 2000);
     return delay;
@@ -22,38 +20,60 @@ export const redis = new Redis(config.REDIS_URL, {
   maxRetriesPerRequest: null,
 });
 
-// 연결 성공 시
 redis.on(REDIS_STATUS.CONNECT, () => {
   console.log('Upstash Redis 연결 성공');
 });
 
+/** 에러시 보낼 알람 설정 */
 let lastAlertTimestamp = 0;
-const ALERT_COOLDOWN_MS = 60_000; // 1 minute
+const ALERT_COOLDOWN_MS = 60_000; // 1 분
 
-// 에러 발생시 sentry로 전송
+/** 에러 발생시 람다로 전송 */
 redis.on(REDIS_STATUS.ERROR, async (error: Error) => {
   const now = Date.now();
+
   if (now - lastAlertTimestamp < ALERT_COOLDOWN_MS) return;
-  if (!config.ALARM_LAMBDA_URL) {
-    console.error('Redis error (no ALARM_URL configured):', error.message);
-  }
   lastAlertTimestamp = now;
+
+  if (!config.ALARM_LAMBDA_URL) {
+    console.error('[Redis Error] 알람 URL이 설정되지 않음', error.message);
+    return;
+  }
+
   try {
-    await fetch(config.ALARM_LAMBDA_URL!, {
+    const controller = new AbortController(); // AbortController를 이용한 타임아웃 (5초)
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(config.ALARM_LAMBDA_URL!, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
       body: JSON.stringify({
         type: 'REDIS_ERROR',
         service: 'Upstash-Redis',
         message: error.message,
         server:
-          process.env.NODE_ENV === 'production' ? 'Production' : 'Dev/Local',
+          config.ENVIRONMENT === 'production' ? 'Production' : 'Dev/Local',
         timestamp: new Date().toISOString(),
         guide:
-          'Upstash 콘솔에서 사용량(30MB)을 초과했는지, 혹은 네트워크 설정이 변경되었는지 확인하세요.',
+          'Upstash 콘솔에서 사용량(30MB) 초과 여부나 네트워크를 확인하세요.',
       }),
     });
-  } catch (fetchError) {
-    console.error('웹훅 전송 실패:', fetchError);
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      console.error(`[Redis Webhook] 전송 실패: ${response.status}`);
+    }
+  } catch (fetchError: unknown) {
+    if (fetchError instanceof Error) {
+      if (fetchError.name === 'AbortError') {
+        console.error('[Redis Webhook]] 전송 타임아웃 에러');
+      } else {
+        console.error('웹훅 전송 실패:', fetchError);
+      }
+    } else {
+      console.error('[Redis Webhook] 알수 없는 에러 발생:', fetchError);
+    }
   }
 });
