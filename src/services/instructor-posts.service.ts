@@ -187,7 +187,7 @@ export class InstructorPostsService {
     }
 
     // 6. 생성
-    return this.instructorPostsRepository.create({
+    const post = await this.instructorPostsRepository.create({
       title: data.title,
       content: data.content,
       scope: data.scope,
@@ -197,8 +197,14 @@ export class InstructorPostsService {
       instructorId,
       authorAssistantId: userType === UserType.ASSISTANT ? profileId : null,
       materialIds: data.materialIds || undefined,
+      attachments: data.attachments || undefined,
       targetEnrollmentIds: data.targetEnrollmentIds || undefined,
     });
+
+    return {
+      ...post,
+      attachments: this.normalizeAttachments(post.attachments),
+    };
   }
 
   /** 공지 목록 조회 */
@@ -329,7 +335,11 @@ export class InstructorPostsService {
     }
 
     return {
-      ...result,
+      posts: result.posts.map((post) => ({
+        ...post,
+        attachments: this.normalizeAttachments(post.attachments),
+      })),
+      totalCount: result.totalCount,
       stats,
     };
   }
@@ -342,14 +352,18 @@ export class InstructorPostsService {
     // 조회 권한 검증
     await this.validatePostAccess(post, userType, profileId, 'READ');
 
-    // 댓글에 isMine 필드 추가
-    const commentsWithIsMine = post.comments.map((comment) =>
-      this.commentsService.addIsMineFieldToComment(
+    // 댓글에 isMine 및 첨부파일 정규화 적용
+    const commentsWithIsMine = post.comments.map((comment) => {
+      const commentWithIsMine = this.commentsService.addIsMineFieldToComment(
         comment,
         userType,
         profileId,
-      ),
-    );
+      );
+      return {
+        ...commentWithIsMine,
+        attachments: this.normalizeAttachments(comment.attachments),
+      };
+    });
 
     if (userType === UserType.STUDENT) {
       // 학생용 첨부파일 필터링 (권한이 있는 자료만 노출)
@@ -360,13 +374,14 @@ export class InstructorPostsService {
 
       return {
         ...post,
-        attachments: accessibleAttachments,
+        attachments: this.normalizeAttachments(accessibleAttachments),
         comments: commentsWithIsMine,
       };
     }
 
     return {
       ...post,
+      attachments: this.normalizeAttachments(post.attachments),
       comments: commentsWithIsMine,
     };
   }
@@ -383,6 +398,12 @@ export class InstructorPostsService {
     const result = [];
 
     for (const attachment of attachments) {
+      // 직접 첨부(Direct)인 경우: materialId가 없으면 항상 노출
+      if (!attachment.materialId) {
+        result.push(attachment);
+        continue;
+      }
+
       const material = attachment.material;
       if (!material) continue;
 
@@ -408,6 +429,22 @@ export class InstructorPostsService {
     }
 
     return result;
+  }
+
+  /**
+   * 첨부파일 구조 정규화 (material.fileUrl을 root로 승격)
+   */
+  private normalizeAttachments<
+    T extends {
+      fileUrl: string | null;
+      material?: { fileUrl: string | null } | null;
+    },
+  >(attachments: T[] | null | undefined) {
+    if (!attachments) return [];
+    return attachments.map((attr) => ({
+      ...attr,
+      fileUrl: attr.fileUrl || attr.material?.fileUrl || null,
+    }));
   }
 
   /** 공지 수정 */
@@ -464,9 +501,14 @@ export class InstructorPostsService {
 
     // 변경 없음 확인 (중복 업데이트 방지)
     const currentMaterialIds = post.attachments
-      .map((a) => a.materialId)
-      .filter((id): id is string => !!id)
+      .filter((a) => a.materialId !== null)
+      .map((a) => a.materialId as string)
       .sort();
+    const currentDirectAttachments = post.attachments
+      .filter((a) => a.materialId === null)
+      .map((a) => ({ filename: a.filename, fileUrl: a.fileUrl }))
+      .sort((a, b) => a.filename.localeCompare(b.filename));
+
     const currentTargetEnrollmentIds = post.targets
       .map((t) => t.enrollmentId)
       .sort();
@@ -482,6 +524,12 @@ export class InstructorPostsService {
       (data.materialIds === undefined ||
         JSON.stringify([...(data.materialIds || [])].sort()) ===
           JSON.stringify(currentMaterialIds)) &&
+      (data.attachments === undefined ||
+        JSON.stringify(
+          [...(data.attachments || [])].sort((a, b) =>
+            a.filename.localeCompare(b.filename),
+          ),
+        ) === JSON.stringify(currentDirectAttachments)) &&
       (data.targetEnrollmentIds === undefined ||
         JSON.stringify([...(data.targetEnrollmentIds || [])].sort()) ===
           JSON.stringify(currentTargetEnrollmentIds));
@@ -490,7 +538,7 @@ export class InstructorPostsService {
       return post;
     }
 
-    return this.instructorPostsRepository.update(postId, {
+    const updatedPost = await this.instructorPostsRepository.update(postId, {
       title: data.title,
       content: data.content,
       isImportant: data.isImportant,
@@ -498,8 +546,18 @@ export class InstructorPostsService {
       targetRole: data.targetRole,
       lectureId: data.lectureId,
       materialIds: data.materialIds || undefined,
+      attachments: data.attachments || undefined,
       targetEnrollmentIds: data.targetEnrollmentIds || undefined,
     });
+
+    if (!updatedPost) {
+      throw new NotFoundException('게시글 수정 후 조회에 실패했습니다.');
+    }
+
+    return {
+      ...updatedPost,
+      attachments: this.normalizeAttachments(updatedPost.attachments),
+    };
   }
 
   /** 공지 삭제 */

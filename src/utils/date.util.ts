@@ -82,26 +82,32 @@ export function startOfDayKst(date: Date): Date {
  * @param dateFields - 변환할 필드명 배열
  * @returns 변환된 객체 (Date 타입 필드가 string으로 변경됨)
  */
+export function transformDateFieldsToKst<T>(obj: T, dateFields: (keyof T)[]): T;
+export function transformDateFieldsToKst<T>(
+  obj: T[],
+  dateFields: (keyof T)[],
+): T[];
 export function transformDateFieldsToKst<T>(
   obj: T | T[],
   dateFields: (keyof T)[],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-): any {
+): T | T[] {
   if (!obj) return obj;
 
   // 배열인 경우 재귀 처리
   if (Array.isArray(obj)) {
-    return obj.map((item) => transformDateFieldsToKst(item, dateFields));
+    return (obj as T[]).map((item) =>
+      transformDateFieldsToKst(item, dateFields),
+    );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = { ...obj } as any;
+  const result = { ...(obj as T) } as Record<string, unknown>;
 
   for (const field of dateFields) {
-    if (result[field] instanceof Date) {
-      result[field] = toKstIsoString(result[field] as Date);
+    const fieldName = field as string;
+    if (result[fieldName] instanceof Date) {
+      result[fieldName] = toKstIsoString(result[fieldName] as Date);
     }
   }
 
-  return result;
+  return result as unknown as T;
 }

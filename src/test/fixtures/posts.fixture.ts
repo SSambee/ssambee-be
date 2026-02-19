@@ -46,7 +46,7 @@ export const mockInstructorPosts = {
         instructorPostId: undefined, // lecture.id와 관계 없음 (별도 첨부파일)
         materialId: mockMaterials.basic.id,
         filename: mockMaterials.basic.title,
-        fileUrl: null,
+        fileUrl: faker.internet.url(),
         createdAt: new Date(),
         material: mockMaterials.basic,
       },

@@ -16,6 +16,15 @@ export const createStudentPostSchema = z.object({
   lectureId: z.cuid2().optional(),
   /** 질문 대상 자녀 연결 ID (학부모가 작성 시 필수) */
   childLinkId: z.string().optional(),
+  /** 직접 첨부 파일 목록 (선택) */
+  attachments: z
+    .array(
+      z.object({
+        filename: z.string().min(1, '파일명은 필수입니다.'),
+        fileUrl: z.url({ error: '유효한 URL이어야 합니다.' }),
+      }),
+    )
+    .optional(),
 });
 
 /**
@@ -88,6 +97,15 @@ export const updateStudentPostSchema = z.object({
   title: z.string().min(1, '제목은 필수입니다.').optional(),
   /** 내용 */
   content: z.string().min(1, '내용은 필수입니다.').optional(),
+  /** 직접 첨부 파일 목록 (선택) */
+  attachments: z
+    .array(
+      z.object({
+        filename: z.string().min(1, '파일명은 필수입니다.'),
+        fileUrl: z.url({ error: '유효한 URL이어야 합니다.' }),
+      }),
+    )
+    .optional(),
 });
 
 /** 학생 질문 작성 DTO 타입 */

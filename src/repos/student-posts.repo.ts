@@ -61,17 +61,45 @@ export type StudentPostWithDetails = Prisma.StudentPostGetPayload<{
   };
 }>;
 
+export type StudentPostListItem = Prisma.StudentPostGetPayload<{
+  include: {
+    enrollment: {
+      select: {
+        studentName: true;
+        appStudentId: true;
+        appParentLink: { select: { appParentId: true } };
+      };
+    };
+    attachments: true;
+    _count: { select: { comments: true } };
+  };
+}>;
+
 export class StudentPostsRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   /** 학생 질문 생성 */
   async create(
-    data: Prisma.StudentPostUncheckedCreateInput,
+    data: Prisma.StudentPostUncheckedCreateInput & {
+      attachments?: { filename: string; fileUrl: string }[];
+    },
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
+    const { attachments, ...postData } = data;
+
     return client.studentPost.create({
-      data,
+      data: {
+        ...postData,
+        attachments: attachments?.length
+          ? {
+              create: attachments,
+            }
+          : undefined,
+      },
+      include: {
+        attachments: true,
+      },
     });
   }
 
@@ -81,6 +109,7 @@ export class StudentPostsRepository {
     return client.studentPost.findUnique({
       where: { id },
       include: {
+        attachments: true,
         enrollment: {
           select: {
             appStudentId: true, // Permission check용
@@ -177,6 +206,7 @@ export class StudentPostsRepository {
               appParentLink: { select: { appParentId: true } },
             },
           },
+          attachments: true,
           _count: { select: { comments: true } },
         },
       }),
@@ -199,16 +229,39 @@ export class StudentPostsRepository {
     });
   }
 
-  /** 질문 수정 (title, content만 수정 가능) */
+  /** 질문 수정 (title, content, attachments 수정 가능) */
   async update(
     id: string,
-    data: Prisma.StudentPostUpdateInput,
+    data: Prisma.StudentPostUpdateInput & {
+      attachments?: { filename: string; fileUrl: string }[];
+    },
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
+    const { attachments, ...postData } = data;
+
+    if (attachments !== undefined) {
+      await client.studentPostAttachment.deleteMany({
+        where: { studentPostId: id },
+      });
+
+      if (attachments.length > 0) {
+        await client.studentPostAttachment.createMany({
+          data: attachments.map((a) => ({
+            studentPostId: id,
+            filename: a.filename,
+            fileUrl: a.fileUrl,
+          })),
+        });
+      }
+    }
+
     return client.studentPost.update({
       where: { id },
-      data,
+      data: postData,
+      include: {
+        attachments: true,
+      },
     });
   }
 
