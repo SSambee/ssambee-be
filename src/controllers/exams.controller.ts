@@ -138,4 +138,33 @@ export class ExamsController {
       next(error);
     }
   };
+
+  /** 시험 성적표 과제 목록 업데이트 핸들러 */
+  updateExamReportAssignments = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { examId } = req.params;
+      const profileId = getProfileIdOrThrow(req);
+      const user = getAuthUser(req);
+      const userType = user.userType as UserType;
+      const updateData = req.body;
+
+      const result = await this.examsService.updateExamReportAssignments(
+        examId,
+        updateData,
+        userType,
+        profileId,
+      );
+
+      return successResponse(res, {
+        data: result,
+        message: '성적표 과제 목록이 업데이트되었습니다.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

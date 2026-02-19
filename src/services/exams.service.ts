@@ -11,6 +11,7 @@ import { PermissionService } from './permission.service.js';
 import type {
   CreateExamDto,
   UpdateExamDto,
+  UpdateExamReportAssignmentsDto,
 } from '../validations/exams.validation.js';
 
 export class ExamsService {
@@ -219,5 +220,74 @@ export class ExamsService {
 
     // 4. 삭제 처리
     await this.examsRepo.delete(examId);
+  }
+
+  /** 시험 성적표 과제 목록 업데이트 */
+  async updateExamReportAssignments(
+    examId: string,
+    data: UpdateExamReportAssignmentsDto,
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 1. Exam 확인
+    const exam = await this.examsRepo.findById(examId);
+    if (!exam) {
+      throw new NotFoundException('시험을 찾을 수 없습니다.');
+    }
+
+    // 2. 권한 확인
+    await this.permissionService.validateInstructorAccess(
+      exam.instructorId,
+      userType,
+      profileId,
+    );
+
+    // 3. 과제 존재 여부 확인
+    if (data.assignments && data.assignments.length > 0) {
+      const count = await this.prisma.assignment.count({
+        where: {
+          id: { in: data.assignments },
+        },
+      });
+
+      if (count !== data.assignments.length) {
+        throw new BadRequestException(
+          '존재하지 않는 과제가 포함되어 있습니다.',
+        );
+      }
+    }
+
+    // 4. 트랜잭션 처리
+    return await this.prisma.$transaction(async (tx) => {
+      const inputAssignmentIds = data.assignments;
+
+      // 3-1. 기존 과제 연계 조회
+      const existingAssignments =
+        await this.examsRepo.findAssignmentsOnExamReportByExamId(examId, tx);
+
+      // 3-2. Delete: 전달되지 않은 기존 과제 연계 삭제
+      const toDeleteIds = existingAssignments
+        .filter((a) => !inputAssignmentIds.includes(a.assignmentId))
+        .map((a) => a.id);
+
+      if (toDeleteIds.length > 0) {
+        await this.examsRepo.deleteAssignmentsOnExamReport(toDeleteIds, tx);
+      }
+
+      // 3-3. Upsert: 전달된 모든 과제 연계 생성 또는 수정
+      for (const assignmentId of inputAssignmentIds) {
+        await this.examsRepo.upsertAssignmentOnExamReport(
+          examId,
+          assignmentId,
+          tx,
+        );
+      }
+
+      // 3-4. 최종 결과 반환
+      return await this.examsRepo.findAssignmentsOnExamReportByExamId(
+        examId,
+        tx,
+      );
+    });
   }
 }

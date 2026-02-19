@@ -404,8 +404,6 @@ model AssignmentOnExamReport {
   id           String   @id @default(cuid(2))
   assignmentId String   @map("assignment_id")
   examId       String   @map("exam_id")
-
-  resultIndex  Int  @map("result_index")
   
   assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)

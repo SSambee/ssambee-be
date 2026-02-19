@@ -225,7 +225,7 @@ export class GradesRepository {
                   },
                 },
               },
-              orderBy: { resultIndex: 'asc' },
+              orderBy: { assignment: { title: 'asc' } },
             },
           },
         },

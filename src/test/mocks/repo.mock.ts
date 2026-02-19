@@ -150,6 +150,9 @@ export const createMockExamsRepository = () =>
     'findByInstructorId',
     'delete',
     'updateStatistics',
+    'findAssignmentsOnExamReportByExamId',
+    'deleteAssignmentsOnExamReport',
+    'upsertAssignmentOnExamReport',
   ]);
 
 /** Mock GradesRepository 생성 */
