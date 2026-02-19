@@ -379,33 +379,63 @@ export class EnrollmentsService {
     return await this.enrollmentsRepository.update(id, data);
   }
 
-  /** 학생/학부모용 수강 목록 조회 (강의 기반) */
+  /** 학생용 강사 목록 조회 (Enrollment 기반) */
   async getMyEnrollments(
     userType: UserType,
     profileId: string,
     query: GetSvcEnrollmentsQueryDto = {
-      page: 1, // Default value from schema
-      limit: 20, // Default value from schema
+      page: 1,
+      limit: 20,
     },
   ) {
     if (userType !== UserType.STUDENT) {
       throw new ForbiddenException(
-        '학생은 본인의 수강 목록만, 학부모는 자녀별 수강 목록 API를 각각 사용해 주세요.',
+        '학생은 본인의 강사 목록만 조회할 수 있습니다. 학부모는 자녀별 API를 사용해 주세요.',
       );
     }
 
-    const { page = 1, limit = 20 } = query;
-    const offset = (page - 1) * limit;
+    const { enrollments, totalCount } =
+      await this.enrollmentsRepository.findByAppStudentId(profileId, query);
 
-    const { lectureEnrollments, totalCount } =
-      await this.lectureEnrollmentsRepository.findManyByAppStudentId(
-        profileId,
-        { limit, offset },
+    // memo 필드 제외 처리
+    const sanitizedEnrollments = enrollments.map(({ memo: _memo, ...rest }) => ({
+      ...rest,
+    }));
+
+    return {
+      enrollments: sanitizedEnrollments,
+      totalCount,
+    };
+  }
+
+  /** 학생용 특정 강사의 강의 목록 조회 */
+  async getEnrollmentLectures(
+    enrollmentId: string,
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 1. Enrollment 존재 확인 및 권한 체크
+    const enrollment = await this.enrollmentsRepository.findById(enrollmentId);
+    if (!enrollment) {
+      throw new NotFoundException('수강 정보를 찾을 수 없습니다.');
+    }
+
+    if (userType === UserType.STUDENT) {
+      if (enrollment.appStudentId !== profileId) {
+        throw new ForbiddenException('본인의 수강 정보만 조회할 수 있습니다.');
+      }
+    } else {
+      throw new ForbiddenException('학생만 이용 가능한 API입니다.');
+    }
+
+    // 2. 해당 Enrollment에 속한 강의 목록 조회
+    const lectureEnrollments =
+      await this.lectureEnrollmentsRepository.findManyByEnrollmentId(
+        enrollmentId,
       );
 
     return {
-      enrollments: lectureEnrollments, // 프론트엔드 호환성을 위해 키 이름은 일단 유지 (API 명세 변경 시 수정)
-      totalCount,
+      lectureEnrollments,
     };
   }
 

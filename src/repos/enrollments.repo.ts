@@ -96,7 +96,15 @@ export class EnrollmentsRepository {
       client.enrollment.findMany({
         where,
         include: {
-          // lecture 관계 삭제됨
+          instructor: {
+            include: {
+              user: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
         },
         orderBy: [{ registeredAt: 'desc' }, { studentName: 'asc' }],
         skip,

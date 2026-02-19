@@ -74,41 +74,41 @@ jobs:
 
       - name: Create .env file
         run: |
-            # 환경 변수 파일 생성
-            echo "NODE_ENV=$NODE_ENV" > .env
-            echo "PORT=$PORT" >> .env
-            echo "DATABASE_URL=$DATABASE_URL" >> .env
-            echo "FRONT_URL=$FRONT_URL" >> .env
-            echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET" >> .env
-            echo "BETTER_AUTH_URL=$BETTER_AUTH_URL" >> .env
-            echo "SENTRY_DSN=$SENTRY_DSN" >> .env
+          # 환경 변수 파일 생성
+          echo "NODE_ENV=$NODE_ENV" > .env
+          echo "PORT=$PORT" >> .env
+          echo "DATABASE_URL=$DATABASE_URL" >> .env
+          echo "FRONT_URL=$FRONT_URL" >> .env
+          echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET" >> .env
+          echo "BETTER_AUTH_URL=$BETTER_AUTH_URL" >> .env
+          echo "SENTRY_DSN=$SENTRY_DSN" >> .env
 
-            # 리포지토리 이름을 소문자로 변환
-            RAW_IMAGE_NAME="${{ github.repository }}"
-            echo "GITHUB_REPOSITORY=${RAW_IMAGE_NAME,,}" >> .env
-            chmod 644 .env
+          # 리포지토리 이름을 소문자로 변환
+          RAW_IMAGE_NAME="${{ github.repository }}"
+          echo "GITHUB_REPOSITORY=${RAW_IMAGE_NAME,,}" >> .env
+          chmod 644 .env
 
       # 생성된 .env와 필요한 소스들을(Sparse Checkout한것) 실행 위치로 복사한다.
       - name: Sync files to app directory
         run: |
-            # 기존 app 폴더가 있다면 소유권을 먼저 확보
-            sudo chown -R ec2-user:ec2-user /home/ec2-user/app || true
-            # 러너 워크스페이스의 내용을 /home/ec2-user/app으로 동기화
-            cp -r ./* /home/ec2-user/app/
-            # 복사 후 다시 한번 전체 소유권을 ec2-user로 강제하기!
-            sudo chown -R ec2-user:ec2-user /home/ec2-user/app/
-            cp .env /home/ec2-user/app/
-      
+          # 기존 app 폴더가 있다면 소유권을 먼저 확보
+          sudo chown -R ec2-user:ec2-user /home/ec2-user/app || true
+          # 러너 워크스페이스의 내용을 /home/ec2-user/app으로 동기화
+          cp -r ./* /home/ec2-user/app/
+          # 복사 후 다시 한번 전체 소유권을 ec2-user로 강제하기!
+          sudo chown -R ec2-user:ec2-user /home/ec2-user/app/
+          cp .env /home/ec2-user/app/
+
       - name: Log in to GHCR
         run: |
           echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
 
       - name: Execute Blue-Green Deployment
         run: |
-            # 러너의 workspace 폴더에서 직접 실행
-            cd /home/ec2-user/app
-            chmod +x deploy.sh
-            ./deploy.sh
+          # 러너의 workspace 폴더에서 직접 실행
+          cd /home/ec2-user/app
+          chmod +x deploy.sh
+          ./deploy.sh
 
       - name: Clean up unused images
         if: always()
