@@ -61,6 +61,20 @@ export type StudentPostWithDetails = Prisma.StudentPostGetPayload<{
   };
 }>;
 
+export type StudentPostListItem = Prisma.StudentPostGetPayload<{
+  include: {
+    enrollment: {
+      select: {
+        studentName: true;
+        appStudentId: true;
+        appParentLink: { select: { appParentId: true } };
+      };
+    };
+    attachments: true;
+    _count: { select: { comments: true } };
+  };
+}>;
+
 export class StudentPostsRepository {
   constructor(private readonly prisma: PrismaClient) {}
 

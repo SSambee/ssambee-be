@@ -87,6 +87,16 @@ export class InstructorPostsRepository {
               }
             : undefined,
       },
+      include: {
+        attachments: { include: { material: true } },
+        targets: {
+          include: {
+            enrollment: {
+              select: { appStudentId: true, studentName: true },
+            },
+          },
+        },
+      },
     });
   }
 
