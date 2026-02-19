@@ -14,7 +14,7 @@ interface SystemMetrics {
 }
 
 /** 알람 환경 설정 */
-let lastAlertTime = 0; // 80% 주의, 90% 위험 알람을 위한 간단한 상태 관리
+let lastAlertTime = 0; // 마지막 알림 발송 시각 (쿨다운 계산용)
 /** 알람 환경 설정 상수 */
 const ALERT_COOLDOWN = 300000; // 5분
 const ALARM_THRESHOLD = isDevelopment() || isTest() ? 100 : 80;
