@@ -57,7 +57,6 @@ export const emailVerificationSchema = z.object({
 /** 이메일 변경 요청 스키마 */
 export const changeMyEmailSchema = z.object({
   newEmail: emailSchema,
-  callbackURL: z.string().url().optional(),
 });
 
 /** 비밀번호 변경 요청 스키마 */
@@ -70,7 +69,12 @@ export const changeMyPasswordSchema = z.object({
 /** 이메일 기반 비밀번호 찾기 요청 스키마 */
 export const findPasswordSchema = z.object({
   email: emailSchema,
-  redirectTo: z.string().url().optional(),
+});
+
+export const resetPasswordSchema = z.object({
+  email: emailSchema,
+  otp: z.string().min(4).max(8),
+  newPassword: passwordSchema,
 });
 
 /**

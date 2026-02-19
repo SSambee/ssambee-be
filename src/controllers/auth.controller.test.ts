@@ -334,7 +334,6 @@ describe('AuthController - @unit #critical', () => {
       expect(mockAuthService.changeMyEmail).toHaveBeenCalledWith(
         mockReq.headers,
         'new@example.com',
-        undefined,
       );
     });
 
@@ -372,8 +371,7 @@ describe('AuthController - @unit #critical', () => {
     it('POST /find-password - 비밀번호 찾기를 요청한다', async () => {
       mockReq.body = { email: mockUsers.student.email };
       mockAuthService.findPassword.mockResolvedValue({
-        status: true,
-        message: '메일 발송 완료',
+        success: true,
       });
 
       await authController.findPassword(
@@ -384,7 +382,27 @@ describe('AuthController - @unit #critical', () => {
 
       expect(mockAuthService.findPassword).toHaveBeenCalledWith(
         mockUsers.student.email,
-        undefined,
+      );
+    });
+
+    it('POST /reset-password - OTP로 비밀번호 재설정을 시도한다', async () => {
+      mockReq.body = {
+        email: mockUsers.student.email,
+        otp: '123456',
+        newPassword: 'newPassword123!',
+      };
+      mockAuthService.resetPasswordWithOTP.mockResolvedValue({ success: true });
+
+      await authController.resetPassword(
+        mockReq as Request,
+        mockRes as Response,
+        mockNext,
+      );
+
+      expect(mockAuthService.resetPasswordWithOTP).toHaveBeenCalledWith(
+        mockUsers.student.email,
+        '123456',
+        'newPassword123!',
       );
     });
   });

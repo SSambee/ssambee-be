@@ -153,8 +153,8 @@ export class AuthController {
   /** 내 이메일 변경 */
   changeMyEmail = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { newEmail, callbackURL } = req.body;
-      await this.authService.changeMyEmail(req.headers, newEmail, callbackURL);
+      const { newEmail } = req.body;
+      await this.authService.changeMyEmail(req.headers, newEmail);
 
       return successResponse(res, {
         message: '이메일 변경 인증 메일을 전송했습니다.',
@@ -195,12 +195,26 @@ export class AuthController {
   /** 이메일 기반 비밀번호 찾기 */
   findPassword = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { email, redirectTo } = req.body;
-      await this.authService.findPassword(email, redirectTo);
+      const { email } = req.body;
+      await this.authService.findPassword(email);
 
       return successResponse(res, {
         message:
           '계정이 존재하면 비밀번호 재설정 메일이 발송됩니다. 메일함을 확인해주세요.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /** OTP 기반 비밀번호 재설정 */
+  resetPassword = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email, otp, newPassword } = req.body;
+      await this.authService.resetPasswordWithOTP(email, otp, newPassword);
+
+      return successResponse(res, {
+        message: '비밀번호가 재설정되었습니다.',
       });
     } catch (error) {
       next(error);

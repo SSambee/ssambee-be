@@ -24,6 +24,7 @@ import {
   signUpRequests,
   mockProfiles,
 } from '../test/fixtures/index.js';
+import { config } from '../config/env.config.js';
 import { PrismaClient } from '../generated/prisma/client.js';
 import type { auth } from '../config/auth.config.js';
 
@@ -56,6 +57,11 @@ describe('AuthService - @unit #critical', () => {
     mockEnrollmentsRepo = createMockEnrollmentsRepository();
     mockBetterAuth = createMockBetterAuth();
     mockPrisma = createMockPrisma() as unknown as PrismaClient;
+    (mockPrisma.$transaction as jest.Mock).mockImplementation(
+      async (callback) => {
+        return callback(mockPrisma);
+      },
+    );
 
     // Create AuthService DI (모든 의존성 주입)
     authService = new AuthService(
@@ -435,7 +441,7 @@ describe('AuthService - @unit #critical', () => {
 
     it('학생 가입 완료 시 비밀번호 설정/유저 업데이트 후 프로필을 생성한다', async () => {
       mockBetterAuth.api.getSession.mockResolvedValue({
-        user: mockUsers.student,
+        user: { ...mockUsers.student, userType: SIGNUP_PENDING_USER_TYPE },
         session: mockSession,
       });
       mockStudentRepo.findByPhoneNumber.mockResolvedValue(null);
@@ -456,6 +462,14 @@ describe('AuthService - @unit #critical', () => {
       );
 
       (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: mockUsers.student.id,
+        name: mockUsers.student.name,
+        email: mockUsers.student.email,
+        userType: UserType.STUDENT,
+        emailVerified: true,
+        image: null,
+      });
+      (mockPrisma.user.update as jest.Mock).mockResolvedValue({
         id: mockUsers.student.id,
         name: mockUsers.student.name,
         email: mockUsers.student.email,
@@ -489,7 +503,7 @@ describe('AuthService - @unit #critical', () => {
 
     it('비밀번호가 이미 설정된 재시도 상황에서도 가입 완료가 가능하다', async () => {
       mockBetterAuth.api.getSession.mockResolvedValue({
-        user: mockUsers.student,
+        user: { ...mockUsers.student, userType: SIGNUP_PENDING_USER_TYPE },
         session: mockSession,
       });
       mockStudentRepo.findByPhoneNumber.mockResolvedValue(null);
@@ -517,6 +531,14 @@ describe('AuthService - @unit #critical', () => {
       );
 
       (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: mockUsers.student.id,
+        name: mockUsers.student.name,
+        email: mockUsers.student.email,
+        userType: UserType.STUDENT,
+        emailVerified: true,
+        image: null,
+      });
+      (mockPrisma.user.update as jest.Mock).mockResolvedValue({
         id: mockUsers.student.id,
         name: mockUsers.student.name,
         email: mockUsers.student.email,
@@ -566,6 +588,17 @@ describe('AuthService - @unit #critical', () => {
       );
 
       expect(result).toEqual({ status: true });
+
+      const request = mockBetterAuth.handler.mock.calls[0][0];
+      const requestBody = await (request as Request).clone().json();
+
+      expect(request.url).toContain('/api/auth/change-email');
+      expect(requestBody).toEqual(
+        expect.objectContaining({
+          newEmail: 'new@example.com',
+          callbackURL: `${config.FRONT_URL}/settings/email-callback`,
+        }),
+      );
     });
 
     it('내 비밀번호 변경 성공 시 Set-Cookie를 함께 반환한다', async () => {
@@ -589,21 +622,59 @@ describe('AuthService - @unit #critical', () => {
       expect(result.setCookie).toBe('session_token=new-cookie');
     });
 
-    it('비밀번호 찾기 요청 시 request-password-reset 엔드포인트를 호출한다', async () => {
+    it('비밀번호 찾기 요청 시 forget-password OTP 엔드포인트를 호출한다', async () => {
       const mockResponse = {
         ok: true,
-        json: jest.fn().mockResolvedValue({
-          status: true,
-          message: '메일 발송 완료',
-        }),
+        json: jest.fn().mockResolvedValue({ success: true }),
         headers: { get: jest.fn().mockReturnValue(null) },
       };
       mockBetterAuth.handler.mockResolvedValue(mockResponse);
 
       const result = await authService.findPassword(mockUsers.student.email);
 
-      expect(result.status).toBe(true);
-      expect(result.message).toBe('메일 발송 완료');
+      expect(result.success).toBe(true);
+
+      const request = mockBetterAuth.handler.mock.calls[0][0];
+      const requestBody = await (request as Request).clone().json();
+
+      expect(request.url).toContain(
+        '/api/auth/email-otp/send-verification-otp',
+      );
+      expect(requestBody).toEqual(
+        expect.objectContaining({
+          email: mockUsers.student.email,
+          type: 'forget-password',
+        }),
+      );
+    });
+
+    it('비밀번호 재설정 시 email-otp/reset-password 엔드포인트를 호출한다', async () => {
+      const mockResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({ success: true }),
+        headers: { get: jest.fn().mockReturnValue(null) },
+      };
+      mockBetterAuth.handler.mockResolvedValue(mockResponse);
+
+      const result = await authService.resetPasswordWithOTP(
+        mockUsers.student.email,
+        '123456',
+        'newPassword123!',
+      );
+
+      expect(result.success).toBe(true);
+
+      const request = mockBetterAuth.handler.mock.calls[0][0];
+      const requestBody = await (request as Request).clone().json();
+
+      expect(request.url).toContain('/api/auth/email-otp/reset-password');
+      expect(requestBody).toEqual(
+        expect.objectContaining({
+          email: mockUsers.student.email,
+          otp: '123456',
+          password: 'newPassword123!',
+        }),
+      );
     });
   });
 });

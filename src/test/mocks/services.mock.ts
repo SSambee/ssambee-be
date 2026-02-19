@@ -13,6 +13,7 @@ export const createMockAuthService = (): jest.Mocked<AuthService> =>
     changeMyEmail: jest.fn(),
     changeMyPassword: jest.fn(),
     findPassword: jest.fn(),
+    resetPasswordWithOTP: jest.fn(),
     signOut: jest.fn(),
     getSession: jest.fn(),
   }) as unknown as jest.Mocked<AuthService>;

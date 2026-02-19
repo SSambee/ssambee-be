@@ -4,6 +4,7 @@ import { validate } from '../../../middlewares/validate.middleware.js';
 import {
   findPasswordSchema,
   emailVerificationSchema,
+  resetPasswordSchema,
   signInSchema,
   studentSignUpSchema,
   parentSignUpSchema,
@@ -39,11 +40,18 @@ svcAuthRouter.post(
   container.authController.emailVerification.bind(container.authController),
 );
 
-/** 이메일 기반 비밀번호 찾기 */
+/** 이메일 기반 비밀번호 찾기 요청 */
 svcAuthRouter.post(
   '/find-password',
   validate(findPasswordSchema),
   container.authController.findPassword.bind(container.authController),
+);
+
+/** 비밀번호 재설정(OTP) */
+svcAuthRouter.post(
+  '/reset-password',
+  validate(resetPasswordSchema),
+  container.authController.resetPassword.bind(container.authController),
 );
 
 /** 학생/학부모 로그아웃 */

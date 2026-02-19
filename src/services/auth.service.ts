@@ -35,10 +35,27 @@ export class AuthService {
   ) {}
 
   private readonly baseURL = config.BETTER_AUTH_URL;
-  private readonly defaultOrigin =
-    config.FRONT_URL?.split(',')
-      .map((url) => url.trim())
-      .filter(Boolean)[0] || config.BETTER_AUTH_URL;
+  private readonly frontOrigin = config.FRONT_URL?.split(',')
+    .map((url) => url.trim())
+    .filter(Boolean)[0];
+
+  private readonly emailChangeCallbackPath = '/settings/email-callback';
+  private getFrontUrl(path: string) {
+    const base = this.frontOrigin;
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+    if (!base) {
+      throw new BadRequestException(
+        'FRONT_URL is required to generate frontend callback links.',
+      );
+    }
+
+    try {
+      return new URL(normalizedPath, base).toString();
+    } catch (_error) {
+      return `${base.replace(/\/+$/, '')}${normalizedPath}`;
+    }
+  }
 
   private isSupportedUserType(value: string): value is UserType {
     return (Object.values(UserType) as string[]).includes(value);
@@ -93,7 +110,7 @@ export class AuthService {
       !requestHeaders.origin &&
       !requestHeaders.referer
     ) {
-      requestHeaders.origin = this.defaultOrigin;
+      requestHeaders.origin = this.frontOrigin || this.baseURL;
     }
 
     return requestHeaders;
@@ -270,18 +287,14 @@ export class AuthService {
   }
 
   /** 내 이메일 변경 */
-  async changeMyEmail(
-    headers: IncomingHttpHeaders,
-    newEmail: string,
-    callbackURL?: string,
-  ) {
+  async changeMyEmail(headers: IncomingHttpHeaders, newEmail: string) {
     const { data } = await this.callAuthHandler<{ status: boolean }>({
       path: '/change-email',
       method: 'POST',
       headers,
       body: {
         newEmail,
-        callbackURL,
+        callbackURL: this.getFrontUrl(this.emailChangeCallbackPath),
       },
       fallbackErrorMessage: '이메일 변경에 실패했습니다.',
     });
@@ -318,18 +331,33 @@ export class AuthService {
   }
 
   /** 이메일 기반 비밀번호 찾기 */
-  async findPassword(email: string, redirectTo?: string) {
+  async findPassword(email: string) {
     const { data } = await this.callAuthHandler<{
-      status: boolean;
-      message: string;
+      success: boolean;
     }>({
-      path: '/request-password-reset',
+      path: '/email-otp/send-verification-otp',
       method: 'POST',
       body: {
         email,
-        redirectTo,
+        type: 'forget-password',
       },
-      fallbackErrorMessage: '비밀번호 재설정 메일 발송에 실패했습니다.',
+      fallbackErrorMessage: '비밀번호 재설정 인증코드 발송에 실패했습니다.',
+    });
+
+    return data;
+  }
+
+  /** 비밀번호 재설정 (OTP) */
+  async resetPasswordWithOTP(email: string, otp: string, newPassword: string) {
+    const { data } = await this.callAuthHandler<{ success: boolean }>({
+      path: '/email-otp/reset-password',
+      method: 'POST',
+      body: {
+        email,
+        otp,
+        password: newPassword,
+      },
+      fallbackErrorMessage: '비밀번호 재설정에 실패했습니다.',
     });
 
     return data;
