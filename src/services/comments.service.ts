@@ -437,6 +437,7 @@ export class CommentsService {
     const comment = await this.commentsRepository.create({
       ...data,
       ...writerInfo,
+      attachments: data.attachments,
     });
     return this.addIsMineField(comment, userType, profileId);
   }
@@ -499,6 +500,7 @@ export class CommentsService {
     const updatedComment = await this.commentsRepository.update(commentId, {
       content: data.content,
       materialIds: data.materialIds,
+      attachments: data.attachments,
     });
     return this.addIsMineField(updatedComment, userType, profileId);
   }

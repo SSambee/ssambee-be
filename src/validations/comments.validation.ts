@@ -9,6 +9,15 @@ export const createCommentSchema = z
     content: z.string().min(1, '내용은 필수입니다.'),
     /** 첨부 자료 ID 목록 (선택) */
     materialIds: z.array(z.cuid2()).optional(),
+    /** 직접 첨부 파일 목록 (선택) */
+    attachments: z
+      .array(
+        z.object({
+          filename: z.string().min(1, '파일명은 필수입니다.'),
+          fileUrl: z.string().url('유효한 URL이어야 합니다.'),
+        }),
+      )
+      .optional(),
     /** 강사 게시물 ID (강사 게시물에 댓글 작성 시) */
     instructorPostId: z.cuid2().optional(),
     /** 학생 질문 게시물 ID (학생 질문에 댓글 작성 시) */
@@ -26,6 +35,15 @@ export const updateCommentSchema = z.object({
   content: z.string().min(1, '내용은 필수입니다.'),
   /** 수정할 첨부 자료 ID 목록 (선택) */
   materialIds: z.array(z.cuid2()).optional(),
+  /** 수정할 직접 첨부 파일 목록 (선택) */
+  attachments: z
+    .array(
+      z.object({
+        filename: z.string().min(1, '파일명은 필수입니다.'),
+        fileUrl: z.string().url('유효한 URL이어야 합니다.'),
+      }),
+    )
+    .optional(),
 });
 
 /**

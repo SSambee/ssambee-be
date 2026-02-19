@@ -83,6 +83,7 @@ export class StudentPostsService {
       authorRole,
       instructorId: enrollment.instructorId,
       lectureId: data.lectureId || null,
+      attachments: data.attachments,
     });
   }
 
@@ -314,7 +315,11 @@ export class StudentPostsService {
   /** 질문 수정 (본인만 가능) */
   async updatePost(
     postId: string,
-    data: { title?: string; content?: string },
+    data: {
+      title?: string;
+      content?: string;
+      attachments?: { filename: string; fileUrl: string }[];
+    },
     userType: UserType,
     profileId: string,
   ) {
@@ -328,13 +333,21 @@ export class StudentPostsService {
       throw new ForbiddenException('본인이 작성한 질문만 수정할 수 있습니다.');
     }
 
-    if (!data.title && !data.content) {
+    if (!data.title && !data.content && data.attachments === undefined) {
       throw new BadRequestException('수정할 내용이 없습니다.');
     }
 
     const isRedundant =
       (data.title === undefined || data.title === post.title) &&
-      (data.content === undefined || data.content === post.content);
+      (data.content === undefined || data.content === post.content) &&
+      (data.attachments === undefined ||
+        JSON.stringify(data.attachments) ===
+          JSON.stringify(
+            post.attachments?.map((a) => ({
+              filename: a.filename,
+              fileUrl: a.fileUrl,
+            })),
+          ));
 
     if (isRedundant) {
       return post;
@@ -343,6 +356,7 @@ export class StudentPostsService {
     return this.studentPostsRepository.update(postId, {
       title: data.title,
       content: data.content,
+      attachments: data.attachments,
     });
   }
 

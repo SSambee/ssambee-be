@@ -34,33 +34,49 @@ export class InstructorPostsRepository {
   async create(
     data: Prisma.InstructorPostUncheckedCreateInput & {
       materialIds?: string[];
+      attachments?: { filename: string; fileUrl: string }[];
       targetEnrollmentIds?: string[];
     },
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx || this.prisma;
-    const { materialIds, targetEnrollmentIds, ...postData } = data;
+    const { materialIds, attachments, targetEnrollmentIds, ...postData } = data;
 
-    // materialIds가 있으면 Material 정보를 조회하여 filename 포함
-    let attachmentsData: { materialId: string; filename: string }[] | undefined;
+    // 1. 라이브러리 자료 첨부 데이터
+    let materialAttachments:
+      | { materialId: string; filename: string }[]
+      | undefined;
     if (materialIds?.length) {
       const materials = await client.material.findMany({
         where: { id: { in: materialIds } },
         select: { id: true, title: true },
       });
-      attachmentsData = materials.map((m) => ({
+      materialAttachments = materials.map((m) => ({
         materialId: m.id,
         filename: m.title,
       }));
     }
 
+    // 2. 직접 첨부 데이터
+    const directAttachments =
+      attachments?.map((a) => ({
+        filename: a.filename,
+        fileUrl: a.fileUrl,
+      })) || [];
+
+    // 3. 결합
+    const allAttachments = [
+      ...(materialAttachments || []),
+      ...directAttachments,
+    ];
+
     return client.instructorPost.create({
       data: {
         ...postData,
         // 첨부파일 연결
-        attachments: attachmentsData?.length
+        attachments: allAttachments.length
           ? {
-              create: attachmentsData,
+              create: allAttachments,
             }
           : undefined,
         // 타겟 학생 연결 (SELECTED 스코프일 때)
@@ -252,26 +268,43 @@ export class InstructorPostsRepository {
     id: string,
     data: Prisma.InstructorPostUncheckedUpdateInput & {
       materialIds?: string[];
+      attachments?: { filename: string; fileUrl: string }[];
       targetEnrollmentIds?: string[];
     },
     tx?: Prisma.TransactionClient,
   ) {
-    const { materialIds, targetEnrollmentIds, ...postData } = data;
+    const { materialIds, attachments, targetEnrollmentIds, ...postData } = data;
     const client = tx ?? this.prisma;
 
-    // materialIds가 있으면 Material 정보를 조회하여 filename 포함 (attachments 용)
-    let attachmentsCreateData:
-      | { materialId: string; filename: string }[]
+    // 첨부파일 데이터 준비
+    let allAttachmentsToCreate:
+      | { materialId?: string; filename: string; fileUrl?: string }[]
       | undefined;
-    if (materialIds !== undefined && materialIds.length > 0) {
-      const materials = await client.material.findMany({
-        where: { id: { in: materialIds } },
-        select: { id: true, title: true },
-      });
-      attachmentsCreateData = materials.map((m) => ({
-        materialId: m.id,
-        filename: m.title,
-      }));
+
+    if (materialIds !== undefined || attachments !== undefined) {
+      allAttachmentsToCreate = [];
+
+      // 1. 라이브러리 자료 첨부
+      if (materialIds?.length) {
+        const materials = await client.material.findMany({
+          where: { id: { in: materialIds } },
+          select: { id: true, title: true },
+        });
+        const materialAttachments = materials.map((m) => ({
+          materialId: m.id,
+          filename: m.title,
+        }));
+        allAttachmentsToCreate.push(...materialAttachments);
+      }
+
+      // 2. 직접 첨부
+      if (attachments?.length) {
+        const directAttachments = attachments.map((a) => ({
+          filename: a.filename,
+          fileUrl: a.fileUrl,
+        }));
+        allAttachmentsToCreate.push(...directAttachments);
+      }
     }
 
     // Prisma의 nested update를 사용하여 원자성 보장 및 코드 간소화
@@ -281,10 +314,10 @@ export class InstructorPostsRepository {
         ...postData,
         // 첨부파일 관계 업데이트 (기존 삭제 후 새 생성)
         attachments:
-          materialIds !== undefined
+          allAttachmentsToCreate !== undefined
             ? {
                 deleteMany: {},
-                create: attachmentsCreateData || [],
+                create: allAttachmentsToCreate,
               }
             : undefined,
         // 타겟 관계 업데이트 (기존 삭제 후 새 생성)

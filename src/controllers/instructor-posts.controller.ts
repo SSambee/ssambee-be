@@ -96,7 +96,7 @@ export class InstructorPostsController {
       ]);
 
       const postsWithLectureTitle = (
-        kstPosts as InstructorPostWithDetails[]
+        kstPosts as unknown as InstructorPostWithDetails[]
       ).map((post) => ({
         ...post,
         lectureTitle: post.lecture?.title || null,
@@ -154,16 +154,15 @@ export class InstructorPostsController {
         'updatedAt',
       ]);
 
+      const kstResultTyped = kstResult as unknown as InstructorPostWithDetails;
+
       const responseWithLectureTitle = {
-        ...kstResult,
-        lectureTitle:
-          (kstResult as InstructorPostWithDetails).lecture?.title || null,
+        ...kstResultTyped,
+        lectureTitle: kstResultTyped.lecture?.title || null,
         isMine:
           userType === UserType.INSTRUCTOR
-            ? (kstResult as InstructorPostWithDetails).instructorId ===
-              profileId
-            : (kstResult as InstructorPostWithDetails).authorAssistantId ===
-              profileId,
+            ? kstResultTyped.instructorId === profileId
+            : kstResultTyped.authorAssistantId === profileId,
       };
 
       return successResponse(res, {
