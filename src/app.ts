@@ -11,8 +11,6 @@ import {
   startSystemMonitoring,
   stopSystemMonitoring,
 } from './utils/monitor.util.js';
-import { toNodeHandler } from 'better-auth/node';
-import { auth } from './config/auth.config.js';
 import { initSentry } from './config/sentry.config.js';
 import * as Sentry from '@sentry/node';
 import './config/redis.config.js';
@@ -54,8 +52,10 @@ if (config.LOG_LAMBDA_URL) {
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
-// 3. better auth 내부 우회 api (공식문서상 데이터 파서 앞에)
-app.all('/api/auth/*splat', toNodeHandler(auth));
+// 3. Better Auth 기본 라우트는 내부 사용만 허용하며 외부 공개를 차단한다.
+app.use('/api/auth/*splat', (req, res) => {
+  res.sendStatus(404);
+});
 
 // 4. 데이터 파서
 app.use(express.json());
