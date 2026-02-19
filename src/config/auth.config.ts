@@ -11,11 +11,7 @@ import type { PrismaClient } from '../generated/prisma/client.js';
 import { prisma } from './db.config.js';
 import { config, isDevelopment } from './env.config.js';
 import { SIGNUP_PENDING_USER_TYPE } from '../constants/auth.constant.js';
-import {
-  sendEmailOtp,
-  sendPasswordResetLinkMail,
-  sendVerificationLinkMail,
-} from '../utils/mail.util.js';
+import { sendEmailOtp, sendVerificationLinkMail } from '../utils/mail.util.js';
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma as unknown as PrismaClient, {
@@ -27,12 +23,6 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
-    sendResetPassword: async ({ user, url }) => {
-      await sendPasswordResetLinkMail({
-        email: user.email,
-        url,
-      });
-    },
   },
 
   emailVerification: {

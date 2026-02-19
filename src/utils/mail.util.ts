@@ -72,7 +72,7 @@ export const sendEmailOtp = async ({
     'forget-password': '비밀번호 재설정 코드',
   } as const;
 
-  const subject = `[EduOps] ${titleByType[type]}`;
+  const subject = `[SSAMBEE] ${titleByType[type]}`;
   const text = `${titleByType[type]}: ${otp}`;
   const html = `<div>
     <p>${titleByType[type]}입니다.</p>
@@ -97,29 +97,11 @@ export const sendVerificationLinkMail = async ({
 }) => {
   await sendAuthMail({
     to: email,
-    subject: '[EduOps] 이메일 인증 링크',
+    subject: '[SSAMBEE] 이메일 인증 링크',
     text: `아래 링크로 이메일 인증을 완료해주세요: ${url}`,
     html: `<div>
       <p>아래 버튼을 눌러 이메일 인증을 완료해주세요.</p>
       <a href="${url}" target="_blank" rel="noreferrer noopener">이메일 인증하기</a>
-    </div>`,
-  });
-};
-
-export const sendPasswordResetLinkMail = async ({
-  email,
-  url,
-}: {
-  email: string;
-  url: string;
-}) => {
-  await sendAuthMail({
-    to: email,
-    subject: '[EduOps] 비밀번호 재설정',
-    text: `아래 링크에서 비밀번호를 재설정해주세요: ${url}`,
-    html: `<div>
-      <p>아래 버튼을 눌러 비밀번호를 재설정해주세요.</p>
-      <a href="${url}" target="_blank" rel="noreferrer noopener">비밀번호 재설정</a>
     </div>`,
   });
 };
