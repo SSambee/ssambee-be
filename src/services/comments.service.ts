@@ -18,6 +18,9 @@ import {
   UpdateCommentDto,
 } from '../validations/comments.validation.js';
 import { StudentPostStatus, AuthorRole } from '../constants/posts.constant.js';
+import { FileStorageService } from './filestorage.service.js';
+import path from 'path';
+import { randomUUID } from 'crypto';
 
 export class CommentsService {
   constructor(
@@ -29,6 +32,7 @@ export class CommentsService {
     private readonly materialsRepository: MaterialsRepository,
     private readonly permissionService: PermissionService,
     private readonly parentChildLinkRepository: ParentChildLinkRepository,
+    private readonly fileStorageService: FileStorageService,
   ) {}
 
   /** 댓글 및 게시글 연관성 검증 */
@@ -353,6 +357,7 @@ export class CommentsService {
     data: CreateCommentDto,
     userType: UserType,
     profileId: string,
+    files?: Express.Multer.File[],
   ) {
     if (data.instructorPostId && data.studentPostId) {
       throw new BadRequestException(
@@ -415,6 +420,31 @@ export class CommentsService {
       await this.validateMaterialOwnership(data.materialIds, instructorId);
     }
 
+    // 직접 첨부 파일 처리 (S3 업로드)
+    const uploadedAttachments: { filename: string; fileUrl: string }[] = [];
+    if (files?.length) {
+      for (const file of files) {
+        const randomId = randomUUID();
+        const ext = path.extname(file.originalname);
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const key = `attachments/${year}/${month}/${randomId}${ext}`;
+
+        const fileUrl = await this.fileStorageService.upload(file, key);
+        uploadedAttachments.push({
+          filename: file.originalname,
+          fileUrl,
+        });
+      }
+    }
+
+    // 기존 데이터의 attachments와 업로드된 attachments 결합
+    const allAttachments = [
+      ...(data.attachments || []),
+      ...uploadedAttachments,
+    ];
+
     // 강사/조교가 학생 질문에 댓글 작성 시 트랜잭션으로 처리
     if (
       studentPostForStatus &&
@@ -429,17 +459,24 @@ export class CommentsService {
           enrollmentId: writerInfo.enrollmentId,
           authorRole: writerInfo.authorRole,
           materialIds: data.materialIds,
+          attachments: allAttachments.length ? allAttachments : undefined,
         });
-      return this.addIsMineField(comment, userType, profileId);
+      return {
+        ...this.addIsMineField(comment, userType, profileId),
+        attachments: this.normalizeAttachments(comment.attachments),
+      };
     }
 
     // 일반 댓글 생성
-    const comment = await this.commentsRepository.create({
+    const result = await this.commentsRepository.create({
       ...data,
       ...writerInfo,
-      attachments: data.attachments,
+      attachments: allAttachments.length ? allAttachments : undefined,
     });
-    return this.addIsMineField(comment, userType, profileId);
+    return {
+      ...this.addIsMineField(result, userType, profileId),
+      attachments: this.normalizeAttachments(result.attachments),
+    };
   }
 
   /** 댓글 삭제 */
@@ -502,6 +539,25 @@ export class CommentsService {
       materialIds: data.materialIds,
       attachments: data.attachments,
     });
-    return this.addIsMineField(updatedComment, userType, profileId);
+    return {
+      ...this.addIsMineField(updatedComment, userType, profileId),
+      attachments: this.normalizeAttachments(updatedComment.attachments),
+    };
+  }
+
+  /**
+   * 첨부파일 구조 정규화 (material.fileUrl을 root로 승격)
+   */
+  private normalizeAttachments<
+    T extends {
+      fileUrl: string | null;
+      material?: { fileUrl: string | null } | null;
+    },
+  >(attachments: T[] | null | undefined) {
+    if (!attachments) return [];
+    return attachments.map((attr) => ({
+      ...attr,
+      fileUrl: attr.fileUrl || attr.material?.fileUrl || null,
+    }));
   }
 }
