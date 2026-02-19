@@ -39,24 +39,6 @@ export class AuthService {
     .map((url) => url.trim())
     .filter(Boolean)[0];
 
-  private readonly emailChangeCallbackPath = '/settings/email-callback';
-  private getFrontUrl(path: string) {
-    const base = this.frontOrigin;
-    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-
-    if (!base) {
-      throw new BadRequestException(
-        'FRONT_URL is required to generate frontend callback links.',
-      );
-    }
-
-    try {
-      return new URL(normalizedPath, base).toString();
-    } catch (_error) {
-      return `${base.replace(/\/+$/, '')}${normalizedPath}`;
-    }
-  }
-
   private isSupportedUserType(value: string): value is UserType {
     return (Object.values(UserType) as string[]).includes(value);
   }
@@ -292,10 +274,7 @@ export class AuthService {
       path: '/change-email',
       method: 'POST',
       headers,
-      body: {
-        newEmail,
-        callbackURL: this.getFrontUrl(this.emailChangeCallbackPath),
-      },
+      body: { newEmail },
       fallbackErrorMessage: '이메일 변경에 실패했습니다.',
     });
 

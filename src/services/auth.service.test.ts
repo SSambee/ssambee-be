@@ -24,7 +24,6 @@ import {
   signUpRequests,
   mockProfiles,
 } from '../test/fixtures/index.js';
-import { config } from '../config/env.config.js';
 import { PrismaClient } from '../generated/prisma/client.js';
 import type { auth } from '../config/auth.config.js';
 
@@ -596,7 +595,6 @@ describe('AuthService - @unit #critical', () => {
       expect(requestBody).toEqual(
         expect.objectContaining({
           newEmail: 'new@example.com',
-          callbackURL: `${config.FRONT_URL}/settings/email-callback`,
         }),
       );
     });
