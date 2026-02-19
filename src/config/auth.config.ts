@@ -13,6 +13,24 @@ import { config, isDevelopment } from './env.config.js';
 import { SIGNUP_PENDING_USER_TYPE } from '../constants/auth.constant.js';
 import { sendEmailOtp, sendVerificationLinkMail } from '../utils/mail.util.js';
 
+const getVerifyEmailPath = (): string => {
+  return '/api/public/v1/auth/verify-email';
+};
+
+const buildVerifyEmailLink = (url: string): string => {
+  const parsedUrl = new URL(url);
+  const token = parsedUrl.searchParams.get('token');
+
+  parsedUrl.pathname = getVerifyEmailPath();
+  parsedUrl.search = '';
+
+  if (token) {
+    parsedUrl.searchParams.set('token', token);
+  }
+
+  return parsedUrl.toString();
+};
+
 export const auth = betterAuth({
   database: prismaAdapter(prisma as unknown as PrismaClient, {
     provider: 'postgresql',
@@ -26,10 +44,11 @@ export const auth = betterAuth({
   },
 
   emailVerification: {
-    sendVerificationEmail: async ({ user, url }) => {
+    sendVerificationEmail: async ({ url, user }) => {
+      const verifyEmailUrl = buildVerifyEmailLink(url);
       await sendVerificationLinkMail({
         email: user.email,
-        url,
+        url: verifyEmailUrl,
       });
     },
   },

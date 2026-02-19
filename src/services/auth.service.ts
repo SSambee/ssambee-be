@@ -60,6 +60,14 @@ export class AuthService {
     return fallback;
   }
 
+  private async parseJsonResponse<T>(response: Response): Promise<T> {
+    try {
+      return (await response.json()) as T;
+    } catch (_error) {
+      throw new BadRequestException('서버 응답을 읽는 중 오류가 발생했습니다.');
+    }
+  }
+
   private toRequestHeaders(
     headers?: IncomingHttpHeaders,
     withJsonContentType: boolean = true,
@@ -265,6 +273,50 @@ export class AuthService {
       user,
       session: finalSession,
       setCookie,
+    };
+  }
+
+  /** 이메일 인증 링크 검증 */
+  async verifyEmailWithToken(token: string) {
+    const url = new URL(`${this.baseURL}/api/auth/verify-email`);
+    url.searchParams.set('token', token);
+
+    const request = new Request(url.toString(), {
+      method: 'GET',
+      headers: this.toRequestHeaders(),
+    });
+
+    const response = await this.authClient.handler(request);
+
+    const setCookie = response.headers.get('set-cookie');
+    const redirectTo = response.headers.get('location');
+
+    if (response.status >= 300 && response.status < 400) {
+      return {
+        status: true,
+        user: null,
+        setCookie,
+        redirectTo,
+      };
+    }
+
+    if (!response.ok) {
+      const message = await this.getAuthErrorMessage(
+        response,
+        '이메일 인증에 실패했습니다.',
+      );
+      throw new BadRequestException(message);
+    }
+
+    const result = await this.parseJsonResponse<{
+      status: boolean;
+      user: AuthUser | null;
+    }>(response);
+
+    return {
+      ...result,
+      setCookie,
+      redirectTo,
     };
   }
 

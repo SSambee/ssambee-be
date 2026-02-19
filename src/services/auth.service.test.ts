@@ -423,6 +423,55 @@ describe('AuthService - @unit #critical', () => {
       expect(result.session).toEqual({ token: 'otp-token' });
       expect(result.setCookie).toBe('session_token=test-cookie');
     });
+
+    it('이메일 인증 링크 검증 시 verify-email 엔드포인트를 호출한다', async () => {
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        headers: { get: jest.fn().mockReturnValue(null) },
+        json: jest.fn().mockResolvedValue({
+          status: true,
+          user: mockUsers.student,
+        }),
+      };
+      mockBetterAuth.handler.mockResolvedValue(mockResponse);
+
+      const result = await authService.verifyEmailWithToken('token-test');
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          status: true,
+          user: mockUsers.student,
+        }),
+      );
+
+      const request = (mockBetterAuth.handler as jest.Mock).mock.calls[0][0];
+      expect(request.url).toContain('/api/auth/verify-email?token=token-test');
+      expect(request.method).toBe('GET');
+    });
+
+    it('이메일 인증 링크 리다이렉트 응답도 전달한다', async () => {
+      const mockResponse = {
+        ok: false,
+        status: 302,
+        headers: {
+          get: jest.fn().mockImplementation((key: string) => {
+            if (key === 'location') {
+              return 'https://example.com/success';
+            }
+            return null;
+          }),
+        },
+        json: jest.fn(),
+        text: jest.fn(),
+      };
+      mockBetterAuth.handler.mockResolvedValue(mockResponse);
+
+      const result = await authService.verifyEmailWithToken('token-test');
+
+      expect(result.redirectTo).toBe('https://example.com/success');
+      expect(result.status).toBe(true);
+    });
   });
 
   describe('AUTH-12: 인증 세션 기반 회원가입 완료', () => {

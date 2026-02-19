@@ -10,6 +10,7 @@ export const createMockAuthService = (): jest.Mocked<AuthService> =>
     signIn: jest.fn(),
     requestEmailVerification: jest.fn(),
     verifyEmailVerification: jest.fn(),
+    verifyEmailWithToken: jest.fn(),
     changeMyEmail: jest.fn(),
     changeMyPassword: jest.fn(),
     findPassword: jest.fn(),

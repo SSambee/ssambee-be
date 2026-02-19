@@ -54,6 +54,11 @@ export const emailVerificationSchema = z.object({
   }, z.string().min(4).max(8).optional()),
 });
 
+/** 이메일 인증 링크 검증 쿼리 */
+export const verifyEmailQuerySchema = z.object({
+  token: z.string().min(1, 'token은 필수입니다.'),
+});
+
 /** 이메일 변경 요청 스키마 */
 export const changeMyEmailSchema = z.object({
   newEmail: emailSchema,

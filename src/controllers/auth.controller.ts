@@ -1,7 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/auth.service.js';
 import { AUTH_COOKIE_NAME, UserType } from '../constants/auth.constant.js';
-import { UnauthorizedException } from '../err/http.exception.js';
+import {
+  ForbiddenException,
+  UnauthorizedException,
+} from '../err/http.exception.js';
 import { successResponse } from '../utils/response.util.js';
 import { AuthResponse } from '../types/auth.types.js';
 import { isProduction } from '../config/env.config.js';
@@ -142,6 +145,86 @@ export class AuthController {
       return successResponse(res, {
         message: '이메일 인증이 완료되었습니다.',
         data: {
+          user: result.user,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /** 이메일 인증 링크 검증(공통) */
+  verifyEmail = async (req: Request, res: Response, next: NextFunction) => {
+    await this.verifyEmailWithScope(req, res, next);
+  };
+
+  /** 이메일 인증 링크 검증(학생/학부모) */
+  verifyEmailForSvc = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    await this.verifyEmailWithScope(req, res, next, [
+      UserType.STUDENT,
+      UserType.PARENT,
+    ]);
+  };
+
+  /** 이메일 인증 링크 검증(강사/조교) */
+  verifyEmailForMgmt = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    await this.verifyEmailWithScope(req, res, next, [
+      UserType.INSTRUCTOR,
+      UserType.ASSISTANT,
+    ]);
+  };
+
+  /** 이메일 인증 링크 공통 처리 */
+  private verifyEmailWithScope = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+    allowedUserTypes: UserType[] = [],
+  ) => {
+    try {
+      const { token } = req.query;
+      if (typeof token !== 'string' || token.trim().length === 0) {
+        return next(new ForbiddenException('유효하지 않은 인증 토큰입니다.'));
+      }
+
+      const result = await this.authService.verifyEmailWithToken(token);
+      const userType =
+        result.user && typeof result.user.userType === 'string'
+          ? result.user.userType
+          : undefined;
+
+      if (
+        allowedUserTypes.length > 0 &&
+        userType &&
+        !allowedUserTypes.includes(userType as UserType)
+      ) {
+        return next(
+          new ForbiddenException(
+            '해당 링크는 올바르지 않은 사용자 유형입니다.',
+          ),
+        );
+      }
+
+      if (result.setCookie) {
+        res.setHeader('Set-Cookie', result.setCookie);
+      }
+
+      if (result.redirectTo) {
+        return res.redirect(result.redirectTo);
+      }
+
+      return successResponse(res, {
+        message: '이메일 인증이 완료되었습니다.',
+        data: {
+          status: result.status,
           user: result.user,
         },
       });

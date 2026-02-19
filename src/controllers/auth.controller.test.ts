@@ -4,6 +4,7 @@ import { UserType } from '../constants/auth.constant.js';
 import {
   UnauthorizedException,
   BadRequestException,
+  ForbiddenException,
 } from '../err/http.exception.js';
 import { createMockAuthService } from '../test/mocks/index.js';
 import {
@@ -46,6 +47,7 @@ describe('AuthController - @unit #critical', () => {
       cookie: jest.fn().mockReturnThis(),
       clearCookie: jest.fn().mockReturnThis(),
       setHeader: jest.fn().mockReturnThis(),
+      redirect: jest.fn(),
     };
 
     // NextFunction Mock 설정
@@ -316,6 +318,117 @@ describe('AuthController - @unit #critical', () => {
         'Set-Cookie',
         'session_token=otp-cookie',
       );
+    });
+
+    it('GET /svc/auth/verify-email - svc 사용자 링크를 검증한다', async () => {
+      mockReq.query = { token: 'token-for-student' };
+      mockAuthService.verifyEmailWithToken.mockResolvedValue({
+        status: true,
+        user: mockUsers.student,
+        setCookie: 'session_token=verified-cookie',
+      });
+
+      await authController.verifyEmailForSvc(
+        mockReq as Request,
+        mockRes as Response,
+        mockNext,
+      );
+
+      expect(mockAuthService.verifyEmailWithToken).toHaveBeenCalledWith(
+        'token-for-student',
+      );
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Set-Cookie',
+        'session_token=verified-cookie',
+      );
+      expect(mockRes.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'success',
+          message: '이메일 인증이 완료되었습니다.',
+          data: expect.objectContaining({
+            status: true,
+            user: mockUsers.student,
+          }),
+        }),
+      );
+    });
+
+    it('GET /public/auth/verify-email - 타입 제한 없이 인증을 완료한다', async () => {
+      mockReq.query = { token: 'token-for-instructor' };
+      mockAuthService.verifyEmailWithToken.mockResolvedValue({
+        status: true,
+        user: mockUsers.instructor,
+        setCookie: 'session_token=verified-cookie',
+      });
+
+      await authController.verifyEmail(
+        mockReq as Request,
+        mockRes as Response,
+        mockNext,
+      );
+
+      expect(mockAuthService.verifyEmailWithToken).toHaveBeenCalledWith(
+        'token-for-instructor',
+      );
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Set-Cookie',
+        'session_token=verified-cookie',
+      );
+      expect(mockRes.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'success',
+          message: '이메일 인증이 완료되었습니다.',
+          data: expect.objectContaining({
+            status: true,
+            user: mockUsers.instructor,
+          }),
+        }),
+      );
+    });
+
+    it('GET /mgmt/auth/verify-email - mgmt 사용자 링크를 검증한다', async () => {
+      mockReq.query = { token: 'token-for-instructor' };
+      mockAuthService.verifyEmailWithToken.mockResolvedValue({
+        status: true,
+        user: mockUsers.instructor,
+        setCookie: 'session_token=verified-cookie',
+      });
+
+      await authController.verifyEmailForMgmt(
+        mockReq as Request,
+        mockRes as Response,
+        mockNext,
+      );
+
+      expect(mockAuthService.verifyEmailWithToken).toHaveBeenCalledWith(
+        'token-for-instructor',
+      );
+      expect(mockRes.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'success',
+          message: '이메일 인증이 완료되었습니다.',
+          data: expect.objectContaining({
+            status: true,
+            user: mockUsers.instructor,
+          }),
+        }),
+      );
+    });
+
+    it('GET /svc/auth/verify-email - 권한이 맞지 않는 사용자 타입이면 실패한다', async () => {
+      mockReq.query = { token: 'token-for-instructor' };
+      mockAuthService.verifyEmailWithToken.mockResolvedValue({
+        status: true,
+        user: mockUsers.instructor,
+      });
+
+      await authController.verifyEmailForSvc(
+        mockReq as Request,
+        mockRes as Response,
+        mockNext,
+      );
+
+      expect(mockNext).toHaveBeenCalledWith(expect.any(ForbiddenException));
     });
   });
 
