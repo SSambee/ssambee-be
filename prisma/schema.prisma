@@ -23,9 +23,10 @@ model AppStudent {
   id     String @id @default(uuid(7))
   userId String @unique @map("user_id")
 
-  phoneNumber String  @unique @map("phone_number")
-  school      String?
-  schoolYear  String? @map("school_year")
+  phoneNumber       String  @unique @map("phone_number")
+  parentPhoneNumber String? @map("parent_phone_number")
+  school            String?
+  schoolYear        String? @map("school_year")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
