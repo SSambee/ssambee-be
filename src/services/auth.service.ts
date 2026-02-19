@@ -1,6 +1,7 @@
 import type { IncomingHttpHeaders } from 'http';
 import { fromNodeHeaders } from 'better-auth/node';
 import { PrismaClient } from '../generated/prisma/client.js';
+import type { Prisma } from '../generated/prisma/client.js';
 import {
   BadRequestException,
   ForbiddenException,
@@ -353,6 +354,10 @@ export class AuthService {
       );
     }
 
+    if (authSession.user.userType !== SIGNUP_PENDING_USER_TYPE) {
+      throw new ForbiddenException('이미 회원가입이 완료된 계정입니다.');
+    }
+
     if (
       authSession.user.email.toLowerCase() !== data.email.trim().toLowerCase()
     ) {
@@ -394,44 +399,43 @@ export class AuthService {
       fallbackErrorMessage: '사용자 정보 업데이트에 실패했습니다.',
     });
 
-    if (userType === UserType.INSTRUCTOR) {
-      await this.prisma.user.update({
+    const updateUserPayload = {
+      name: data.name || data.email,
+      userType,
+    };
+
+    const updatedResult = await this.prisma.$transaction(async (tx) => {
+      const updatedUser = await tx.user.update({
         where: { id: authSession.user.id },
-        data: { role: 'instructor' },
+        data: {
+          ...updateUserPayload,
+          ...(userType === UserType.INSTRUCTOR ? { role: 'instructor' } : {}),
+        },
       });
-    }
 
-    let profile;
-    switch (userType) {
-      case UserType.INSTRUCTOR:
-        profile = await this.createInstructor(authSession.user.id, data);
-        break;
-      case UserType.ASSISTANT:
-        profile = await this.createAssistant(authSession.user.id, data);
-        break;
-      case UserType.STUDENT:
-        profile = await this.createStudent(authSession.user.id, data);
-        break;
-      case UserType.PARENT:
-        profile = await this.createParent(authSession.user.id, data);
-        break;
-    }
+      let profile;
 
-    const updatedUser = await this.prisma.user.findUnique({
-      where: { id: authSession.user.id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        userType: true,
-        emailVerified: true,
-        image: true,
-      },
+      if (userType === UserType.INSTRUCTOR) {
+        profile = await this.createInstructor(authSession.user.id, data, tx);
+      }
+      if (userType === UserType.ASSISTANT) {
+        profile = await this.createAssistant(authSession.user.id, data, tx);
+      }
+      if (userType === UserType.STUDENT) {
+        profile = await this.createStudent(authSession.user.id, data, tx);
+      }
+      if (userType === UserType.PARENT) {
+        profile = await this.createParent(authSession.user.id, data, tx);
+      }
+
+      return { updatedUser, profile };
     });
 
-    if (!updatedUser) {
+    if (!updatedResult) {
       throw new NotFoundException('사용자를 찾을 수 없습니다.');
     }
+
+    const { updatedUser, profile } = updatedResult;
 
     const user: AuthUser = {
       id: updatedUser.id,
@@ -584,23 +588,35 @@ export class AuthService {
   }
 
   /** 강사 프로필 생성 */
-  private async createInstructor(userId: string, data: SignUpData) {
-    return await this.instructorRepo.create({
-      userId,
-      phoneNumber: data.phoneNumber,
-      subject: data.subject,
-      academy: data.academy,
-    });
+  private async createInstructor(
+    userId: string,
+    data: SignUpData,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return await this.instructorRepo.create(
+      {
+        userId,
+        phoneNumber: data.phoneNumber,
+        subject: data.subject,
+        academy: data.academy,
+      },
+      tx,
+    );
   }
 
   /** 조교 프로필 생성 */
-  private async createAssistant(userId: string, data: SignUpData) {
+  private async createAssistant(
+    userId: string,
+    data: SignUpData,
+    tx?: Prisma.TransactionClient,
+  ) {
     if (!data.signupCode) {
       throw new BadRequestException('조교가입코드가 필요합니다.');
     }
 
     const assistantCode = await this.assistantCodeRepo.findValidCode(
       data.signupCode,
+      tx,
     );
     if (!assistantCode) {
       throw new BadRequestException(
@@ -608,45 +624,73 @@ export class AuthService {
       );
     }
 
-    return await this.prisma.$transaction(async (tx) => {
+    if (tx) {
       await this.assistantCodeRepo.markAsUsed(assistantCode.id, tx);
       return await this.assistantRepo.create(
         {
           userId,
-          name: data.name || 'Assistant', // name이 없을 경우 기본값 처리 또는 data.name 사용
+          name: data.name || 'Assistant',
           phoneNumber: data.phoneNumber,
           instructorId: assistantCode.instructorId,
           signupCode: data.signupCode!,
         },
         tx,
       );
+    }
+
+    return await this.prisma.$transaction(async (innerTx) => {
+      await this.assistantCodeRepo.markAsUsed(assistantCode.id, innerTx);
+      return await this.assistantRepo.create(
+        {
+          userId,
+          name: data.name || 'Assistant',
+          phoneNumber: data.phoneNumber,
+          instructorId: assistantCode.instructorId,
+          signupCode: data.signupCode!,
+        },
+        innerTx,
+      );
     });
   }
 
   /** 학생 프로필 생성 */
-  private async createStudent(userId: string, data: SignUpData) {
-    const student = await this.studentRepo.create({
-      userId,
-      phoneNumber: data.phoneNumber,
-      school: data.school,
-      schoolYear: data.schoolYear,
-    });
+  private async createStudent(
+    userId: string,
+    data: SignUpData,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const student = await this.studentRepo.create(
+      {
+        userId,
+        phoneNumber: data.phoneNumber,
+        school: data.school,
+        schoolYear: data.schoolYear,
+      },
+      tx,
+    );
 
-    // 전화번호로 기존 수강 내역 자동 연동
     await this.enrollmentsRepo.updateAppStudentIdByPhoneNumber(
       data.phoneNumber,
       student.id,
+      tx,
     );
 
     return student;
   }
 
   /** 학부모 프로필 생성 */
-  private async createParent(userId: string, data: SignUpData) {
-    return await this.parentRepo.create({
-      userId,
-      phoneNumber: data.phoneNumber,
-    });
+  private async createParent(
+    userId: string,
+    data: SignUpData,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return await this.parentRepo.create(
+      {
+        userId,
+        phoneNumber: data.phoneNumber,
+      },
+      tx,
+    );
   }
 
   /** ID로 프로필 조회 */
