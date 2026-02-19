@@ -15,6 +15,8 @@ import {
   commentEditParamsSchema,
 } from '../../../validations/comments.validation.js';
 
+import { upload } from '../../../middlewares/multer.middleware.js';
+
 export const svcStudentPostsRouter = Router();
 
 // TODO: requireStudentOrParent 미들웨어 필요. 현재는 requireStudent만 사용
@@ -40,6 +42,7 @@ svcStudentPostsRouter.get(
 /** 질문 생성 */
 svcStudentPostsRouter.post(
   '/',
+  upload.single('file'),
   validate(createStudentPostSchema, 'body'),
   studentPostsController.createPost,
 );
@@ -84,6 +87,7 @@ svcStudentPostsRouter.patch(
 // 학생/학부모도 본인 질문에 추가 댓글(재질문) 가능
 svcStudentPostsRouter.post(
   '/:postId/comments',
+  upload.single('file'),
   validate(studentPostParamsSchema, 'params'),
   validate(createCommentSchema, 'body'),
   commentsController.createComment,
