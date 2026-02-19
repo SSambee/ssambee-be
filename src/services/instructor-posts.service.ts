@@ -550,6 +550,10 @@ export class InstructorPostsService {
       targetEnrollmentIds: data.targetEnrollmentIds || undefined,
     });
 
+    if (!updatedPost) {
+      throw new NotFoundException('게시글 수정 후 조회에 실패했습니다.');
+    }
+
     return {
       ...updatedPost,
       attachments: this.normalizeAttachments(updatedPost.attachments),

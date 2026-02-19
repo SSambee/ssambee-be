@@ -16,7 +16,7 @@ import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.
 import { LecturesRepository } from '../repos/lectures.repo.js';
 import { CommentsRepository } from '../repos/comments.repo.js';
 import { PermissionService } from './permission.service.js';
-import { StudentPost, Comment } from '../generated/prisma/client.js';
+import { StudentPost, Comment, Material } from '../generated/prisma/client.js';
 import { formatStudentPostStats } from '../utils/posts.util.js';
 import { CommentsService } from './comments.service.js';
 import { FileStorageService } from './filestorage.service.js';
@@ -591,29 +591,15 @@ export class StudentPostsService {
   }
 
   /** 학생용 첨부파일 접근 권한 필터링 */
-  private async filterAccessibleAttachments(
-    attachments: Array<{
+  private async filterAccessibleAttachments<
+    T extends {
       materialId: string | null;
-      material: {
-        id: string;
-        instructorId: string;
-        lectureId: string | null;
-      } | null;
-    }>,
-    profileId: string,
-  ): Promise<
-    Array<{
-      materialId: string | null;
-      material: {
-        id: string;
-        instructorId: string;
-        lectureId: string | null;
-      } | null;
-    }>
-  > {
+      material: Material | null;
+    },
+  >(attachments: T[], profileId: string): Promise<T[]> {
     if (!attachments || attachments.length === 0) return [];
 
-    const result: typeof attachments = [];
+    const result: T[] = [];
 
     for (const attachment of attachments) {
       // 직접 첨부(Direct)인 경우: materialId가 없으면 항상 노출
