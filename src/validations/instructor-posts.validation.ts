@@ -34,7 +34,7 @@ export const createInstructorPostSchema = z.object({
     .array(
       z.object({
         filename: z.string().min(1, '파일명은 필수입니다.'),
-        fileUrl: z.string().url('유효한 URL이어야 합니다.'),
+        fileUrl: z.url({ error: '유효한 URL이어야 합니다.' }),
       }),
     )
     .optional(),
@@ -71,7 +71,7 @@ export const updateInstructorPostSchema = z.object({
     .array(
       z.object({
         filename: z.string().min(1, '파일명은 필수입니다.'),
-        fileUrl: z.string().url('유효한 URL이어야 합니다.'),
+        fileUrl: z.url({ error: '유효한 URL이어야 합니다.' }),
       }),
     )
     .optional(),
