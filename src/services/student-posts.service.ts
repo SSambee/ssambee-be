@@ -6,6 +6,7 @@ import {
 import {
   CreateStudentPostDto,
   GetStudentPostsQueryDto,
+  GetMyLecturesQueryDto,
 } from '../validations/student-posts.validation.js';
 import { StudentPostStatus, AuthorRole } from '../constants/posts.constant.js';
 import { UserType } from '../constants/auth.constant.js';
@@ -77,7 +78,7 @@ export class StudentPostsService {
     return this.studentPostsRepository.create({
       title: data.title,
       content: data.content,
-      status: StudentPostStatus.PENDING,
+      status: StudentPostStatus.BEFORE,
       enrollmentId,
       authorRole,
       instructorId: enrollment.instructorId,
@@ -151,6 +152,69 @@ export class StudentPostsService {
     };
   }
 
+  /** 내 수강 강의 목록 조회 */
+  async getMyLectures(
+    query: GetMyLecturesQueryDto,
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 학생과 학부모만 접근 가능
+    if (userType !== UserType.STUDENT && userType !== UserType.PARENT) {
+      throw new ForbiddenException('학생 또는 학부모만 접근할 수 있습니다.');
+    }
+
+    const { page, limit } = query;
+    const offset = (page - 1) * limit;
+
+    // 학부모인 경우 자녀의 수강 목록 조회
+    if (userType === UserType.PARENT) {
+      const childLinks = await this.permissionService.getChildLinks(profileId);
+      if (!childLinks || childLinks.length === 0) {
+        return { lectures: [], totalCount: 0 };
+      }
+
+      const enrollmentIds =
+        await this.permissionService.getParentEnrollmentIds(profileId);
+      if (!enrollmentIds || enrollmentIds.length === 0) {
+        return { lectures: [], totalCount: 0 };
+      }
+
+      const result =
+        await this.lectureEnrollmentsRepository.findManyByEnrollmentIds(
+          enrollmentIds,
+        );
+
+      // 페이지네이션 적용
+      const paginatedResult = result.slice(offset, offset + limit);
+
+      return {
+        lectures: paginatedResult.map((le) => ({
+          id: le.lecture.id,
+          title: le.lecture.title,
+          instructorId: le.lecture.instructorId,
+        })),
+        totalCount: result.length,
+      };
+    }
+
+    // 학생인 경우
+    const { lectureEnrollments, totalCount } =
+      await this.lectureEnrollmentsRepository.findManyByAppStudentId(
+        profileId,
+        { limit, offset },
+      );
+
+    return {
+      lectures: lectureEnrollments.map((le) => ({
+        id: le.lecture.id,
+        title: le.lecture.title,
+        instructorId: le.lecture.instructorId,
+        lectureTimes: le.lecture.lectureTimes,
+      })),
+      totalCount,
+    };
+  }
+
   /** 질문 상세 조회 */
   async getPostDetail(postId: string, userType: UserType, profileId: string) {
     const post = await this.studentPostsRepository.findById(postId);
@@ -203,14 +267,28 @@ export class StudentPostsService {
       );
     }
 
-    // 학생은 PENDING -> COMPLETED로만 변경 가능 (한 번 완료되면 취소 불가)
-    if (userType === UserType.STUDENT) {
-      if (post.status === StudentPostStatus.COMPLETED) {
-        throw new ForbiddenException('이미 완료된 질문입니다.');
+    // 학생/학부모: RESOLVED ↔ COMPLETED 토글만 허용
+    if (userType === UserType.STUDENT || userType === UserType.PARENT) {
+      // 댓글이 없으면 상태 변경 불가 (답변이 없는 질문은 완료 처리 불가)
+      const commentCount = post.comments?.length ?? 0;
+      if (commentCount === 0) {
+        throw new BadRequestException(
+          '답변이 없는 질문은 완료 처리할 수 없습니다.',
+        );
       }
-      if (status !== StudentPostStatus.COMPLETED) {
+
+      // BEFORE 상태에서는 직접 COMPLETED로 변경 불가 (강사가 먼저 REGISTERED로 변경해야 함)
+      if (post.status === StudentPostStatus.BEFORE) {
+        throw new BadRequestException('아직 답변이 등록되지 않은 질문입니다.');
+      }
+
+      // REGISTERED ↔ COMPLETED 토글만 허용
+      if (
+        status !== StudentPostStatus.REGISTERED &&
+        status !== StudentPostStatus.COMPLETED
+      ) {
         throw new ForbiddenException(
-          '학생은 완료 상태로만 변경할 수 있습니다.',
+          '답변 완료(COMPLETED) 또는 답변 등록(REGISTERED) 상태로만 변경할 수 있습니다.',
         );
       }
     }

@@ -7,6 +7,7 @@ import {
   getStudentPostsQuerySchema,
   studentPostParamsSchema,
   updateStudentPostSchema,
+  getMyLecturesQuerySchema,
 } from '../../../validations/student-posts.validation.js';
 import {
   createCommentSchema,
@@ -28,6 +29,13 @@ const {
 
 svcStudentPostsRouter.use(requireAuth);
 svcStudentPostsRouter.use(requireStudentOrParent);
+
+/** 내 수강 강의 목록 조회 (질문 작성용) */
+svcStudentPostsRouter.get(
+  '/my-lectures',
+  validate(getMyLecturesQuerySchema, 'query'),
+  studentPostsController.getMyLectures,
+);
 
 /** 질문 생성 */
 svcStudentPostsRouter.post(

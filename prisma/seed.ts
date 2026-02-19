@@ -479,7 +479,7 @@ async function main() {
         title: '이번 수업 과제 질문입니다.',
         content:
           '선생님, 지난 수업 때 내주신 과제에서 3번 문항의 의도가 잘 이해되지 않습니다. 설명 부탁드려요!',
-        status: StudentPostStatus.PENDING,
+        status: StudentPostStatus.BEFORE,
         authorRole: AuthorRole.STUDENT,
         createdAt: now,
         updatedAt: now,
@@ -496,7 +496,7 @@ async function main() {
         title: '자녀 학습 태도 관련 문의드립니다.',
         content:
           '선생님, 안녕하세요. 정길동 학생의 아빠 정국영입니다. 요즘 저희 아이가 수업을 잘 따라가고 있는지 궁금하여 연락드렸습니다.',
-        status: StudentPostStatus.PENDING,
+        status: StudentPostStatus.BEFORE,
         authorRole: AuthorRole.PARENT, // AuthorRole.PARENT (학부모 작성)
         createdAt: now,
         updatedAt: now,

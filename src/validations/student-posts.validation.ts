@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import {
   StudentPostStatus,
-  AnswerStatus,
   InquiryWriterType,
 } from '../constants/posts.constant.js';
 
@@ -25,8 +24,8 @@ export const createStudentPostSchema = z.object({
 export const updateStudentPostStatusSchema = z.object({
   /** 변경할 상태 (대기, 답변완료, 확인완료) */
   status: z.enum([
-    StudentPostStatus.PENDING,
-    StudentPostStatus.RESOLVED,
+    StudentPostStatus.BEFORE,
+    StudentPostStatus.REGISTERED,
     StudentPostStatus.COMPLETED,
   ]),
 });
@@ -41,20 +40,11 @@ export const getStudentPostsQuerySchema = z.object({
   limit: z.coerce.number().min(1).max(50).default(20),
   /** 특정 강의 ID 필터 */
   lectureId: z.cuid2().optional(),
-  /** 백엔드 상태 필터 */
   status: z
     .enum([
-      StudentPostStatus.PENDING,
-      StudentPostStatus.RESOLVED,
+      StudentPostStatus.BEFORE,
+      StudentPostStatus.REGISTERED,
       StudentPostStatus.COMPLETED,
-    ])
-    .optional(),
-  /** 프론트엔드 답변 상태 필터 */
-  answerStatus: z
-    .enum([
-      AnswerStatus.BEFORE,
-      AnswerStatus.REGISTERED,
-      AnswerStatus.COMPLETED,
     ])
     .optional(),
   /** 작성자 유형 필터 (전체, 학생, 학부모) */
@@ -68,6 +58,18 @@ export const getStudentPostsQuerySchema = z.object({
     .default(InquiryWriterType.ALL),
   /** 검색어 */
   search: z.string().optional(),
+  /** 정렬 기준 (최신순, 오래된순) */
+  orderBy: z.enum(['latest', 'oldest']).default('latest'),
+});
+
+/**
+ * 내 수강 강의 목록 조회 쿼리 파라미터 검증 스키마
+ */
+export const getMyLecturesQuerySchema = z.object({
+  /** 페이지 번호 */
+  page: z.coerce.number().min(1).default(1),
+  /** 페이지당 항목 수 */
+  limit: z.coerce.number().min(1).max(50).default(20),
 });
 
 /**
@@ -100,3 +102,5 @@ export type GetStudentPostsQueryDto = z.infer<
 >;
 /** 학생 질문 수정 DTO 타입 */
 export type UpdateStudentPostDto = z.infer<typeof updateStudentPostSchema>;
+/** 내 수강 강의 목록 조회 쿼리 DTO 타입 */
+export type GetMyLecturesQueryDto = z.infer<typeof getMyLecturesQuerySchema>;

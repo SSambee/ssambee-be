@@ -418,7 +418,7 @@ export class CommentsService {
     // 강사/조교가 학생 질문에 댓글 작성 시 트랜잭션으로 처리
     if (
       studentPostForStatus &&
-      studentPostForStatus.status === StudentPostStatus.PENDING
+      studentPostForStatus.status === StudentPostStatus.BEFORE
     ) {
       const comment =
         await this.commentsRepository.createCommentWithStudentPostStatusUpdate({

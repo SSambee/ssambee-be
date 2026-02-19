@@ -29,8 +29,8 @@ export class MorganLambdaStream implements StreamOptions {
    * @param message Morgan 포맷에 따라 생성된 로그 문자열
    */
   write(message: string): void {
-    const url = config.LOG_LAMBDA_URL;
-    const apiKey = config.LOG_LAMBDA_API_KEY;
+    const url = config.MONITOR_LAMBDA_URL;
+    const apiKey = config.INTERNAL_INGEST_SECRET; // 인가 처리를 위한 시크릿
 
     // URL이 설정되어 있지 않으면 로깅을 스킵합니다.
     if (!url) {

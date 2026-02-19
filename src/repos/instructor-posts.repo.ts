@@ -132,6 +132,8 @@ export class InstructorPostsRepository {
       studentFiltering?: StudentFiltering;
       // 게시물 유형 필터: 공지/자료
       postType?: PostType;
+      // 정렬 기준: latest, oldest
+      orderBy?: 'latest' | 'oldest';
     },
     tx?: Prisma.TransactionClient,
   ) {
@@ -146,47 +148,64 @@ export class InstructorPostsRepository {
       targetEnrollmentIds,
       studentFiltering,
       postType,
+      orderBy,
     } = params;
     const skip = (page - 1) * limit;
+
+    // 검색 조건 (title 또는 content에 포함)
+    const searchCondition = search
+      ? {
+          OR: [
+            { title: { contains: search, mode: 'insensitive' as const } },
+            { content: { contains: search, mode: 'insensitive' as const } },
+          ],
+        }
+      : undefined;
+
+    // 학생용 복합 필터링 조건
+    const studentFilterCondition = studentFiltering
+      ? {
+          OR: [
+            // 1. GLOBAL: 내가 수강 중인 강사의 전체 공지
+            {
+              scope: PostScope.GLOBAL,
+              instructorId: { in: studentFiltering.instructorIds },
+            },
+            // 2. LECTURE: 내가 수강 중인 강의의 공지
+            {
+              scope: PostScope.LECTURE,
+              lectureId: { in: studentFiltering.lectureIds },
+            },
+            // 3. SELECTED: 내가 타겟으로 지정된 공지
+            {
+              scope: PostScope.SELECTED,
+              targets: {
+                some: {
+                  enrollmentId: { in: studentFiltering.enrollmentIds },
+                },
+              },
+            },
+          ],
+        }
+      : undefined;
+
+    // search와 studentFiltering이 모두 있으면 AND로 결합
+    // 둘 다 OR 조건이므로 객체 키 충돌 방지를 위해 AND 사용
+    const combinedSearchAndFilter =
+      searchCondition && studentFilterCondition
+        ? { AND: [searchCondition, studentFilterCondition] }
+        : searchCondition || studentFilterCondition;
 
     const where: Prisma.InstructorPostWhereInput = {
       ...(lectureId && { lectureId }),
       ...(instructorId && { instructorId }),
       ...(scope && { scope }),
-      ...(search && {
-        OR: [
-          { title: { contains: search, mode: 'insensitive' } },
-          { content: { contains: search, mode: 'insensitive' } },
-        ],
-      }),
       // 게시물 유형 필터 (NOTICE: 공지, SHARE: 자료)
       ...(postType && {
         isImportant: postType === PostType.NOTICE,
       }),
-      // 학생용 복합 필터링 (OR 조건)
-      ...(studentFiltering && {
-        OR: [
-          // 1. GLOBAL: 내가 수강 중인 강사의 전체 공지
-          {
-            scope: PostScope.GLOBAL,
-            instructorId: { in: studentFiltering.instructorIds },
-          },
-          // 2. LECTURE: 내가 수강 중인 강의의 공지
-          {
-            scope: PostScope.LECTURE,
-            lectureId: { in: studentFiltering.lectureIds },
-          },
-          // 3. SELECTED: 내가 타겟으로 지정된 공지
-          {
-            scope: PostScope.SELECTED,
-            targets: {
-              some: {
-                enrollmentId: { in: studentFiltering.enrollmentIds },
-              },
-            },
-          },
-        ],
-      }),
+      // 검색 + 학생 필터링 결합 조건
+      ...combinedSearchAndFilter,
       // targetEnrollmentIds (Backward compatibility)
       ...(targetEnrollmentIds?.length &&
         !studentFiltering && {
@@ -204,7 +223,7 @@ export class InstructorPostsRepository {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: orderBy === 'oldest' ? 'asc' : 'desc' },
         include: {
           instructor: { select: { user: { select: { name: true } } } },
           authorAssistant: {
