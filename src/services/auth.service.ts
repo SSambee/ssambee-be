@@ -722,6 +722,7 @@ export class AuthService {
       {
         userId,
         phoneNumber: data.phoneNumber,
+        parentPhoneNumber: data.parentPhoneNumber,
         school: data.school,
         schoolYear: data.schoolYear,
       },

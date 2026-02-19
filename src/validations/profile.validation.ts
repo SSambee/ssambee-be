@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import { Regex } from '../constants/regex.constant.js';
+
+const parentPhoneSchema = z
+  .string()
+  .trim()
+  .regex(Regex.PHONE, '유효한 전화번호 형식이 아닙니다.');
 
 /**
  * 내 프로필 수정 요청 검증 스키마
@@ -17,6 +23,8 @@ export const updateMyProfileSchema = z.object({
   school: z.string().optional(),
   /** 학년 (학생 전용) */
   schoolYear: z.string().optional(),
+  /** 학부모 전화번호 (학생 전용) */
+  parentPhoneNumber: parentPhoneSchema.optional(),
 });
 
 /** 내 프로필 수정 DTO 타입 */

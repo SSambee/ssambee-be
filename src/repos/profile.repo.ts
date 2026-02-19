@@ -228,6 +228,7 @@ export class ProfileRepository {
     data: {
       name?: string;
       phoneNumber?: string;
+      parentPhoneNumber?: string;
       school?: string;
       schoolYear?: string;
     },
@@ -267,10 +268,18 @@ export class ProfileRepository {
       // 4. 모든 Enrollment 동기화
       const enrollmentUpdateData: Prisma.EnrollmentUpdateManyMutationInput = {};
       if (name) enrollmentUpdateData.studentName = name;
-      if (data.phoneNumber)
+      if (data.phoneNumber) {
         enrollmentUpdateData.studentPhone = data.phoneNumber;
-      if (data.school) enrollmentUpdateData.school = data.school;
-      if (data.schoolYear) enrollmentUpdateData.schoolYear = data.schoolYear;
+      }
+      if (data.parentPhoneNumber) {
+        enrollmentUpdateData.parentPhone = data.parentPhoneNumber;
+      }
+      if (data.school) {
+        enrollmentUpdateData.school = data.school;
+      }
+      if (data.schoolYear) {
+        enrollmentUpdateData.schoolYear = data.schoolYear;
+      }
 
       if (Object.keys(enrollmentUpdateData).length > 0) {
         await tx.enrollment.updateMany({

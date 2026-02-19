@@ -128,6 +128,8 @@ export const studentSignUpSchema = z.object({
   name: z.string().min(2, '이름은 최소 2자 이상이어야 합니다.'),
   /** 전화번호 */
   phoneNumber: phoneSchema,
+  /** 학부모 전화번호 */
+  parentPhoneNumber: phoneSchema,
   /** 소속 학교 (선택) */
   school: z.string().optional(),
   /** 학년 (선택) */

@@ -4,6 +4,7 @@ import type { Prisma } from '../generated/prisma/client.js';
 interface CreateStudentData {
   userId: string;
   phoneNumber: string;
+  parentPhoneNumber?: string;
   school?: string;
   schoolYear?: string;
 }

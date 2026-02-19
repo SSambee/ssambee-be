@@ -1,8 +1,8 @@
 import { ProfileService } from './profile.service.js';
 import { UserType } from '../constants/auth.constant.js';
 import {
-  BadRequestException,
   ConflictException,
+  BadRequestException,
   NotFoundException,
 } from '../err/http.exception.js';
 import { Prisma, PrismaClient } from '../generated/prisma/client.js';
@@ -176,7 +176,7 @@ describe('ProfileService - @unit', () => {
     it('에러를 던져야 한다:  BadRequestException for unsupported user type', async () => {
       await expect(
         profileService.getMyProfile('id', 'UNKNOWN' as UserType),
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 
@@ -293,6 +293,7 @@ describe('ProfileService - @unit', () => {
         const mockProfile = {
           id: 'student-1',
           phoneNumber: '010-1111-2222',
+          parentPhoneNumber: '010-1111-3333',
           school: 'ABC High School',
           schoolYear: 'High 2',
           createdAt: new Date(),
@@ -337,6 +338,7 @@ describe('ProfileService - @unit', () => {
           name: 'Student Name',
           email: 'student@test.com',
           phoneNumber: '010-1111-2222',
+          parentPhoneNumber: '010-1111-3333',
           school: 'ABC High School',
           schoolYear: 'High 2',
           userType: UserType.STUDENT,
@@ -429,11 +431,13 @@ describe('ProfileService - @unit', () => {
           phoneNumber: '010-9999-8888',
           school: 'New School',
           schoolYear: 'High 3',
+          parentPhoneNumber: '010-1234-5678',
         };
 
         const mockUpdatedProfile = {
           id: 'student-1',
           phoneNumber: '010-9999-8888',
+          parentPhoneNumber: '010-1234-5678',
           school: 'New School',
           schoolYear: 'High 3',
           updatedAt: new Date(),
