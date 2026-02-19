@@ -38,14 +38,14 @@ describe('MorganLambdaStream', () => {
         method: 'POST',
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
-          'x-api-key': 'test-api-key',
+          'x-internal-secret': 'test-api-key',
         }),
         body: expect.stringContaining(logMessage),
       }),
     );
 
     const payload = JSON.parse(fetchSpy.mock.calls[0][1].body);
-    expect(payload.log).toBe(logMessage);
+    expect(payload.message).toBe(logMessage);
     expect(payload.level).toBe(LOG_LEVEL.INFO);
     expect(payload.timestamp).toBeDefined();
   });
