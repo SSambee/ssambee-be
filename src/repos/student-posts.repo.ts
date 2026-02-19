@@ -259,6 +259,9 @@ export class StudentPostsRepository {
     return client.studentPost.update({
       where: { id },
       data: postData,
+      include: {
+        attachments: true,
+      },
     });
   }
 
