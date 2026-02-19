@@ -119,6 +119,7 @@ export const createMockLectureEnrollmentsRepository = () =>
     'removeByLectureIdAndEnrollmentId',
     'findByIdWithGrades',
     'findFirstByInstructorIdAndStudentId',
+    'findManyByEnrollmentId',
   ]);
 
 /** Mock AttendancesRepository 생성 */

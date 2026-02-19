@@ -419,6 +419,39 @@ export class LectureEnrollmentsRepository {
     return count > 0;
   }
 
+  /** 특정 Enrollment ID에 속한 모든 수강 강의 목록 조회 */
+  async findManyByEnrollmentId(
+    enrollmentId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return await client.lectureEnrollment.findMany({
+      where: {
+        enrollmentId,
+        enrollment: {
+          deletedAt: null,
+        },
+      },
+      include: {
+        lecture: {
+          include: {
+            instructor: {
+              select: {
+                user: {
+                  select: { name: true },
+                },
+              },
+            },
+            lectureTimes: true,
+          },
+        },
+      },
+      orderBy: {
+        registeredAt: 'desc',
+      },
+    });
+  }
+
   /** 여러 Enrollment ID로 LectureEnrollment 조회 (학부모용) */
   async findManyByEnrollmentIds(
     enrollmentIds: string[],

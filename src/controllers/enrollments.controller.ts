@@ -150,6 +150,34 @@ export class EnrollmentsController {
     }
   };
 
+  /** 학생용 특정 강사의 강의 목록 조회 핸들러 */
+  getEnrollmentLectures = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { enrollmentId } = req.params;
+      const user = getAuthUser(req);
+      const profileId = getProfileIdOrThrow(req);
+      const userType = user.userType as UserType;
+
+      const { lectureEnrollments } =
+        await this.enrollmentsService.getEnrollmentLectures(
+          enrollmentId,
+          userType,
+          profileId,
+        );
+
+      return successResponse(res, {
+        data: { lectureEnrollments },
+        message: '강사별 강의 목록 조회 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   // Enrollment 생성
   createEnrollment = async (
     req: Request,
