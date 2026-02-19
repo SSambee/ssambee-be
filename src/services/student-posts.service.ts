@@ -277,18 +277,18 @@ export class StudentPostsService {
         );
       }
 
-      // PENDING 상태에서는 직접 COMPLETED로 변경 불가 (강사가 먼저 RESOLVED로 변경해야 함)
+      // BEFORE 상태에서는 직접 COMPLETED로 변경 불가 (강사가 먼저 REGISTERED로 변경해야 함)
       if (post.status === StudentPostStatus.BEFORE) {
         throw new BadRequestException('아직 답변이 등록되지 않은 질문입니다.');
       }
 
-      // RESOLVED ↔ COMPLETED 토글만 허용
+      // REGISTERED ↔ COMPLETED 토글만 허용
       if (
         status !== StudentPostStatus.REGISTERED &&
         status !== StudentPostStatus.COMPLETED
       ) {
         throw new ForbiddenException(
-          '답변 완료(COMPLETED) 또는 답변 대기(REGISTERED) 상태로만 변경할 수 있습니다.',
+          '답변 완료(COMPLETED) 또는 답변 등록(REGISTERED) 상태로만 변경할 수 있습니다.',
         );
       }
     }
