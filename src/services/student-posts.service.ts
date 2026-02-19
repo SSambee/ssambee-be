@@ -375,12 +375,24 @@ export class StudentPostsService {
       (data.title === undefined || data.title === post.title) &&
       (data.content === undefined || data.content === post.content) &&
       (data.attachments === undefined ||
-        JSON.stringify(data.attachments) ===
+        JSON.stringify(
+          [...(data.attachments || [])].sort(
+            (a, b) =>
+              a.filename.localeCompare(b.filename) ||
+              a.fileUrl.localeCompare(b.fileUrl),
+          ),
+        ) ===
           JSON.stringify(
-            post.attachments?.map((a) => ({
-              filename: a.filename,
-              fileUrl: a.fileUrl,
-            })),
+            post.attachments
+              ?.map((a) => ({
+                filename: a.filename,
+                fileUrl: a.fileUrl,
+              }))
+              .sort(
+                (a, b) =>
+                  a.filename.localeCompare(b.filename) ||
+                  (a.fileUrl ?? '').localeCompare(b.fileUrl ?? ''),
+              ),
           ));
 
     if (isRedundant) {
