@@ -83,6 +83,9 @@ export class StudentPostsRepository {
             }
           : undefined,
       },
+      include: {
+        attachments: true,
+      },
     });
   }
 
@@ -189,6 +192,7 @@ export class StudentPostsRepository {
               appParentLink: { select: { appParentId: true } },
             },
           },
+          attachments: true,
           _count: { select: { comments: true } },
         },
       }),
