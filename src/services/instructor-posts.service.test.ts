@@ -1372,5 +1372,99 @@ describe('InstructorPostsService', () => {
         ).rejects.toThrow(ForbiddenException);
       });
     });
+
+    describe('getPostList TargetRole 필터링', () => {
+      it('학생이 목록 조회 시 PARENT 전용 게시글이 필터링되어야 한다', async () => {
+        // Arrange
+        const studentId = 'student-1';
+        lectureEnrollmentsRepo.findAllByAppStudentId.mockResolvedValue([
+          {
+            lectureId: 'lecture-1',
+            enrollmentId: 'enrollment-1',
+            lecture: { instructorId: 'instructor-1' },
+          },
+        ]);
+        instructorPostsRepo.findMany.mockResolvedValue({
+          posts: [],
+          totalCount: 0,
+        });
+
+        // Act
+        await service.getPostList(
+          { page: 1, limit: 10, orderBy: 'latest' },
+          UserType.STUDENT,
+          studentId,
+        );
+
+        // Assert: findMany가 allowedTargetRoles와 함께 호출되었는지 확인
+        expect(instructorPostsRepo.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            allowedTargetRoles: [TargetRole.ALL, TargetRole.STUDENT],
+          }),
+        );
+      });
+
+      it('학부모가 목록 조회 시 STUDENT 전용 게시글이 필터링되어야 한다', async () => {
+        // Arrange
+        const parentId = 'parent-1';
+        permissionService.getChildLinks.mockResolvedValue([
+          { childId: 'student-1' },
+        ]);
+        permissionService.getParentEnrollmentIds.mockResolvedValue([
+          'enrollment-1',
+        ]);
+        lectureEnrollmentsRepo.findManyByEnrollmentIds.mockResolvedValue([
+          {
+            lectureId: 'lecture-1',
+            enrollmentId: 'enrollment-1',
+            lecture: { instructorId: 'instructor-1' },
+          },
+        ]);
+        instructorPostsRepo.findMany.mockResolvedValue({
+          posts: [],
+          totalCount: 0,
+        });
+
+        // Act
+        await service.getPostList(
+          { page: 1, limit: 10, orderBy: 'latest' },
+          UserType.PARENT,
+          parentId,
+        );
+
+        // Assert: findMany가 allowedTargetRoles와 함께 호출되었는지 확인
+        expect(instructorPostsRepo.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            allowedTargetRoles: [TargetRole.ALL, TargetRole.PARENT],
+          }),
+        );
+      });
+
+      it('강사가 목록 조회 시 모든 TargetRole의 게시글을 조회할 수 있어야 한다', async () => {
+        // Arrange
+        const instructorId = mockInstructor.id;
+        permissionService.getEffectiveInstructorId.mockResolvedValue(
+          instructorId,
+        );
+        instructorPostsRepo.findMany.mockResolvedValue({
+          posts: [],
+          totalCount: 0,
+        });
+
+        // Act
+        await service.getPostList(
+          { page: 1, limit: 10, orderBy: 'latest' },
+          UserType.INSTRUCTOR,
+          instructorId,
+        );
+
+        // Assert: 강사는 allowedTargetRoles 필터가 없어야 함
+        expect(instructorPostsRepo.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            allowedTargetRoles: undefined,
+          }),
+        );
+      });
+    });
   });
 });

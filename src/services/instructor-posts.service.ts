@@ -232,6 +232,8 @@ export class InstructorPostsService {
           enrollmentIds: string[];
         }
       | undefined;
+    // [SECURITY] TargetRole 필터링: 사용자 역할에 따른 접근 가능한 게시글 제한
+    let allowedTargetRoles: TargetRole[] | undefined;
 
     // 2. 권한 설정 및 필터링 구축
     if (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) {
@@ -239,6 +241,7 @@ export class InstructorPostsService {
         userType,
         profileId,
       );
+      // 강사/조교는 모든 TargetRole 조회 가능 (필터링 없음)
     } else if (userType === UserType.STUDENT) {
       const enrollments =
         await this.lectureEnrollmentsRepository.findAllByAppStudentId(
@@ -252,6 +255,8 @@ export class InstructorPostsService {
         ],
         enrollmentIds: [...new Set(enrollments.map((e) => e.enrollmentId))],
       };
+      // [SECURITY] 학생은 ALL, STUDENT만 조회 가능
+      allowedTargetRoles = [TargetRole.ALL, TargetRole.STUDENT];
 
       // 특정 강의 조회 시 수강 권한 확인
       if (query.lectureId) {
@@ -298,6 +303,8 @@ export class InstructorPostsService {
         ],
         enrollmentIds: enrollmentIds,
       };
+      // [SECURITY] 학부모는 ALL, PARENT만 조회 가능
+      allowedTargetRoles = [TargetRole.ALL, TargetRole.PARENT];
 
       // 특정 강의 조회 시 권한 확인
       if (query.lectureId) {
@@ -320,6 +327,7 @@ export class InstructorPostsService {
       studentFiltering,
       postType: query.postType,
       orderBy: query.orderBy,
+      allowedTargetRoles,
     });
 
     // [Stats] 학생 질문 통계 추가 (강사/조교인 경우)
