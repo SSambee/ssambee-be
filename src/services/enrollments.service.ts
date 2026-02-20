@@ -439,7 +439,7 @@ export class EnrollmentsService {
   ) {
     if (userType !== UserType.STUDENT) {
       throw new ForbiddenException(
-        '학생은 본인의 강사 목록만 조회할 수 있습니다. 학부모는 자녀별 API를 사용해 주세요.',
+        '학생만 이용 가능한 API입니다. 학부모는 자녀별 API를 사용해 주세요.',
       );
     }
 
