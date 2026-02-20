@@ -544,6 +544,15 @@ describe('AuthService - @unit #critical', () => {
           newPassword: signUpRequests.student.password,
         },
       });
+      expect(
+        mockEnrollmentsRepo.updateAppStudentIdByPhoneNumber,
+      ).toHaveBeenCalledWith(
+        signUpRequests.student.phoneNumber,
+        mockProfiles.student.id,
+        signUpRequests.student.name,
+        signUpRequests.student.parentPhoneNumber,
+        mockPrisma,
+      );
       const updateUserRequest = (mockBetterAuth.handler as jest.Mock).mock
         .calls[0][0] as Request;
       expect(updateUserRequest.headers.get('origin')).toBeTruthy();
@@ -612,6 +621,15 @@ describe('AuthService - @unit #critical', () => {
           newPassword: signUpRequests.student.password,
         },
       });
+      expect(
+        mockEnrollmentsRepo.updateAppStudentIdByPhoneNumber,
+      ).toHaveBeenCalledWith(
+        signUpRequests.student.phoneNumber,
+        mockProfiles.student.id,
+        signUpRequests.student.name,
+        signUpRequests.student.parentPhoneNumber,
+        mockPrisma,
+      );
       const handlerRequests = (mockBetterAuth.handler as jest.Mock).mock.calls
         .map(([request]) => request as { url: string })
         .map((request) => request.url);

@@ -732,6 +732,8 @@ export class AuthService {
     await this.enrollmentsRepo.updateAppStudentIdByPhoneNumber(
       data.phoneNumber,
       student.id,
+      data.name,
+      data.parentPhoneNumber,
       tx,
     );
 

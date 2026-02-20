@@ -114,11 +114,21 @@ export class EnrollmentsService {
 
         let studentId = data.appStudentId;
         if (!studentId && data.studentPhone) {
-          const student = await this.studentRepository.findByPhoneNumber(
-            data.studentPhone,
-          );
-          if (student) {
-            studentId = student.id;
+          const studentPhone = data.studentPhone as string;
+          const studentName = data.studentName as string | undefined;
+          const parentPhone = data.parentPhone as string | undefined;
+
+          if (studentName && parentPhone) {
+            const student =
+              await this.studentRepository.findByPhoneNumberAndProfile(
+                studentPhone,
+                studentName,
+                parentPhone,
+                tx,
+              );
+            if (student) {
+              studentId = student.id;
+            }
           }
         }
 
@@ -360,11 +370,22 @@ export class EnrollmentsService {
       data.deletedAt = data.status === 'DROPPED' ? new Date() : null;
     }
     if (data.studentPhone) {
-      const student = await this.studentRepository.findByPhoneNumber(
-        data.studentPhone as string,
-      );
-      if (student) {
-        data.appStudent = { connect: { id: student.id } };
+      const studentPhone = data.studentPhone as string;
+      const studentName =
+        (data.studentName as string | undefined) ?? enrollment.studentName;
+      const parentPhone =
+        (data.parentPhone as string | undefined) ?? enrollment.parentPhone;
+
+      if (studentName && parentPhone) {
+        const student =
+          await this.studentRepository.findByPhoneNumberAndProfile(
+            studentPhone,
+            studentName,
+            parentPhone,
+          );
+        if (student) {
+          data.appStudent = { connect: { id: student.id } };
+        }
       }
     }
     if (data.parentPhone) {

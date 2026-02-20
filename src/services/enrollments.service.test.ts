@@ -170,6 +170,14 @@ describe('EnrollmentsService - @unit #critical', () => {
           }),
           mockPrisma,
         );
+        expect(
+          mockStudentRepo.findByPhoneNumberAndProfile,
+        ).toHaveBeenCalledWith(
+          createEnrollmentRequests.basic.studentPhone,
+          createEnrollmentRequests.basic.studentName,
+          createEnrollmentRequests.basic.parentPhone,
+          mockPrisma,
+        );
         expect(mockLectureEnrollmentsRepo.create).toHaveBeenCalledWith(
           expect.objectContaining({
             lectureId,
@@ -240,6 +248,63 @@ describe('EnrollmentsService - @unit #critical', () => {
           expect.objectContaining({
             lectureId,
             enrollmentId: mockEnrollments.active.id,
+          }),
+          mockPrisma,
+        );
+      });
+
+      it('수강생 등록 시 학생 전화번호·이름·부모 번호가 일치하면 앱 수강생을 자동 연결한다', async () => {
+        mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
+        mockPermissionService.validateInstructorAccess.mockResolvedValue();
+        mockEnrollmentsRepo.findManyByInstructorAndPhones.mockResolvedValue([]);
+        mockStudentRepo.findByPhoneNumberAndProfile.mockResolvedValue(
+          mockStudents.basic,
+        );
+        mockEnrollmentsRepo.create.mockResolvedValue(mockEnrollments.active);
+
+        mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValueOnce(
+          null,
+        );
+        mockLectureEnrollmentsRepo.create.mockResolvedValue({
+          id: 'le-1',
+          memo: null,
+          lectureId: lectureId,
+          enrollmentId: mockEnrollments.active.id,
+          registeredAt: new Date(),
+        });
+        mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValueOnce(
+          {
+            id: 'le-1',
+            memo: null,
+            lectureId: lectureId,
+            enrollmentId: mockEnrollments.active.id,
+            registeredAt: new Date(),
+            enrollment: mockEnrollments.active,
+          },
+        );
+
+        await enrollmentsService.createEnrollment(
+          lectureId,
+          {
+            ...createEnrollmentRequests.basic,
+            instructorId,
+            status: EnrollmentStatus.ACTIVE,
+          },
+          UserType.INSTRUCTOR,
+          instructorId,
+        );
+
+        expect(
+          mockStudentRepo.findByPhoneNumberAndProfile,
+        ).toHaveBeenCalledWith(
+          createEnrollmentRequests.basic.studentPhone,
+          createEnrollmentRequests.basic.studentName,
+          createEnrollmentRequests.basic.parentPhone,
+          mockPrisma,
+        );
+        expect(mockEnrollmentsRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            appStudentId: mockStudents.basic.id,
           }),
           mockPrisma,
         );
@@ -1068,6 +1133,53 @@ describe('EnrollmentsService - @unit #critical', () => {
         expect(
           mockPermissionService.validateInstructorAccess,
         ).toHaveBeenCalled();
+      });
+
+      it('학생 정보가 모두 일치하면 앱 학생을 자동 연결한다', async () => {
+        const updateData = {
+          ...updateEnrollmentRequests.full,
+          studentPhone: '010-1111-1111',
+          studentName: '홍길동',
+          parentPhone: '010-2222-2222',
+        };
+        mockEnrollmentsRepo.findById.mockResolvedValue(
+          mockEnrollments.active as unknown as EnrollmentWithRelations,
+        );
+        mockStudentRepo.findByPhoneNumberAndProfile.mockResolvedValue(
+          mockStudents.basic,
+        );
+        const updatedEnrollment = {
+          ...mockEnrollments.active,
+          ...updateData,
+        };
+        mockEnrollmentsRepo.update.mockResolvedValue(updatedEnrollment);
+
+        const result = await enrollmentsService.updateEnrollment(
+          enrollmentId,
+          updateData,
+          UserType.INSTRUCTOR,
+          instructorId,
+        );
+
+        expect(result).toEqual(updatedEnrollment);
+        expect(
+          mockStudentRepo.findByPhoneNumberAndProfile,
+        ).toHaveBeenCalledWith(
+          updateData.studentPhone,
+          updateData.studentName,
+          updateData.parentPhone,
+        );
+        expect(mockEnrollmentsRepo.update).toHaveBeenCalledWith(
+          enrollmentId,
+          expect.objectContaining({
+            ...updateData,
+            appStudent: {
+              connect: {
+                id: mockStudents.basic.id,
+              },
+            },
+          }),
+        );
       });
     });
 

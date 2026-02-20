@@ -26,6 +26,24 @@ export class StudentRepository {
     return client.appStudent.findUnique({ where: { phoneNumber } });
   }
 
+  async findByPhoneNumberAndProfile(
+    phoneNumber: string,
+    studentName: string,
+    parentPhoneNumber: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return client.appStudent.findFirst({
+      where: {
+        phoneNumber,
+        parentPhoneNumber,
+        user: {
+          name: studentName,
+        },
+      },
+    });
+  }
+
   async create(data: CreateStudentData, tx?: Prisma.TransactionClient) {
     const client = tx ?? this.prisma;
     return client.appStudent.create({ data });

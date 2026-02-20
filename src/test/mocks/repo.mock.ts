@@ -33,6 +33,7 @@ export const createMockStudentRepository = () =>
     'findByUserId',
     'findById',
     'findByPhoneNumber',
+    'findByPhoneNumberAndProfile',
     'create',
   ]);
 
