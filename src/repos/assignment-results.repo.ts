@@ -105,6 +105,32 @@ export class AssignmentResultsRepository {
     });
   }
 
+  /** 과제 결과 수정/생성 */
+  async upsert(
+    assignmentId: string,
+    lectureEnrollmentId: string,
+    data: { resultIndex: number },
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return client.assignmentResult.upsert({
+      where: {
+        assignmentId_lectureEnrollmentId: {
+          assignmentId,
+          lectureEnrollmentId,
+        },
+      },
+      create: {
+        assignmentId,
+        lectureEnrollmentId,
+        resultIndex: data.resultIndex,
+      },
+      update: {
+        resultIndex: data.resultIndex,
+      },
+    });
+  }
+
   /** 과제 결과 삭제 */
   async delete(
     assignmentId: string,

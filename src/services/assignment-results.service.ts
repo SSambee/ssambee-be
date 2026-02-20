@@ -270,13 +270,15 @@ export class AssignmentResultsService {
               item.lectureEnrollmentId,
               tx,
             );
-          let saved;
+
+          const saved = await this.assignmentResultsRepo.upsert(
+            item.assignmentId,
+            item.lectureEnrollmentId,
+            { resultIndex: item.resultIndex },
+            tx,
+          );
+
           if (existing) {
-            saved = await this.assignmentResultsRepo.updateById(
-              existing.id,
-              { resultIndex: item.resultIndex },
-              tx,
-            );
             summary.updated += 1;
             results.push({
               assignmentId: item.assignmentId,
@@ -285,25 +287,16 @@ export class AssignmentResultsService {
               resultIndex: item.resultIndex,
               assignmentResultId: saved.id,
             });
-            continue;
-          }
-
-          saved = await this.assignmentResultsRepo.create(
-            {
+          } else {
+            summary.created += 1;
+            results.push({
               assignmentId: item.assignmentId,
               lectureEnrollmentId: item.lectureEnrollmentId,
+              status: 'CREATED',
               resultIndex: item.resultIndex,
-            },
-            tx,
-          );
-          summary.created += 1;
-          results.push({
-            assignmentId: item.assignmentId,
-            lectureEnrollmentId: item.lectureEnrollmentId,
-            status: 'CREATED',
-            resultIndex: item.resultIndex,
-            assignmentResultId: saved.id,
-          });
+              assignmentResultId: saved.id,
+            });
+          }
         } catch (error) {
           if (strict) {
             throw error;
