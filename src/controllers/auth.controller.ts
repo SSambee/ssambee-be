@@ -203,8 +203,7 @@ export class AuthController {
 
       if (
         allowedUserTypes.length > 0 &&
-        userType &&
-        !allowedUserTypes.includes(userType as UserType)
+        (!userType || !allowedUserTypes.includes(userType as UserType))
       ) {
         return next(
           new ForbiddenException(
