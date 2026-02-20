@@ -169,6 +169,7 @@ export class StudentPostsService {
 
     const result = await this.studentPostsRepository.findMany({
       ...query,
+      status: query.answerStatus, // answerStatus → status 매핑
       instructorId,
       appStudentId,
       enrollmentIds, // [NEW] 학부모용
