@@ -700,7 +700,7 @@ describe('StudentPostsService', () => {
         {
           page: 1,
           limit: 10,
-          status: StudentPostStatus.BEFORE,
+          answerStatus: StudentPostStatus.BEFORE,
           writerType: InquiryWriterType.ALL,
         },
         UserType.INSTRUCTOR,
@@ -768,7 +768,7 @@ describe('StudentPostsService', () => {
           limit: 10,
           search: '검색어',
           lectureId: VALID_LECTURE_ID,
-          status: StudentPostStatus.BEFORE,
+          answerStatus: StudentPostStatus.BEFORE,
           writerType: InquiryWriterType.STUDENT,
         },
         UserType.INSTRUCTOR,
@@ -787,55 +787,5 @@ describe('StudentPostsService', () => {
       );
       expect(result.totalCount).toBe(1);
     });
-  });
-
-  describe('updatePost', () => {
-    it.todo('학생이 본인의 질문을 수정하면 성공해야 한다');
-    it.todo('학생이 타인의 질문을 수정하면 ForbiddenException을 던져야 한다');
-    it.todo('강사가 학생의 질문을 수정하면 ForbiddenException을 던져야 한다');
-    it.todo('존재하지 않는 질문 ID로 수정하면 NotFoundException을 던져야 한다');
-    it.todo('이미 삭제된 질문을 수정하면 NotFoundException을 던져야 한다');
-  });
-
-  describe('createComment', () => {
-    it.todo('학생이 본인의 질문에 댓글을 작성하면 성공해야 한다');
-    it.todo('강사가 학생 질문에 댓글을 작성하면 성공해야 한다');
-    it.todo('학부모가 질문에 댓글을 작성하면 ForbiddenException을 던져야 한다');
-    it.todo(
-      '존재하지 않는 질문에 댓글을 작성하면 NotFoundException을 던져야 한다',
-    );
-    it.todo('빈 내용으로 댓글을 작성하면 BadRequestException을 던져야 한다');
-  });
-
-  describe('deleteComment', () => {
-    it.todo('학생이 본인의 댓글을 삭제하면 성공해야 한다');
-    it.todo('강사가 본인의 댓글을 삭제하면 성공해야 한다');
-    it.todo('학생이 타인의 댓글을 삭제하면 ForbiddenException을 던져야 한다');
-    it.todo('강사가 타인의 댓글을 삭제하면 ForbiddenException을 던져야 한다');
-    it.todo('학부모가 댓글을 삭제하면 ForbiddenException을 던져야 한다');
-    it.todo('존재하지 않는 댓글을 삭제하면 NotFoundException을 던져야 한다');
-  });
-
-  describe('getComments', () => {
-    it.todo('학생이 본인 질문의 댓글 목록을 조회하면 성공해야 한다');
-    it.todo('강사가 담당 학생 질문의 댓글 목록을 조회하면 성공해야 한다');
-    it.todo('학부모가 자녀 질문의 댓글 목록을 조회하면 성공해야 한다');
-    it.todo(
-      '권한이 없는 사용자가 댓글 목록을 조회하면 ForbiddenException을 던져야 한다',
-    );
-    it.todo(
-      '존재하지 않는 질문의 댓글 목록을 조회하면 NotFoundException을 던져야 한다',
-    );
-  });
-
-  describe('updatePostStatus', () => {
-    it.todo('강사가 질문 상태를 해결됨으로 변경하면 성공해야 한다');
-    it.todo('강사가 질문 상태를 대기중으로 변경하면 성공해야 한다');
-    it.todo('학생이 질문 상태를 변경하면 ForbiddenException을 던져야 한다');
-    it.todo('학부모가 질문 상태를 변경하면 ForbiddenException을 던져야 한다');
-    it.todo(
-      '존재하지 않는 질문의 상태를 변경하면 NotFoundException을 던져야 한다',
-    );
-    it.todo('잘못된 상태 값으로 변경하면 BadRequestException을 던져야 한다');
   });
 });
