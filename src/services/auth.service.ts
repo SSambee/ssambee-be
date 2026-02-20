@@ -447,17 +447,6 @@ export class AuthService {
       data.password,
     );
 
-    const { setCookie } = await this.callAuthHandler<{ status: boolean }>({
-      path: '/update-user',
-      method: 'POST',
-      headers,
-      body: {
-        name: data.name || data.email,
-        userType,
-      },
-      fallbackErrorMessage: '사용자 정보 업데이트에 실패했습니다.',
-    });
-
     const updateUserPayload = {
       name: data.name || data.email,
       userType,
@@ -487,14 +476,25 @@ export class AuthService {
         profile = await this.createParent(authSession.user.id, data, tx);
       }
 
-      return { updatedUser, profile };
+      const { setCookie } = await this.callAuthHandler<{ status: boolean }>({
+        path: '/update-user',
+        method: 'POST',
+        headers,
+        body: {
+          name: data.name || data.email,
+          userType,
+        },
+        fallbackErrorMessage: '사용자 정보 업데이트에 실패했습니다.',
+      });
+
+      return { updatedUser, profile, setCookie };
     });
 
     if (!updatedResult) {
       throw new NotFoundException('사용자를 찾을 수 없습니다.');
     }
 
-    const { updatedUser, profile } = updatedResult;
+    const { updatedUser, profile, setCookie } = updatedResult;
 
     const user: AuthUser = {
       id: updatedUser.id,
