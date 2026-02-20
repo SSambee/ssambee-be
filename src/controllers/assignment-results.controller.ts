@@ -5,6 +5,7 @@ import { getInstructorIdOrThrow } from '../utils/user.util.js';
 import {
   CreateAssignmentResultDto,
   UpdateAssignmentResultDto,
+  UpsertAssignmentResultsDto,
 } from '../validations/assignment-results.validation.js';
 
 export class AssignmentResultsController {
@@ -87,6 +88,35 @@ export class AssignmentResultsController {
 
       return successResponse(res, {
         message: '과제 결과가 삭제되었습니다.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /** 과제 결과 단체 등록/수정/삭제 */
+  upsertBulkResults = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const instructorId = getInstructorIdOrThrow(req);
+      const data = req.body as UpsertAssignmentResultsDto;
+
+      const result = await this.assignmentResultsService.upsertBulkResults(
+        instructorId,
+        data,
+      );
+
+      const hasError = result.summary.failed > 0 || result.summary.notFound > 0;
+      const message = hasError
+        ? '과제 결과 일괄 처리 중 일부 항목이 실패했습니다.'
+        : '과제 결과가 일괄 반영되었습니다.';
+
+      return successResponse(res, {
+        message,
+        data: result,
       });
     } catch (error) {
       next(error);

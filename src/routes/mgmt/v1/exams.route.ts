@@ -92,3 +92,11 @@ mgmtExamsRouter.put(
   (req, res, next) =>
     container.examsController.updateExamReportAssignments(req, res, next),
 );
+
+/** 시험 성적표 과제 목록 조회 */
+mgmtExamsRouter.get(
+  '/:examId/report/assignments',
+  validate(examIdParamSchema, 'params'),
+  (req, res, next) =>
+    container.examsController.getExamReportAssignments(req, res, next),
+);
