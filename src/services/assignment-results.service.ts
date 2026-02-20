@@ -181,138 +181,156 @@ export class AssignmentResultsService {
     >();
     const strict = data.options?.strict !== false;
 
-    for (const item of data.items) {
-      const isDelete = item.resultIndex === null;
+    const processItems = async (tx?: Prisma.TransactionClient) => {
+      for (const item of data.items) {
+        const isDelete = item.resultIndex === null;
 
-      try {
-        const assignment = assignmentCache.get(item.assignmentId);
-        const resolvedAssignment =
-          assignment ??
-          (await this.assignmentsRepo.findById(item.assignmentId));
-        if (!resolvedAssignment) {
-          throw new NotFoundException('과제를 찾을 수 없습니다.');
-        }
-        if (!assignmentCache.has(item.assignmentId)) {
-          assignmentCache.set(item.assignmentId, resolvedAssignment);
-        }
+        try {
+          const assignment = assignmentCache.get(item.assignmentId);
+          const resolvedAssignment =
+            assignment ??
+            (await this.assignmentsRepo.findById(item.assignmentId, tx));
+          if (!resolvedAssignment) {
+            throw new NotFoundException('과제를 찾을 수 없습니다.');
+          }
+          if (!assignmentCache.has(item.assignmentId)) {
+            assignmentCache.set(item.assignmentId, resolvedAssignment);
+          }
 
-        if (resolvedAssignment.instructorId !== instructorId) {
-          throw new ForbiddenException('해당 과제에 대한 권한이 없습니다.');
-        }
+          if (resolvedAssignment.instructorId !== instructorId) {
+            throw new ForbiddenException('해당 과제에 대한 권한이 없습니다.');
+          }
 
-        const lectureEnrollment = await this.lectureEnrollmentsRepo.findById(
-          item.lectureEnrollmentId,
-        );
-        if (!lectureEnrollment) {
-          throw new NotFoundException('수강생을 찾을 수 없습니다.');
-        }
-
-        if (resolvedAssignment.lectureId !== lectureEnrollment.lectureId) {
-          throw new BadRequestException(
-            '과제와 수강생이 같은 강의에 속하지 않습니다.',
+          const lectureEnrollment = await this.lectureEnrollmentsRepo.findById(
+            item.lectureEnrollmentId,
+            tx,
           );
-        }
+          if (!lectureEnrollment) {
+            throw new NotFoundException('수강생을 찾을 수 없습니다.');
+          }
 
-        if (isDelete) {
+          if (resolvedAssignment.lectureId !== lectureEnrollment.lectureId) {
+            throw new BadRequestException(
+              '과제와 수강생이 같은 강의에 속하지 않습니다.',
+            );
+          }
+
+          if (isDelete) {
+            const existing =
+              await this.assignmentResultsRepo.findByAssignmentAndEnrollment(
+                item.assignmentId,
+                item.lectureEnrollmentId,
+                tx,
+              );
+
+            if (!existing) {
+              if (!strict) {
+                summary.notFound += 1;
+                results.push({
+                  assignmentId: item.assignmentId,
+                  lectureEnrollmentId: item.lectureEnrollmentId,
+                  status: 'NOT_FOUND',
+                  resultIndex: null,
+                  reason: '과제 결과가 존재하지 않습니다.',
+                });
+                continue;
+              }
+
+              throw new NotFoundException('과제 결과가 존재하지 않습니다.');
+            }
+
+            await this.assignmentResultsRepo.deleteById(existing.id, tx);
+            summary.deleted += 1;
+            results.push({
+              assignmentId: item.assignmentId,
+              lectureEnrollmentId: item.lectureEnrollmentId,
+              status: 'DELETED',
+            });
+            continue;
+          }
+
+          // UPSERT (resultIndex는 숫자)
+          if (item.resultIndex === null) {
+            throw new BadRequestException(
+              'resultIndex가 null이면 삭제로 처리되어야 합니다.',
+            );
+          }
+
+          const categoryPresetsLength =
+            resolvedAssignment.category.resultPresets.length;
+          if (item.resultIndex >= categoryPresetsLength) {
+            throw new BadRequestException(
+              `resultIndex는 0부터 ${categoryPresetsLength - 1} 사이여야 합니다.`,
+            );
+          }
+
           const existing =
             await this.assignmentResultsRepo.findByAssignmentAndEnrollment(
               item.assignmentId,
               item.lectureEnrollmentId,
+              tx,
             );
-
-          if (!existing) {
-            if (!strict) {
-              summary.notFound += 1;
-              results.push({
-                assignmentId: item.assignmentId,
-                lectureEnrollmentId: item.lectureEnrollmentId,
-                status: 'NOT_FOUND',
-                resultIndex: null,
-                reason: '과제 결과가 존재하지 않습니다.',
-              });
-              continue;
-            }
-
-            throw new NotFoundException('과제 결과가 존재하지 않습니다.');
+          let saved;
+          if (existing) {
+            saved = await this.assignmentResultsRepo.updateById(
+              existing.id,
+              { resultIndex: item.resultIndex },
+              tx,
+            );
+            summary.updated += 1;
+            results.push({
+              assignmentId: item.assignmentId,
+              lectureEnrollmentId: item.lectureEnrollmentId,
+              status: 'UPDATED',
+              resultIndex: item.resultIndex,
+              assignmentResultId: saved.id,
+            });
+            continue;
           }
 
-          await this.assignmentResultsRepo.deleteById(existing.id);
-          summary.deleted += 1;
+          saved = await this.assignmentResultsRepo.create(
+            {
+              assignmentId: item.assignmentId,
+              lectureEnrollmentId: item.lectureEnrollmentId,
+              resultIndex: item.resultIndex,
+            },
+            tx,
+          );
+          summary.created += 1;
           results.push({
             assignmentId: item.assignmentId,
             lectureEnrollmentId: item.lectureEnrollmentId,
-            status: 'DELETED',
-          });
-          continue;
-        }
-
-        // UPSERT (resultIndex는 숫자)
-        if (item.resultIndex === null) {
-          throw new BadRequestException(
-            'resultIndex가 null이면 삭제로 처리되어야 합니다.',
-          );
-        }
-
-        const categoryPresetsLength =
-          resolvedAssignment.category.resultPresets.length;
-        if (item.resultIndex >= categoryPresetsLength) {
-          throw new BadRequestException(
-            `resultIndex는 0부터 ${categoryPresetsLength - 1} 사이여야 합니다.`,
-          );
-        }
-
-        const existing =
-          await this.assignmentResultsRepo.findByAssignmentAndEnrollment(
-            item.assignmentId,
-            item.lectureEnrollmentId,
-          );
-        let saved;
-        if (existing) {
-          saved = await this.assignmentResultsRepo.updateById(existing.id, {
-            resultIndex: item.resultIndex,
-          });
-          summary.updated += 1;
-          results.push({
-            assignmentId: item.assignmentId,
-            lectureEnrollmentId: item.lectureEnrollmentId,
-            status: 'UPDATED',
+            status: 'CREATED',
             resultIndex: item.resultIndex,
             assignmentResultId: saved.id,
           });
-          continue;
-        }
+        } catch (error) {
+          if (strict) {
+            throw error;
+          }
 
-        saved = await this.assignmentResultsRepo.create({
-          assignmentId: item.assignmentId,
-          lectureEnrollmentId: item.lectureEnrollmentId,
-          resultIndex: item.resultIndex,
-        });
-        summary.created += 1;
-        results.push({
-          assignmentId: item.assignmentId,
-          lectureEnrollmentId: item.lectureEnrollmentId,
-          status: 'CREATED',
-          resultIndex: item.resultIndex,
-          assignmentResultId: saved.id,
-        });
-      } catch (error) {
-        if (strict) {
-          throw error;
+          summary.failed += 1;
+          const reason =
+            error instanceof Error
+              ? error.message
+              : '요청을 처리하지 못했습니다.';
+          results.push({
+            assignmentId: item.assignmentId,
+            lectureEnrollmentId: item.lectureEnrollmentId,
+            status: 'FAILED',
+            resultIndex: item.resultIndex,
+            reason,
+          });
         }
-
-        summary.failed += 1;
-        const reason =
-          error instanceof Error
-            ? error.message
-            : '요청을 처리하지 못했습니다.';
-        results.push({
-          assignmentId: item.assignmentId,
-          lectureEnrollmentId: item.lectureEnrollmentId,
-          status: 'FAILED',
-          resultIndex: item.resultIndex,
-          reason,
-        });
       }
+    };
+
+    if (strict) {
+      await this.prisma.$transaction(async (tx) => {
+        await processItems(tx);
+      });
+    } else {
+      await processItems();
     }
 
     return {
