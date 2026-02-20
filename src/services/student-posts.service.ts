@@ -333,21 +333,6 @@ export class StudentPostsService {
     return this.studentPostsRepository.updateStatus(postId, status);
   }
 
-  /** 댓글 수정 */
-  async updateComment(
-    commentId: string,
-    content: string,
-    userType: UserType,
-    profileId: string,
-  ) {
-    const comment = await this.commentsRepository.findById(commentId);
-    if (!comment) throw new NotFoundException('댓글을 찾을 수 없습니다.');
-
-    await this.validateCommentAccess(comment, userType, profileId);
-
-    return this.commentsRepository.update(commentId, { content });
-  }
-
   /** 질문 수정 (본인만 가능) */
   async updatePost(
     postId: string,
@@ -483,39 +468,6 @@ export class StudentPostsService {
     }
 
     throw new ForbiddenException('접근 권한이 없습니다.');
-  }
-
-  /** 댓글 접근 권한 검증 Helper */
-  private async validateCommentAccess(
-    comment: Comment,
-    userType: UserType,
-    profileId: string,
-  ) {
-    if (userType === UserType.STUDENT) {
-      if (!comment.enrollmentId) {
-        throw new ForbiddenException('본인의 댓글만 수정할 수 있습니다.');
-      }
-      const enrollment = await this.enrollmentsRepository.findById(
-        comment.enrollmentId,
-      );
-      if (enrollment?.appStudentId !== profileId) {
-        throw new ForbiddenException('본인의 댓글만 수정할 수 있습니다.');
-      }
-      return;
-    }
-
-    if (userType === UserType.INSTRUCTOR) {
-      if (comment.instructorId !== profileId) {
-        throw new ForbiddenException('본인의 댓글만 수정할 수 있습니다.');
-      }
-      return;
-    }
-
-    if (userType === UserType.PARENT) {
-      throw new ForbiddenException('학부모는 댓글을 수정할 수 없습니다.');
-    }
-
-    throw new ForbiddenException('댓글 수정 권한이 없습니다.');
   }
 
   /** 학생 질문 작성을 위한 Enrollment ID 조회 Helper */

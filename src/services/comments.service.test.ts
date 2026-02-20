@@ -6,8 +6,12 @@ import {
   createMockEnrollmentsRepository,
   createMockLectureEnrollmentsRepository,
   createMockMaterialsRepository,
+  createMockParentChildLinkRepository,
 } from '../test/mocks/repo.mock.js';
-import { createMockPermissionService } from '../test/mocks/services.mock.js';
+import {
+  createMockPermissionService,
+  createMockFileStorageService,
+} from '../test/mocks/services.mock.js';
 import { UserType } from '../constants/auth.constant.js';
 import {
   ForbiddenException,
@@ -20,6 +24,8 @@ import type { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import type { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 import type { MaterialsRepository } from '../repos/materials.repo.js';
 import type { PermissionService } from './permission.service.js';
+import type { ParentChildLinkRepository } from '../repos/parent-child-link.repo.js';
+import type { FileStorageService } from './filestorage.service.js';
 
 describe('CommentsService 보안 검증', () => {
   let service: CommentsService;
@@ -30,6 +36,8 @@ describe('CommentsService 보안 검증', () => {
   let lectureEnrollmentsRepo: jest.Mocked<LectureEnrollmentsRepository>;
   let materialsRepo: jest.Mocked<MaterialsRepository>;
   let permissionService: jest.Mocked<PermissionService>;
+  let parentChildLinkRepo: jest.Mocked<ParentChildLinkRepository>;
+  let fileStorageService: jest.Mocked<FileStorageService>;
 
   beforeEach(() => {
     commentsRepo = createMockCommentsRepository();
@@ -39,6 +47,8 @@ describe('CommentsService 보안 검증', () => {
     lectureEnrollmentsRepo = createMockLectureEnrollmentsRepository();
     materialsRepo = createMockMaterialsRepository();
     permissionService = createMockPermissionService();
+    parentChildLinkRepo = createMockParentChildLinkRepository();
+    fileStorageService = createMockFileStorageService();
 
     service = new CommentsService(
       commentsRepo,
@@ -48,6 +58,8 @@ describe('CommentsService 보안 검증', () => {
       lectureEnrollmentsRepo,
       materialsRepo,
       permissionService,
+      parentChildLinkRepo,
+      fileStorageService,
     );
   });
 
@@ -256,6 +268,109 @@ describe('CommentsService 보안 검증', () => {
           'instructorPost',
         ),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('SELECTED 스코프 게시글 댓글 권한 검증', () => {
+    const studentId = 'student-1';
+    const enrollmentId = 'enrollment-1';
+    const instructorId = 'instructor-1';
+    const postId = 'selected-post-id';
+
+    beforeEach(() => {
+      // 기본적으로 수강생임을 가정
+      lectureEnrollmentsRepo.findByLectureIdAndStudentId.mockResolvedValue({
+        enrollmentId,
+        enrollment: { id: enrollmentId, appStudentId: studentId, instructorId }
+      } as unknown as never);
+      lectureEnrollmentsRepo.findFirstByInstructorIdAndStudentId.mockResolvedValue({
+        enrollmentId,
+        enrollment: { id: enrollmentId, appStudentId: studentId, instructorId }
+      } as unknown as never);
+      enrollmentsRepo.findById.mockResolvedValue({
+        id: enrollmentId,
+        appStudentId: studentId,
+        instructorId,
+      } as unknown as never);
+
+      // 댓글 생성 성공 시 기본 리턴값 (실패 테스트에서 이 로직까지 오면 안 됨)
+      commentsRepo.create.mockResolvedValue({
+        id: 'new-comment-id',
+        content: 'test content',
+        enrollment: { appStudentId: studentId },
+        attachments: []
+      } as unknown as never);
+    });
+
+    it('학생이 본인이 타겟팅되지 않은 SELECTED 스코프 공지에 댓글을 작성하려고 하면 ForbiddenException이 발생해야 한다', async () => {
+      const selectedPost = {
+        id: postId,
+        instructorId,
+        scope: 'SELECTED',
+        targets: [
+          { enrollmentId: 'other-enrollment-id' }
+        ],
+      };
+      instructorPostsRepo.findById.mockResolvedValue(selectedPost as unknown as never);
+
+      const data = {
+        instructorPostId: postId,
+        content: 'test content',
+      };
+
+      await expect(
+        service.createComment(data, UserType.STUDENT, studentId),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('학부모가 자녀가 타겟팅되지 않은 SELECTED 스코프 공지에 댓글을 작성하려고 하면 ForbiddenException이 발생해야 한다', async () => {
+      const parentId = 'parent-1';
+      const childLinkId = 'child-link-1';
+
+      const selectedPost = {
+        id: postId,
+        instructorId,
+        scope: 'SELECTED',
+        targets: [
+          { enrollmentId: 'other-enrollment-id' }
+        ],
+      };
+      instructorPostsRepo.findById.mockResolvedValue(selectedPost as unknown as never);
+
+      // 학부모 정보 모킹
+      parentChildLinkRepo.findByAppParentId.mockResolvedValue([{ id: childLinkId, appParentId: parentId, name: 'child', phoneNumber: '01012345678' }] as unknown as never);
+      permissionService.getParentEnrollmentIds.mockResolvedValue([enrollmentId]);
+
+      // 자녀의 Enrollment 모킹
+      enrollmentsRepo.findManyByAppParentLinkIds.mockResolvedValue([
+        { id: enrollmentId, instructorId, appParentLinkId: childLinkId }
+      ] as unknown as never);
+
+      const data = {
+        instructorPostId: postId,
+        content: 'parent comment',
+      };
+
+      await expect(
+        service.createComment(data, UserType.PARENT, parentId),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('GLOBAL 스코프 공지에는 수강생이면 누구나 댓글을 작성할 수 있어야 한다', async () => {
+      const globalPost = {
+        id: postId,
+        instructorId,
+        scope: 'GLOBAL',
+      };
+      instructorPostsRepo.findById.mockResolvedValue(globalPost as unknown as never);
+
+      const data = {
+        instructorPostId: postId,
+        content: 'global comment',
+      };
+
+      const result = await service.createComment(data, UserType.STUDENT, studentId);
+      expect(result.id).toBe('new-comment-id');
     });
   });
 });
