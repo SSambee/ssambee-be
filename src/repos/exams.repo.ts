@@ -354,10 +354,47 @@ export class ExamsRepository {
   async findAssignmentsOnExamReportByExamId(
     examId: string,
     tx?: Prisma.TransactionClient,
-  ): Promise<AssignmentOnExamReport[]> {
+  ): Promise<
+    Prisma.AssignmentOnExamReportGetPayload<{
+      include: {
+        assignment: {
+          select: {
+            id: true;
+            title: true;
+            categoryId: true;
+            instructorId: true;
+            lectureId: true;
+            category: {
+              select: {
+                id: true;
+                name: true;
+              };
+            };
+          };
+        };
+      };
+    }>[]
+  > {
     const client = tx ?? this.prisma;
     return await client.assignmentOnExamReport.findMany({
       where: { examId },
+      include: {
+        assignment: {
+          select: {
+            id: true,
+            title: true,
+            categoryId: true,
+            instructorId: true,
+            lectureId: true,
+            category: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
       orderBy: { assignment: { title: 'asc' } }, // 과제 제목 순 정렬
     });
   }

@@ -290,4 +290,27 @@ export class ExamsService {
       );
     });
   }
+
+  /** 시험 성적표 과제 목록 조회 */
+  async getExamReportAssignments(
+    examId: string,
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 1. Exam 확인
+    const exam = await this.examsRepo.findById(examId);
+    if (!exam) {
+      throw new NotFoundException('시험을 찾을 수 없습니다.');
+    }
+
+    // 2. 권한 확인
+    await this.permissionService.validateInstructorAccess(
+      exam.instructorId,
+      userType,
+      profileId,
+    );
+
+    // 3. 과제 연계 조회
+    return await this.examsRepo.findAssignmentsOnExamReportByExamId(examId);
+  }
 }
