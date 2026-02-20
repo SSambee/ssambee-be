@@ -1383,7 +1383,9 @@ describe('InstructorPostsService', () => {
             enrollmentId: 'enrollment-1',
             lecture: { instructorId: 'instructor-1' },
           },
-        ]);
+        ]) as Prisma.LectureEnrollmentGetPayload<{
+          include: { lecture: true };
+        }>[];
         instructorPostsRepo.findMany.mockResolvedValue({
           posts: [],
           totalCount: 0,
