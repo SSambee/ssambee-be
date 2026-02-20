@@ -6,8 +6,15 @@ import type { FileStorageService } from '../../services/filestorage.service.js';
 /** Mock AuthService 생성 */
 export const createMockAuthService = (): jest.Mocked<AuthService> =>
   ({
-    signUp: jest.fn(),
+    completeSignUpWithVerifiedEmail: jest.fn(),
     signIn: jest.fn(),
+    requestEmailVerification: jest.fn(),
+    verifyEmailVerification: jest.fn(),
+    verifyEmailWithToken: jest.fn(),
+    changeMyEmail: jest.fn(),
+    changeMyPassword: jest.fn(),
+    findPassword: jest.fn(),
+    resetPasswordWithOTP: jest.fn(),
     signOut: jest.fn(),
     getSession: jest.fn(),
   }) as unknown as jest.Mocked<AuthService>;
@@ -20,6 +27,7 @@ export const createMockParentsService = (): jest.Mocked<ParentsService> =>
     getChildEnrollments: jest.fn(),
     getChildEnrollmentDetail: jest.fn(),
     findLinkByPhoneNumber: jest.fn(),
+    findLinkByPhoneNumberAndProfile: jest.fn(),
     validateChildAccess: jest.fn(),
   }) as unknown as jest.Mocked<ParentsService>;
 

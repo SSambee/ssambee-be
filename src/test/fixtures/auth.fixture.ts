@@ -38,6 +38,7 @@ export const signUpRequests = {
     password: 'password123!',
     name: faker.person.fullName(),
     phoneNumber: faker.phone.number({ style: 'national' }),
+    parentPhoneNumber: faker.phone.number({ style: 'national' }),
     school: `${faker.person.lastName()}고등학교`,
     schoolYear: faker.helpers.arrayElement(['1', '2', '3']),
   },

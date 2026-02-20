@@ -2,12 +2,16 @@ import { Router } from 'express';
 import { container } from '../../../config/container.config.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
 import { updateMyProfileSchema } from '../../../validations/profile.validation.js';
+import {
+  changeMyEmailSchema,
+  changeMyPasswordSchema,
+} from '../../../validations/auth.validation.js';
 import { requireUserType } from '../../../middlewares/auth.middleware.js';
 import { UserType } from '../../../constants/auth.constant.js';
 
 export const svcMeRouter = Router();
 
-const { requireAuth, profileController } = container;
+const { requireAuth, profileController, authController } = container;
 
 // 학생 또는 학부모만 접근 가능
 const requireStudentOrParent = requireUserType(
@@ -27,4 +31,18 @@ svcMeRouter.patch(
   '/',
   validate(updateMyProfileSchema, 'body'),
   profileController.updateMyProfile,
+);
+
+/** 내 이메일 변경 */
+svcMeRouter.patch(
+  '/email',
+  validate(changeMyEmailSchema, 'body'),
+  authController.changeMyEmail,
+);
+
+/** 내 비밀번호 변경 */
+svcMeRouter.patch(
+  '/password',
+  validate(changeMyPasswordSchema, 'body'),
+  authController.changeMyPassword,
 );

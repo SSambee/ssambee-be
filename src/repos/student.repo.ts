@@ -4,6 +4,7 @@ import type { Prisma } from '../generated/prisma/client.js';
 interface CreateStudentData {
   userId: string;
   phoneNumber: string;
+  parentPhoneNumber?: string;
   school?: string;
   schoolYear?: string;
 }
@@ -23,6 +24,24 @@ export class StudentRepository {
   async findByPhoneNumber(phoneNumber: string, tx?: Prisma.TransactionClient) {
     const client = tx ?? this.prisma;
     return client.appStudent.findUnique({ where: { phoneNumber } });
+  }
+
+  async findByPhoneNumberAndProfile(
+    phoneNumber: string,
+    studentName: string,
+    parentPhoneNumber: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return client.appStudent.findFirst({
+      where: {
+        phoneNumber,
+        parentPhoneNumber,
+        user: {
+          name: studentName,
+        },
+      },
+    });
   }
 
   async create(data: CreateStudentData, tx?: Prisma.TransactionClient) {

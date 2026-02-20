@@ -36,6 +36,53 @@ export const signInSchema = z.object({
 });
 
 /**
+ * 이메일 인증(OTP) 요청 스키마
+ * - otp 없으면 인증코드 발송
+ * - otp 있으면 인증코드 검증
+ */
+export const emailVerificationSchema = z.object({
+  email: emailSchema,
+  otp: z.preprocess((value) => {
+    if (value === null || value === undefined) {
+      return undefined;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length === 0 ? undefined : trimmed;
+    }
+    return value;
+  }, z.string().min(4).max(8).optional()),
+});
+
+/** 이메일 인증 링크 검증 쿼리 */
+export const verifyEmailQuerySchema = z.object({
+  token: z.string().min(1, 'token은 필수입니다.'),
+});
+
+/** 이메일 변경 요청 스키마 */
+export const changeMyEmailSchema = z.object({
+  newEmail: emailSchema,
+});
+
+/** 비밀번호 변경 요청 스키마 */
+export const changeMyPasswordSchema = z.object({
+  currentPassword: z.string().min(1, '현재 비밀번호는 필수입니다.'),
+  newPassword: passwordSchema,
+  revokeOtherSessions: z.boolean().optional(),
+});
+
+/** 이메일 기반 비밀번호 찾기 요청 스키마 */
+export const findPasswordSchema = z.object({
+  email: emailSchema,
+});
+
+export const resetPasswordSchema = z.object({
+  email: emailSchema,
+  otp: z.string().min(4).max(8),
+  newPassword: passwordSchema,
+});
+
+/**
  * 강사 회원가입 요청 검증 스키마
  */
 export const instructorSignUpSchema = z.object({
@@ -81,6 +128,8 @@ export const studentSignUpSchema = z.object({
   name: z.string().min(2, '이름은 최소 2자 이상이어야 합니다.'),
   /** 전화번호 */
   phoneNumber: phoneSchema,
+  /** 학부모 전화번호 */
+  parentPhoneNumber: phoneSchema,
   /** 소속 학교 (선택) */
   school: z.string().optional(),
   /** 학년 (선택) */

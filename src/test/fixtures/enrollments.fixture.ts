@@ -39,6 +39,7 @@ export const mockStudents = {
     id: faker.string.uuid(),
     userId: mockUsers.student.id,
     phoneNumber: faker.phone.number({ style: 'national' }),
+    parentPhoneNumber: null,
     school: faker.helpers.arrayElement([
       '서울고등학교',
       '강남고등학교',
@@ -54,6 +55,7 @@ export const mockStudents = {
     id: faker.string.uuid(),
     userId: faker.string.uuid(),
     phoneNumber: faker.phone.number({ style: 'national' }),
+    parentPhoneNumber: null,
     school: '서울고등학교',
     schoolYear: '고2',
     createdAt: faker.date.past(),
@@ -65,6 +67,7 @@ export const mockStudents = {
     id: faker.string.uuid(),
     userId: faker.string.uuid(),
     phoneNumber: faker.phone.number({ style: 'national' }),
+    parentPhoneNumber: null,
     school: '강남고등학교',
     schoolYear: '고1',
     createdAt: faker.date.past(),

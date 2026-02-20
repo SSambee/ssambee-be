@@ -5,6 +5,9 @@ export const UserType = {
   PARENT: 'PARENT',
 } as const;
 
+// 이메일 OTP 인증 이후, 프로필 생성이 완료되기 전 임시 상태
+export const SIGNUP_PENDING_USER_TYPE = 'SIGNUP_PENDING' as const;
+
 export type UserType = (typeof UserType)[keyof typeof UserType];
 
 // 각 userType에 해당하는 Prisma 모델 매핑

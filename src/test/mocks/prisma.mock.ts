@@ -9,7 +9,11 @@ export const mockTransaction = jest.fn();
 export const createMockPrisma = () => ({
   user: {
     findUnique: mockUserFindUnique,
+    update: jest.fn(),
     delete: mockUserDelete,
+  },
+  account: {
+    findFirst: jest.fn(),
   },
   assistant: {
     findUnique: jest.fn(),
