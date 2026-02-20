@@ -93,6 +93,9 @@ import { AssignmentCategoryController } from '../controllers/assignment-categori
 import { SchedulesService } from '../services/schedules.service.js';
 import { SchedulesController } from '../controllers/schedules.controller.js';
 import { UploadsController } from '../controllers/uploads.controller.js';
+
+import { DashboardService } from '../services/dashboard.service.js';
+import { DashboardController } from '../controllers/dashboard.controller.js';
 /**
  *  import { redis } from './redis.config.js';
  *  redis 클라이언트르 컨테이너에 등록하여 필요한 서비스에 주입한다.
@@ -320,6 +323,19 @@ const schedulesService = new SchedulesService(
   prisma,
 );
 
+const dashboardService = new DashboardService(
+  clinicsRepo,
+  attendancesRepo,
+  gradesRepo,
+  instructorPostsRepo,
+  lecturesRepo,
+  lectureEnrollmentsRepo,
+  enrollmentsRepo,
+  examsRepo,
+  permissionService,
+  prisma,
+);
+
 const assignmentsService = new AssignmentsService(
   assignmentsRepo,
   assignmentCategoryRepo,
@@ -365,6 +381,7 @@ const assignmentCategoryController = new AssignmentCategoryController(
   assignmentCategoryService,
 );
 const schedulesController = new SchedulesController(schedulesService);
+const dashboardController = new DashboardController(dashboardService);
 const assignmentsController = new AssignmentsController(assignmentsService);
 const assignmentResultsController = new AssignmentResultsController(
   assignmentResultsService,
@@ -430,6 +447,7 @@ export const container = {
   schedulesController,
   assignmentsController,
   assignmentResultsController,
+  dashboardController,
   uploadsController,
   profileController: new ProfileController(profileService),
   // Middlewares
