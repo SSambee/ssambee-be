@@ -733,7 +733,7 @@ export class AuthService {
       data.phoneNumber,
       student.id,
       data.name,
-      data.parentPhoneNumber,
+      data.parentPhoneNumber!,
       tx,
     );
 
