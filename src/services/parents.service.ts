@@ -146,8 +146,15 @@ export class ParentsService {
         enrollmentId,
       );
 
+    // memo 필드 제외 처리
+    const sanitizedLectureEnrollments = lectureEnrollments.map(
+      ({ memo: _memo, ...rest }) => ({
+        ...rest,
+      }),
+    );
+
     return {
-      lectureEnrollments,
+      lectureEnrollments: sanitizedLectureEnrollments,
     };
   }
 
