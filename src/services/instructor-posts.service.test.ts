@@ -7,9 +7,16 @@ import {
   createMockEnrollmentsRepository,
   createMockStudentPostsRepository,
 } from '../test/mocks/repo.mock.js';
-import { createMockPermissionService } from '../test/mocks/services.mock.js';
+import {
+  createMockPermissionService,
+  createMockCommentsService,
+} from '../test/mocks/services.mock.js';
 import { UserType } from '../constants/auth.constant.js';
-import { PostScope, PostType } from '../constants/posts.constant.js';
+import {
+  PostScope,
+  PostType,
+  TargetRole,
+} from '../constants/posts.constant.js';
 import {
   ForbiddenException,
   NotFoundException,
@@ -31,6 +38,7 @@ import type { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.
 import type { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import type { StudentPostsRepository } from '../repos/student-posts.repo.js';
 import type { PermissionService } from './permission.service.js';
+import type { CommentsService } from './comments.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 
 /** 타입 정의 */
@@ -54,6 +62,7 @@ describe('InstructorPostsService', () => {
   let enrollmentsRepo: jest.Mocked<EnrollmentsRepository>;
   let studentPostsRepo: jest.Mocked<StudentPostsRepository>;
   let permissionService: jest.Mocked<PermissionService>;
+  let commentsService: jest.Mocked<CommentsService>;
 
   beforeEach(() => {
     instructorPostsRepo = createMockInstructorPostsRepository();
@@ -63,6 +72,7 @@ describe('InstructorPostsService', () => {
     enrollmentsRepo = createMockEnrollmentsRepository();
     studentPostsRepo = createMockStudentPostsRepository();
     permissionService = createMockPermissionService();
+    commentsService = createMockCommentsService();
 
     service = new InstructorPostsService(
       instructorPostsRepo,
@@ -72,6 +82,7 @@ describe('InstructorPostsService', () => {
       enrollmentsRepo,
       permissionService,
       studentPostsRepo,
+      commentsService,
     );
 
     studentPostsRepo.getStats.mockResolvedValue({
@@ -1146,6 +1157,220 @@ describe('InstructorPostsService', () => {
       await expect(
         service.getPostTargets(UserType.PARENT, 'parent-1'),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('Post Access Control by TargetRole', () => {
+    describe('학생 접근 권한', () => {
+      it('학생이 PARENT 전용 게시글을 조회하면 ForbiddenException이 발생해야 한다', async () => {
+        // Arrange: 학부모 전용 게시글 생성
+        const parentOnlyPost = {
+          ...mockInstructorPosts.global,
+          targetRole: TargetRole.PARENT,
+        };
+        instructorPostsRepo.findById.mockResolvedValue(parentOnlyPost);
+
+        // Act & Assert: 학생 조회 시 403 에러
+        await expect(
+          service.getPostDetail(
+            parentOnlyPost.id,
+            UserType.STUDENT,
+            'student-1',
+          ),
+        ).rejects.toThrow(ForbiddenException);
+      });
+
+      it('학생이 ALL 대상 게시글을 조회하면 성공해야 한다', async () => {
+        // Arrange: 전체 공개 게시글
+        const publicPost = {
+          ...mockInstructorPosts.global,
+          targetRole: TargetRole.ALL,
+        };
+        instructorPostsRepo.findById.mockResolvedValue(publicPost);
+        permissionService.validateInstructorStudentLink.mockResolvedValue(
+          undefined,
+        );
+
+        // Act
+        const result = await service.getPostDetail(
+          publicPost.id,
+          UserType.STUDENT,
+          'student-1',
+        );
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.id).toBe(publicPost.id);
+      });
+
+      it('학생이 STUDENT 전용 게시글을 조회하면 성공해야 한다', async () => {
+        // Arrange: 학생 전용 게시글
+        const studentOnlyPost = {
+          ...mockInstructorPosts.global,
+          targetRole: TargetRole.STUDENT,
+        };
+        instructorPostsRepo.findById.mockResolvedValue(studentOnlyPost);
+        permissionService.validateInstructorStudentLink.mockResolvedValue(
+          undefined,
+        );
+
+        // Act
+        const result = await service.getPostDetail(
+          studentOnlyPost.id,
+          UserType.STUDENT,
+          'student-1',
+        );
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.id).toBe(studentOnlyPost.id);
+      });
+    });
+
+    describe('학부모 접근 권한', () => {
+      it('학부모가 STUDENT 전용 게시글을 조회하면 ForbiddenException이 발생해야 한다', async () => {
+        // Arrange: 학생 전용 게시글 생성
+        const studentOnlyPost = {
+          ...mockInstructorPosts.global,
+          targetRole: TargetRole.STUDENT,
+        };
+        instructorPostsRepo.findById.mockResolvedValue(studentOnlyPost);
+
+        // Act & Assert: 학부모 조회 시 403 에러
+        await expect(
+          service.getPostDetail(
+            studentOnlyPost.id,
+            UserType.PARENT,
+            'parent-1',
+          ),
+        ).rejects.toThrow(ForbiddenException);
+      });
+
+      it('학부모가 ALL 대상 게시글을 조회하면 성공해야 한다', async () => {
+        // Arrange: 전체 공개 게시글
+        const publicPost = {
+          ...mockInstructorPosts.global,
+          targetRole: TargetRole.ALL,
+        };
+        instructorPostsRepo.findById.mockResolvedValue(publicPost);
+        permissionService.getParentEnrollmentIds.mockResolvedValue([
+          'enrollment-1',
+        ]);
+        enrollmentsRepo.findByIds.mockResolvedValue([
+          {
+            id: 'enrollment-1',
+            instructorId: publicPost.instructorId,
+          } as Prisma.EnrollmentGetPayload<Record<string, never>>,
+        ]);
+
+        // Act
+        const result = await service.getPostDetail(
+          publicPost.id,
+          UserType.PARENT,
+          'parent-1',
+        );
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.id).toBe(publicPost.id);
+      });
+
+      it('학부모가 PARENT 전용 게시글을 조회하면 성공해야 한다', async () => {
+        // Arrange: 학부모 전용 게시글
+        const parentOnlyPost = {
+          ...mockInstructorPosts.global,
+          targetRole: TargetRole.PARENT,
+        };
+        instructorPostsRepo.findById.mockResolvedValue(parentOnlyPost);
+        permissionService.getParentEnrollmentIds.mockResolvedValue([
+          'enrollment-1',
+        ]);
+        enrollmentsRepo.findByIds.mockResolvedValue([
+          {
+            id: 'enrollment-1',
+            instructorId: parentOnlyPost.instructorId,
+          } as Prisma.EnrollmentGetPayload<Record<string, never>>,
+        ]);
+
+        // Act
+        const result = await service.getPostDetail(
+          parentOnlyPost.id,
+          UserType.PARENT,
+          'parent-1',
+        );
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.id).toBe(parentOnlyPost.id);
+      });
+    });
+
+    describe('TargetRole과 Scope 조합', () => {
+      it('PARENT 전용 SELECTED 게시글은 해당 학생의 학부모만 조회할 수 있어야 한다', async () => {
+        // Arrange: 특정 학생 대상 학부모 전용 게시글
+        const parentOnlySelectedPost = {
+          ...mockInstructorPosts.selected,
+          targetRole: TargetRole.PARENT,
+          targets: [
+            {
+              enrollmentId: 'enrollment-1',
+              enrollment: {
+                id: 'enrollment-1',
+                appStudentId: 'student-1',
+              },
+            },
+          ],
+        };
+        instructorPostsRepo.findById.mockResolvedValue(
+          parentOnlySelectedPost as InstructorPostWithDetails,
+        );
+        permissionService.getParentEnrollmentIds.mockResolvedValue([
+          'enrollment-1',
+        ]);
+
+        // Act
+        const result = await service.getPostDetail(
+          parentOnlySelectedPost.id,
+          UserType.PARENT,
+          'parent-1',
+        );
+
+        // Assert
+        expect(result).toBeDefined();
+      });
+
+      it('PARENT 전용 SELECTED 게시글은 다른 학생의 학부모가 조회하면 ForbiddenException이 발생해야 한다', async () => {
+        // Arrange: 특정 학생 대상 학부모 전용 게시글
+        const parentOnlySelectedPost = {
+          ...mockInstructorPosts.selected,
+          targetRole: TargetRole.PARENT,
+          targets: [
+            {
+              enrollmentId: 'enrollment-1',
+              enrollment: {
+                id: 'enrollment-1',
+                appStudentId: 'student-1',
+              },
+            },
+          ],
+        };
+        instructorPostsRepo.findById.mockResolvedValue(
+          parentOnlySelectedPost as InstructorPostWithDetails,
+        );
+        // 다른 학생의 학부모 (enrollment-2를 가짐)
+        permissionService.getParentEnrollmentIds.mockResolvedValue([
+          'enrollment-2',
+        ]);
+
+        // Act & Assert
+        await expect(
+          service.getPostDetail(
+            parentOnlySelectedPost.id,
+            UserType.PARENT,
+            'parent-2',
+          ),
+        ).rejects.toThrow(ForbiddenException);
+      });
     });
   });
 });
