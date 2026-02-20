@@ -7,7 +7,7 @@ export const createAssignmentSchema = z.object({
   /** 과제 제목 */
   title: z.string().min(1, '과제 이름은 필수입니다.'),
   /** 과제 카테고리 ID */
-  categoryId: z.string().uuid('올바른 카테고리 ID 형식이 아닙니다.'),
+  categoryId: z.string().cuid2('올바른 카테고리 ID 형식이 아닙니다.'),
 });
 
 /**
@@ -31,7 +31,7 @@ export const getAssignmentsQuerySchema = z.object({
  */
 export const assignmentIdParamSchema = z.object({
   /** 과제 ID */
-  assignmentId: z.string().uuid('올바른 과제 ID 형식이 아닙니다.'),
+  assignmentId: z.string().cuid2('올바른 과제 ID 형식이 아닙니다.'),
 });
 
 /**
@@ -47,7 +47,7 @@ export const updateAssignmentSchema = z
     /** 과제 카테고리 ID */
     categoryId: z
       .string()
-      .uuid('올바른 카테고리 ID 형식이 아닙니다.')
+      .cuid2('올바른 카테고리 ID 형식이 아닙니다.')
       .optional(),
   })
   .refine((data) => data.title !== undefined || data.categoryId !== undefined, {
