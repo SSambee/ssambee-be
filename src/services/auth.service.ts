@@ -729,13 +729,15 @@ export class AuthService {
       tx,
     );
 
-    await this.enrollmentsRepo.updateAppStudentIdByPhoneNumber(
-      data.phoneNumber,
-      student.id,
-      data.name,
-      data.parentPhoneNumber!,
-      tx,
-    );
+    if (data.parentPhoneNumber) {
+      await this.enrollmentsRepo.updateAppStudentIdByPhoneNumber(
+        data.phoneNumber,
+        student.id,
+        data.name,
+        data.parentPhoneNumber,
+        tx,
+      );
+    }
 
     return student;
   }
