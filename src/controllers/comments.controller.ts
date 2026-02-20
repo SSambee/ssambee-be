@@ -31,10 +31,17 @@ export class CommentsController {
         }
       }
 
+      const files = req.files
+        ? (req.files as Express.Multer.File[])
+        : req.file
+          ? [req.file as Express.Multer.File]
+          : undefined;
+
       const result = await this.commentsService.createComment(
         data,
         userType,
         profileId,
+        files,
       );
 
       return successResponse(res, {

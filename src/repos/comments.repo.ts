@@ -6,31 +6,49 @@ export class CommentsRepository {
 
   /** 댓글 생성 (첨부파일 포함) */
   async create(
-    data: Prisma.CommentUncheckedCreateInput & { materialIds?: string[] },
+    data: Prisma.CommentUncheckedCreateInput & {
+      materialIds?: string[];
+      attachments?: { filename: string; fileUrl: string }[];
+    },
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
-    const { materialIds, ...commentData } = data;
+    const { materialIds, attachments, ...commentData } = data;
 
-    // materialIds가 있으면 Material 정보를 조회하여 filename 포함
-    let attachmentsData: { materialId: string; filename: string }[] | undefined;
+    // 1. 라이브러리 자료(Material) 첨부 데이터 구성
+    let materialAttachments:
+      | { materialId: string; filename: string }[]
+      | undefined;
     if (materialIds?.length) {
       const materials = await client.material.findMany({
         where: { id: { in: materialIds } },
         select: { id: true, title: true },
       });
-      attachmentsData = materials.map((m) => ({
+      materialAttachments = materials.map((m) => ({
         materialId: m.id,
         filename: m.title,
       }));
     }
 
+    // 2. 직접 첨부(Direct) 데이터 구성
+    const directAttachments =
+      attachments?.map((a) => ({
+        filename: a.filename,
+        fileUrl: a.fileUrl,
+      })) || [];
+
+    // 3. 결합
+    const allAttachments = [
+      ...(materialAttachments || []),
+      ...directAttachments,
+    ];
+
     return client.comment.create({
       data: {
         ...commentData,
-        attachments: attachmentsData?.length
+        attachments: allAttachments.length
           ? {
-              create: attachmentsData,
+              create: allAttachments,
             }
           : undefined,
       },
@@ -60,31 +78,54 @@ export class CommentsRepository {
   /** 댓글 수정 */
   async update(
     id: string,
-    data: { content?: string; materialIds?: string[] },
+    data: {
+      content?: string;
+      materialIds?: string[];
+      attachments?: { filename: string; fileUrl: string }[];
+    },
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
-    const { materialIds, ...commentData } = data;
+    const { materialIds, attachments, ...commentData } = data;
 
     // 첨부파일 업데이트: 기존 첨부 삭제 후 새 첨부 추가
-    if (materialIds !== undefined) {
+    if (materialIds !== undefined || attachments !== undefined) {
       await client.commentAttachment.deleteMany({
         where: { commentId: id },
       });
 
-      if (materialIds.length > 0) {
+      // 1. 라이브러리 자료 첨부
+      let materialAttachments:
+        | { commentId: string; materialId: string; filename: string }[]
+        | undefined;
+      if (materialIds?.length) {
         const materials = await client.material.findMany({
           where: { id: { in: materialIds } },
           select: { id: true, title: true },
         });
-        const attachmentsData = materials.map((m) => ({
+        materialAttachments = materials.map((m) => ({
           commentId: id,
           materialId: m.id,
           filename: m.title,
         }));
+      }
 
+      // 2. 직접 첨부
+      const directAttachments =
+        attachments?.map((a) => ({
+          commentId: id,
+          filename: a.filename,
+          fileUrl: a.fileUrl,
+        })) || [];
+
+      const allAttachments = [
+        ...(materialAttachments || []),
+        ...directAttachments,
+      ];
+
+      if (allAttachments.length > 0) {
         await client.commentAttachment.createMany({
-          data: attachmentsData,
+          data: allAttachments,
         });
       }
     }
@@ -125,17 +166,18 @@ export class CommentsRepository {
       enrollmentId: string | null;
       authorRole?: string;
       materialIds?: string[];
+      attachments?: { filename: string; fileUrl: string }[];
     },
     tx?: Prisma.TransactionClient,
   ) {
     const execute = async (txClient: Prisma.TransactionClient) => {
-      // 1. 학생 질문 상태를 RESOLVED로 변경
+      // 학생 질문 상태를 REGISTERED로 변경
       await txClient.studentPost.update({
         where: { id: data.studentPostId },
-        data: { status: StudentPostStatus.RESOLVED },
+        data: { status: StudentPostStatus.REGISTERED },
       });
 
-      // 2. 댓글 생성 (기존 create 로직 재사용)
+      // 댓글 생성 (기존 create 로직 재사용)
       return this.create(
         {
           content: data.content,
@@ -145,6 +187,7 @@ export class CommentsRepository {
           enrollmentId: data.enrollmentId,
           authorRole: data.authorRole,
           materialIds: data.materialIds,
+          attachments: data.attachments,
         },
         txClient,
       );

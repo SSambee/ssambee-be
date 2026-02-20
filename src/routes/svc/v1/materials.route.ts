@@ -5,15 +5,10 @@ import { materialParamsSchema } from '../../../validations/materials.validation.
 
 export const svcMaterialsRouter = Router();
 
-const {
-  materialsController,
-  requireAuth,
-  requireStudent, // 학생 전용? 학부모도 포함되어야 하는데...
-  // 통합 미들웨어 requireStudentOrParent 추가 예정
-} = container;
+const { materialsController, requireAuth, requireStudentOrParent } = container;
 
 svcMaterialsRouter.use(requireAuth);
-svcMaterialsRouter.use(requireStudent);
+svcMaterialsRouter.use(requireStudentOrParent);
 
 /** 자료 상세 조회 (GET /api/svc/v1/materials/:materialsId) */
 svcMaterialsRouter.get(

@@ -6,6 +6,7 @@ import {
 import {
   CreateStudentPostDto,
   GetStudentPostsQueryDto,
+  GetMyLecturesQueryDto,
 } from '../validations/student-posts.validation.js';
 import { StudentPostStatus, AuthorRole } from '../constants/posts.constant.js';
 import { UserType } from '../constants/auth.constant.js';
@@ -15,9 +16,12 @@ import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.
 import { LecturesRepository } from '../repos/lectures.repo.js';
 import { CommentsRepository } from '../repos/comments.repo.js';
 import { PermissionService } from './permission.service.js';
-import { StudentPost, Comment } from '../generated/prisma/client.js';
+import { StudentPost, Comment, Material } from '../generated/prisma/client.js';
 import { formatStudentPostStats } from '../utils/posts.util.js';
 import { CommentsService } from './comments.service.js';
+import { FileStorageService } from './filestorage.service.js';
+import path from 'path';
+import { randomUUID } from 'crypto';
 
 export class StudentPostsService {
   constructor(
@@ -28,6 +32,7 @@ export class StudentPostsService {
     private readonly commentsRepository: CommentsRepository,
     private readonly permissionService: PermissionService,
     private readonly commentsService: CommentsService,
+    private readonly fileStorageService: FileStorageService,
   ) {}
 
   /** 질문 생성 (학생/학부모) */
@@ -35,6 +40,7 @@ export class StudentPostsService {
     data: CreateStudentPostDto & { childLinkId?: string }, // [NEW] 학부모용
     userType: UserType,
     profileId: string,
+    files?: Express.Multer.File[],
   ) {
     let enrollmentId = '';
     let authorRole: string = AuthorRole.STUDENT;
@@ -74,15 +80,46 @@ export class StudentPostsService {
     if (!enrollment)
       throw new NotFoundException('수강 정보를 찾을 수 없습니다.');
 
-    return this.studentPostsRepository.create({
+    // 직접 첨부 파일 처리 (S3 업로드)
+    const uploadedAttachments: { filename: string; fileUrl: string }[] = [];
+    if (files?.length) {
+      for (const file of files) {
+        const randomId = randomUUID();
+        const ext = path.extname(file.originalname);
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const key = `attachments/${year}/${month}/${randomId}${ext}`;
+
+        const fileUrl = await this.fileStorageService.upload(file, key);
+        uploadedAttachments.push({
+          filename: file.originalname,
+          fileUrl,
+        });
+      }
+    }
+
+    // 기존 데이터의 attachments와 업로드된 attachments 결합
+    const allAttachments = [
+      ...(data.attachments || []),
+      ...uploadedAttachments,
+    ];
+
+    const result = await this.studentPostsRepository.create({
       title: data.title,
       content: data.content,
-      status: StudentPostStatus.PENDING,
+      status: StudentPostStatus.BEFORE,
       enrollmentId,
       authorRole,
       instructorId: enrollment.instructorId,
       lectureId: data.lectureId || null,
+      attachments: allAttachments.length ? allAttachments : undefined,
     });
+
+    return {
+      ...result,
+      attachments: this.normalizeAttachments(result.attachments),
+    };
   }
 
   /** 질문 목록 조회 */
@@ -146,8 +183,75 @@ export class StudentPostsService {
     }
 
     return {
-      ...result,
+      posts: result.posts.map((post) => ({
+        ...post,
+        attachments: this.normalizeAttachments(post.attachments),
+      })),
+      totalCount: result.totalCount,
       stats,
+    };
+  }
+
+  /** 내 수강 강의 목록 조회 */
+  async getMyLectures(
+    query: GetMyLecturesQueryDto,
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 학생과 학부모만 접근 가능
+    if (userType !== UserType.STUDENT && userType !== UserType.PARENT) {
+      throw new ForbiddenException('학생 또는 학부모만 접근할 수 있습니다.');
+    }
+
+    const { page, limit } = query;
+    const offset = (page - 1) * limit;
+
+    // 학부모인 경우 자녀의 수강 목록 조회
+    if (userType === UserType.PARENT) {
+      const childLinks = await this.permissionService.getChildLinks(profileId);
+      if (!childLinks || childLinks.length === 0) {
+        return { lectures: [], totalCount: 0 };
+      }
+
+      const enrollmentIds =
+        await this.permissionService.getParentEnrollmentIds(profileId);
+      if (!enrollmentIds || enrollmentIds.length === 0) {
+        return { lectures: [], totalCount: 0 };
+      }
+
+      const result =
+        await this.lectureEnrollmentsRepository.findManyByEnrollmentIds(
+          enrollmentIds,
+        );
+
+      // 페이지네이션 적용
+      const paginatedResult = result.slice(offset, offset + limit);
+
+      return {
+        lectures: paginatedResult.map((le) => ({
+          id: le.lecture.id,
+          title: le.lecture.title,
+          instructorId: le.lecture.instructorId,
+        })),
+        totalCount: result.length,
+      };
+    }
+
+    // 학생인 경우
+    const { lectureEnrollments, totalCount } =
+      await this.lectureEnrollmentsRepository.findManyByAppStudentId(
+        profileId,
+        { limit, offset },
+      );
+
+    return {
+      lectures: lectureEnrollments.map((le) => ({
+        id: le.lecture.id,
+        title: le.lecture.title,
+        instructorId: le.lecture.instructorId,
+        lectureTimes: le.lecture.lectureTimes,
+      })),
+      totalCount,
     };
   }
 
@@ -159,21 +263,16 @@ export class StudentPostsService {
     // 권한 검증
     await this.validatePostAccess(post, userType, profileId);
 
-    // 댓글에 isMine 및 첨부파일 필터링 적용
-    if (post.comments) {
-      const processedComments = await this.processPostComments(
-        post,
-        userType,
-        profileId,
-      );
+    // 댓글에 isMine 및 첨부파일 필터링/정규화 적용
+    const processedComments = post.comments
+      ? await this.processPostComments(post, userType, profileId)
+      : [];
 
-      return {
-        ...post,
-        comments: processedComments,
-      };
-    }
-
-    return post;
+    return {
+      ...post,
+      attachments: this.normalizeAttachments(post.attachments),
+      comments: processedComments,
+    };
   }
 
   /** 상태 변경 */
@@ -203,14 +302,28 @@ export class StudentPostsService {
       );
     }
 
-    // 학생은 PENDING -> COMPLETED로만 변경 가능 (한 번 완료되면 취소 불가)
-    if (userType === UserType.STUDENT) {
-      if (post.status === StudentPostStatus.COMPLETED) {
-        throw new ForbiddenException('이미 완료된 질문입니다.');
+    // 학생/학부모: RESOLVED ↔ COMPLETED 토글만 허용
+    if (userType === UserType.STUDENT || userType === UserType.PARENT) {
+      // 댓글이 없으면 상태 변경 불가 (답변이 없는 질문은 완료 처리 불가)
+      const commentCount = post.comments?.length ?? 0;
+      if (commentCount === 0) {
+        throw new BadRequestException(
+          '답변이 없는 질문은 완료 처리할 수 없습니다.',
+        );
       }
-      if (status !== StudentPostStatus.COMPLETED) {
+
+      // BEFORE 상태에서는 직접 COMPLETED로 변경 불가 (강사가 먼저 REGISTERED로 변경해야 함)
+      if (post.status === StudentPostStatus.BEFORE) {
+        throw new BadRequestException('아직 답변이 등록되지 않은 질문입니다.');
+      }
+
+      // REGISTERED ↔ COMPLETED 토글만 허용
+      if (
+        status !== StudentPostStatus.REGISTERED &&
+        status !== StudentPostStatus.COMPLETED
+      ) {
         throw new ForbiddenException(
-          '학생은 완료 상태로만 변경할 수 있습니다.',
+          '답변 완료(COMPLETED) 또는 답변 등록(REGISTERED) 상태로만 변경할 수 있습니다.',
         );
       }
     }
@@ -236,7 +349,11 @@ export class StudentPostsService {
   /** 질문 수정 (본인만 가능) */
   async updatePost(
     postId: string,
-    data: { title?: string; content?: string },
+    data: {
+      title?: string;
+      content?: string;
+      attachments?: { filename: string; fileUrl: string }[];
+    },
     userType: UserType,
     profileId: string,
   ) {
@@ -250,13 +367,33 @@ export class StudentPostsService {
       throw new ForbiddenException('본인이 작성한 질문만 수정할 수 있습니다.');
     }
 
-    if (!data.title && !data.content) {
+    if (!data.title && !data.content && data.attachments === undefined) {
       throw new BadRequestException('수정할 내용이 없습니다.');
     }
 
     const isRedundant =
       (data.title === undefined || data.title === post.title) &&
-      (data.content === undefined || data.content === post.content);
+      (data.content === undefined || data.content === post.content) &&
+      (data.attachments === undefined ||
+        JSON.stringify(
+          [...(data.attachments || [])].sort(
+            (a, b) =>
+              a.filename.localeCompare(b.filename) ||
+              a.fileUrl.localeCompare(b.fileUrl),
+          ),
+        ) ===
+          JSON.stringify(
+            post.attachments
+              ?.map((a) => ({
+                filename: a.filename,
+                fileUrl: a.fileUrl,
+              }))
+              .sort(
+                (a, b) =>
+                  a.filename.localeCompare(b.filename) ||
+                  (a.fileUrl ?? '').localeCompare(b.fileUrl ?? ''),
+              ),
+          ));
 
     if (isRedundant) {
       return post;
@@ -265,6 +402,7 @@ export class StudentPostsService {
     return this.studentPostsRepository.update(postId, {
       title: data.title,
       content: data.content,
+      attachments: data.attachments,
     });
   }
 
@@ -448,49 +586,40 @@ export class StudentPostsService {
         );
 
         // 학생인 경우 첨부파일 필터링
+        let finalAttachments = comment.attachments;
         if (userType === UserType.STUDENT) {
-          const accessibleAttachments = await this.filterAccessibleAttachments(
+          finalAttachments = await this.filterAccessibleAttachments(
             comment.attachments,
             profileId,
           );
-          return {
-            ...commentWithIsMine,
-
-            attachments: accessibleAttachments,
-          };
         }
 
-        return commentWithIsMine;
+        return {
+          ...commentWithIsMine,
+          attachments: this.normalizeAttachments(finalAttachments),
+        };
       }),
     );
   }
 
   /** 학생용 첨부파일 접근 권한 필터링 */
-  private async filterAccessibleAttachments(
-    attachments: Array<{
+  private async filterAccessibleAttachments<
+    T extends {
       materialId: string | null;
-      material: {
-        id: string;
-        instructorId: string;
-        lectureId: string | null;
-      } | null;
-    }>,
-    profileId: string,
-  ): Promise<
-    Array<{
-      materialId: string | null;
-      material: {
-        id: string;
-        instructorId: string;
-        lectureId: string | null;
-      } | null;
-    }>
-  > {
+      material: Material | null;
+    },
+  >(attachments: T[], profileId: string): Promise<T[]> {
     if (!attachments || attachments.length === 0) return [];
 
-    const result: typeof attachments = [];
+    const result: T[] = [];
 
     for (const attachment of attachments) {
+      // 직접 첨부(Direct)인 경우: materialId가 없으면 항상 노출
+      if (!attachment.materialId) {
+        result.push(attachment);
+        continue;
+      }
+
       const material = attachment.material;
       if (!material) {
         continue;
@@ -522,6 +651,22 @@ export class StudentPostsService {
     }
 
     return result;
+  }
+
+  /**
+   * 첨부파일 구조 정규화 (material.fileUrl을 root로 승격)
+   */
+  private normalizeAttachments<
+    T extends {
+      fileUrl: string | null;
+      material?: { fileUrl: string | null } | null;
+    },
+  >(attachments: T[] | null | undefined) {
+    if (!attachments) return [];
+    return attachments.map((attr) => ({
+      ...attr,
+      fileUrl: attr.fileUrl || attr.material?.fileUrl || null,
+    }));
   }
 
   /** 만료된 질문 자동 완료 처리 (배치용) */

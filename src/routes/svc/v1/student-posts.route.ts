@@ -7,12 +7,15 @@ import {
   getStudentPostsQuerySchema,
   studentPostParamsSchema,
   updateStudentPostSchema,
+  getMyLecturesQuerySchema,
 } from '../../../validations/student-posts.validation.js';
 import {
   createCommentSchema,
   updateCommentSchema,
   commentEditParamsSchema,
 } from '../../../validations/comments.validation.js';
+
+import { upload } from '../../../middlewares/multer.middleware.js';
 
 export const svcStudentPostsRouter = Router();
 
@@ -29,9 +32,17 @@ const {
 svcStudentPostsRouter.use(requireAuth);
 svcStudentPostsRouter.use(requireStudentOrParent);
 
+/** 내 수강 강의 목록 조회 (질문 작성용) */
+svcStudentPostsRouter.get(
+  '/my-lectures',
+  validate(getMyLecturesQuerySchema, 'query'),
+  studentPostsController.getMyLectures,
+);
+
 /** 질문 생성 */
 svcStudentPostsRouter.post(
   '/',
+  upload.single('file'),
   validate(createStudentPostSchema, 'body'),
   studentPostsController.createPost,
 );
@@ -76,6 +87,7 @@ svcStudentPostsRouter.patch(
 // 학생/학부모도 본인 질문에 추가 댓글(재질문) 가능
 svcStudentPostsRouter.post(
   '/:postId/comments',
+  upload.single('file'),
   validate(studentPostParamsSchema, 'params'),
   validate(createCommentSchema, 'body'),
   commentsController.createComment,

@@ -45,7 +45,7 @@ if (isDevelopment()) {
 }
 
 // 비동기 Lambda 로깅 (Production 및 환경변수 설정 시 활성화)
-if (config.LOG_LAMBDA_URL) {
+if (config.MONITOR_LAMBDA_URL) {
   app.use(morgan('combined', { stream: new MorganLambdaStream() }));
 }
 

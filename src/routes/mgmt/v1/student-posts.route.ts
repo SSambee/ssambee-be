@@ -12,6 +12,8 @@ import {
   commentEditParamsSchema,
 } from '../../../validations/comments.validation.js';
 
+import { upload } from '../../../middlewares/multer.middleware.js';
+
 export const mgmtStudentPostsRouter = Router();
 
 const {
@@ -49,6 +51,7 @@ mgmtStudentPostsRouter.get(
 /** 답변(댓글) 작성 */
 mgmtStudentPostsRouter.post(
   '/:postId/comments',
+  upload.single('file'),
   validate(studentPostParamsSchema, 'params'),
   validate(createCommentSchema, 'body'),
   commentsController.createComment,

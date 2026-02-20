@@ -15,7 +15,7 @@ export type LogLevel = (typeof LOG_LEVEL)[keyof typeof LOG_LEVEL];
  * Lambda로 전송할 로그 데이터 구조
  */
 export interface LogPayload {
-  log: string;
+  message: string;
   timestamp: string;
   level: LogLevel;
 }
@@ -29,8 +29,8 @@ export class MorganLambdaStream implements StreamOptions {
    * @param message Morgan 포맷에 따라 생성된 로그 문자열
    */
   write(message: string): void {
-    const url = config.LOG_LAMBDA_URL;
-    const apiKey = config.LOG_LAMBDA_API_KEY;
+    const url = config.MONITOR_LAMBDA_URL;
+    const apiKey = config.INTERNAL_INGEST_SECRET; // 인가 처리를 위한 시크릿
 
     // URL이 설정되어 있지 않으면 로깅을 스킵합니다.
     if (!url) {
@@ -38,7 +38,7 @@ export class MorganLambdaStream implements StreamOptions {
     }
 
     const payload: LogPayload = {
-      log: message.trim(),
+      message: message.trim(),
       timestamp: new Date().toISOString(),
       level: LOG_LEVEL.INFO,
     };
@@ -49,9 +49,10 @@ export class MorganLambdaStream implements StreamOptions {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(apiKey && { 'x-api-key': apiKey }),
+        ...(apiKey && { 'x-internal-secret': apiKey }),
       },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(5000),
     })
       .then((res) => {
         if (!res.ok) {

@@ -17,7 +17,6 @@ import {
   AuthorRole,
   StudentPostStatus,
   InquiryWriterType,
-  AnswerStatus,
 } from '../constants/posts.constant.js';
 import { mockLectures } from '../test/fixtures/lectures.fixture.js';
 import {
@@ -684,12 +683,12 @@ describe('StudentPostsService', () => {
       expect(result.totalCount).toBe(1);
     });
 
-    it('answerStatus 필터가 포함된 경우 정상적으로 목록을 반환해야 한다', async () => {
+    it('status 필터가 포함된 경우 정상적으로 목록을 반환해야 한다', async () => {
       const mockPost = mockStudentPost({
         id: 'post-1',
         enrollmentId: 'enrollment-1',
         instructorId: VALID_INSTRUCTOR_ID,
-        status: StudentPostStatus.PENDING,
+        status: StudentPostStatus.BEFORE,
       });
 
       studentPostsRepo.findMany.mockResolvedValue({
@@ -701,7 +700,7 @@ describe('StudentPostsService', () => {
         {
           page: 1,
           limit: 10,
-          answerStatus: AnswerStatus.BEFORE,
+          status: StudentPostStatus.BEFORE,
           writerType: InquiryWriterType.ALL,
         },
         UserType.INSTRUCTOR,
@@ -710,7 +709,7 @@ describe('StudentPostsService', () => {
 
       expect(studentPostsRepo.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          answerStatus: AnswerStatus.BEFORE,
+          status: StudentPostStatus.BEFORE,
         }),
       );
       expect(result.totalCount).toBe(1);
@@ -754,7 +753,7 @@ describe('StudentPostsService', () => {
         id: 'post-1',
         enrollmentId: 'enrollment-1',
         instructorId: VALID_INSTRUCTOR_ID,
-        status: StudentPostStatus.PENDING,
+        status: StudentPostStatus.BEFORE,
         authorRole: AuthorRole.STUDENT,
       });
 
@@ -769,8 +768,7 @@ describe('StudentPostsService', () => {
           limit: 10,
           search: '검색어',
           lectureId: VALID_LECTURE_ID,
-          status: StudentPostStatus.PENDING,
-          answerStatus: AnswerStatus.BEFORE,
+          status: StudentPostStatus.BEFORE,
           writerType: InquiryWriterType.STUDENT,
         },
         UserType.INSTRUCTOR,
@@ -783,8 +781,7 @@ describe('StudentPostsService', () => {
           limit: 10,
           search: '검색어',
           lectureId: VALID_LECTURE_ID,
-          status: StudentPostStatus.PENDING,
-          answerStatus: AnswerStatus.BEFORE,
+          status: StudentPostStatus.BEFORE,
           writerType: InquiryWriterType.STUDENT,
         }),
       );

@@ -1115,7 +1115,7 @@ describe('InstructorPostsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('limit이 100을 초과하면 BadRequestException이 발생해야 한다', async () => {
+    it('limit이 50을 초과하면 BadRequestException이 발생해야 한다', async () => {
       const instructorId = mockInstructor.id;
       permissionService.getEffectiveInstructorId.mockResolvedValue(
         instructorId,
@@ -1123,7 +1123,7 @@ describe('InstructorPostsService', () => {
 
       await expect(
         service.getPostList(
-          { page: 1, limit: 101 },
+          { page: 1, limit: 51 },
           UserType.INSTRUCTOR,
           instructorId,
         ),
