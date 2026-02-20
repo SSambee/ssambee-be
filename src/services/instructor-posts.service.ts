@@ -617,6 +617,11 @@ export class InstructorPostsService {
         throw new ForbiddenException('권한이 없습니다.');
       }
 
+      // [SECURITY] 학부모 전용 게시글 접근 차단
+      if (post.targetRole === TargetRole.PARENT) {
+        throw new ForbiddenException('학부모 전용 게시글입니다.');
+      }
+
       // Global: 해당 강사의 강의를 하나라도 수강 중인지 확인
       if (post.scope === PostScope.GLOBAL) {
         await this.permissionService.validateInstructorStudentLink(
@@ -653,6 +658,11 @@ export class InstructorPostsService {
       // [NEW] 학부모는 READ만 가능
       if (action !== 'READ') {
         throw new ForbiddenException('권한이 없습니다.');
+      }
+
+      // [SECURITY] 학생 전용 게시글 접근 차단
+      if (post.targetRole === TargetRole.STUDENT) {
+        throw new ForbiddenException('학생 전용 게시글입니다.');
       }
 
       // 자녀의 enrollment ID 목록 조회
