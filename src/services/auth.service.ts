@@ -140,6 +140,43 @@ export class AuthService {
     return { data, setCookie };
   }
 
+  private isBetterAuthAlreadyHasPasswordError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    const err = error as Record<string, unknown>;
+    const code = err.code ?? (err.error as Record<string, unknown>)?.code;
+    const type = err.type ?? (err.error as Record<string, unknown>)?.type;
+    const message =
+      err.message ?? (err.error as Record<string, unknown>)?.message;
+
+    if (
+      code === 'USER_ALREADY_HAS_PASSWORD' ||
+      type === 'USER_ALREADY_HAS_PASSWORD'
+    ) {
+      return true;
+    }
+
+    if (
+      err.name === 'BetterAuthError' ||
+      err.constructor?.name === 'BetterAuthError'
+    ) {
+      if (message === 'user already has a password') {
+        return true;
+      }
+    }
+
+    if (
+      typeof message === 'string' &&
+      message === 'user already has a password'
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
   private async ensureCredentialPassword(
     userId: string,
     headers: IncomingHttpHeaders,
@@ -160,19 +197,6 @@ export class AuthService {
       return;
     }
 
-    const isAlreadyPasswordError = (error: unknown) => {
-      if (
-        error &&
-        typeof error === 'object' &&
-        'message' in error &&
-        typeof error.message === 'string' &&
-        error.message === 'user already has a password'
-      ) {
-        return true;
-      }
-      return false;
-    };
-
     const setPasswordApi = this.authClient.api as {
       setPassword?: (input: {
         headers: ReturnType<typeof fromNodeHeaders>;
@@ -189,7 +213,7 @@ export class AuthService {
         return;
       }
     } catch (error) {
-      if (isAlreadyPasswordError(error)) {
+      if (this.isBetterAuthAlreadyHasPasswordError(error)) {
         return;
       }
       const message =
@@ -211,7 +235,7 @@ export class AuthService {
         fallbackErrorMessage: '비밀번호 설정에 실패했습니다.',
       });
     } catch (error) {
-      if (isAlreadyPasswordError(error)) {
+      if (this.isBetterAuthAlreadyHasPasswordError(error)) {
         return;
       }
       throw error;
