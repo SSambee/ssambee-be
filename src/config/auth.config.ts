@@ -1,5 +1,5 @@
 import { betterAuth } from 'better-auth';
-import { admin } from 'better-auth/plugins';
+import { admin, emailOTP } from 'better-auth/plugins';
 import {
   ac,
   admin as adminRole,
@@ -10,6 +10,26 @@ import { prismaAdapter } from 'better-auth/adapters/prisma';
 import type { PrismaClient } from '../generated/prisma/client.js';
 import { prisma } from './db.config.js';
 import { config, isDevelopment } from './env.config.js';
+import { SIGNUP_PENDING_USER_TYPE } from '../constants/auth.constant.js';
+import { sendEmailOtp, sendVerificationLinkMail } from '../utils/mail.util.js';
+
+const getVerifyEmailPath = (): string => {
+  return '/api/public/v1/auth/verify-email';
+};
+
+const buildVerifyEmailLink = (url: string): string => {
+  const parsedUrl = new URL(url);
+  const token = parsedUrl.searchParams.get('token');
+
+  parsedUrl.pathname = getVerifyEmailPath();
+  parsedUrl.search = '';
+
+  if (token) {
+    parsedUrl.searchParams.set('token', token);
+  }
+
+  return parsedUrl.toString();
+};
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma as unknown as PrismaClient, {
@@ -23,7 +43,21 @@ export const auth = betterAuth({
     requireEmailVerification: false,
   },
 
+  emailVerification: {
+    sendVerificationEmail: async ({ url, user }) => {
+      const verifyEmailUrl = buildVerifyEmailLink(url);
+      await sendVerificationLinkMail({
+        email: user.email,
+        url: verifyEmailUrl,
+      });
+    },
+  },
+
   user: {
+    changeEmail: {
+      enabled: true,
+      updateEmailWithoutVerification: false,
+    },
     deleteUser: {
       enabled: true,
     },
@@ -31,7 +65,7 @@ export const auth = betterAuth({
       userType: {
         type: 'string',
         required: true,
-        defaultValue: 'STUDENT',
+        defaultValue: SIGNUP_PENDING_USER_TYPE,
       },
     },
   },
@@ -67,6 +101,16 @@ export const auth = betterAuth({
         instructor,
       },
       defaultRole: 'user',
+    }),
+    emailOTP({
+      sendVerificationOTP: async ({ email, otp, type }) => {
+        await sendEmailOtp({
+          email,
+          otp,
+          type,
+        });
+      },
+      disableSignUp: false,
     }),
   ],
   databaseHooks: {

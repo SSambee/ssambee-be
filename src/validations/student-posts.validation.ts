@@ -49,7 +49,7 @@ export const getStudentPostsQuerySchema = z.object({
   limit: z.coerce.number().min(1).max(50).default(20),
   /** 특정 강의 ID 필터 */
   lectureId: z.cuid2().optional(),
-  status: z
+  answerStatus: z
     .enum([
       StudentPostStatus.BEFORE,
       StudentPostStatus.REGISTERED,

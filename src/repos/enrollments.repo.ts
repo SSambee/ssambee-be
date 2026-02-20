@@ -340,13 +340,17 @@ export class EnrollmentsRepository {
   async updateAppStudentIdByPhoneNumber(
     phoneNumber: string,
     appStudentId: string,
+    studentName: string,
+    parentPhoneNumber: string,
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
     return await client.enrollment.updateMany({
       where: {
         studentPhone: phoneNumber,
-        appStudentId: null, // 아직 연동되지 않은 건들이만
+        studentName,
+        parentPhone: parentPhoneNumber,
+        appStudentId: null,
       },
       data: {
         appStudentId,

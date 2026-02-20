@@ -105,6 +105,7 @@ export class ProfileService {
         email: profile.user.email,
         phoneNumber: profile.phoneNumber,
         school: profile.school,
+        parentPhoneNumber: profile.parentPhoneNumber,
         schoolYear: profile.schoolYear,
         userType: profile.user.userType,
         createdAt: profile.createdAt,
@@ -186,14 +187,16 @@ export class ProfileService {
           updatedAt: profile.updatedAt,
         };
       } else if (userType === UserType.STUDENT) {
-        // 학생: name, phoneNumber, school, schoolYear만 허용
-        const { name, phoneNumber, school, schoolYear } = data;
+        // 학생: name, phoneNumber, school, schoolYear, parentPhoneNumber 허용
+        const { name, phoneNumber, school, schoolYear, parentPhoneNumber } =
+          data;
 
         const profile = await this.profileRepo.updateStudentProfile(profileId, {
           name,
           phoneNumber,
           school,
           schoolYear,
+          parentPhoneNumber,
         });
 
         return {
@@ -201,6 +204,7 @@ export class ProfileService {
           name: profile.user.name,
           email: profile.user.email,
           phoneNumber: profile.phoneNumber,
+          parentPhoneNumber: profile.parentPhoneNumber,
           school: profile.school,
           schoolYear: profile.schoolYear,
           userType: profile.user.userType,

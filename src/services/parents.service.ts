@@ -101,9 +101,11 @@ export class ParentsService {
       );
 
     // memo 필드 제외 처리
-    const sanitizedEnrollments = enrollments.map(({ memo: _memo, ...rest }) => ({
-      ...rest,
-    }));
+    const sanitizedEnrollments = enrollments.map(
+      ({ memo: _memo, ...rest }) => ({
+        ...rest,
+      }),
+    );
 
     return {
       enrollments: sanitizedEnrollments,
@@ -188,5 +190,18 @@ export class ParentsService {
     const links =
       await this.parentChildLinkRepository.findManyByPhoneNumber(phoneNumber);
     return links.length > 0 ? links[0] : null;
+  }
+
+  /** 학생 정보(학생 번호/이름/부모 번호)로 학부모 자녀 링크 조회 */
+  async findLinkByPhoneNumberAndProfile(
+    studentPhone: string,
+    studentName: string,
+    parentPhoneNumber: string,
+  ) {
+    return await this.parentChildLinkRepository.findByPhoneNumberAndProfile(
+      studentPhone,
+      studentName,
+      parentPhoneNumber,
+    );
   }
 }

@@ -1,5 +1,5 @@
 import { Prisma, PrismaClient } from '../generated/prisma/client.js';
-import { PostScope } from '../constants/posts.constant.js';
+import { PostScope, TargetRole } from '../constants/posts.constant.js';
 import { PostType } from '../constants/posts.constant.js';
 
 export type InstructorPostWithDetails = Prisma.InstructorPostGetPayload<{
@@ -160,6 +160,8 @@ export class InstructorPostsRepository {
       postType?: PostType;
       // 정렬 기준: latest, oldest
       orderBy?: 'latest' | 'oldest';
+      // [SECURITY] TargetRole 필터링: 사용자 역할에 따른 접근 가능한 게시글 제한
+      allowedTargetRoles?: TargetRole[];
     },
     tx?: Prisma.TransactionClient,
   ) {
@@ -175,6 +177,7 @@ export class InstructorPostsRepository {
       studentFiltering,
       postType,
       orderBy,
+      allowedTargetRoles,
     } = params;
     const skip = (page - 1) * limit;
 
@@ -230,6 +233,8 @@ export class InstructorPostsRepository {
       ...(postType && {
         isImportant: postType === PostType.NOTICE,
       }),
+      // [SECURITY] TargetRole 필터링: 사용자 역할에 따른 접근 가능한 게시글 제한
+      ...(allowedTargetRoles && { targetRole: { in: allowedTargetRoles } }),
       // 검색 + 학생 필터링 결합 조건
       ...combinedSearchAndFilter,
       // targetEnrollmentIds (Backward compatibility)

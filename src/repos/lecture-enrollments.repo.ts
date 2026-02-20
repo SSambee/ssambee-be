@@ -470,6 +470,7 @@ export class LectureEnrollmentsRepository {
             id: true,
             instructorId: true,
             title: true,
+            lectureTimes: true,
           },
         },
       },

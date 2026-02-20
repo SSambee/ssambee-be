@@ -1,21 +1,24 @@
 import type { IncomingHttpHeaders } from 'http';
 import { fromNodeHeaders } from 'better-auth/node';
 import { PrismaClient } from '../generated/prisma/client.js';
+import type { Prisma } from '../generated/prisma/client.js';
 import {
   BadRequestException,
   ForbiddenException,
-  InternalServerErrorException,
   NotFoundException,
   UnauthorizedException,
 } from '../err/http.exception.js';
-import { UserType } from '../constants/auth.constant.js';
+import {
+  SIGNUP_PENDING_USER_TYPE,
+  UserType,
+} from '../constants/auth.constant.js';
 import { auth } from '../config/auth.config.js';
 import { InstructorRepository } from '../repos/instructor.repo.js';
 import { AssistantRepository } from '../repos/assistant.repo.js';
 import { AssistantCodeRepository } from '../repos/assistant-code.repo.js';
 import { StudentRepository } from '../repos/student.repo.js';
 import { ParentRepository } from '../repos/parent.repo.js';
-import { SignUpData, AuthResponse } from '../types/auth.types.js';
+import { SignUpData, AuthResponse, AuthUser } from '../types/auth.types.js';
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import { config } from '../config/env.config.js';
 
@@ -32,70 +35,506 @@ export class AuthService {
   ) {}
 
   private readonly baseURL = config.BETTER_AUTH_URL;
+  private readonly frontOrigin = config.FRONT_URL?.split(',')
+    .map((url) => url.trim())
+    .filter(Boolean)[0];
 
-  /** 회원가입 */
-  async signUp(userType: UserType, data: SignUpData) {
-    const existingProfile = await this.findProfileByPhoneNumber(
-      userType,
-      data.phoneNumber,
-    );
+  private isSupportedUserType(value: string): value is UserType {
+    return (Object.values(UserType) as string[]).includes(value);
+  }
 
-    if (existingProfile) {
-      throw new BadRequestException('이미 가입된 전화번호입니다.');
+  private async getAuthErrorMessage(response: Response, fallback: string) {
+    try {
+      const data = await response.json();
+      if (
+        data &&
+        typeof data === 'object' &&
+        'message' in data &&
+        typeof data.message === 'string'
+      ) {
+        return data.message;
+      }
+    } catch (_error) {
+      // no-op
+    }
+    return fallback;
+  }
+
+  private async parseJsonResponse<T>(response: Response): Promise<T> {
+    try {
+      return (await response.json()) as T;
+    } catch (_error) {
+      throw new BadRequestException('서버 응답을 읽는 중 오류가 발생했습니다.');
+    }
+  }
+
+  private toRequestHeaders(
+    headers?: IncomingHttpHeaders,
+    withJsonContentType: boolean = true,
+  ) {
+    const requestHeaders: Record<string, string> = {};
+
+    if (withJsonContentType) {
+      requestHeaders['Content-Type'] = 'application/json';
     }
 
-    // auth.handler를 사용하여 요청을 처리하고 쿠키를 캡처
-    const signUpReq = new Request(`${this.baseURL}/api/auth/sign-up/email`, {
+    if (!headers) {
+      return requestHeaders;
+    }
+
+    Object.entries(headers).forEach(([key, value]) => {
+      if (typeof value === 'string') {
+        requestHeaders[key] = value;
+        return;
+      }
+
+      if (Array.isArray(value)) {
+        requestHeaders[key] = value.join('; ');
+      }
+    });
+
+    // Better Auth origin check:
+    // cookie가 포함된 민감 요청은 Origin/Referer가 없으면 차단된다.
+    if (
+      requestHeaders.cookie &&
+      !requestHeaders.origin &&
+      !requestHeaders.referer
+    ) {
+      requestHeaders.origin = this.frontOrigin || this.baseURL;
+    }
+
+    return requestHeaders;
+  }
+
+  private async callAuthHandler<T>({
+    path,
+    method,
+    body,
+    headers,
+    fallbackErrorMessage,
+  }: {
+    path: string;
+    method: 'GET' | 'POST';
+    body?: unknown;
+    headers?: IncomingHttpHeaders;
+    fallbackErrorMessage: string;
+  }) {
+    const request = new Request(`${this.baseURL}/api/auth${path}`, {
+      method,
+      headers: this.toRequestHeaders(headers),
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    const response = await this.authClient.handler(request);
+    if (!response.ok) {
+      const message = await this.getAuthErrorMessage(
+        response,
+        fallbackErrorMessage,
+      );
+      throw new BadRequestException(message);
+    }
+
+    const data = (await response.json()) as T;
+    const setCookie = response.headers.get('set-cookie');
+
+    return { data, setCookie };
+  }
+
+  private isBetterAuthAlreadyHasPasswordError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    const err = error as Record<string, unknown>;
+    const code = err.code ?? (err.error as Record<string, unknown>)?.code;
+    const type = err.type ?? (err.error as Record<string, unknown>)?.type;
+    const message =
+      err.message ?? (err.error as Record<string, unknown>)?.message;
+
+    if (
+      code === 'USER_ALREADY_HAS_PASSWORD' ||
+      type === 'USER_ALREADY_HAS_PASSWORD'
+    ) {
+      return true;
+    }
+
+    if (
+      err.name === 'BetterAuthError' ||
+      err.constructor?.name === 'BetterAuthError'
+    ) {
+      if (message === 'user already has a password') {
+        return true;
+      }
+    }
+
+    if (
+      typeof message === 'string' &&
+      message === 'user already has a password'
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private async ensureCredentialPassword(
+    userId: string,
+    headers: IncomingHttpHeaders,
+    newPassword: string,
+  ) {
+    const credentialAccount = await this.prisma.account.findFirst({
+      where: {
+        userId,
+        providerId: 'credential',
+      },
+      select: {
+        id: true,
+        password: true,
+      },
+    });
+
+    if (credentialAccount?.password) {
+      return;
+    }
+
+    const setPasswordApi = this.authClient.api as {
+      setPassword?: (input: {
+        headers: ReturnType<typeof fromNodeHeaders>;
+        body: { newPassword: string };
+      }) => Promise<unknown>;
+    };
+
+    try {
+      if (typeof setPasswordApi.setPassword === 'function') {
+        await setPasswordApi.setPassword({
+          headers: fromNodeHeaders(headers),
+          body: { newPassword },
+        });
+        return;
+      }
+    } catch (error) {
+      if (this.isBetterAuthAlreadyHasPasswordError(error)) {
+        return;
+      }
+      const message =
+        error &&
+        typeof error === 'object' &&
+        'message' in error &&
+        typeof error.message === 'string'
+          ? error.message
+          : '비밀번호 설정에 실패했습니다.';
+      throw new BadRequestException(message);
+    }
+
+    try {
+      await this.callAuthHandler<{ status: boolean }>({
+        path: '/set-password',
+        method: 'POST',
+        headers,
+        body: { newPassword },
+        fallbackErrorMessage: '비밀번호 설정에 실패했습니다.',
+      });
+    } catch (error) {
+      if (this.isBetterAuthAlreadyHasPasswordError(error)) {
+        return;
+      }
+      throw error;
+    }
+  }
+
+  /** 이메일 인증코드 발송 */
+  async requestEmailVerification(email: string) {
+    const request = new Request(
+      `${this.baseURL}/api/auth/email-otp/send-verification-otp`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          type: 'sign-in',
+        }),
+      },
+    );
+
+    const response = await this.authClient.handler(request);
+    if (!response.ok) {
+      const message = await this.getAuthErrorMessage(
+        response,
+        '이메일 인증코드 발송에 실패했습니다.',
+      );
+      throw new BadRequestException(message);
+    }
+
+    return { status: true };
+  }
+
+  /** 이메일 인증코드 검증 */
+  async verifyEmailVerification(email: string, otp: string) {
+    const request = new Request(`${this.baseURL}/api/auth/sign-in/email-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: data.email,
-        password: data.password,
-        name: data.name || data.email,
-        userType: userType,
+        email,
+        otp,
       }),
     });
 
-    const response = await this.authClient.handler(signUpReq);
-
+    const response = await this.authClient.handler(request);
     if (!response.ok) {
-      // 에러 처리
-      const errorBody = await response.json();
-      throw new InternalServerErrorException(
-        errorBody.message || '회원가입 실패',
+      const message = await this.getAuthErrorMessage(
+        response,
+        '인증코드가 올바르지 않거나 만료되었습니다.',
       );
+      throw new BadRequestException(message);
     }
 
     const result = await response.json();
     const setCookie = response.headers.get('set-cookie');
-
-    // result의 구조: { user, session, token } (토큰 반환 설정 여부에 따라 다름)
     const { user, session, token } = result as AuthResponse;
     const finalSession = session || (token ? { token } : null);
-    const userId = user.id;
 
-    let profile;
-    try {
-      switch (userType) {
-        case UserType.INSTRUCTOR:
-          profile = await this.createInstructor(userId, data);
-          break;
-        case UserType.ASSISTANT:
-          profile = await this.createAssistant(userId, data);
-          break;
-        case UserType.STUDENT:
-          profile = await this.createStudent(userId, data);
-          break;
-        case UserType.PARENT:
-          profile = await this.createParent(userId, data);
-          break;
-      }
-    } catch (error) {
-      await this.prisma.user.delete({ where: { id: userId } });
-      throw error;
+    return {
+      user,
+      session: finalSession,
+      setCookie,
+    };
+  }
+
+  /** 이메일 인증 링크 검증 */
+  async verifyEmailWithToken(token: string) {
+    const url = new URL(`${this.baseURL}/api/auth/verify-email`);
+    url.searchParams.set('token', token);
+
+    const request = new Request(url.toString(), {
+      method: 'GET',
+      headers: this.toRequestHeaders(),
+    });
+
+    const response = await this.authClient.handler(request);
+
+    const setCookie = response.headers.get('set-cookie');
+    const redirectTo = response.headers.get('location');
+
+    if (response.status >= 300 && response.status < 400) {
+      return {
+        status: true,
+        user: null,
+        setCookie,
+        redirectTo,
+      };
     }
 
-    return { user, session: finalSession, profile, setCookie };
+    if (!response.ok) {
+      const message = await this.getAuthErrorMessage(
+        response,
+        '이메일 인증에 실패했습니다.',
+      );
+      throw new BadRequestException(message);
+    }
+
+    const result = await this.parseJsonResponse<{
+      status: boolean;
+      user: AuthUser | null;
+    }>(response);
+
+    return {
+      ...result,
+      setCookie,
+      redirectTo,
+    };
+  }
+
+  /** 내 이메일 변경 */
+  async changeMyEmail(headers: IncomingHttpHeaders, newEmail: string) {
+    const { data } = await this.callAuthHandler<{ status: boolean }>({
+      path: '/change-email',
+      method: 'POST',
+      headers,
+      body: { newEmail },
+      fallbackErrorMessage: '이메일 변경에 실패했습니다.',
+    });
+
+    return data;
+  }
+
+  /** 내 비밀번호 변경 */
+  async changeMyPassword(
+    headers: IncomingHttpHeaders,
+    currentPassword: string,
+    newPassword: string,
+    revokeOtherSessions: boolean = false,
+  ) {
+    const { data, setCookie } = await this.callAuthHandler<{
+      token: string | null;
+      user: AuthUser;
+    }>({
+      path: '/change-password',
+      method: 'POST',
+      headers,
+      body: {
+        currentPassword,
+        newPassword,
+        revokeOtherSessions,
+      },
+      fallbackErrorMessage: '비밀번호 변경에 실패했습니다.',
+    });
+
+    return {
+      ...data,
+      setCookie,
+    };
+  }
+
+  /** 이메일 기반 비밀번호 찾기 */
+  async findPassword(email: string) {
+    const { data } = await this.callAuthHandler<{
+      success: boolean;
+    }>({
+      path: '/email-otp/send-verification-otp',
+      method: 'POST',
+      body: {
+        email,
+        type: 'forget-password',
+      },
+      fallbackErrorMessage: '비밀번호 재설정 인증코드 발송에 실패했습니다.',
+    });
+
+    return data;
+  }
+
+  /** 비밀번호 재설정 (OTP) */
+  async resetPasswordWithOTP(email: string, otp: string, newPassword: string) {
+    const { data } = await this.callAuthHandler<{ success: boolean }>({
+      path: '/email-otp/reset-password',
+      method: 'POST',
+      body: {
+        email,
+        otp,
+        password: newPassword,
+      },
+      fallbackErrorMessage: '비밀번호 재설정에 실패했습니다.',
+    });
+
+    return data;
+  }
+
+  /** 사전 이메일 인증 세션 기반 회원가입 완료 */
+  async completeSignUpWithVerifiedEmail(
+    userType: UserType,
+    data: SignUpData,
+    headers: IncomingHttpHeaders,
+  ) {
+    const authSession = await this.authClient.api.getSession({
+      headers: fromNodeHeaders(headers),
+      query: {
+        disableCookieCache: true,
+      },
+    });
+
+    if (!authSession) {
+      throw new UnauthorizedException(
+        '이메일 인증 후 회원가입을 진행해주세요.',
+      );
+    }
+
+    if (authSession.user.userType !== SIGNUP_PENDING_USER_TYPE) {
+      throw new ForbiddenException('이미 회원가입이 완료된 계정입니다.');
+    }
+
+    if (
+      authSession.user.email.toLowerCase() !== data.email.trim().toLowerCase()
+    ) {
+      throw new ForbiddenException(
+        '인증된 이메일과 회원가입 이메일이 일치하지 않습니다.',
+      );
+    }
+
+    const existingProfile = await this.findProfileByPhoneNumber(
+      userType,
+      data.phoneNumber,
+    );
+    if (existingProfile) {
+      throw new BadRequestException('이미 가입된 전화번호입니다.');
+    }
+
+    const existingProfileByUserId = await this.findProfileByUserId(
+      userType,
+      authSession.user.id,
+    );
+    if (existingProfileByUserId) {
+      throw new BadRequestException('이미 가입이 완료된 계정입니다.');
+    }
+
+    await this.ensureCredentialPassword(
+      authSession.user.id,
+      headers,
+      data.password,
+    );
+
+    const updateUserPayload = {
+      name: data.name || data.email,
+      userType,
+    };
+
+    const updatedResult = await this.prisma.$transaction(async (tx) => {
+      const updatedUser = await tx.user.update({
+        where: { id: authSession.user.id },
+        data: {
+          ...updateUserPayload,
+          ...(userType === UserType.INSTRUCTOR ? { role: 'instructor' } : {}),
+        },
+      });
+
+      let profile;
+
+      if (userType === UserType.INSTRUCTOR) {
+        profile = await this.createInstructor(authSession.user.id, data, tx);
+      }
+      if (userType === UserType.ASSISTANT) {
+        profile = await this.createAssistant(authSession.user.id, data, tx);
+      }
+      if (userType === UserType.STUDENT) {
+        profile = await this.createStudent(authSession.user.id, data, tx);
+      }
+      if (userType === UserType.PARENT) {
+        profile = await this.createParent(authSession.user.id, data, tx);
+      }
+
+      const { setCookie } = await this.callAuthHandler<{ status: boolean }>({
+        path: '/update-user',
+        method: 'POST',
+        headers,
+        body: {
+          name: data.name || data.email,
+          userType,
+        },
+        fallbackErrorMessage: '사용자 정보 업데이트에 실패했습니다.',
+      });
+
+      return { updatedUser, profile, setCookie };
+    });
+
+    if (!updatedResult) {
+      throw new NotFoundException('사용자를 찾을 수 없습니다.');
+    }
+
+    const { updatedUser, profile, setCookie } = updatedResult;
+
+    const user: AuthUser = {
+      id: updatedUser.id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      userType: updatedUser.userType,
+      emailVerified: updatedUser.emailVerified,
+      image: updatedUser.image,
+    };
+
+    return {
+      user,
+      session: authSession.session,
+      profile,
+      setCookie,
+    };
   }
 
   /** 로그인 */
@@ -109,6 +548,12 @@ export class AuthService {
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
     });
+
+    if (existingUser?.userType === SIGNUP_PENDING_USER_TYPE) {
+      throw new UnauthorizedException(
+        '회원가입이 완료되지 않았습니다. 이메일 인증 후 가입 절차를 완료해주세요.',
+      );
+    }
 
     if (
       existingUser &&
@@ -144,10 +589,18 @@ export class AuthService {
     const { user, session, token } = result as AuthResponse;
     const finalSession = session || (token ? { token } : null);
 
-    const profile = await this.findProfileByUserId(
-      user.userType as UserType,
-      user.id,
-    );
+    if (!this.isSupportedUserType(user.userType)) {
+      throw new UnauthorizedException(
+        '회원가입이 완료되지 않았습니다. 이메일 인증 후 가입 절차를 완료해주세요.',
+      );
+    }
+
+    const profile = await this.findProfileByUserId(user.userType, user.id);
+    if (!profile) {
+      throw new UnauthorizedException(
+        '회원가입이 완료되지 않았습니다. 이메일 인증 후 가입 절차를 완료해주세요.',
+      );
+    }
 
     return {
       user,
@@ -218,23 +671,35 @@ export class AuthService {
   }
 
   /** 강사 프로필 생성 */
-  private async createInstructor(userId: string, data: SignUpData) {
-    return await this.instructorRepo.create({
-      userId,
-      phoneNumber: data.phoneNumber,
-      subject: data.subject,
-      academy: data.academy,
-    });
+  private async createInstructor(
+    userId: string,
+    data: SignUpData,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return await this.instructorRepo.create(
+      {
+        userId,
+        phoneNumber: data.phoneNumber,
+        subject: data.subject,
+        academy: data.academy,
+      },
+      tx,
+    );
   }
 
   /** 조교 프로필 생성 */
-  private async createAssistant(userId: string, data: SignUpData) {
+  private async createAssistant(
+    userId: string,
+    data: SignUpData,
+    tx?: Prisma.TransactionClient,
+  ) {
     if (!data.signupCode) {
       throw new BadRequestException('조교가입코드가 필요합니다.');
     }
 
     const assistantCode = await this.assistantCodeRepo.findValidCode(
       data.signupCode,
+      tx,
     );
     if (!assistantCode) {
       throw new BadRequestException(
@@ -242,45 +707,78 @@ export class AuthService {
       );
     }
 
-    return await this.prisma.$transaction(async (tx) => {
+    if (tx) {
       await this.assistantCodeRepo.markAsUsed(assistantCode.id, tx);
       return await this.assistantRepo.create(
         {
           userId,
-          name: data.name || 'Assistant', // name이 없을 경우 기본값 처리 또는 data.name 사용
+          name: data.name || 'Assistant',
           phoneNumber: data.phoneNumber,
           instructorId: assistantCode.instructorId,
           signupCode: data.signupCode!,
         },
         tx,
       );
+    }
+
+    return await this.prisma.$transaction(async (innerTx) => {
+      await this.assistantCodeRepo.markAsUsed(assistantCode.id, innerTx);
+      return await this.assistantRepo.create(
+        {
+          userId,
+          name: data.name || 'Assistant',
+          phoneNumber: data.phoneNumber,
+          instructorId: assistantCode.instructorId,
+          signupCode: data.signupCode!,
+        },
+        innerTx,
+      );
     });
   }
 
   /** 학생 프로필 생성 */
-  private async createStudent(userId: string, data: SignUpData) {
-    const student = await this.studentRepo.create({
-      userId,
-      phoneNumber: data.phoneNumber,
-      school: data.school,
-      schoolYear: data.schoolYear,
-    });
-
-    // 전화번호로 기존 수강 내역 자동 연동
-    await this.enrollmentsRepo.updateAppStudentIdByPhoneNumber(
-      data.phoneNumber,
-      student.id,
+  private async createStudent(
+    userId: string,
+    data: SignUpData,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const student = await this.studentRepo.create(
+      {
+        userId,
+        phoneNumber: data.phoneNumber,
+        parentPhoneNumber: data.parentPhoneNumber,
+        school: data.school,
+        schoolYear: data.schoolYear,
+      },
+      tx,
     );
+
+    if (data.parentPhoneNumber) {
+      await this.enrollmentsRepo.updateAppStudentIdByPhoneNumber(
+        data.phoneNumber,
+        student.id,
+        data.name,
+        data.parentPhoneNumber,
+        tx,
+      );
+    }
 
     return student;
   }
 
   /** 학부모 프로필 생성 */
-  private async createParent(userId: string, data: SignUpData) {
-    return await this.parentRepo.create({
-      userId,
-      phoneNumber: data.phoneNumber,
-    });
+  private async createParent(
+    userId: string,
+    data: SignUpData,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return await this.parentRepo.create(
+      {
+        userId,
+        phoneNumber: data.phoneNumber,
+      },
+      tx,
+    );
   }
 
   /** ID로 프로필 조회 */

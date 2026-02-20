@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { container } from '../../../config/container.config.js';
+import { createPublicAuthRoutes } from '../../public/v1/auth.routes.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
 import {
-  signInSchema,
   instructorSignUpSchema,
   assistantSignUpSchema,
 } from '../../../validations/auth.validation.js';
@@ -23,21 +23,11 @@ mgmtAuthRouter.post(
   container.authController.assistantSignUp.bind(container.authController),
 );
 
-/** 강사/조교 로그인 */
-mgmtAuthRouter.post(
-  '/signin',
-  validate(signInSchema),
-  container.authController.signIn.bind(container.authController),
-);
-
-/** 강사/조교 로그아웃 */
-mgmtAuthRouter.post(
-  '/signout',
-  container.authController.signOut.bind(container.authController),
-);
-
-/** 강사/조교 세션 조회 */
-mgmtAuthRouter.get(
-  '/session',
-  container.authController.getSession.bind(container.authController),
+mgmtAuthRouter.use(
+  '/',
+  createPublicAuthRoutes({
+    verifyEmailHandler: container.authController.verifyEmailForMgmt.bind(
+      container.authController,
+    ),
+  }),
 );

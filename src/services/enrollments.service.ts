@@ -104,21 +104,40 @@ export class EnrollmentsService {
       if (!enrollmentId) {
         let parentLinkId = data.appParentLinkId;
         if (!parentLinkId && data.studentPhone) {
-          const link = await this.parentsService.findLinkByPhoneNumber(
-            data.studentPhone,
-          );
-          if (link) {
-            parentLinkId = link.id;
+          const studentPhone = data.studentPhone as string;
+          const studentName = data.studentName as string | undefined;
+          const parentPhone = data.parentPhone as string | undefined;
+
+          if (studentName && parentPhone) {
+            const link =
+              await this.parentsService.findLinkByPhoneNumberAndProfile(
+                studentPhone,
+                studentName,
+                parentPhone,
+              );
+            if (link) {
+              parentLinkId = link.id;
+            }
           }
         }
 
         let studentId = data.appStudentId;
         if (!studentId && data.studentPhone) {
-          const student = await this.studentRepository.findByPhoneNumber(
-            data.studentPhone,
-          );
-          if (student) {
-            studentId = student.id;
+          const studentPhone = data.studentPhone as string;
+          const studentName = data.studentName as string | undefined;
+          const parentPhone = data.parentPhone as string | undefined;
+
+          if (studentName && parentPhone) {
+            const student =
+              await this.studentRepository.findByPhoneNumberAndProfile(
+                studentPhone,
+                studentName,
+                parentPhone,
+                tx,
+              );
+            if (student) {
+              studentId = student.id;
+            }
           }
         }
 
@@ -359,20 +378,50 @@ export class EnrollmentsService {
     if (data.status) {
       data.deletedAt = data.status === 'DROPPED' ? new Date() : null;
     }
-    if (data.studentPhone) {
-      const student = await this.studentRepository.findByPhoneNumber(
-        data.studentPhone as string,
-      );
-      if (student) {
-        data.appStudent = { connect: { id: student.id } };
+    if (
+      data.studentPhone !== undefined ||
+      data.studentName !== undefined ||
+      data.parentPhone !== undefined
+    ) {
+      const studentPhone =
+        (data.studentPhone as string | undefined) ?? enrollment.studentPhone;
+      const studentName =
+        (data.studentName as string | undefined) ?? enrollment.studentName;
+      const parentPhone =
+        (data.parentPhone as string | undefined) ?? enrollment.parentPhone;
+
+      if (studentPhone && studentName && parentPhone) {
+        const student =
+          await this.studentRepository.findByPhoneNumberAndProfile(
+            studentPhone,
+            studentName,
+            parentPhone,
+          );
+        if (student) {
+          data.appStudent = { connect: { id: student.id } };
+        }
       }
     }
-    if (data.parentPhone) {
-      const parent = await this.parentsService.findLinkByPhoneNumber(
-        data.parentPhone as string,
-      );
-      if (parent) {
-        data.appParentLink = { connect: { id: parent.id } };
+    if (data.studentPhone || data.studentName || data.parentPhone) {
+      const studentPhone =
+        (data.studentPhone as string | undefined) ??
+        enrollment.studentPhone ??
+        undefined;
+      const studentName =
+        (data.studentName as string | undefined) ?? enrollment.studentName;
+      const parentPhone =
+        (data.parentPhone as string | undefined) ?? enrollment.parentPhone;
+
+      if (studentPhone && studentName && parentPhone) {
+        const parent =
+          await this.parentsService.findLinkByPhoneNumberAndProfile(
+            studentPhone,
+            studentName,
+            parentPhone,
+          );
+        if (parent) {
+          data.appParentLink = { connect: { id: parent.id } };
+        }
       }
     }
 
@@ -398,9 +447,11 @@ export class EnrollmentsService {
       await this.enrollmentsRepository.findByAppStudentId(profileId, query);
 
     // memo 필드 제외 처리
-    const sanitizedEnrollments = enrollments.map(({ memo: _memo, ...rest }) => ({
-      ...rest,
-    }));
+    const sanitizedEnrollments = enrollments.map(
+      ({ memo: _memo, ...rest }) => ({
+        ...rest,
+      }),
+    );
 
     return {
       enrollments: sanitizedEnrollments,

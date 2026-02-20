@@ -228,6 +228,7 @@ export class ProfileRepository {
     data: {
       name?: string;
       phoneNumber?: string;
+      parentPhoneNumber?: string;
       school?: string;
       schoolYear?: string;
     },
@@ -238,6 +239,13 @@ export class ProfileRepository {
       // 1. AppStudent 조회 (userId 확보)
       const currentStudent = await tx.appStudent.findUniqueOrThrow({
         where: { id: appStudentId },
+        include: {
+          user: {
+            select: {
+              name: true,
+            },
+          },
+        },
       });
 
       // 2. AppStudent 정보 업데이트
@@ -267,10 +275,18 @@ export class ProfileRepository {
       // 4. 모든 Enrollment 동기화
       const enrollmentUpdateData: Prisma.EnrollmentUpdateManyMutationInput = {};
       if (name) enrollmentUpdateData.studentName = name;
-      if (data.phoneNumber)
+      if (data.phoneNumber) {
         enrollmentUpdateData.studentPhone = data.phoneNumber;
-      if (data.school) enrollmentUpdateData.school = data.school;
-      if (data.schoolYear) enrollmentUpdateData.schoolYear = data.schoolYear;
+      }
+      if (data.parentPhoneNumber) {
+        enrollmentUpdateData.parentPhone = data.parentPhoneNumber;
+      }
+      if (data.school) {
+        enrollmentUpdateData.school = data.school;
+      }
+      if (data.schoolYear) {
+        enrollmentUpdateData.schoolYear = data.schoolYear;
+      }
 
       if (Object.keys(enrollmentUpdateData).length > 0) {
         await tx.enrollment.updateMany({
@@ -279,6 +295,26 @@ export class ProfileRepository {
             deletedAt: null,
           },
           data: enrollmentUpdateData,
+        });
+      }
+
+      // 4. AppStudent의 최신 정보로 미연결 수강생까지 추가 매핑
+      const matchedStudentName = name ?? currentStudent.user.name;
+      const matchedStudentPhone =
+        data.phoneNumber ?? currentStudent.phoneNumber;
+      const matchedParentPhone =
+        data.parentPhoneNumber ?? currentStudent.parentPhoneNumber;
+
+      if (matchedStudentName && matchedStudentPhone && matchedParentPhone) {
+        await tx.enrollment.updateMany({
+          where: {
+            appStudentId: null,
+            deletedAt: null,
+            studentPhone: matchedStudentPhone,
+            studentName: matchedStudentName,
+            parentPhone: matchedParentPhone,
+          },
+          data: { appStudentId: student.id },
         });
       }
 

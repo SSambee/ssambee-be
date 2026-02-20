@@ -1,8 +1,9 @@
 export interface SignUpData {
   email: string;
   password: string;
-  name?: string;
+  name: string;
   phoneNumber: string;
+  parentPhoneNumber?: string;
   subject?: string;
   academy?: string;
   signupCode?: string;

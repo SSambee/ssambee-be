@@ -1,6 +1,7 @@
 import express from 'express';
 import { mgmtV1Router } from './mgmt/v1/index.js';
 import { svcV1Router } from './svc/v1/index.js';
+import { publicV1Router } from './public/v1/index.js';
 
 export const router = express.Router();
 
@@ -18,5 +19,8 @@ router.use('/api/mgmt/v1', mgmtV1Router);
 
 /** 학생/학부모용 API (Service) */
 router.use('/api/svc/v1', svcV1Router);
+
+/** 공개 인증 API (통합) */
+router.use('/api/public/v1', publicV1Router);
 
 export default router;
