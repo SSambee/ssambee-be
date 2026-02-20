@@ -28,6 +28,16 @@ export const createInstructorPostSchema = z.object({
 
   /** 첨부 자료 ID 목록 */
   materialIds: z.array(z.cuid2()).nullable().optional(),
+
+  /** 직접 첨부 파일 목록 (선택) */
+  attachments: z
+    .array(
+      z.object({
+        filename: z.string().min(1, '파일명은 필수입니다.'),
+        fileUrl: z.url({ error: '유효한 URL이어야 합니다.' }),
+      }),
+    )
+    .optional(),
 });
 
 /**
@@ -55,6 +65,16 @@ export const updateInstructorPostSchema = z.object({
   targetEnrollmentIds: z.array(z.cuid2()).nullable().optional(),
   /** 첨부 자료 ID 목록 */
   materialIds: z.array(z.cuid2()).nullable().optional(),
+
+  /** 직접 첨부 파일 목록 (선택) */
+  attachments: z
+    .array(
+      z.object({
+        filename: z.string().min(1, '파일명은 필수입니다.'),
+        fileUrl: z.url({ error: '유효한 URL이어야 합니다.' }),
+      }),
+    )
+    .optional(),
 });
 
 /**
@@ -72,9 +92,11 @@ export const getInstructorPostsQuerySchema = z.object({
     .enum([PostScope.GLOBAL, PostScope.LECTURE, PostScope.SELECTED])
     .optional(),
   /** 검색어 */
-  search: z.string().optional(),
+  search: z.string().trim().optional(),
   /** 게시물 유형 필터 (공지사항, 자료공유) */
   postType: z.enum([PostType.NOTICE, PostType.SHARE]).optional(),
+  /** 정렬 기준 (최신순, 오래된순) */
+  orderBy: z.enum(['latest', 'oldest']).default('latest'),
 });
 
 /**

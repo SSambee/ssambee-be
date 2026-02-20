@@ -8,15 +8,43 @@ import {
   UpdateStudentPostStatusDto,
   GetStudentPostsQueryDto,
   UpdateStudentPostDto,
+  GetMyLecturesQueryDto,
 } from '../validations/student-posts.validation.js';
 import { getPagingData } from '../utils/pagination.util.js';
 import { transformDateFieldsToKst } from '../utils/date.util.js';
-import { StudentPostWithDetails } from '../repos/student-posts.repo.js';
+import {
+  StudentPostWithDetails,
+  StudentPostListItem,
+} from '../repos/student-posts.repo.js';
 import { toFrontendStudentPostStatus } from '../utils/posts.util.js';
 import { StudentPostStatus, AuthorRole } from '../constants/posts.constant.js';
 
 export class StudentPostsController {
   constructor(private readonly studentPostsService: StudentPostsService) {}
+
+  /** 내 수강 강의 목록 조회 */
+  getMyLectures = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const query = req.query as unknown as GetMyLecturesQueryDto;
+      const profileId = getProfileIdOrThrow(req);
+      const user = getAuthUser(req);
+      const userType = user.userType as UserType;
+
+      const result = await this.studentPostsService.getMyLectures(
+        query,
+        userType,
+        profileId,
+      );
+
+      return successResponse(res, {
+        statusCode: 200,
+        data: result,
+        message: '수강 강의 목록을 조회했습니다.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 
   /** 질문 생성 */
   createPost = async (req: Request, res: Response, next: NextFunction) => {
@@ -26,10 +54,17 @@ export class StudentPostsController {
       const user = getAuthUser(req);
       const userType = user.userType as UserType;
 
+      const files = req.files
+        ? (req.files as Express.Multer.File[])
+        : req.file
+          ? [req.file as Express.Multer.File]
+          : undefined;
+
       const result = await this.studentPostsService.createPost(
         data,
         userType,
         profileId,
+        files,
       );
 
       // 날짜 데이터를 한국 시간으로 변환
@@ -74,7 +109,7 @@ export class StudentPostsController {
       ]);
 
       const postsWithIsMineAndMappedStatus = (
-        kstPosts as StudentPostWithDetails[]
+        kstPosts as StudentPostListItem[]
       ).map((post) => ({
         ...post,
         isMine:

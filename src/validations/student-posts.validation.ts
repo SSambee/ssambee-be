@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import {
   StudentPostStatus,
-  AnswerStatus,
   InquiryWriterType,
 } from '../constants/posts.constant.js';
 
@@ -17,6 +16,15 @@ export const createStudentPostSchema = z.object({
   lectureId: z.cuid2().optional(),
   /** 질문 대상 자녀 연결 ID (학부모가 작성 시 필수) */
   childLinkId: z.string().optional(),
+  /** 직접 첨부 파일 목록 (선택) */
+  attachments: z
+    .array(
+      z.object({
+        filename: z.string().min(1, '파일명은 필수입니다.'),
+        fileUrl: z.url({ error: '유효한 URL이어야 합니다.' }),
+      }),
+    )
+    .optional(),
 });
 
 /**
@@ -25,8 +33,8 @@ export const createStudentPostSchema = z.object({
 export const updateStudentPostStatusSchema = z.object({
   /** 변경할 상태 (대기, 답변완료, 확인완료) */
   status: z.enum([
-    StudentPostStatus.PENDING,
-    StudentPostStatus.RESOLVED,
+    StudentPostStatus.BEFORE,
+    StudentPostStatus.REGISTERED,
     StudentPostStatus.COMPLETED,
   ]),
 });
@@ -41,20 +49,11 @@ export const getStudentPostsQuerySchema = z.object({
   limit: z.coerce.number().min(1).max(50).default(20),
   /** 특정 강의 ID 필터 */
   lectureId: z.cuid2().optional(),
-  /** 백엔드 상태 필터 */
   status: z
     .enum([
-      StudentPostStatus.PENDING,
-      StudentPostStatus.RESOLVED,
+      StudentPostStatus.BEFORE,
+      StudentPostStatus.REGISTERED,
       StudentPostStatus.COMPLETED,
-    ])
-    .optional(),
-  /** 프론트엔드 답변 상태 필터 */
-  answerStatus: z
-    .enum([
-      AnswerStatus.BEFORE,
-      AnswerStatus.REGISTERED,
-      AnswerStatus.COMPLETED,
     ])
     .optional(),
   /** 작성자 유형 필터 (전체, 학생, 학부모) */
@@ -68,6 +67,18 @@ export const getStudentPostsQuerySchema = z.object({
     .default(InquiryWriterType.ALL),
   /** 검색어 */
   search: z.string().optional(),
+  /** 정렬 기준 (최신순, 오래된순) */
+  orderBy: z.enum(['latest', 'oldest']).default('latest'),
+});
+
+/**
+ * 내 수강 강의 목록 조회 쿼리 파라미터 검증 스키마
+ */
+export const getMyLecturesQuerySchema = z.object({
+  /** 페이지 번호 */
+  page: z.coerce.number().min(1).default(1),
+  /** 페이지당 항목 수 */
+  limit: z.coerce.number().min(1).max(50).default(20),
 });
 
 /**
@@ -86,6 +97,15 @@ export const updateStudentPostSchema = z.object({
   title: z.string().min(1, '제목은 필수입니다.').optional(),
   /** 내용 */
   content: z.string().min(1, '내용은 필수입니다.').optional(),
+  /** 직접 첨부 파일 목록 (선택) */
+  attachments: z
+    .array(
+      z.object({
+        filename: z.string().min(1, '파일명은 필수입니다.'),
+        fileUrl: z.url({ error: '유효한 URL이어야 합니다.' }),
+      }),
+    )
+    .optional(),
 });
 
 /** 학생 질문 작성 DTO 타입 */
@@ -100,3 +120,5 @@ export type GetStudentPostsQueryDto = z.infer<
 >;
 /** 학생 질문 수정 DTO 타입 */
 export type UpdateStudentPostDto = z.infer<typeof updateStudentPostSchema>;
+/** 내 수강 강의 목록 조회 쿼리 DTO 타입 */
+export type GetMyLecturesQueryDto = z.infer<typeof getMyLecturesQuerySchema>;

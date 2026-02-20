@@ -1,6 +1,5 @@
 import { Prisma, PrismaClient } from '../generated/prisma/client.js';
 import {
-  AnswerStatus,
   InquiryWriterType,
   StudentPostStatus,
 } from '../constants/posts.constant.js';
@@ -62,17 +61,45 @@ export type StudentPostWithDetails = Prisma.StudentPostGetPayload<{
   };
 }>;
 
+export type StudentPostListItem = Prisma.StudentPostGetPayload<{
+  include: {
+    enrollment: {
+      select: {
+        studentName: true;
+        appStudentId: true;
+        appParentLink: { select: { appParentId: true } };
+      };
+    };
+    attachments: true;
+    _count: { select: { comments: true } };
+  };
+}>;
+
 export class StudentPostsRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   /** 학생 질문 생성 */
   async create(
-    data: Prisma.StudentPostUncheckedCreateInput,
+    data: Prisma.StudentPostUncheckedCreateInput & {
+      attachments?: { filename: string; fileUrl: string }[];
+    },
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
+    const { attachments, ...postData } = data;
+
     return client.studentPost.create({
-      data,
+      data: {
+        ...postData,
+        attachments: attachments?.length
+          ? {
+              create: attachments,
+            }
+          : undefined,
+      },
+      include: {
+        attachments: true,
+      },
     });
   }
 
@@ -82,6 +109,7 @@ export class StudentPostsRepository {
     return client.studentPost.findUnique({
       where: { id },
       include: {
+        attachments: true,
         enrollment: {
           select: {
             appStudentId: true, // Permission check용
@@ -120,11 +148,11 @@ export class StudentPostsRepository {
       appStudentId?: string;
       enrollmentIds?: string[]; // [NEW] 학부모용 필터링
       status?: string;
-      answerStatus?: AnswerStatus;
       writerType?: InquiryWriterType;
       search?: string;
       page: number;
       limit: number;
+      orderBy?: 'latest' | 'oldest';
     },
     tx?: Prisma.TransactionClient,
   ) {
@@ -136,11 +164,11 @@ export class StudentPostsRepository {
       appStudentId,
       enrollmentIds, // [NEW]
       status,
-      answerStatus,
       writerType,
       search,
       page,
       limit,
+      orderBy,
     } = params;
     const skip = (page - 1) * limit;
 
@@ -162,17 +190,6 @@ export class StudentPostsRepository {
         writerType !== InquiryWriterType.ALL && {
           authorRole: writerType,
         }),
-      // 답변 상태 필터링 (answerStatus → StudentPost status 매핑)
-      // BEFORE → PENDING, REGISTERED → RESOLVED, COMPLETED → COMPLETED
-      ...(answerStatus === AnswerStatus.BEFORE && {
-        status: StudentPostStatus.PENDING,
-      }),
-      ...(answerStatus === AnswerStatus.REGISTERED && {
-        status: StudentPostStatus.RESOLVED,
-      }),
-      ...(answerStatus === AnswerStatus.COMPLETED && {
-        status: StudentPostStatus.COMPLETED,
-      }),
     };
 
     const [posts, totalCount] = await Promise.all([
@@ -180,7 +197,7 @@ export class StudentPostsRepository {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: orderBy === 'oldest' ? 'asc' : 'desc' },
         include: {
           enrollment: {
             select: {
@@ -189,6 +206,7 @@ export class StudentPostsRepository {
               appParentLink: { select: { appParentId: true } },
             },
           },
+          attachments: true,
           _count: { select: { comments: true } },
         },
       }),
@@ -211,16 +229,39 @@ export class StudentPostsRepository {
     });
   }
 
-  /** 질문 수정 (title, content만 수정 가능) */
+  /** 질문 수정 (title, content, attachments 수정 가능) */
   async update(
     id: string,
-    data: Prisma.StudentPostUpdateInput,
+    data: Prisma.StudentPostUpdateInput & {
+      attachments?: { filename: string; fileUrl: string }[];
+    },
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
+    const { attachments, ...postData } = data;
+
+    if (attachments !== undefined) {
+      await client.studentPostAttachment.deleteMany({
+        where: { studentPostId: id },
+      });
+
+      if (attachments.length > 0) {
+        await client.studentPostAttachment.createMany({
+          data: attachments.map((a) => ({
+            studentPostId: id,
+            filename: a.filename,
+            fileUrl: a.fileUrl,
+          })),
+        });
+      }
+    }
+
     return client.studentPost.update({
       where: { id },
-      data,
+      data: postData,
+      include: {
+        attachments: true,
+      },
     });
   }
 
@@ -241,7 +282,7 @@ export class StudentPostsRepository {
     const client = tx ?? this.prisma;
     return client.studentPost.findMany({
       where: {
-        status: StudentPostStatus.PENDING,
+        status: StudentPostStatus.BEFORE,
         createdAt: {
           lt: expirationDate,
         },
@@ -321,14 +362,14 @@ export class StudentPostsRepository {
       client.studentPost.count({
         where: {
           instructorId,
-          status: StudentPostStatus.PENDING,
+          status: StudentPostStatus.BEFORE,
         },
       }),
       // 지연된 게시글 (BEFORE 상태이고 1시간 이상 지남)
       client.studentPost.count({
         where: {
           instructorId,
-          status: StudentPostStatus.PENDING,
+          status: StudentPostStatus.BEFORE,
           createdAt: { lt: oneHourAgo },
         },
       }),
@@ -336,7 +377,7 @@ export class StudentPostsRepository {
       client.studentPost.count({
         where: {
           instructorId,
-          status: StudentPostStatus.RESOLVED,
+          status: StudentPostStatus.REGISTERED,
         },
       }),
       // 이번 달 답변 완료 (COMPLETED 상태이며, 변경일이 이번 달)

@@ -34,33 +34,49 @@ export class InstructorPostsRepository {
   async create(
     data: Prisma.InstructorPostUncheckedCreateInput & {
       materialIds?: string[];
+      attachments?: { filename: string; fileUrl: string }[];
       targetEnrollmentIds?: string[];
     },
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx || this.prisma;
-    const { materialIds, targetEnrollmentIds, ...postData } = data;
+    const { materialIds, attachments, targetEnrollmentIds, ...postData } = data;
 
-    // materialIds가 있으면 Material 정보를 조회하여 filename 포함
-    let attachmentsData: { materialId: string; filename: string }[] | undefined;
+    // 1. 라이브러리 자료 첨부 데이터
+    let materialAttachments:
+      | { materialId: string; filename: string }[]
+      | undefined;
     if (materialIds?.length) {
       const materials = await client.material.findMany({
         where: { id: { in: materialIds } },
         select: { id: true, title: true },
       });
-      attachmentsData = materials.map((m) => ({
+      materialAttachments = materials.map((m) => ({
         materialId: m.id,
         filename: m.title,
       }));
     }
 
+    // 2. 직접 첨부 데이터
+    const directAttachments =
+      attachments?.map((a) => ({
+        filename: a.filename,
+        fileUrl: a.fileUrl,
+      })) || [];
+
+    // 3. 결합
+    const allAttachments = [
+      ...(materialAttachments || []),
+      ...directAttachments,
+    ];
+
     return client.instructorPost.create({
       data: {
         ...postData,
         // 첨부파일 연결
-        attachments: attachmentsData?.length
+        attachments: allAttachments.length
           ? {
-              create: attachmentsData,
+              create: allAttachments,
             }
           : undefined,
         // 타겟 학생 연결 (SELECTED 스코프일 때)
@@ -70,6 +86,16 @@ export class InstructorPostsRepository {
                 create: targetEnrollmentIds.map((id) => ({ enrollmentId: id })),
               }
             : undefined,
+      },
+      include: {
+        attachments: { include: { material: true } },
+        targets: {
+          include: {
+            enrollment: {
+              select: { appStudentId: true, studentName: true },
+            },
+          },
+        },
       },
     });
   }
@@ -132,6 +158,8 @@ export class InstructorPostsRepository {
       studentFiltering?: StudentFiltering;
       // 게시물 유형 필터: 공지/자료
       postType?: PostType;
+      // 정렬 기준: latest, oldest
+      orderBy?: 'latest' | 'oldest';
     },
     tx?: Prisma.TransactionClient,
   ) {
@@ -146,47 +174,64 @@ export class InstructorPostsRepository {
       targetEnrollmentIds,
       studentFiltering,
       postType,
+      orderBy,
     } = params;
     const skip = (page - 1) * limit;
+
+    // 검색 조건 (title 또는 content에 포함)
+    const searchCondition = search
+      ? {
+          OR: [
+            { title: { contains: search, mode: 'insensitive' as const } },
+            { content: { contains: search, mode: 'insensitive' as const } },
+          ],
+        }
+      : undefined;
+
+    // 학생용 복합 필터링 조건
+    const studentFilterCondition = studentFiltering
+      ? {
+          OR: [
+            // 1. GLOBAL: 내가 수강 중인 강사의 전체 공지
+            {
+              scope: PostScope.GLOBAL,
+              instructorId: { in: studentFiltering.instructorIds },
+            },
+            // 2. LECTURE: 내가 수강 중인 강의의 공지
+            {
+              scope: PostScope.LECTURE,
+              lectureId: { in: studentFiltering.lectureIds },
+            },
+            // 3. SELECTED: 내가 타겟으로 지정된 공지
+            {
+              scope: PostScope.SELECTED,
+              targets: {
+                some: {
+                  enrollmentId: { in: studentFiltering.enrollmentIds },
+                },
+              },
+            },
+          ],
+        }
+      : undefined;
+
+    // search와 studentFiltering이 모두 있으면 AND로 결합
+    // 둘 다 OR 조건이므로 객체 키 충돌 방지를 위해 AND 사용
+    const combinedSearchAndFilter =
+      searchCondition && studentFilterCondition
+        ? { AND: [searchCondition, studentFilterCondition] }
+        : searchCondition || studentFilterCondition;
 
     const where: Prisma.InstructorPostWhereInput = {
       ...(lectureId && { lectureId }),
       ...(instructorId && { instructorId }),
       ...(scope && { scope }),
-      ...(search && {
-        OR: [
-          { title: { contains: search, mode: 'insensitive' } },
-          { content: { contains: search, mode: 'insensitive' } },
-        ],
-      }),
       // 게시물 유형 필터 (NOTICE: 공지, SHARE: 자료)
       ...(postType && {
         isImportant: postType === PostType.NOTICE,
       }),
-      // 학생용 복합 필터링 (OR 조건)
-      ...(studentFiltering && {
-        OR: [
-          // 1. GLOBAL: 내가 수강 중인 강사의 전체 공지
-          {
-            scope: PostScope.GLOBAL,
-            instructorId: { in: studentFiltering.instructorIds },
-          },
-          // 2. LECTURE: 내가 수강 중인 강의의 공지
-          {
-            scope: PostScope.LECTURE,
-            lectureId: { in: studentFiltering.lectureIds },
-          },
-          // 3. SELECTED: 내가 타겟으로 지정된 공지
-          {
-            scope: PostScope.SELECTED,
-            targets: {
-              some: {
-                enrollmentId: { in: studentFiltering.enrollmentIds },
-              },
-            },
-          },
-        ],
-      }),
+      // 검색 + 학생 필터링 결합 조건
+      ...combinedSearchAndFilter,
       // targetEnrollmentIds (Backward compatibility)
       ...(targetEnrollmentIds?.length &&
         !studentFiltering && {
@@ -204,7 +249,7 @@ export class InstructorPostsRepository {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: orderBy === 'oldest' ? 'asc' : 'desc' },
         include: {
           instructor: { select: { user: { select: { name: true } } } },
           authorAssistant: {
@@ -233,26 +278,43 @@ export class InstructorPostsRepository {
     id: string,
     data: Prisma.InstructorPostUncheckedUpdateInput & {
       materialIds?: string[];
+      attachments?: { filename: string; fileUrl: string }[];
       targetEnrollmentIds?: string[];
     },
     tx?: Prisma.TransactionClient,
   ) {
-    const { materialIds, targetEnrollmentIds, ...postData } = data;
+    const { materialIds, attachments, targetEnrollmentIds, ...postData } = data;
     const client = tx ?? this.prisma;
 
-    // materialIds가 있으면 Material 정보를 조회하여 filename 포함 (attachments 용)
-    let attachmentsCreateData:
-      | { materialId: string; filename: string }[]
+    // 첨부파일 데이터 준비
+    let allAttachmentsToCreate:
+      | { materialId?: string; filename: string; fileUrl?: string }[]
       | undefined;
-    if (materialIds !== undefined && materialIds.length > 0) {
-      const materials = await client.material.findMany({
-        where: { id: { in: materialIds } },
-        select: { id: true, title: true },
-      });
-      attachmentsCreateData = materials.map((m) => ({
-        materialId: m.id,
-        filename: m.title,
-      }));
+
+    if (materialIds !== undefined || attachments !== undefined) {
+      allAttachmentsToCreate = [];
+
+      // 1. 라이브러리 자료 첨부
+      if (materialIds?.length) {
+        const materials = await client.material.findMany({
+          where: { id: { in: materialIds } },
+          select: { id: true, title: true },
+        });
+        const materialAttachments = materials.map((m) => ({
+          materialId: m.id,
+          filename: m.title,
+        }));
+        allAttachmentsToCreate.push(...materialAttachments);
+      }
+
+      // 2. 직접 첨부
+      if (attachments?.length) {
+        const directAttachments = attachments.map((a) => ({
+          filename: a.filename,
+          fileUrl: a.fileUrl,
+        }));
+        allAttachmentsToCreate.push(...directAttachments);
+      }
     }
 
     // Prisma의 nested update를 사용하여 원자성 보장 및 코드 간소화
@@ -262,10 +324,10 @@ export class InstructorPostsRepository {
         ...postData,
         // 첨부파일 관계 업데이트 (기존 삭제 후 새 생성)
         attachments:
-          materialIds !== undefined
+          allAttachmentsToCreate !== undefined
             ? {
                 deleteMany: {},
-                create: attachmentsCreateData || [],
+                create: allAttachmentsToCreate,
               }
             : undefined,
         // 타겟 관계 업데이트 (기존 삭제 후 새 생성)

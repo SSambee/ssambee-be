@@ -1,21 +1,20 @@
 import { sendSystemMetrics } from './monitor.util.js';
 import os from 'node:os';
 
-// Mock os module
 jest.mock('node:os');
-// Mock config and isTest
 jest.mock('../config/env.config.js', () => ({
   config: {
-    LAMBDA_URL: 'http://mock-lambda.url',
+    ALARM_LAMBDA_URL: 'http://mock-lambda.url',
+    ENVIRONMENT: 'development',
   },
   isTest: jest.fn().mockReturnValue(false),
+  isDevelopment: jest.fn().mockReturnValue(true),
 }));
 
 describe('Monitor Utility - @unit', () => {
   const originalFetch = global.fetch;
   beforeEach(() => {
     jest.clearAllMocks();
-    // Mock global fetch
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({}),
@@ -26,17 +25,14 @@ describe('Monitor Utility - @unit', () => {
     global.fetch = originalFetch;
   });
 
-  it('should collect metrics and send them via fetch when LAMBDA_URL is set', async () => {
-    // Arrange
+  it('should collect metrics and send them via fetch when ALARM_LAMBDA is set', async () => {
     (os.totalmem as jest.Mock).mockReturnValue(1000);
     (os.freemem as jest.Mock).mockReturnValue(200);
     (os.loadavg as jest.Mock).mockReturnValue([0.5, 0.4, 0.3]);
     (os.uptime as jest.Mock).mockReturnValue(3600);
 
-    // Act
     await sendSystemMetrics();
 
-    // Assert
     expect(global.fetch).toHaveBeenCalledWith(
       'http://mock-lambda.url',
       expect.objectContaining({
@@ -59,19 +55,15 @@ describe('Monitor Utility - @unit', () => {
     );
   });
 
-  it('should not send metrics if LAMBDA_URL is not set', async () => {
-    // Arrange
+  it('should not send metrics if ALARM_LAMBDA_URL is not set', async () => {
     const { config } = await import('../config/env.config.js');
-    const originalUrl = config.LAMBDA_URL;
-    config.LAMBDA_URL = undefined;
+    const originalUrl = config.ALARM_LAMBDA_URL;
+    config.ALARM_LAMBDA_URL = undefined;
 
-    // Act
     await sendSystemMetrics();
 
-    // Assert
     expect(global.fetch).not.toHaveBeenCalled();
 
-    // Cleanup
-    config.LAMBDA_URL = originalUrl;
+    config.ALARM_LAMBDA_URL = originalUrl;
   });
 });

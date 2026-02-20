@@ -4,8 +4,8 @@ import { config } from '../config/env.config.js';
 // Mock config
 jest.mock('../config/env.config.js', () => ({
   config: {
-    LOG_LAMBDA_URL: 'https://example.com/log',
-    LOG_LAMBDA_API_KEY: 'test-api-key',
+    MONITOR_LAMBDA_URL: 'https://example.com/log',
+    INTERNAL_INGEST_SECRET: 'test-api-key',
   },
 }));
 
@@ -38,28 +38,28 @@ describe('MorganLambdaStream', () => {
         method: 'POST',
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
-          'x-api-key': 'test-api-key',
+          'x-internal-secret': 'test-api-key',
         }),
         body: expect.stringContaining(logMessage),
       }),
     );
 
     const payload = JSON.parse(fetchSpy.mock.calls[0][1].body);
-    expect(payload.log).toBe(logMessage);
+    expect(payload.message).toBe(logMessage);
     expect(payload.level).toBe(LOG_LEVEL.INFO);
     expect(payload.timestamp).toBeDefined();
   });
 
   it('should not send log when URL is missing', () => {
     // Override mock for this test
-    config.LOG_LAMBDA_URL = undefined;
+    config.MONITOR_LAMBDA_URL = undefined;
 
     stream.write('test');
 
     expect(fetchSpy).not.toHaveBeenCalled();
 
     // Restore mock
-    config.LOG_LAMBDA_URL = 'https://example.com/log';
+    config.MONITOR_LAMBDA_URL = 'https://example.com/log';
   });
 
   it('should handle fetch errors gracefully', async () => {
