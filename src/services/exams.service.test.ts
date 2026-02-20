@@ -616,4 +616,71 @@ describe('ExamsService - @unit #critical', () => {
       });
     });
   });
+
+  describe('[성적표 과제 연계 조회] getExamReportAssignments', () => {
+    it('시험과 권한이 유효하면 과제 연계 목록이 반환된다', async () => {
+      const exam = mockExams.basic;
+      const assignments = [
+        {
+          id: 'rel-1',
+          assignmentId: 'assign-1',
+          examId: mockExamId,
+        },
+      ] as Awaited<
+        ReturnType<ExamsRepository['findAssignmentsOnExamReportByExamId']>
+      >;
+
+      mockExamsRepo.findById.mockResolvedValue(
+        exam as Awaited<ReturnType<typeof mockExamsRepo.findById>>,
+      );
+      mockExamsRepo.findAssignmentsOnExamReportByExamId.mockResolvedValue(
+        assignments,
+      );
+
+      const result = await examsService.getExamReportAssignments(
+        mockExamId,
+        mockUserType,
+        mockProfileId,
+      );
+
+      expect(mockExamsRepo.findById).toHaveBeenCalledWith(mockExamId);
+      expect(
+        mockPermissionService.validateInstructorAccess,
+      ).toHaveBeenCalledWith(exam.instructorId, mockUserType, mockProfileId);
+      expect(
+        mockExamsRepo.findAssignmentsOnExamReportByExamId,
+      ).toHaveBeenCalledWith(mockExamId);
+      expect(result).toEqual(assignments);
+    });
+
+    it('존재하지 않는 시험인 경우 NotFoundException을 던진다', async () => {
+      mockExamsRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        examsService.getExamReportAssignments(
+          mockExamId,
+          mockUserType,
+          mockProfileId,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('권한이 없는 경우 에러를 전파한다', async () => {
+      const exam = mockExams.basic;
+      mockExamsRepo.findById.mockResolvedValue(
+        exam as Awaited<ReturnType<typeof mockExamsRepo.findById>>,
+      );
+      mockPermissionService.validateInstructorAccess.mockRejectedValue(
+        new Error('Unauthorized'),
+      );
+
+      await expect(
+        examsService.getExamReportAssignments(
+          mockExamId,
+          mockUserType,
+          mockProfileId,
+        ),
+      ).rejects.toThrow('Unauthorized');
+    });
+  });
 });
