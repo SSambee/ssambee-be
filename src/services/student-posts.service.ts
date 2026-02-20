@@ -232,6 +232,7 @@ export class StudentPostsService {
           id: le.lecture.id,
           title: le.lecture.title,
           instructorId: le.lecture.instructorId,
+          lectureTimes: le.lecture.lectureTimes,
         })),
         totalCount: result.length,
       };
