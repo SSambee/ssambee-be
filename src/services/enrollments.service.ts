@@ -378,14 +378,19 @@ export class EnrollmentsService {
     if (data.status) {
       data.deletedAt = data.status === 'DROPPED' ? new Date() : null;
     }
-    if (data.studentPhone) {
-      const studentPhone = data.studentPhone as string;
+    if (
+      data.studentPhone !== undefined ||
+      data.studentName !== undefined ||
+      data.parentPhone !== undefined
+    ) {
+      const studentPhone =
+        (data.studentPhone as string | undefined) ?? enrollment.studentPhone;
       const studentName =
         (data.studentName as string | undefined) ?? enrollment.studentName;
       const parentPhone =
         (data.parentPhone as string | undefined) ?? enrollment.parentPhone;
 
-      if (studentName && parentPhone) {
+      if (studentPhone && studentName && parentPhone) {
         const student =
           await this.studentRepository.findByPhoneNumberAndProfile(
             studentPhone,
