@@ -314,7 +314,7 @@ describe('EnrollmentsService - @unit #critical', () => {
         mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
         mockPermissionService.validateInstructorAccess.mockResolvedValue();
         mockEnrollmentsRepo.findManyByInstructorAndPhones.mockResolvedValue([]);
-        mockParentsService.findLinkByPhoneNumber.mockResolvedValue(
+        mockParentsService.findLinkByPhoneNumberAndProfile.mockResolvedValue(
           mockParentLinks.active,
         );
         mockEnrollmentsRepo.create.mockResolvedValue(mockEnrollments.active);
@@ -355,8 +355,12 @@ describe('EnrollmentsService - @unit #critical', () => {
           instructorId,
         );
 
-        expect(mockParentsService.findLinkByPhoneNumber).toHaveBeenCalledWith(
+        expect(
+          mockParentsService.findLinkByPhoneNumberAndProfile,
+        ).toHaveBeenCalledWith(
           createEnrollmentRequests.basic.studentPhone,
+          createEnrollmentRequests.basic.studentName,
+          createEnrollmentRequests.basic.parentPhone,
         );
         expect(mockEnrollmentsRepo.create).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -382,7 +386,9 @@ describe('EnrollmentsService - @unit #critical', () => {
           instructorId,
         );
 
-        expect(mockParentsService.findLinkByPhoneNumber).not.toHaveBeenCalled();
+        expect(
+          mockParentsService.findLinkByPhoneNumberAndProfile,
+        ).not.toHaveBeenCalled();
         expect(mockEnrollmentsRepo.create).toHaveBeenCalledWith(
           expect.objectContaining({
             appParentLinkId:
@@ -1176,6 +1182,56 @@ describe('EnrollmentsService - @unit #critical', () => {
             appStudent: {
               connect: {
                 id: mockStudents.basic.id,
+              },
+            },
+          }),
+        );
+      });
+
+      it('수강생 수정 시 ParentLink도 학생 전화번호/이름/부모번호가 모두 일치하면 연결된다', async () => {
+        const updateData = {
+          studentPhone: '010-1111-1111',
+          parentPhone: '010-2222-2222',
+        };
+        const existingEnrollment = {
+          ...mockEnrollments.active,
+          studentName: '홍길동',
+          studentPhone: '010-9999-9999',
+          parentPhone: '010-3333-3333',
+        } as EnrollmentWithRelations;
+
+        mockEnrollmentsRepo.findById.mockResolvedValue(existingEnrollment);
+        mockParentsService.findLinkByPhoneNumberAndProfile.mockResolvedValue(
+          mockParentLinks.active,
+        );
+        const updatedEnrollment = {
+          ...existingEnrollment,
+          ...updateData,
+        };
+        mockEnrollmentsRepo.update.mockResolvedValue(updatedEnrollment);
+
+        const result = await enrollmentsService.updateEnrollment(
+          enrollmentId,
+          updateData,
+          UserType.INSTRUCTOR,
+          instructorId,
+        );
+
+        expect(result).toEqual(updatedEnrollment);
+        expect(
+          mockParentsService.findLinkByPhoneNumberAndProfile,
+        ).toHaveBeenCalledWith(
+          updateData.studentPhone,
+          existingEnrollment.studentName,
+          updateData.parentPhone,
+        );
+        expect(mockEnrollmentsRepo.update).toHaveBeenCalledWith(
+          enrollmentId,
+          expect.objectContaining({
+            ...updateData,
+            appParentLink: {
+              connect: {
+                id: mockParentLinks.active.id,
               },
             },
           }),

@@ -104,11 +104,20 @@ export class EnrollmentsService {
       if (!enrollmentId) {
         let parentLinkId = data.appParentLinkId;
         if (!parentLinkId && data.studentPhone) {
-          const link = await this.parentsService.findLinkByPhoneNumber(
-            data.studentPhone,
-          );
-          if (link) {
-            parentLinkId = link.id;
+          const studentPhone = data.studentPhone as string;
+          const studentName = data.studentName as string | undefined;
+          const parentPhone = data.parentPhone as string | undefined;
+
+          if (studentName && parentPhone) {
+            const link =
+              await this.parentsService.findLinkByPhoneNumberAndProfile(
+                studentPhone,
+                studentName,
+                parentPhone,
+              );
+            if (link) {
+              parentLinkId = link.id;
+            }
           }
         }
 
@@ -388,12 +397,26 @@ export class EnrollmentsService {
         }
       }
     }
-    if (data.parentPhone) {
-      const parent = await this.parentsService.findLinkByPhoneNumber(
-        data.parentPhone as string,
-      );
-      if (parent) {
-        data.appParentLink = { connect: { id: parent.id } };
+    if (data.studentPhone || data.studentName || data.parentPhone) {
+      const studentPhone =
+        (data.studentPhone as string | undefined) ??
+        enrollment.studentPhone ??
+        undefined;
+      const studentName =
+        (data.studentName as string | undefined) ?? enrollment.studentName;
+      const parentPhone =
+        (data.parentPhone as string | undefined) ?? enrollment.parentPhone;
+
+      if (studentPhone && studentName && parentPhone) {
+        const parent =
+          await this.parentsService.findLinkByPhoneNumberAndProfile(
+            studentPhone,
+            studentName,
+            parentPhone,
+          );
+        if (parent) {
+          data.appParentLink = { connect: { id: parent.id } };
+        }
       }
     }
 
