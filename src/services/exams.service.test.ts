@@ -625,6 +625,15 @@ describe('ExamsService - @unit #critical', () => {
           id: 'rel-1',
           assignmentId: 'assign-1',
           examId: mockExamId,
+          assignment: {
+            id: 'assign-1',
+            title: '단어 시험',
+            categoryId: 'cat-1',
+            category: {
+              id: 'cat-1',
+              name: '평가 카테고리',
+            },
+          },
         },
       ] as Awaited<
         ReturnType<ExamsRepository['findAssignmentsOnExamReportByExamId']>
