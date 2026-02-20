@@ -49,10 +49,6 @@ type EnrollmentListItem = Awaited<
   ReturnType<EnrollmentsRepository['findMany']>
 >['enrollments'][number];
 
-type StudentLectureEnrollmentItem = Awaited<
-  ReturnType<LectureEnrollmentsRepository['findManyByAppStudentId']>
->['lectureEnrollments'][number];
-
 type LectureEnrollmentDetail = NonNullable<
   Awaited<ReturnType<LectureEnrollmentsRepository['findByIdWithDetails']>>
 >;
@@ -1273,30 +1269,25 @@ describe('EnrollmentsService - @unit #critical', () => {
     });
   });
 
-  /** [학생/학부모용] getMyEnrollments 테스트 케이스 (LectureCentric) */
+  /** [학생/학부모용] getMyEnrollments 테스트 케이스 (EnrollmentCentric) */
   describe('[학생/학부모용] getMyEnrollments', () => {
-    describe('ENR-13: 학생 수강 목록 조회', () => {
-      it('학생이 본인의 수강 목록 조회를 요청할 때, 페이지네이션이 적용된 LectureEnrollment 목록이 반환된다', async () => {
+    describe('ENR-13: 학생 강사 목록 조회', () => {
+      it('학생이 본인의 강사 목록 조회를 요청할 때, 페이지네이션이 적용된 Enrollment 목록이 반환된다 (memo 제외)', async () => {
         const studentId = mockStudents.basic.id;
 
-        // Mock LectureEnrollment
-        const mockLectureEnrollmentList = [
+        // Mock Enrollment List
+        const mockEnrollmentList = [
           {
-            id: 'le-1',
-            lectureId: 'lecture-1',
-            enrollmentId: 'enrollment-1',
-            registeredAt: new Date(),
-            lecture: {
-              ...mockLectures.basic,
-              instructor: { user: { name: 'Instructor Name' } },
-              lectureTimes: [],
+            ...mockEnrollments.active,
+            memo: 'secret memo',
+            instructor: {
+              user: { name: 'Instructor Name' },
             },
           },
         ];
 
-        mockLectureEnrollmentsRepo.findManyByAppStudentId.mockResolvedValue({
-          lectureEnrollments:
-            mockLectureEnrollmentList as unknown as StudentLectureEnrollmentItem[],
+        mockEnrollmentsRepo.findByAppStudentId.mockResolvedValue({
+          enrollments: mockEnrollmentList,
           totalCount: 1,
         });
 
@@ -1307,10 +1298,59 @@ describe('EnrollmentsService - @unit #critical', () => {
         );
 
         expect(result.enrollments).toHaveLength(1);
+        expect(result.enrollments[0]).not.toHaveProperty('memo');
+        expect(result.enrollments[0].studentName).toBe(
+          mockEnrollments.active.studentName,
+        );
         expect(result.totalCount).toBe(1);
+        expect(mockEnrollmentsRepo.findByAppStudentId).toHaveBeenCalledWith(
+          studentId,
+          mockEnrollmentQueries.withPagination,
+        );
+      });
+    });
+
+    describe('getEnrollmentLectures: 강사별 강의 목록 조회', () => {
+      it('학생이 특정 강사의 강의 목록을 요청할 때, 해당 Enrollment에 속한 강의 목록이 반환된다', async () => {
+        const studentId = mockStudents.basic.id;
+        const enrollmentId = mockEnrollments.active.id;
+
+        mockEnrollmentsRepo.findById.mockResolvedValue(mockEnrollments.active);
+        const mockLectureEnrollments = [
+          {
+            id: 'le-1',
+            lecture: { title: 'Lecture 1' },
+          },
+        ];
+        mockLectureEnrollmentsRepo.findManyByEnrollmentId.mockResolvedValue(
+          mockLectureEnrollments,
+        );
+
+        const result = await enrollmentsService.getEnrollmentLectures(
+          enrollmentId,
+          UserType.STUDENT,
+          studentId,
+        );
+
+        expect(result.lectureEnrollments).toEqual(mockLectureEnrollments);
         expect(
-          mockLectureEnrollmentsRepo.findManyByAppStudentId,
-        ).toHaveBeenCalledWith(studentId, { limit: 10, offset: 0 });
+          mockLectureEnrollmentsRepo.findManyByEnrollmentId,
+        ).toHaveBeenCalledWith(enrollmentId);
+      });
+
+      it('다른 학생의 Enrollment에 접근하려 할 때 ForbiddenException을 던진다', async () => {
+        const studentId = 'another-student';
+        const enrollmentId = mockEnrollments.active.id;
+
+        mockEnrollmentsRepo.findById.mockResolvedValue(mockEnrollments.active); // active has different appStudentId
+
+        await expect(
+          enrollmentsService.getEnrollmentLectures(
+            enrollmentId,
+            UserType.STUDENT,
+            studentId,
+          ),
+        ).rejects.toThrow(ForbiddenException);
       });
     });
 

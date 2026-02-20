@@ -38,6 +38,34 @@ export class ChildrenController {
     }
   };
 
+  /** 자녀의 강사별 강의 목록 조회 */
+  getChildEnrollmentLectures = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const user = getAuthUser(req);
+      const profileId = getProfileIdOrThrow(req);
+
+      const { id, enrollmentId } = req.params;
+      const { lectureEnrollments } =
+        await this.parentsService.getChildEnrollmentLectures(
+          user.userType as UserType,
+          profileId,
+          id,
+          enrollmentId,
+        );
+
+      return successResponse(res, {
+        data: { lectureEnrollments },
+        message: '자녀의 강사별 강의 목록 조회 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   /** 자녀 목록 조회 */
   getChildren = async (req: Request, res: Response, next: NextFunction) => {
     try {

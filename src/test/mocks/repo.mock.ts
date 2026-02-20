@@ -121,6 +121,7 @@ export const createMockLectureEnrollmentsRepository = () =>
     'removeByLectureIdAndEnrollmentId',
     'findByIdWithGrades',
     'findFirstByInstructorIdAndStudentId',
+    'findManyByEnrollmentId',
     'findManyByEnrollmentIds',
   ]);
 

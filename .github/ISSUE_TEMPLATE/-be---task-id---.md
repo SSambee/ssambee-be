@@ -1,10 +1,9 @@
 ---
-name: "[BE] [Task ID: ]"
+name: '[BE] [Task ID: ]'
 about: API 엔드포인트 구현 및 DB/비즈니스 로직 작업
-title: "[BE] [Task ID: ]"
+title: '[BE] [Task ID: ]'
 labels: BE, feature
 assignees: ''
-
 ---
 
 ## ✨ 작업 설명
@@ -18,6 +17,7 @@ assignees: ''
 - 어떤 API 기능을 구현하나요?
 
 ## 🧱 작업 범위 (체크리스트)
+
 > 백엔드 팀원의 4단계 공정을 프런트엔드와 같은 체크리스트 스타일로 구현합니다.
 
 - [ ] **DB/Schema**: 데이터베이스 설계 및 스키마 생성
