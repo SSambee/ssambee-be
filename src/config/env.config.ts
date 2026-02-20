@@ -31,9 +31,18 @@ const envSchema = z.object({
   AWS_CLOUDFRONT_PRIVATE_KEY: z.string().optional().default(''),
   REDIS_URL: z.string().optional(),
   ALARM_LAMBDA_URL: z.string().optional(),
+  LOG_LAMBDA_URL: z.string().optional(),
+  LOG_LAMBDA_API_KEY: z.string().optional(),
+  LAMBDA_URL: z.string().optional(),
   MONITOR_LAMBDA_URL: z.string().optional(),
   DISCORD_WEBHOOK_URL: z.string().optional(),
   INTERNAL_INGEST_SECRET: z.string().optional(),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
+  SMTP_SECURE: z.coerce.boolean().optional(),
 });
 
 const parseEnvironment = () => {
@@ -56,9 +65,18 @@ const parseEnvironment = () => {
       AWS_CLOUDFRONT_PRIVATE_KEY: process.env.AWS_CLOUDFRONT_PRIVATE_KEY,
       REDIS_URL: process.env.REDIS_URL,
       ALARM_LAMBDA_URL: process.env.ALARM_LAMBDA_URL,
+      LOG_LAMBDA_URL: process.env.LOG_LAMBDA_URL,
+      LOG_LAMBDA_API_KEY: process.env.LOG_LAMBDA_API_KEY,
+      LAMBDA_URL: process.env.LAMBDA_URL,
       MONITOR_LAMBDA_URL: process.env.MONITOR_LAMBDA_URL,
       DISCORD_WEBHOOK_URL: process.env.DISCORD_WEBHOOK_URL,
       INTERNAL_INGEST_SECRET: process.env.INTERNAL_INGEST_SECRET,
+      SMTP_HOST: process.env.SMTP_HOST,
+      SMTP_PORT: process.env.SMTP_PORT,
+      SMTP_USER: process.env.SMTP_USER,
+      SMTP_PASS: process.env.SMTP_PASS,
+      SMTP_FROM: process.env.SMTP_FROM,
+      SMTP_SECURE: process.env.SMTP_SECURE,
     });
   } catch (err) {
     if (err instanceof z.ZodError) {

@@ -33,6 +33,7 @@ export const createMockStudentRepository = () =>
     'findByUserId',
     'findById',
     'findByPhoneNumber',
+    'findByPhoneNumberAndProfile',
     'create',
   ]);
 
@@ -67,6 +68,7 @@ export const createMockParentChildLinkRepository = () =>
     'findById',
     'findByParentIdAndPhoneNumber',
     'findManyByPhoneNumber',
+    'findByPhoneNumberAndProfile',
   ]);
 
 /** Mock LecturesRepository 생성 */
