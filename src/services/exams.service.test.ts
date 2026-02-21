@@ -632,6 +632,7 @@ describe('ExamsService - @unit #critical', () => {
             category: {
               id: 'cat-1',
               name: '평가 카테고리',
+              resultPresets: ['O', 'X'],
             },
           },
         },
