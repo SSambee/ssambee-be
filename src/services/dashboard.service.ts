@@ -1,13 +1,9 @@
 import { PrismaClient } from '../generated/prisma/client.js';
 import { UserType } from '../constants/auth.constant.js';
-import { ClinicsRepository } from '../repos/clinics.repo.js';
-import { AttendancesRepository } from '../repos/attendances.repo.js';
 import { GradesRepository } from '../repos/grades.repo.js';
 import { InstructorPostsRepository } from '../repos/instructor-posts.repo.js';
-import { LecturesRepository } from '../repos/lectures.repo.js';
 import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
-import { ExamsRepository } from '../repos/exams.repo.js';
 import { PermissionService } from './permission.service.js';
 import { calculateAttendanceStats } from '../utils/attendance.util.js';
 import {
@@ -54,14 +50,10 @@ export class DashboardService {
   constructor(
     private readonly dashboardRepository: DashboardRepository,
     private readonly permissionService: PermissionService,
-    private readonly clinicsRepo: ClinicsRepository,
-    private readonly attendancesRepo: AttendancesRepository,
     private readonly gradesRepo: GradesRepository,
     private readonly instructorPostsRepo: InstructorPostsRepository,
-    private readonly lecturesRepo: LecturesRepository,
     private readonly lectureEnrollmentsRepo: LectureEnrollmentsRepository,
     private readonly enrollmentsRepo: EnrollmentsRepository,
-    private readonly examsRepo: ExamsRepository,
     private readonly prisma: PrismaClient,
   ) {}
 

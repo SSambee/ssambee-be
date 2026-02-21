@@ -326,16 +326,12 @@ const schedulesService = new SchedulesService(
 );
 
 const dashboardService = new DashboardService(
-  clinicsRepo,
-  attendancesRepo,
+  dashboardRepo,
+  permissionService,
   gradesRepo,
   instructorPostsRepo,
-  lecturesRepo,
   lectureEnrollmentsRepo,
   enrollmentsRepo,
-  dashboardRepo,
-  examsRepo,
-  permissionService,
   prisma,
 );
 
