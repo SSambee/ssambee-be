@@ -722,6 +722,44 @@ export class CommentsService {
         );
         return;
       }
+
+      if (comment.instructorPostId) {
+        const post = await this.instructorPostsRepository.findById(
+          comment.instructorPostId,
+        );
+        if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
+
+        const parentChildLinks =
+          await this.parentChildLinkRepository.findByAppParentId(profileId);
+        const appParentLinkIds = parentChildLinks.map((link) => link.id);
+
+        const enrollments =
+          await this.enrollmentsRepository.findManyByAppParentLinkIds(
+            appParentLinkIds,
+          );
+
+        let hasAccess = false;
+        if (post.lectureId) {
+          for (const enrollment of enrollments) {
+            const le =
+              await this.lectureEnrollmentsRepository.findByLectureIdAndEnrollmentId(
+                post.lectureId,
+                enrollment.id,
+              );
+            if (le) {
+              hasAccess = true;
+              break;
+            }
+          }
+        } else {
+          hasAccess = enrollments.some(
+            (e) => e.instructorId === post.instructorId,
+          );
+        }
+
+        if (!hasAccess) throw new ForbiddenException('접근 권한이 없습니다.');
+        return;
+      }
     }
 
     throw new ForbiddenException('접근 권한이 없습니다.');
