@@ -18,10 +18,6 @@ import { PrismaClient } from '../generated/prisma/client.js';
 
 import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 
-type ParentLectureEnrollmentItem = Awaited<
-  ReturnType<LectureEnrollmentsRepository['findManyByAppParentLinkId']>
->['lectureEnrollments'][number];
-
 type LectureEnrollmentDetail = NonNullable<
   Awaited<ReturnType<LectureEnrollmentsRepository['findByIdWithDetails']>>
 >;
@@ -253,24 +249,23 @@ describe('ParentsService - @unit #critical', () => {
     const parentId = mockParents.basic.id;
     const childLinkId = mockParentLinks.active.id;
 
-    describe('PAR-06: 수강 목록 조회 성공 (LectureCentric)', () => {
-      it('학부모가 본인 자녀의 수강 목록 조회를 요청할 때, LectureEnrollment 배열이 반환된다', async () => {
+    describe('PAR-06: 강사 목록 조회 성공 (EnrollmentCentric)', () => {
+      it('학부모가 본인 자녀의 강사 목록 조회를 요청할 때, Enrollment 배열이 반환된다 (memo 제외)', async () => {
         mockPermissionService.validateChildAccess.mockResolvedValue(
           mockParentLinks.active,
         );
 
-        const mockLectureEnrollmentList = [
+        const mockEnrollmentList = [
           {
-            id: 'le-1',
-            lectureId: 'lecture-1',
-            enrollmentId: 'enrollment-1',
-            registeredAt: new Date(),
+            id: 'e-1',
+            studentName: 'Kim',
+            memo: 'secret',
+            instructor: { user: { name: 'Teacher' } },
           },
         ];
 
-        mockLectureEnrollmentsRepo.findManyByAppParentLinkId.mockResolvedValue({
-          lectureEnrollments:
-            mockLectureEnrollmentList as unknown as ParentLectureEnrollmentItem[],
+        mockEnrollmentsRepo.findByAppParentLinkId.mockResolvedValue({
+          enrollments: mockEnrollmentList,
           totalCount: 1,
         });
 
@@ -282,39 +277,66 @@ describe('ParentsService - @unit #critical', () => {
 
         expect(result).toBeDefined();
         expect(result.enrollments).toHaveLength(1);
+        expect(result.enrollments[0]).not.toHaveProperty('memo');
         expect(result.totalCount).toBe(1);
         expect(mockPermissionService.validateChildAccess).toHaveBeenCalledWith(
           UserType.PARENT,
           parentId,
           childLinkId,
         );
-        expect(
-          mockLectureEnrollmentsRepo.findManyByAppParentLinkId,
-        ).toHaveBeenCalledWith(childLinkId, { limit: 20, offset: 0 }); // Default limit=20
+        expect(mockEnrollmentsRepo.findByAppParentLinkId).toHaveBeenCalledWith(
+          childLinkId,
+          { page: 1, limit: 20 },
+        );
       });
+    });
 
-      it('학부모가 페이지네이션 옵션과 함께 자녀의 수강 목록 조회를 요청할 때, 요청된 범위의 목록과 전체 개수가 반환된다', async () => {
+    describe('getChildEnrollmentLectures: 자녀의 강사별 강의 목록 조회', () => {
+      it('학부모가 자녀의 특정 강사 강의 목록을 요청할 때, 강의 목록이 반환된다', async () => {
+        const enrollmentId = 'e-123';
         mockPermissionService.validateChildAccess.mockResolvedValue(
           mockParentLinks.active,
         );
-
-        mockLectureEnrollmentsRepo.findManyByAppParentLinkId.mockResolvedValue({
-          lectureEnrollments: [],
-          totalCount: 10,
+        mockEnrollmentsRepo.findById.mockResolvedValue({
+          id: enrollmentId,
+          appParentLinkId: childLinkId,
         });
+        const mockLectureEnrollments = [{ id: 'le-1' }];
+        mockLectureEnrollmentsRepo.findManyByEnrollmentId.mockResolvedValue(
+          mockLectureEnrollments,
+        );
 
-        const query = { page: 2, limit: 5 };
-
-        await parentsService.getChildEnrollments(
+        const result = await parentsService.getChildEnrollmentLectures(
           UserType.PARENT,
           parentId,
           childLinkId,
-          query,
+          enrollmentId,
         );
 
+        expect(result.lectureEnrollments).toEqual(mockLectureEnrollments);
         expect(
-          mockLectureEnrollmentsRepo.findManyByAppParentLinkId,
-        ).toHaveBeenCalledWith(childLinkId, { limit: 5, offset: 5 });
+          mockLectureEnrollmentsRepo.findManyByEnrollmentId,
+        ).toHaveBeenCalledWith(enrollmentId);
+      });
+
+      it('자녀의 정보가 아닌 Enrollment에 접근하려 할 때 ForbiddenException을 던진다', async () => {
+        const enrollmentId = 'e-123';
+        mockPermissionService.validateChildAccess.mockResolvedValue(
+          mockParentLinks.active,
+        );
+        mockEnrollmentsRepo.findById.mockResolvedValue({
+          id: enrollmentId,
+          appParentLinkId: 'another-child-link',
+        });
+
+        await expect(
+          parentsService.getChildEnrollmentLectures(
+            UserType.PARENT,
+            parentId,
+            childLinkId,
+            enrollmentId,
+          ),
+        ).rejects.toThrow(ForbiddenException);
       });
     });
 
@@ -487,12 +509,10 @@ describe('ParentsService - @unit #critical', () => {
             mockPermissionService.validateChildAccess.mockResolvedValue(
               mockParentLinks.active,
             );
-            mockLectureEnrollmentsRepo.findManyByAppParentLinkId.mockResolvedValue(
-              {
-                lectureEnrollments: [],
-                totalCount: 0,
-              },
-            );
+            mockEnrollmentsRepo.findByAppParentLinkId.mockResolvedValue({
+              enrollments: [],
+              totalCount: 0,
+            });
 
             await expect(
               parentsService.getChildEnrollments(

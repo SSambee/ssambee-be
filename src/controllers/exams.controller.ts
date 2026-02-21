@@ -167,4 +167,30 @@ export class ExamsController {
       next(error);
     }
   };
+
+  /** 시험 성적표 과제 목록 조회 */
+  getExamReportAssignments = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { examId } = req.params;
+      const profileId = getProfileIdOrThrow(req);
+      const user = getAuthUser(req);
+      const userType = user.userType as UserType;
+
+      const result = await this.examsService.getExamReportAssignments(
+        examId,
+        userType,
+        profileId,
+      );
+
+      return successResponse(res, {
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

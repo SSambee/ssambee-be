@@ -76,14 +76,14 @@ export class ParentsService {
     return await this.parentChildLinkRepository.findByAppParentId(profileId);
   }
 
-  /** 자녀의 수강 목록 조회 (강의 기반) */
+  /** 자녀의 강사 목록 조회 (Enrollment 기반) */
   async getChildEnrollments(
     userType: UserType,
     profileId: string,
     childId: string,
     query: GetSvcEnrollmentsQueryDto = {
-      page: 1, // Default value from schema
-      limit: 20, // Default value from schema
+      page: 1,
+      limit: 20,
     },
   ) {
     // 1. 자녀 링크 검증
@@ -93,19 +93,68 @@ export class ParentsService {
       childId,
     );
 
-    const { page = 1, limit = 20 } = query;
-    const offset = (page - 1) * limit;
-
-    // 2. 해당 링크 ID로 수강 목록 조회 (LectureEnrollment)
-    const { lectureEnrollments, totalCount } =
-      await this.lectureEnrollmentsRepository.findManyByAppParentLinkId(
+    // 2. 해당 링크 ID로 강사 목록 조회 (Enrollment)
+    const { enrollments, totalCount } =
+      await this.enrollmentsRepository.findByAppParentLinkId(
         childLink.id,
-        { limit, offset },
+        query,
       );
 
+    // memo 필드 제외 처리
+    const sanitizedEnrollments = enrollments.map(
+      ({ memo: _memo, ...rest }) => ({
+        ...rest,
+      }),
+    );
+
     return {
-      enrollments: lectureEnrollments,
+      enrollments: sanitizedEnrollments,
       totalCount,
+    };
+  }
+
+  /** 자녀의 특정 강사 강의 목록 조회 */
+  async getChildEnrollmentLectures(
+    userType: UserType,
+    profileId: string,
+    childId: string,
+    enrollmentId: string,
+  ) {
+    // 1. 자녀 링크 검증
+    const childLink = await this.permissionService.validateChildAccess(
+      userType,
+      profileId,
+      childId,
+    );
+
+    // 2. Enrollment 존재 확인
+    const enrollment = await this.enrollmentsRepository.findById(enrollmentId);
+    if (!enrollment) {
+      throw new NotFoundException('수강 정보를 찾을 수 없습니다.');
+    }
+
+    // 3. 해당 수강 정보가 내 자녀의 것이 맞는지 확인
+    if (enrollment.appParentLinkId !== childLink.id) {
+      throw new ForbiddenException(
+        '해당 자녀의 수강 정보가 아니거나 접근 권한이 없습니다.',
+      );
+    }
+
+    // 4. 강의 목록 조회
+    const lectureEnrollments =
+      await this.lectureEnrollmentsRepository.findManyByEnrollmentId(
+        enrollmentId,
+      );
+
+    // memo 필드 제외 처리
+    const sanitizedLectureEnrollments = lectureEnrollments.map(
+      ({ memo: _memo, ...rest }) => ({
+        ...rest,
+      }),
+    );
+
+    return {
+      lectureEnrollments: sanitizedLectureEnrollments,
     };
   }
 

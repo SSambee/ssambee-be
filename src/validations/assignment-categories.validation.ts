@@ -46,7 +46,7 @@ export const updateAssignmentCategorySchema = z
  */
 export const assignmentCategoryIdParamSchema = z.object({
   /** 카테고리 ID */
-  id: z.string().uuid('올바른 카테고리 ID 형식이 아닙니다.'),
+  id: z.string().cuid2('올바른 카테고리 ID 형식이 아닙니다.'),
 });
 
 /** 과제 카테고리 생성 DTO 타입 */

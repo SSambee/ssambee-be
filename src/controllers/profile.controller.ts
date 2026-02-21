@@ -42,7 +42,7 @@ export class ProfileController {
       const data = req.body;
 
       // 보안: userType, email, password는 수정 불가 (무시)
-       
+
       const { userType: _, email: __, password: ___, ...updateData } = data;
 
       const profile = await this.profileService.updateMyProfile(

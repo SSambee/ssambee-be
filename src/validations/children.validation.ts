@@ -25,6 +25,8 @@ export type CreateChildDto = z.infer<typeof createChildSchema>;
 export const childIdParamSchema = z.object({
   /** 자녀 ID */
   id: z.string().min(1, '자녀 ID는 필수입니다.'),
+  /** 강사 관계 ID (선택) */
+  enrollmentId: z.string().optional(),
   /** 강의 수강 ID (선택) */
   lectureEnrollmentId: z.string().optional(),
   /** 성적 ID (선택) */
