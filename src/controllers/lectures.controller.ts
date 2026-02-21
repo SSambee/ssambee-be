@@ -132,7 +132,7 @@ export class LecturesController {
   /** 강의 삭제 핸들러 (Soft Delete) */
   deleteLecture = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const profileId = getInstructorIdOrThrow(req);
+      const profileId = getProfileIdOrThrow(req);
       const user = getAuthUser(req);
       const userType = user.userType as UserType;
       const { id } = req.params;
