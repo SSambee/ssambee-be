@@ -9,6 +9,7 @@ import { svcStudentPostsRouter } from './student-posts.route.js';
 import { svcInstructorPostsRouter } from './instructor-posts.route.js';
 import { svcMeRouter } from './me.route.js';
 import { svcUploadsRouter } from './uploads.route.js';
+import { svcDashboardRouter } from './dashboard.route.js';
 
 export const svcV1Router = Router();
 
@@ -35,6 +36,9 @@ svcV1Router.use('/student-posts', svcStudentPostsRouter);
 
 /** 강사 공지 라우트 */
 svcV1Router.use('/instructor-posts', svcInstructorPostsRouter);
+
+/** 대시보드 라우트 */
+svcV1Router.use('/dashboard', svcDashboardRouter);
 
 /** 내 정보 라우트 */
 svcV1Router.use('/me', svcMeRouter);

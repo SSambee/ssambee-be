@@ -471,6 +471,7 @@ export class LectureEnrollmentsRepository {
             instructorId: true,
             title: true,
             lectureTimes: true,
+            deletedAt: true,
           },
         },
       },

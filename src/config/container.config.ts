@@ -93,6 +93,7 @@ import { AssignmentCategoryController } from '../controllers/assignment-categori
 import { SchedulesService } from '../services/schedules.service.js';
 import { SchedulesController } from '../controllers/schedules.controller.js';
 import { UploadsController } from '../controllers/uploads.controller.js';
+
 import { DashboardRepository } from '../repos/dashboard.repo.js';
 import { DashboardService } from '../services/dashboard.service.js';
 import { DashboardController } from '../controllers/dashboard.controller.js';
@@ -324,7 +325,19 @@ const schedulesService = new SchedulesService(
   prisma,
 );
 
-const dashboardService = new DashboardService(dashboardRepo, permissionService);
+const dashboardService = new DashboardService(
+  clinicsRepo,
+  attendancesRepo,
+  gradesRepo,
+  instructorPostsRepo,
+  lecturesRepo,
+  lectureEnrollmentsRepo,
+  enrollmentsRepo,
+  dashboardRepo,
+  examsRepo,
+  permissionService,
+  prisma,
+);
 
 const assignmentsService = new AssignmentsService(
   assignmentsRepo,
@@ -437,8 +450,8 @@ export const container = {
   schedulesController,
   assignmentsController,
   assignmentResultsController,
-  uploadsController,
   dashboardController,
+  uploadsController,
   profileController: new ProfileController(profileService),
   // Middlewares
   requireAuth,
