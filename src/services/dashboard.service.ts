@@ -233,12 +233,15 @@ export class DashboardService {
             lecture: { deletedAt: null },
           },
         }),
-        // 2) Attendances (출석 데이터 전체 - 통계용)
+        // 2) Attendances (출석 데이터 - 최근 90일 통계용)
         this.prisma.attendance.findMany({
           where: {
             lectureEnrollmentId: { in: leIds },
             lecture: { deletedAt: null },
+            createdAt: { gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) },
           },
+          orderBy: { createdAt: 'desc' },
+          take: 1000,
         }),
         // 3) Grades (최근 성적 데이터 50개)
         this.prisma.grade.findMany({
