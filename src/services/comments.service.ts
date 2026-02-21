@@ -17,7 +17,11 @@ import {
   CreateCommentDto,
   UpdateCommentDto,
 } from '../validations/comments.validation.js';
-import { StudentPostStatus, AuthorRole } from '../constants/posts.constant.js';
+import {
+  StudentPostStatus,
+  AuthorRole,
+  PostScope,
+} from '../constants/posts.constant.js';
 import { FileStorageService } from './filestorage.service.js';
 import path from 'path';
 import { randomUUID } from 'crypto';
@@ -51,9 +55,8 @@ export class CommentsService {
         ? comment.instructorPostId
         : comment.studentPostId;
 
-    if (postIdField !== postId) {
+    if (postIdField !== postId)
       throw new NotFoundException('해당 게시글에서 댓글을 찾을 수 없습니다.');
-    }
 
     // 게시글 접근 권한 검증 (강사/조교 IDOR 방지)
     if (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) {
@@ -133,9 +136,8 @@ export class CommentsService {
       const post = await this.studentPostsRepository.findById(studentPostId);
       if (!post) throw new NotFoundException('질문을 찾을 수 없습니다.');
 
-      if (!post.enrollmentId) {
+      if (!post.enrollmentId)
         throw new ForbiddenException('질문 정보를 찾을 수 없습니다.');
-      }
 
       const enrollment = await this.enrollmentsRepository.findById(
         post.enrollmentId,
@@ -153,31 +155,42 @@ export class CommentsService {
         await this.instructorPostsRepository.findById(instructorPostId);
       if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
 
+      let enrollmentId = '';
+
       if (post.lectureId) {
         const enrollment =
           await this.lectureEnrollmentsRepository.findByLectureIdAndStudentId(
             post.lectureId,
             profileId,
           );
-        if (!enrollment) {
+        if (!enrollment)
           throw new ForbiddenException(
             '해당 강의의 수강생만 댓글을 작성할 수 있습니다.',
           );
-        }
-        return enrollment.enrollmentId;
+        enrollmentId = enrollment.enrollmentId;
+      } else {
+        const lectureEnrollment =
+          await this.lectureEnrollmentsRepository.findFirstByInstructorIdAndStudentId(
+            post.instructorId,
+            profileId,
+          );
+        if (!lectureEnrollment)
+          throw new ForbiddenException(
+            '해당 강사의 수강생만 댓글을 작성할 수 있습니다.',
+          );
+        enrollmentId = lectureEnrollment.enrollmentId;
       }
 
-      const lectureEnrollment =
-        await this.lectureEnrollmentsRepository.findFirstByInstructorIdAndStudentId(
-          post.instructorId,
-          profileId,
+      // [SECURITY] SELECTED 스코프인 경우 타겟 포함 여부 확인
+      if (post.scope === PostScope.SELECTED) {
+        const isTargeted = post.targets?.some(
+          (t: { enrollmentId: string }) => t.enrollmentId === enrollmentId,
         );
-      if (!lectureEnrollment) {
-        throw new ForbiddenException(
-          '해당 강사의 수강생만 댓글을 작성할 수 있습니다.',
-        );
+        if (!isTargeted)
+          throw new ForbiddenException('댓글 작성 권한이 없는 게시글입니다.');
       }
-      return lectureEnrollment.enrollmentId;
+
+      return enrollmentId;
     }
 
     throw new BadRequestException('대상 게시글 ID가 필요합니다.');
@@ -193,9 +206,8 @@ export class CommentsService {
     const parentChildLinks =
       await this.parentChildLinkRepository.findByAppParentId(profileId);
 
-    if (parentChildLinks.length === 0) {
+    if (parentChildLinks.length === 0)
       throw new ForbiddenException('자녀 정보를 찾을 수 없습니다.');
-    }
 
     const appParentLinkIds = parentChildLinks.map((link) => link.id);
 
@@ -203,9 +215,8 @@ export class CommentsService {
       const post = await this.studentPostsRepository.findById(studentPostId);
       if (!post) throw new NotFoundException('질문을 찾을 수 없습니다.');
 
-      if (!post.enrollmentId) {
+      if (!post.enrollmentId)
         throw new ForbiddenException('질문 정보를 찾을 수 없습니다.');
-      }
 
       const enrollment = await this.enrollmentsRepository.findById(
         post.enrollmentId,
@@ -227,6 +238,8 @@ export class CommentsService {
         await this.instructorPostsRepository.findById(instructorPostId);
       if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
 
+      let matchedEnrollmentId = '';
+
       // 강의 ID가 있는 경우: 해당 강의를 수강 중인 자녀 찾기
       if (post.lectureId) {
         const enrollments =
@@ -241,30 +254,45 @@ export class CommentsService {
               enrollment.id,
             );
           if (lectureEnrollment) {
-            return enrollment.id;
+            matchedEnrollmentId = enrollment.id;
+            break;
           }
         }
-        throw new ForbiddenException(
-          '해당 강의를 수강 중인 자녀만 댓글을 작성할 수 있습니다.',
+        if (!matchedEnrollmentId) {
+          throw new ForbiddenException(
+            '해당 강의를 수강 중인 자녀만 댓글을 작성할 수 있습니다.',
+          );
+        }
+      } else {
+        // 강의 ID가 없는 경우: 해당 강사의 수강생인 자녀 찾기
+        const enrollments =
+          await this.enrollmentsRepository.findManyByAppParentLinkIds(
+            appParentLinkIds,
+          );
+
+        const matchedEnrollment = enrollments.find(
+          (e) => e.instructorId === post.instructorId,
         );
+
+        if (!matchedEnrollment)
+          throw new ForbiddenException(
+            '해당 강사의 수강생인 자녀만 댓글을 작성할 수 있습니다.',
+          );
+
+        matchedEnrollmentId = matchedEnrollment.id;
       }
 
-      // 강의 ID가 없는 경우: 해당 강사의 수강생인 자녀 찾기
-      const enrollments =
-        await this.enrollmentsRepository.findManyByAppParentLinkIds(
-          appParentLinkIds,
+      // [SECURITY] SELECTED 스코프인 경우 자녀가 타겟에 포함되어 있는지 확인
+      if (post.scope === PostScope.SELECTED) {
+        const isTargeted = post.targets?.some(
+          (t: { enrollmentId: string }) =>
+            t.enrollmentId === matchedEnrollmentId,
         );
-
-      const matchedEnrollment = enrollments.find(
-        (e) => e.instructorId === post.instructorId,
-      );
-
-      if (!matchedEnrollment) {
-        throw new ForbiddenException(
-          '해당 강사의 수강생인 자녀만 댓글을 작성할 수 있습니다.',
-        );
+        if (!isTargeted)
+          throw new ForbiddenException('댓글 작성 권한이 없는 게시글입니다.');
       }
-      return matchedEnrollment.id;
+
+      return matchedEnrollmentId;
     }
 
     throw new BadRequestException('대상 게시글 ID가 필요합니다.');
@@ -347,9 +375,9 @@ export class CommentsService {
     const unauthorizedMaterials = materials.filter(
       (m) => m.instructorId !== instructorId,
     );
-    if (unauthorizedMaterials.length > 0) {
+
+    if (unauthorizedMaterials.length > 0)
       throw new ForbiddenException('다른 강사의 자료는 첨부할 수 없습니다.');
-    }
   }
 
   /** 댓글 생성 */
@@ -389,6 +417,7 @@ export class CommentsService {
     } else {
       // 강사/조교: 게시글 존재 여부 및 권한 확인
       const postId = data.instructorPostId || data.studentPostId;
+
       if (!postId)
         throw new BadRequestException('대상 게시글 ID가 필요합니다.');
 
@@ -396,6 +425,7 @@ export class CommentsService {
         ? this.instructorPostsRepository
         : this.studentPostsRepository;
       const post = await repo.findById(postId);
+
       if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
 
       // 권한 검증
@@ -487,9 +517,8 @@ export class CommentsService {
     postId?: string,
     postType?: 'instructorPost' | 'studentPost' | null,
   ) {
-    if (!postId || !postType) {
+    if (!postId || !postType)
       throw new BadRequestException('postId와 postType이 필요합니다.');
-    }
 
     const comment = await this.validateAndGetComment(
       commentId,
@@ -512,9 +541,8 @@ export class CommentsService {
     postId?: string,
     postType?: 'instructorPost' | 'studentPost' | null,
   ) {
-    if (!postId || !postType) {
+    if (!postId || !postType)
       throw new BadRequestException('postId와 postType이 필요합니다.');
-    }
 
     const comment = await this.validateAndGetComment(
       commentId,
@@ -545,9 +573,202 @@ export class CommentsService {
     };
   }
 
-  /**
-   * 첨부파일 구조 정규화 (material.fileUrl을 root로 승격)
-   */
+  /** 첨부파일 다운로드 URL 조회 */
+  async getAttachmentDownloadUrl(
+    attachmentId: string,
+    userType: UserType,
+    profileId: string,
+  ): Promise<{ url: string }> {
+    const attachment =
+      await this.commentsRepository.findAttachmentById(attachmentId);
+
+    if (!attachment)
+      throw new NotFoundException('첨부파일을 찾을 수 없습니다.');
+
+    const fileUrl = attachment.fileUrl || attachment.material?.fileUrl;
+    if (!fileUrl) throw new NotFoundException('파일이 존재하지 않습니다.');
+
+    const comment = attachment.comment;
+    await this.validateAttachmentAccess(comment, userType, profileId);
+
+    const downloadFileName = attachment.filename;
+    const presignedUrl = await this.fileStorageService.getDownloadPresignedUrl(
+      fileUrl,
+      downloadFileName,
+      3600, // 1시간 유효
+    );
+
+    return { url: presignedUrl };
+  }
+
+  /** 첨부파일 접근 권한 검증 */
+  private async validateAttachmentAccess(
+    comment: {
+      id: string;
+      instructorPostId: string | null;
+      studentPostId: string | null;
+      instructorId: string | null;
+      assistantId: string | null;
+      enrollmentId: string | null;
+    },
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 강사/조교인 경우
+    if (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) {
+      const postId = comment.instructorPostId || comment.studentPostId;
+
+      if (!postId) throw new ForbiddenException('게시글 정보가 없습니다.');
+
+      const repo = comment.instructorPostId
+        ? this.instructorPostsRepository
+        : this.studentPostsRepository;
+      const post = await repo.findById(postId);
+
+      if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
+
+      await this.permissionService.validateInstructorAccess(
+        post.instructorId,
+        userType,
+        profileId,
+      );
+      return;
+    }
+
+    // 학생인 경우
+    if (userType === UserType.STUDENT) {
+      // 댓글이 학생 질문에 대한 것인지 확인
+      if (comment.studentPostId) {
+        const post = await this.studentPostsRepository.findById(
+          comment.studentPostId,
+        );
+
+        if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
+
+        if (!post.enrollmentId)
+          throw new ForbiddenException('질문 정보를 찾을 수 없습니다.');
+
+        const enrollment = await this.enrollmentsRepository.findById(
+          post.enrollmentId,
+        );
+
+        if (enrollment?.appStudentId !== profileId)
+          throw new ForbiddenException('권한이 없습니다.');
+
+        return;
+      }
+      // 강사 공지에 대한 댓글인 경우 - 수강 여부 확인
+      if (comment.instructorPostId) {
+        // 학생은 공지 댓글의 첨부파일에 접근할 수 있음 (공지를 볼 수 있다면)
+        const post = await this.instructorPostsRepository.findById(
+          comment.instructorPostId,
+        );
+
+        if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
+
+        let enrollmentId: string;
+        if (post.lectureId) {
+          const le =
+            await this.lectureEnrollmentsRepository.findByLectureIdAndStudentId(
+              post.lectureId,
+              profileId,
+            );
+
+          if (!le)
+            throw new ForbiddenException('해당 강의의 수강생이 아닙니다.');
+
+          enrollmentId = le.enrollmentId;
+        } else {
+          const le =
+            await this.lectureEnrollmentsRepository.findFirstByInstructorIdAndStudentId(
+              post.instructorId,
+              profileId,
+            );
+
+          if (!le)
+            throw new ForbiddenException('해당 강사의 수강생이 아닙니다.');
+
+          enrollmentId = le.enrollmentId;
+        }
+
+        if (post.scope === PostScope.SELECTED) {
+          const isTargeted = post.targets?.some(
+            (t: { enrollmentId: string }) => t.enrollmentId === enrollmentId,
+          );
+          if (!isTargeted)
+            throw new ForbiddenException('접근 권한이 없는 게시글입니다.');
+        }
+        return;
+      }
+    }
+
+    // 학부모인 경우
+    if (userType === UserType.PARENT) {
+      if (comment.studentPostId) {
+        const post = await this.studentPostsRepository.findById(
+          comment.studentPostId,
+        );
+
+        if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
+
+        const enrollment = await this.enrollmentsRepository.findById(
+          post.enrollmentId,
+        );
+
+        if (!enrollment?.appParentLinkId)
+          throw new ForbiddenException('학부모 연결 정보가 없습니다.');
+
+        await this.permissionService.validateChildAccess(
+          userType,
+          profileId,
+          enrollment.appParentLinkId,
+        );
+        return;
+      }
+
+      if (comment.instructorPostId) {
+        const post = await this.instructorPostsRepository.findById(
+          comment.instructorPostId,
+        );
+        if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
+
+        const parentChildLinks =
+          await this.parentChildLinkRepository.findByAppParentId(profileId);
+        const appParentLinkIds = parentChildLinks.map((link) => link.id);
+
+        const enrollments =
+          await this.enrollmentsRepository.findManyByAppParentLinkIds(
+            appParentLinkIds,
+          );
+
+        let hasAccess = false;
+        if (post.lectureId) {
+          for (const enrollment of enrollments) {
+            const le =
+              await this.lectureEnrollmentsRepository.findByLectureIdAndEnrollmentId(
+                post.lectureId,
+                enrollment.id,
+              );
+            if (le) {
+              hasAccess = true;
+              break;
+            }
+          }
+        } else {
+          hasAccess = enrollments.some(
+            (e) => e.instructorId === post.instructorId,
+          );
+        }
+
+        if (!hasAccess) throw new ForbiddenException('접근 권한이 없습니다.');
+        return;
+      }
+    }
+
+    throw new ForbiddenException('접근 권한이 없습니다.');
+  }
+
+  /** 첨부파일 구조 정규화 (material.fileUrl을 root로 승격) */
   private normalizeAttachments<
     T extends {
       fileUrl: string | null;

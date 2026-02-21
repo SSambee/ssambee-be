@@ -16,7 +16,7 @@ import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.
 import { LecturesRepository } from '../repos/lectures.repo.js';
 import { CommentsRepository } from '../repos/comments.repo.js';
 import { PermissionService } from './permission.service.js';
-import { StudentPost, Comment, Material } from '../generated/prisma/client.js';
+import { StudentPost, Material } from '../generated/prisma/client.js';
 import { formatStudentPostStats } from '../utils/posts.util.js';
 import { CommentsService } from './comments.service.js';
 import { FileStorageService } from './filestorage.service.js';
@@ -52,10 +52,9 @@ export class StudentPostsService {
       );
       authorRole = AuthorRole.STUDENT;
     } else if (userType === UserType.PARENT) {
-      // [NEW] 학부모 질문 작성
-      if (!data.childLinkId) {
+      // 학부모 질문 작성
+      if (!data.childLinkId)
         throw new BadRequestException('자녀 선택이 필요합니다.');
-      }
 
       // 자녀 접근 권한 확인
       const childLink = await this.permissionService.validateChildAccess(
@@ -144,14 +143,13 @@ export class StudentPostsService {
       if (!id) throw new ForbiddenException('강사 정보를 찾을 수 없습니다.');
       instructorId = id;
     } else if (userType === UserType.PARENT) {
-      // [NEW] 학부모: 등록된 자녀 링크 확인
+      // 학부모: 등록된 자녀 링크 확인
       const childLinks = await this.permissionService.getChildLinks(profileId);
 
-      if (!childLinks || childLinks.length === 0) {
+      if (!childLinks || childLinks.length === 0)
         throw new NotFoundException('등록된 자녀가 없습니다.');
-      }
 
-      // [NEW] 학부모: 모든 자녀의 enrollment ID 조회
+      // 학부모: 모든 자녀의 enrollment ID 조회
       enrollmentIds =
         await this.permissionService.getParentEnrollmentIds(profileId);
 
@@ -333,21 +331,6 @@ export class StudentPostsService {
     return this.studentPostsRepository.updateStatus(postId, status);
   }
 
-  /** 댓글 수정 */
-  async updateComment(
-    commentId: string,
-    content: string,
-    userType: UserType,
-    profileId: string,
-  ) {
-    const comment = await this.commentsRepository.findById(commentId);
-    if (!comment) throw new NotFoundException('댓글을 찾을 수 없습니다.');
-
-    await this.validateCommentAccess(comment, userType, profileId);
-
-    return this.commentsRepository.update(commentId, { content });
-  }
-
   /** 질문 수정 (본인만 가능) */
   async updatePost(
     postId: string,
@@ -437,16 +420,14 @@ export class StudentPostsService {
       const enrollment = await this.enrollmentsRepository.findById(
         post.enrollmentId,
       );
-      if (enrollment?.appStudentId !== profileId) {
+      if (enrollment?.appStudentId !== profileId)
         throw new ForbiddenException('권한이 없습니다.');
-      }
       return;
     }
 
     if (userType === UserType.INSTRUCTOR) {
-      if (post.instructorId !== profileId) {
+      if (post.instructorId !== profileId)
         throw new ForbiddenException('권한이 없습니다.');
-      }
       return;
     }
 
@@ -456,21 +437,19 @@ export class StudentPostsService {
           userType,
           profileId,
         );
-      if (instructorId !== post.instructorId) {
+      if (instructorId !== post.instructorId)
         throw new ForbiddenException('권한이 없습니다.');
-      }
       return;
     }
 
     if (userType === UserType.PARENT) {
-      // [NEW] 학부모 조회 권한 검증 (자녀의 질문도 조회 가능)
+      // 학부모 조회 권한 검증 (자녀의 질문도 조회 가능)
       const enrollment = await this.enrollmentsRepository.findById(
         post.enrollmentId,
       );
 
-      if (!enrollment?.appParentLinkId) {
+      if (!enrollment?.appParentLinkId)
         throw new ForbiddenException('학부모 연결 정보가 없습니다.');
-      }
 
       // 본인 자녀의 질문인지 확인 (조회용)
       await this.permissionService.validateChildAccess(
@@ -483,39 +462,6 @@ export class StudentPostsService {
     }
 
     throw new ForbiddenException('접근 권한이 없습니다.');
-  }
-
-  /** 댓글 접근 권한 검증 Helper */
-  private async validateCommentAccess(
-    comment: Comment,
-    userType: UserType,
-    profileId: string,
-  ) {
-    if (userType === UserType.STUDENT) {
-      if (!comment.enrollmentId) {
-        throw new ForbiddenException('본인의 댓글만 수정할 수 있습니다.');
-      }
-      const enrollment = await this.enrollmentsRepository.findById(
-        comment.enrollmentId,
-      );
-      if (enrollment?.appStudentId !== profileId) {
-        throw new ForbiddenException('본인의 댓글만 수정할 수 있습니다.');
-      }
-      return;
-    }
-
-    if (userType === UserType.INSTRUCTOR) {
-      if (comment.instructorId !== profileId) {
-        throw new ForbiddenException('본인의 댓글만 수정할 수 있습니다.');
-      }
-      return;
-    }
-
-    if (userType === UserType.PARENT) {
-      throw new ForbiddenException('학부모는 댓글을 수정할 수 없습니다.');
-    }
-
-    throw new ForbiddenException('댓글 수정 권한이 없습니다.');
   }
 
   /** 학생 질문 작성을 위한 Enrollment ID 조회 Helper */
@@ -536,14 +482,13 @@ export class StudentPostsService {
         profileId,
       );
 
-    if (!enrollment) {
+    if (!enrollment)
       throw new ForbiddenException('해당 강의를 수강하고 있지 않습니다.');
-    }
 
     return enrollment.enrollmentId;
   }
 
-  /** [NEW] 학부모 질문 작성을 위한 Enrollment ID 조회 Helper */
+  /** 학부모 질문 작성을 위한 Enrollment ID 조회 Helper */
   private async getParentEnrollmentForPost(
     lectureId: string | undefined,
     childPhoneNumber: string,
@@ -669,6 +614,86 @@ export class StudentPostsService {
       ...attr,
       fileUrl: attr.fileUrl || attr.material?.fileUrl || null,
     }));
+  }
+
+  /** 첨부파일 다운로드 URL 조회 */
+  async getAttachmentDownloadUrl(
+    attachmentId: string,
+    userType: UserType,
+    profileId: string,
+  ): Promise<{ url: string }> {
+    const attachment =
+      await this.studentPostsRepository.findAttachmentById(attachmentId);
+
+    if (!attachment)
+      throw new NotFoundException('첨부파일을 찾을 수 없습니다.');
+
+    const fileUrl = attachment.fileUrl;
+    if (!fileUrl) throw new NotFoundException('파일이 존재하지 않습니다.');
+
+    const post = attachment.studentPost;
+    await this.validateAttachmentAccess(post, userType, profileId);
+
+    const downloadFileName = attachment.filename;
+    const presignedUrl = await this.fileStorageService.getDownloadPresignedUrl(
+      fileUrl,
+      downloadFileName,
+      3600, // 1시간 유효
+    );
+
+    return { url: presignedUrl };
+  }
+
+  /** 첨부파일 접근 권한 검증 (간소화된 버전) */
+  private async validateAttachmentAccess(
+    post: { id: string; enrollmentId: string; instructorId: string },
+    userType: UserType,
+    profileId: string,
+  ) {
+    if (userType === UserType.STUDENT) {
+      const enrollment = await this.enrollmentsRepository.findById(
+        post.enrollmentId,
+      );
+      if (enrollment?.appStudentId !== profileId)
+        throw new ForbiddenException('권한이 없습니다.');
+      return;
+    }
+
+    if (userType === UserType.INSTRUCTOR) {
+      if (post.instructorId !== profileId)
+        throw new ForbiddenException('권한이 없습니다.');
+      return;
+    }
+
+    if (userType === UserType.ASSISTANT) {
+      const instructorId =
+        await this.permissionService.getEffectiveInstructorId(
+          userType,
+          profileId,
+        );
+      if (instructorId !== post.instructorId)
+        throw new ForbiddenException('권한이 없습니다.');
+      return;
+    }
+
+    if (userType === UserType.PARENT) {
+      const enrollment = await this.enrollmentsRepository.findById(
+        post.enrollmentId,
+      );
+
+      if (!enrollment?.appParentLinkId)
+        throw new ForbiddenException('학부모 연결 정보가 없습니다.');
+
+      await this.permissionService.validateChildAccess(
+        userType,
+        profileId,
+        enrollment.appParentLinkId,
+      );
+
+      return;
+    }
+
+    throw new ForbiddenException('접근 권한이 없습니다.');
   }
 
   /** 만료된 질문 자동 완료 처리 (배치용) */

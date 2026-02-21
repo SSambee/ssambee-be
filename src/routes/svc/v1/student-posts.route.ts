@@ -8,6 +8,7 @@ import {
   studentPostParamsSchema,
   updateStudentPostSchema,
   getMyLecturesQuerySchema,
+  attachmentParamsSchema,
 } from '../../../validations/student-posts.validation.js';
 import {
   createCommentSchema,
@@ -52,6 +53,20 @@ svcStudentPostsRouter.get(
   '/',
   validate(getStudentPostsQuerySchema, 'query'),
   studentPostsController.getPostList,
+);
+
+/** 게시글 첨부파일 다운로드 URL 조회 */
+svcStudentPostsRouter.get(
+  '/attachments/:attachmentId/download-url',
+  validate(attachmentParamsSchema, 'params'),
+  studentPostsController.getAttachmentDownloadUrl,
+);
+
+/** 댓글 첨부파일 다운로드 URL 조회 */
+svcStudentPostsRouter.get(
+  '/comments/attachments/:attachmentId/download-url',
+  validate(attachmentParamsSchema, 'params'),
+  commentsController.getAttachmentDownloadUrl,
 );
 
 /** 질문 상세 조회 */

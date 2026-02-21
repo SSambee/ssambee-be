@@ -304,6 +304,26 @@ export class StudentPostsRepository {
     });
   }
 
+  /** 첨부파일 ID로 조회 (다운로드용) */
+  async findAttachmentById(
+    attachmentId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return client.studentPostAttachment.findUnique({
+      where: { id: attachmentId },
+      include: {
+        studentPost: {
+          select: {
+            id: true,
+            enrollmentId: true,
+            instructorId: true,
+          },
+        },
+      },
+    });
+  }
+
   /** 강사별 질문 통계 조회 */
   async getStats(instructorId: string, tx?: Prisma.TransactionClient) {
     const client = tx ?? this.prisma;

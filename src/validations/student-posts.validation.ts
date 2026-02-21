@@ -90,6 +90,14 @@ export const studentPostParamsSchema = z.object({
 });
 
 /**
+ * 첨부파일 ID 경로 파라미터 검증 스키마
+ */
+export const attachmentParamsSchema = z.object({
+  /** 첨부파일 ID */
+  attachmentId: z.cuid2(),
+});
+
+/**
  * 학생 질문 게시물 수정 요청 검증 스키마
  */
 export const updateStudentPostSchema = z.object({

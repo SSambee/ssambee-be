@@ -156,6 +156,30 @@ export class CommentsRepository {
     });
   }
 
+  /** 첨부파일 ID로 조회 (다운로드용) */
+  async findAttachmentById(
+    attachmentId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return client.commentAttachment.findUnique({
+      where: { id: attachmentId },
+      include: {
+        comment: {
+          select: {
+            id: true,
+            instructorPostId: true,
+            studentPostId: true,
+            instructorId: true,
+            assistantId: true,
+            enrollmentId: true,
+          },
+        },
+        material: true,
+      },
+    });
+  }
+
   /** 학생 질문에 댓글 작성 + 상태 자동 변경 (트랜잭션) */
   async createCommentWithStudentPostStatusUpdate(
     data: {
