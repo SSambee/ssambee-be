@@ -1319,7 +1319,7 @@ describe('EnrollmentsService - @unit #critical', () => {
         const mockLectureEnrollments = [
           {
             id: 'le-1',
-            lecture: { title: 'Lecture 1' },
+            lecture: { title: 'Lecture 1', deletedAt: null },
           },
         ];
         mockLectureEnrollmentsRepo.findManyByEnrollmentId.mockResolvedValue(

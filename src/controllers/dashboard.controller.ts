@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
+import { DashboardService } from '../services/dashboard.service.js';
 import { UserType } from '../constants/auth.constant.js';
 import { successResponse } from '../utils/response.util.js';
 import { getAuthUser, getProfileIdOrThrow } from '../utils/user.util.js';
-import { DashboardService } from '../services/dashboard.service.js';
+import { GetDashboardQueryDto } from '../validations/dashboard.validation.js';
 
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
@@ -22,6 +23,32 @@ export class DashboardController {
         statusCode: 200,
         data: result,
         message: '대시보드를 조회했습니다.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /** 대시보드 조회 핸들러 */
+  getSvcDashboard = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = getAuthUser(req);
+      const profileId = getProfileIdOrThrow(req);
+      const userType = user.userType as UserType;
+      const { childLinkId, instructorId } =
+        req.query as unknown as GetDashboardQueryDto;
+
+      const dashboardData = await this.dashboardService.getSvcDashboard(
+        userType,
+        profileId,
+        childLinkId,
+        instructorId,
+      );
+
+      return successResponse(res, {
+        statusCode: 200,
+        data: dashboardData,
+        message: '대시보드를 조회했습니다',
       });
     } catch (error) {
       next(error);

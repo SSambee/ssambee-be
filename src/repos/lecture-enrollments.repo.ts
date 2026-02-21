@@ -431,6 +431,9 @@ export class LectureEnrollmentsRepository {
         enrollment: {
           deletedAt: null,
         },
+        lecture: {
+          deletedAt: null,
+        },
       },
       include: {
         lecture: {
@@ -471,6 +474,7 @@ export class LectureEnrollmentsRepository {
             instructorId: true,
             title: true,
             lectureTimes: true,
+            deletedAt: true,
           },
         },
       },

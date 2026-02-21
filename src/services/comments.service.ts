@@ -711,6 +711,9 @@ export class CommentsService {
 
         if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
 
+        if (!post.enrollmentId)
+          throw new ForbiddenException('질문 정보를 찾을 수 없습니다.');
+
         const enrollment = await this.enrollmentsRepository.findById(
           post.enrollmentId,
         );
@@ -761,6 +764,16 @@ export class CommentsService {
         }
 
         if (!hasAccess) throw new ForbiddenException('접근 권한이 없습니다.');
+
+        // SELECTED 스코프인 경우 자녀가 타겟에 포함되어있는지
+        if (post.scope === PostScope.SELECTED) {
+          const enrollmentIds = enrollments.map((e) => e.id);
+          const isTargeted = post.targets?.some((t: { enrollmentId: string }) =>
+            enrollmentIds.includes(t.enrollmentId),
+          );
+          if (!isTargeted)
+            throw new ForbiddenException('접근 권한이 없는 게시물입니다.');
+        }
         return;
       }
     }
