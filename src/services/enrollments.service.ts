@@ -485,8 +485,13 @@ export class EnrollmentsService {
         enrollmentId,
       );
 
+    // soft-delete된 강의 제외
+    const activeLectureEnrollments = lectureEnrollments.filter(
+      (le) => le.lecture && le.lecture.deletedAt === null,
+    );
+
     // memo 필드 제외 처리
-    const sanitizedLectureEnrollments = lectureEnrollments.map(
+    const sanitizedLectureEnrollments = activeLectureEnrollments.map(
       ({ memo: _memo, ...rest }) => ({
         ...rest,
       }),
