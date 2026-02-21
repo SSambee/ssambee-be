@@ -1,10 +1,5 @@
 import { UserType } from '../constants/auth.constant.js';
-import {
-  fromZonedTime,
-  KST_TIMEZONE,
-  toKstIsoString,
-  toZonedTime,
-} from '../utils/date.util.js';
+import { KST_TIMEZONE, toKstIsoString } from '../utils/date.util.js';
 import { PermissionService } from './permission.service.js';
 import { DashboardRepository } from '../repos/dashboard.repo.js';
 
@@ -25,14 +20,7 @@ export class DashboardService {
       timeZone: KST_TIMEZONE,
     }).format(new Date());
 
-    const nowKst = toZonedTime(new Date(), KST_TIMEZONE);
-    const last48HoursStartKst = new Date(
-      nowKst.getTime() - 2 * 24 * 60 * 60 * 1000,
-    );
-    const last48HoursStartUtc = fromZonedTime(
-      last48HoursStartKst,
-      KST_TIMEZONE,
-    );
+    const last48HoursStartUtc = new Date(Date.now() - 48 * 60 * 60 * 1000);
 
     const [
       totalEnrollmentCount,
