@@ -112,8 +112,7 @@ model Instructor {
   comments        Comment[]
   resolvedPosts   StudentPost[]    @relation("StudentPostResolver")
   assignments     Assignment[]
-  assignmentCategories AssignmentCategory[]
-
+  
   // [Audit] 성적 수정 이력
   //updatedGradeLogs GradeLog[]
   clinics Clinic[]
@@ -345,46 +344,24 @@ model Attendance {
 // --------------------------------------------------------
 // 5. EXAM & EVALUATION (평가 및 피드백 레이어)
 // --------------------------------------------------------
-
-// 1. 과제 카테고리 (강사별 커스텀 평가 척도)
-model AssignmentCategory {
-  id           String   @id @default(cuid(2))
-  instructorId String   @map("instructor_id") // 강사 참조
-  name         String   // 예: "주간 단어 테스트", "독후감 과제"
-  
-  // 프리셋 예시: ["미흡", "보통", "우수"] -> 인덱스 0, 1, 2와 매칭
-  resultPresets String[] @map("result_presets")
-  
-  assignments  Assignment[]
-  createdAt    DateTime @default(now()) @map("created_at")
-
-  instructor Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
-
-  @@unique([instructorId, name])
-  @@index([instructorId])
-  @@map("assignment_categories")
-}
-
-// 2. 과제 (특정 강의 내에서 생성된 과제)
+// 1. 과제 (특정 강의 내에서 생성된 과제)
 model Assignment {
   id           String   @id @default(cuid(2))
   instructorId String   @map("instructor_id")
   lectureId   String   @map("lecture_id")
-  categoryId  String   @map("category_id")
+  resultPresets String[] @map("result_presets")
   title       String   // 과제 이름 (예: 2/12 단어시험)
   
   instructor Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
   lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
-  category    AssignmentCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   assignmentResults AssignmentResult[]
   assignmentsOnExamReport AssignmentOnExamReport[]
 
   @@index([lectureId])
-  @@index([categoryId])
   @@map("assignments")
 }
 
-// 3. 학생 과제 (학생별 결과)
+// 2. 학생 과제 (학생별 결과)
 model AssignmentResult {
   id           String   @id @default(cuid(2))
   assignmentId String   @map("assignment_id")
@@ -415,7 +392,7 @@ model AssignmentOnExamReport {
   @@map("assignment_on_exam_reports")
 }
 
-// 4. 시험 (특정 강의 내에서 생성된 시험)
+// 3. 시험 (특정 강의 내에서 생성된 시험)
 
 model Exam {
   id           String  @id @default(cuid(2))
@@ -673,8 +650,6 @@ model Schedule {
   @@index([instructorId, startTime])
   @@map("schedules")
 }
-
-
 
 model Material {
   id           String  @id @default(cuid(2))
