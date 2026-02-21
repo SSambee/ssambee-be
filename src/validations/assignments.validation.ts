@@ -6,8 +6,13 @@ import { z } from 'zod';
 export const createAssignmentSchema = z.object({
   /** 과제 제목 */
   title: z.string().min(1, '과제 이름은 필수입니다.'),
-  /** 과제 카테고리 ID */
-  categoryId: z.string().cuid2('올바른 카테고리 ID 형식이 아닙니다.'),
+  /** 과제 결과 레이블 배열 */
+  resultPresets: z
+    .array(z.string().min(1, '결과 패턴은 빈 문자열일 수 없습니다.'))
+    .min(1, '최소 1개 이상의 결과 패턴이 필요합니다.')
+    .refine((items) => new Set(items).size === items.length, {
+      message: '결과 패턴에 중복된 값이 있습니다.',
+    }),
 });
 
 /**
@@ -44,15 +49,21 @@ export const updateAssignmentSchema = z
       .string()
       .min(1, '과제 이름은 최소 1자 이상이어야 합니다.')
       .optional(),
-    /** 과제 카테고리 ID */
-    categoryId: z
-      .string()
-      .cuid2('올바른 카테고리 ID 형식이 아닙니다.')
+    /** 과제 결과 레이블 배열 */
+    resultPresets: z
+      .array(z.string().min(1, '결과 패턴은 빈 문자열일 수 없습니다.'))
+      .min(1, '최소 1개 이상의 결과 패턴이 필요합니다.')
+      .refine((items) => new Set(items).size === items.length, {
+        message: '결과 패턴에 중복된 값이 있습니다.',
+      })
       .optional(),
   })
-  .refine((data) => data.title !== undefined || data.categoryId !== undefined, {
-    message: '제목 또는 카테고리 중 하나는 반드시 포함되어야 합니다.',
-  });
+  .refine(
+    (data) => data.title !== undefined || data.resultPresets !== undefined,
+    {
+      message: '제목 또는 결과 패턴 중 하나는 반드시 포함되어야 합니다.',
+    },
+  );
 
 /** 과제 생성 DTO 타입 */
 export type CreateAssignmentDto = z.infer<typeof createAssignmentSchema>;

@@ -1,6 +1,5 @@
 import { PrismaClient } from '../generated/prisma/client.js';
 import { AssignmentsRepository } from '../repos/assignments.repo.js';
-import { AssignmentCategoryRepository } from '../repos/assignment-categories.repo.js';
 import {
   NotFoundException,
   ForbiddenException,
@@ -9,7 +8,6 @@ import {
 export class AssignmentsService {
   constructor(
     private readonly assignmentsRepo: AssignmentsRepository,
-    private readonly assignmentCategoryRepo: AssignmentCategoryRepository,
     private readonly prisma: PrismaClient,
   ) {}
 
@@ -17,22 +15,9 @@ export class AssignmentsService {
   async createAssignment(
     instructorId: string,
     lectureId: string,
-    data: { title: string; categoryId: string },
+    data: { title: string; resultPresets: string[] },
   ) {
-    // 1. 카테고리 존재 및 권한 확인
-    const category = await this.assignmentCategoryRepo.findById(
-      data.categoryId,
-    );
-    if (!category) {
-      throw new NotFoundException('카테고리를 찾을 수 없습니다.');
-    }
-    if (category.instructorId !== instructorId) {
-      throw new ForbiddenException('해당 카테고리에 대한 권한이 없습니다.');
-    }
-
-    // 2. 과제 생성
-    // 강의 존재 여부 확인은 FK 제약조건에 의해 처리되거나, 필요한 경우 추가
-    // 여기서는 간단히 진행
+    // 강의 존재 여부 확인은 FK 제약조건에 의해 처리되거나, 필요한 경우 추가로 구현 가능
     return await this.assignmentsRepo.create({
       instructorId,
       lectureId,
@@ -62,7 +47,7 @@ export class AssignmentsService {
   async updateAssignment(
     id: string,
     instructorId: string,
-    data: { title?: string; categoryId?: string },
+    data: { title?: string; resultPresets?: string[] },
   ) {
     // 1. 과제 존재 및 권한 확인
     const assignment = await this.assignmentsRepo.findById(id);
@@ -73,22 +58,7 @@ export class AssignmentsService {
       throw new ForbiddenException('해당 과제에 대한 권한이 없습니다.');
     }
 
-    // 2. 카테고리 변경 시 검증
-    if (data.categoryId && data.categoryId !== assignment.categoryId) {
-      const category = await this.assignmentCategoryRepo.findById(
-        data.categoryId,
-      );
-      if (!category) {
-        throw new NotFoundException('변경하려는 카테고리를 찾을 수 없습니다.');
-      }
-      if (category.instructorId !== instructorId) {
-        throw new ForbiddenException(
-          '변경하려는 카테고리에 대한 권한이 없습니다.',
-        );
-      }
-    }
-
-    // 3. 업데이트
+    // 2. 업데이트
     return await this.assignmentsRepo.update(id, data);
   }
 

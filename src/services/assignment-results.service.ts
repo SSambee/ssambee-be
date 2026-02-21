@@ -79,10 +79,10 @@ export class AssignmentResultsService {
     }
 
     // 4. resultIndex 유효성 검증 (카테고리의 presets 배열 범위 내)
-    const categoryPresetsLength = assignment.category.resultPresets.length;
-    if (data.resultIndex >= categoryPresetsLength) {
+    const resultPresetLength = assignment.resultPresets.length;
+    if (data.resultIndex >= resultPresetLength) {
       throw new BadRequestException(
-        `resultIndex는 0부터 ${categoryPresetsLength - 1} 사이여야 합니다.`,
+        `resultIndex는 0부터 ${resultPresetLength - 1} 사이여야 합니다.`,
       );
     }
 
@@ -140,11 +140,10 @@ export class AssignmentResultsService {
     const result = await this.getResult(instructorId, resultId);
 
     // 2. resultIndex 유효성 검증
-    const categoryPresetsLength =
-      result.assignment.category.resultPresets.length;
-    if (data.resultIndex >= categoryPresetsLength) {
+    const resultPresetLength = result.assignment.resultPresets.length;
+    if (data.resultIndex >= resultPresetLength) {
       throw new BadRequestException(
-        `resultIndex는 0부터 ${categoryPresetsLength - 1} 사이여야 합니다.`,
+        `resultIndex는 0부터 ${resultPresetLength - 1} 사이여야 합니다.`,
       );
     }
 
@@ -256,11 +255,10 @@ export class AssignmentResultsService {
             );
           }
 
-          const categoryPresetsLength =
-            resolvedAssignment.category.resultPresets.length;
-          if (item.resultIndex >= categoryPresetsLength) {
+          const resultPresetLength = resolvedAssignment.resultPresets.length;
+          if (item.resultIndex >= resultPresetLength) {
             throw new BadRequestException(
-              `resultIndex는 0부터 ${categoryPresetsLength - 1} 사이여야 합니다.`,
+              `resultIndex는 0부터 ${resultPresetLength - 1} 사이여야 합니다.`,
             );
           }
 

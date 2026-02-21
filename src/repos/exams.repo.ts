@@ -361,15 +361,9 @@ export class ExamsRepository {
           select: {
             id: true;
             title: true;
-            categoryId: true;
             instructorId: true;
             lectureId: true;
-            category: {
-              select: {
-                id: true;
-                name: true;
-              };
-            };
+            resultPresets: true;
           };
         };
       };
@@ -383,15 +377,9 @@ export class ExamsRepository {
           select: {
             id: true,
             title: true,
-            categoryId: true,
             instructorId: true,
             lectureId: true,
-            category: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
+            resultPresets: true,
           },
         },
       },

@@ -510,15 +510,15 @@ export class GradesService {
 
       // resultIndex로 resultPresets에서 라벨 가져오기
       let resultLabel: string | null = null;
-      if (studentResult && assignment.category.resultPresets) {
+      if (studentResult) {
         resultLabel =
-          assignment.category.resultPresets[studentResult.resultIndex] ?? null;
+          assignment.resultPresets[studentResult.resultIndex] ?? null;
       }
 
       return {
         assignmentId: assignment.id,
         title: assignment.title,
-        categoryName: assignment.category.name,
+        categoryName: null,
         resultIndex: studentResult?.resultIndex ?? null,
         resultLabel,
       };

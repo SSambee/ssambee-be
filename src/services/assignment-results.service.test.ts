@@ -29,9 +29,7 @@ describe('AssignmentResultsService', () => {
     instructorId: mockInstructorId,
     lectureId: mockLectureId,
     title: 'Test Assignment',
-    category: {
-      resultPresets: ['A', 'B', 'C'],
-    },
+    resultPresets: ['A', 'B', 'C'],
   };
 
   const mockLectureEnrollment = {

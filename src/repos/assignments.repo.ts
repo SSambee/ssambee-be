@@ -8,7 +8,7 @@ export class AssignmentsRepository {
     data: {
       instructorId: string;
       lectureId: string;
-      categoryId: string;
+      resultPresets: string[];
       title: string;
     },
     tx?: Prisma.TransactionClient,
@@ -32,7 +32,6 @@ export class AssignmentsRepository {
         ...(lectureId ? { lectureId } : {}),
       },
       include: {
-        category: true,
         lecture: true,
       },
       orderBy: { title: 'asc' },
@@ -45,7 +44,6 @@ export class AssignmentsRepository {
     return client.assignment.findUnique({
       where: { id },
       include: {
-        category: true,
         lecture: true,
         assignmentResults: {
           include: {
@@ -66,7 +64,6 @@ export class AssignmentsRepository {
     return client.assignment.findUnique({
       where: { id },
       include: {
-        category: true,
         lecture: true,
       },
     });
@@ -75,7 +72,7 @@ export class AssignmentsRepository {
   /** 과제 수정 */
   async update(
     id: string,
-    data: { title?: string; categoryId?: string },
+    data: { title?: string; resultPresets?: string[] },
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;

@@ -1,6 +1,5 @@
 import { AssignmentsService } from './assignments.service.js';
 import { AssignmentsRepository } from '../repos/assignments.repo.js';
-import { AssignmentCategoryRepository } from '../repos/assignment-categories.repo.js';
 import { PrismaClient } from '../generated/prisma/client.js';
 import {
   ForbiddenException,
@@ -10,25 +9,17 @@ import {
 describe('AssignmentsService', () => {
   let service: AssignmentsService;
   let mockAssignmentsRepo: Partial<AssignmentsRepository>;
-  let mockCategoryRepo: Partial<AssignmentCategoryRepository>;
   const mockPrisma = {} as unknown as PrismaClient;
 
   const mockInstructorId = 'instructor-1';
   const mockLectureId = 'lecture-1';
-  const mockCategoryId = 'category-1';
   const mockAssignment = {
     id: 'assignment-1',
     instructorId: mockInstructorId,
     lectureId: mockLectureId,
-    categoryId: mockCategoryId,
+    resultPresets: ['A', 'B'],
     title: 'Test Assignment',
     createdAt: new Date(),
-  };
-  const mockCategory = {
-    id: mockCategoryId,
-    instructorId: mockInstructorId,
-    name: 'Test Category',
-    resultPresets: ['A', 'B'],
   };
 
   beforeEach(() => {
@@ -40,12 +31,8 @@ describe('AssignmentsService', () => {
       update: jest.fn(),
       delete: jest.fn(),
     };
-    mockCategoryRepo = {
-      findById: jest.fn(),
-    };
     service = new AssignmentsService(
       mockAssignmentsRepo as AssignmentsRepository,
-      mockCategoryRepo as AssignmentCategoryRepository,
       mockPrisma,
     );
   });
@@ -53,11 +40,10 @@ describe('AssignmentsService', () => {
   describe('createAssignment', () => {
     const createDto = {
       title: 'New Assignment',
-      categoryId: mockCategoryId,
+      resultPresets: ['A', 'B', 'C'],
     };
 
     it('성공적으로 과제를 생성해야 한다', async () => {
-      (mockCategoryRepo.findById as jest.Mock).mockResolvedValue(mockCategory);
       (mockAssignmentsRepo.create as jest.Mock).mockResolvedValue(
         mockAssignment,
       );
@@ -68,34 +54,12 @@ describe('AssignmentsService', () => {
         createDto,
       );
 
-      expect(mockCategoryRepo.findById).toHaveBeenCalledWith(
-        createDto.categoryId,
-      );
       expect(mockAssignmentsRepo.create).toHaveBeenCalledWith({
         instructorId: mockInstructorId,
         lectureId: mockLectureId,
         ...createDto,
       });
       expect(result).toEqual(mockAssignment);
-    });
-
-    it('항목을 찾을 수 없으면 NotFoundException을 던져야 한다', async () => {
-      (mockCategoryRepo.findById as jest.Mock).mockResolvedValue(null);
-
-      await expect(
-        service.createAssignment(mockInstructorId, mockLectureId, createDto),
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('타 강사의 카테고리인 경우 ForbiddenException을 던져야 한다', async () => {
-      (mockCategoryRepo.findById as jest.Mock).mockResolvedValue({
-        ...mockCategory,
-        instructorId: 'other-instructor',
-      });
-
-      await expect(
-        service.createAssignment(mockInstructorId, mockLectureId, createDto),
-      ).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -161,6 +125,7 @@ describe('AssignmentsService', () => {
   describe('updateAssignment', () => {
     const updateDto = {
       title: 'Updated Title',
+      resultPresets: ['C', 'B', 'A'],
     };
 
     it('성공적으로 과제를 수정해야 한다', async () => {
@@ -197,30 +162,25 @@ describe('AssignmentsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('카테고리 수정 시 권한을 확인해야 한다', async () => {
-      const updateCategoryDto = { categoryId: 'new-category' };
+    it('결과 프리셋 수정 시 저장소가 호출되어야 한다', async () => {
+      const updatePresetDto = { resultPresets: ['C', 'B', 'A'] };
       (mockAssignmentsRepo.findById as jest.Mock).mockResolvedValue(
         mockAssignment,
       );
-      (mockCategoryRepo.findById as jest.Mock).mockResolvedValue({
-        ...mockCategory,
-        id: 'new-category',
-      });
       (mockAssignmentsRepo.update as jest.Mock).mockResolvedValue({
         ...mockAssignment,
-        ...updateCategoryDto,
+        ...updatePresetDto,
       });
 
       await service.updateAssignment(
         mockAssignment.id,
         mockInstructorId,
-        updateCategoryDto,
+        updatePresetDto,
       );
 
-      expect(mockCategoryRepo.findById).toHaveBeenCalledWith('new-category');
       expect(mockAssignmentsRepo.update).toHaveBeenCalledWith(
         mockAssignment.id,
-        updateCategoryDto,
+        updatePresetDto,
       );
     });
   });

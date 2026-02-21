@@ -22,11 +22,7 @@ export class AssignmentResultsRepository {
     return client.assignmentResult.findUnique({
       where: { id },
       include: {
-        assignment: {
-          include: {
-            category: true,
-          },
-        },
+        assignment: true,
         lectureEnrollment: {
           include: {
             enrollment: true,
@@ -51,11 +47,7 @@ export class AssignmentResultsRepository {
         },
       },
       include: {
-        assignment: {
-          include: {
-            category: true,
-          },
-        },
+        assignment: true,
         lectureEnrollment: {
           include: {
             enrollment: true,

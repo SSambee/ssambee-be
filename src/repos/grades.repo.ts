@@ -220,8 +220,12 @@ export class GradesRepository {
             assignmentsOnExamReport: {
               include: {
                 assignment: {
-                  include: {
-                    category: true,
+                  select: {
+                    id: true,
+                    title: true,
+                    instructorId: true,
+                    lectureId: true,
+                    resultPresets: true,
                   },
                 },
               },

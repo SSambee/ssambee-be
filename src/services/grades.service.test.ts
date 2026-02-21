@@ -542,10 +542,7 @@ describe('GradesService - @unit #critical', () => {
               assignment: {
                 id: 'asgn-1',
                 title: '과제1',
-                category: {
-                  name: '주간테스트',
-                  resultPresets: ['C', 'B', 'A'],
-                },
+                resultPresets: ['C', 'B', 'A'],
               },
             },
           ],
@@ -639,7 +636,7 @@ describe('GradesService - @unit #critical', () => {
       expect(result.assignments[0]).toEqual({
         assignmentId: 'asgn-1',
         title: '과제1',
-        categoryName: '주간테스트',
+        categoryName: null,
         resultIndex: 2,
         resultLabel: 'A',
       });

@@ -628,11 +628,9 @@ describe('ExamsService - @unit #critical', () => {
           assignment: {
             id: 'assign-1',
             title: '단어 시험',
-            categoryId: 'cat-1',
-            category: {
-              id: 'cat-1',
-              name: '평가 카테고리',
-            },
+            instructorId: 'inst-1',
+            lectureId: 'lec-1',
+            resultPresets: ['A', 'B', 'C'],
           },
         },
       ] as Awaited<
