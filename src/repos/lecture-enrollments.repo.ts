@@ -431,6 +431,9 @@ export class LectureEnrollmentsRepository {
         enrollment: {
           deletedAt: null,
         },
+        lecture: {
+          deletedAt: null,
+        },
       },
       include: {
         lecture: {
