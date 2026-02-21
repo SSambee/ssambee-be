@@ -14,12 +14,13 @@ export class DashboardController {
       const user = getAuthUser(req);
       const profileId = getProfileIdOrThrow(req);
       const userType = user.userType as UserType;
-      const { childLinkId } = req.query as unknown as GetDashboardQueryDto;
+      const { childLinkId, instructorId } = req.query as unknown as GetDashboardQueryDto;
 
       const dashboardData = await this.dashboardService.getDashboard(
         userType,
         profileId,
         childLinkId,
+        instructorId,
       );
 
       return successResponse(res, {

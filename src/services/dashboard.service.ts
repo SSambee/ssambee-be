@@ -11,7 +11,7 @@ import { ExamsRepository } from '../repos/exams.repo.js';
 import { PermissionService } from './permission.service.js';
 import { calculateAttendanceStats } from '../utils/attendance.util.js';
 import { toZonedTime, format, KST_TIMEZONE, toKstIsoString } from '../utils/date.util.js';
-import { ForbiddenException } from '../err/http.exception.js';
+import { ForbiddenException, NotFoundException } from '../err/http.exception.js';
 
 export interface DashboardData {
   today: string; // 2026.02.04
@@ -58,19 +58,38 @@ export class DashboardService {
     private readonly prisma: PrismaClient,
   ) {}
 
+  /**
+   * 학생 대시보드 조회
+   *
+   * [하이브리드 방식 설명]
+   * - instructorId가 없으면: 학생이 수강 중인 모든 강사/학원의 데이터를 통합(Aggregated)하여 반환합니다.
+   * - instructorId가 있으면: 해당 강사의 데이터만 필터링하여 반환합니다.
+   * - 만약 특정 학원별 보기로 고정하고 싶다면, 컨트롤러에서 instructorId를 필수로 받도록 validation을 수정하고,
+   *   아래 로직에서 instructorId 필터링을 강제하면 됩니다.
+   */
   async getDashboard(
     userType: UserType,
     profileId: string,
     childLinkId?: string,
+    instructorId?: string,
   ): Promise<DashboardData> {
     let enrollmentIds: string[] = [];
 
+    // 1. 기초 권한 확인 및 Enrollment ID 목록 확보
     if (userType === UserType.STUDENT) {
       const { enrollments } = await this.enrollmentsRepo.findByAppStudentId(
         profileId,
         { limit: 1000 },
       );
-      enrollmentIds = enrollments.map((e) => e.id);
+
+      // instructorId 필터가 있다면 해당 강사의 enrollment만 선택 및 권한 확인
+      if (instructorId && !enrollments.some(e => e.instructorId === instructorId)) {
+        throw new ForbiddenException('해당 강사의 수강 정보가 없습니다.');
+      }
+
+      enrollmentIds = enrollments
+        .filter(e => !instructorId || e.instructorId === instructorId)
+        .map((e) => e.id);
     } else if (userType === UserType.PARENT) {
       if (!childLinkId) {
         const childLinks = await this.permissionService.getChildLinks(profileId);
@@ -89,7 +108,14 @@ export class DashboardService {
       const enrollments = await this.enrollmentsRepo.findManyByAppParentLinkIds([
         childLinkId,
       ]);
-      enrollmentIds = enrollments.map((e) => e.id);
+
+      if (instructorId && !enrollments.some(e => e.instructorId === instructorId)) {
+        throw new ForbiddenException('해당 강사의 수강 정보가 없습니다.');
+      }
+
+      enrollmentIds = enrollments
+        .filter(e => !instructorId || e.instructorId === instructorId)
+        .map((e) => e.id);
     } else {
       throw new ForbiddenException('학생 또는 학부모만 접근 가능합니다.');
     }
@@ -98,30 +124,37 @@ export class DashboardService {
       return this.getEmptyDashboard();
     }
 
+    // 2. 관련 LectureEnrollment 및 ID 추출 (Soft Delete 필터링 포함)
     const lectureEnrollments = await this.lectureEnrollmentsRepo.findManyByEnrollmentIds(enrollmentIds);
-    const leIds = lectureEnrollments.map(le => le.id);
-    const lectureIds = [...new Set(lectureEnrollments.map(le => le.lectureId))];
-    const instructorIds = [...new Set(lectureEnrollments.map(le => le.lecture.instructorId))];
+    const activeLectureEnrollments = lectureEnrollments.filter(le => le.lecture.deletedAt === null);
 
-    // 병렬 데이터 페칭
+    if (activeLectureEnrollments.length === 0) {
+      return this.getEmptyDashboard();
+    }
+
+    const leIds = activeLectureEnrollments.map(le => le.id);
+    const lectureIds = [...new Set(activeLectureEnrollments.map(le => le.lectureId))];
+    const filteredInstructorIds = instructorId ? [instructorId] : [...new Set(activeLectureEnrollments.map(le => le.lecture.instructorId))];
+
+    // 3. 병렬 데이터 페칭 (성능 최적화 및 Aggregation)
     const [clinics, attendances, allGrades, announcementsRaw] = await Promise.all([
-      // 1. Clinics (PENDING 상태인 클리닉이 있는 과목 수)
-      this.prisma.clinic.findMany({
+      // 1) Clinics (PENDING 상태인 클리닉이 있는 과목 수)
+      this.prisma.clinic.groupBy({
+        by: ['lectureId'],
         where: {
           lectureEnrollmentId: { in: leIds },
           status: 'PENDING',
           lecture: { deletedAt: null },
         },
-        select: { lectureId: true },
       }),
-      // 2. Attendances (출석 데이터)
+      // 2) Attendances (출석 데이터 전체 - 통계용)
       this.prisma.attendance.findMany({
         where: {
           lectureEnrollmentId: { in: leIds },
           lecture: { deletedAt: null },
         },
       }),
-      // 3. Grades (성적 데이터 - 석차 및 학업 성취도용)
+      // 3) Grades (최근 성적 데이터 50개)
       this.prisma.grade.findMany({
         where: {
           lectureEnrollmentId: { in: leIds },
@@ -133,27 +166,31 @@ export class DashboardService {
         orderBy: {
           exam: { examDate: 'desc' },
         },
+        take: 50,
       }),
-      // 4. Announcements (최근 공지사항 3개)
+      // 4) Announcements (최근 공지사항 3개)
       this.instructorPostsRepo.findMany({
         page: 1,
         limit: 3,
+        instructorId: instructorId,
         studentFiltering: {
           lectureIds,
-          instructorIds,
+          instructorIds: filteredInstructorIds,
           enrollmentIds,
         },
       }),
     ]);
 
-    const pendingClinicLectureIds = new Set(clinics.map(c => c.lectureId));
-    const clinicsCount = pendingClinicLectureIds.size;
-
+    // 4. 데이터 가공
+    const clinicsCount = clinics.length;
     const stats = calculateAttendanceStats(attendances);
     const attendanceRate = stats.attendanceRate;
 
-    // 최신 시험 정보 (시험일이 있는 것 중 가장 최근)
-    const latestGrade = allGrades.find(g => g.exam.examDate !== null) || allGrades[0] || null;
+    // 최신 시험 정보 (안전한 접근)
+    const latestGrade = allGrades.length > 0
+      ? (allGrades.find(g => g.exam.examDate !== null) || allGrades[0])
+      : null;
+
     let latestExamInfo = null;
     if (latestGrade) {
       const [totalParticipants, rank] = await Promise.all([
@@ -185,6 +222,7 @@ export class DashboardService {
       where: {
         lectureId: { in: lectureIds },
         day: todayDayName,
+        lecture: { deletedAt: null },
       },
       include: {
         lecture: true,
@@ -198,7 +236,7 @@ export class DashboardService {
       lectureTime: `${tl.startTime} ~ ${tl.endTime}`,
     }));
 
-    // 6. Recent Exams & Academic Achievement (최근 시험 결과 및 월간 학업 성취도)
+    // 6. Recent Exams & Academic Achievement (최근 10개 시험 및 월간 통계)
     const recentExams = allGrades.slice(0, 10).map(g => ({
       id: g.exam.id,
       title: g.exam.title,
