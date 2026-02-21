@@ -144,10 +144,8 @@ export class DashboardService {
 
     // 1. 기초 권한 확인 및 Enrollment ID 목록 확보
     if (userType === UserType.STUDENT) {
-      const { enrollments } = await this.enrollmentsRepo.findByAppStudentId(
-        profileId,
-        { limit: 1000 },
-      );
+      const enrollments =
+        await this.enrollmentsRepo.findManyByAppStudentId(profileId);
 
       // instructorId 필터가 있다면 해당 강사의 enrollment만 선택 및 권한 확인
       if (

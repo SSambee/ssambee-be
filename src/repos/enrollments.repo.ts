@@ -51,6 +51,22 @@ export class EnrollmentsRepository {
     });
   }
 
+  /** 학생 ID로 모든 활성 수강 목록 조회 (No Pagination) */
+  async findManyByAppStudentId(
+    appStudentId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return await client.enrollment.findMany({
+      where: {
+        appStudentId,
+        status: EnrollmentStatus.ACTIVE,
+        deletedAt: null,
+      },
+      orderBy: [{ registeredAt: 'desc' }, { studentName: 'asc' }],
+    });
+  }
+
   /** 강사 ID와 학생 전화번호 목록으로 Enrollment 조회 */
   async findManyByInstructorAndPhones(
     instructorId: string,
