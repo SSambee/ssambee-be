@@ -17,7 +17,11 @@ import {
   CreateCommentDto,
   UpdateCommentDto,
 } from '../validations/comments.validation.js';
-import { StudentPostStatus, AuthorRole } from '../constants/posts.constant.js';
+import {
+  StudentPostStatus,
+  AuthorRole,
+  PostScope,
+} from '../constants/posts.constant.js';
 import { FileStorageService } from './filestorage.service.js';
 import path from 'path';
 import { randomUUID } from 'crypto';
@@ -153,6 +157,8 @@ export class CommentsService {
         await this.instructorPostsRepository.findById(instructorPostId);
       if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
 
+      let enrollmentId = '';
+
       if (post.lectureId) {
         const enrollment =
           await this.lectureEnrollmentsRepository.findByLectureIdAndStudentId(
@@ -164,20 +170,32 @@ export class CommentsService {
             '해당 강의의 수강생만 댓글을 작성할 수 있습니다.',
           );
         }
-        return enrollment.enrollmentId;
+        enrollmentId = enrollment.enrollmentId;
+      } else {
+        const lectureEnrollment =
+          await this.lectureEnrollmentsRepository.findFirstByInstructorIdAndStudentId(
+            post.instructorId,
+            profileId,
+          );
+        if (!lectureEnrollment) {
+          throw new ForbiddenException(
+            '해당 강사의 수강생만 댓글을 작성할 수 있습니다.',
+          );
+        }
+        enrollmentId = lectureEnrollment.enrollmentId;
       }
 
-      const lectureEnrollment =
-        await this.lectureEnrollmentsRepository.findFirstByInstructorIdAndStudentId(
-          post.instructorId,
-          profileId,
+      // [SECURITY] SELECTED 스코프인 경우 타겟 포함 여부 확인
+      if (post.scope === PostScope.SELECTED) {
+        const isTargeted = post.targets?.some(
+          (t: { enrollmentId: string }) => t.enrollmentId === enrollmentId,
         );
-      if (!lectureEnrollment) {
-        throw new ForbiddenException(
-          '해당 강사의 수강생만 댓글을 작성할 수 있습니다.',
-        );
+        if (!isTargeted) {
+          throw new ForbiddenException('댓글 작성 권한이 없는 게시글입니다.');
+        }
       }
-      return lectureEnrollment.enrollmentId;
+
+      return enrollmentId;
     }
 
     throw new BadRequestException('대상 게시글 ID가 필요합니다.');
@@ -227,6 +245,8 @@ export class CommentsService {
         await this.instructorPostsRepository.findById(instructorPostId);
       if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
 
+      let matchedEnrollmentId = '';
+
       // 강의 ID가 있는 경우: 해당 강의를 수강 중인 자녀 찾기
       if (post.lectureId) {
         const enrollments =
@@ -241,30 +261,46 @@ export class CommentsService {
               enrollment.id,
             );
           if (lectureEnrollment) {
-            return enrollment.id;
+            matchedEnrollmentId = enrollment.id;
+            break;
           }
         }
-        throw new ForbiddenException(
-          '해당 강의를 수강 중인 자녀만 댓글을 작성할 수 있습니다.',
+        if (!matchedEnrollmentId) {
+          throw new ForbiddenException(
+            '해당 강의를 수강 중인 자녀만 댓글을 작성할 수 있습니다.',
+          );
+        }
+      } else {
+        // 강의 ID가 없는 경우: 해당 강사의 수강생인 자녀 찾기
+        const enrollments =
+          await this.enrollmentsRepository.findManyByAppParentLinkIds(
+            appParentLinkIds,
+          );
+
+        const matchedEnrollment = enrollments.find(
+          (e) => e.instructorId === post.instructorId,
         );
+
+        if (!matchedEnrollment) {
+          throw new ForbiddenException(
+            '해당 강사의 수강생인 자녀만 댓글을 작성할 수 있습니다.',
+          );
+        }
+        matchedEnrollmentId = matchedEnrollment.id;
       }
 
-      // 강의 ID가 없는 경우: 해당 강사의 수강생인 자녀 찾기
-      const enrollments =
-        await this.enrollmentsRepository.findManyByAppParentLinkIds(
-          appParentLinkIds,
+      // [SECURITY] SELECTED 스코프인 경우 자녀가 타겟에 포함되어 있는지 확인
+      if (post.scope === PostScope.SELECTED) {
+        const isTargeted = post.targets?.some(
+          (t: { enrollmentId: string }) =>
+            t.enrollmentId === matchedEnrollmentId,
         );
-
-      const matchedEnrollment = enrollments.find(
-        (e) => e.instructorId === post.instructorId,
-      );
-
-      if (!matchedEnrollment) {
-        throw new ForbiddenException(
-          '해당 강사의 수강생인 자녀만 댓글을 작성할 수 있습니다.',
-        );
+        if (!isTargeted) {
+          throw new ForbiddenException('댓글 작성 권한이 없는 게시글입니다.');
+        }
       }
-      return matchedEnrollment.id;
+
+      return matchedEnrollmentId;
     }
 
     throw new BadRequestException('대상 게시글 ID가 필요합니다.');
