@@ -645,6 +645,9 @@ export class CommentsService {
 
         if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
 
+        if (!post.enrollmentId)
+          throw new ForbiddenException('질문 정보를 찾을 수 없습니다.');
+
         const enrollment = await this.enrollmentsRepository.findById(
           post.enrollmentId,
         );
