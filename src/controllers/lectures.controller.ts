@@ -44,7 +44,6 @@ export class LecturesController {
     try {
       const { page, limit, search, day } = req.query;
       const instructorId = getInstructorIdOrThrow(req);
-      console.log(instructorId);
       //  타입변환
       const result = await this.lecturesService.getLectures(instructorId, {
         page: Number(page) || 1,
