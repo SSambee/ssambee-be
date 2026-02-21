@@ -1,7 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import { LecturesService } from '../services/lectures.service.js';
 import { successResponse } from '../utils/response.util.js';
-import { getAuthUser, getProfileIdOrThrow } from '../utils/user.util.js';
+import {
+  getAuthUser,
+  getProfileIdOrThrow,
+  getInstructorIdOrThrow,
+} from '../utils/user.util.js';
 import { UserType } from '../constants/auth.constant.js';
 import { transformDateFieldsToKst } from '../utils/date.util.js';
 
@@ -11,7 +15,7 @@ export class LecturesController {
   /** 강의 생성 핸들러 */
   createLecture = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const instructorId = getProfileIdOrThrow(req);
+      const instructorId = getInstructorIdOrThrow(req);
       const lectureData = req.body;
 
       const lecture = await this.lecturesService.createLecture(
@@ -39,8 +43,8 @@ export class LecturesController {
   getLectures = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { page, limit, search, day } = req.query;
-      const instructorId = getProfileIdOrThrow(req);
-
+      const instructorId = getInstructorIdOrThrow(req);
+      console.log(instructorId);
       //  타입변환
       const result = await this.lecturesService.getLectures(instructorId, {
         page: Number(page) || 1,
@@ -99,7 +103,7 @@ export class LecturesController {
   updateLecture = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params;
-      const profileId = getProfileIdOrThrow(req);
+      const profileId = getInstructorIdOrThrow(req);
       const user = getAuthUser(req);
       const userType = user.userType as UserType;
       const updateData = req.body;
