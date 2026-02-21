@@ -238,7 +238,7 @@ export class DashboardService {
             lecture: { deletedAt: null },
             createdAt: { gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) },
           },
-          orderBy: { createdAt: 'desc' },
+          orderBy: { date: 'desc' },
           take: 1000,
         }),
         // 3) Grades (최근 성적 데이터 50개)
