@@ -135,9 +135,6 @@ export class DashboardRepository {
               select: {
                 id: true,
                 studentName: true,
-                studentPhone: true,
-                school: true,
-                schoolYear: true,
               },
             },
           },
