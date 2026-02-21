@@ -64,6 +64,10 @@ mgmtV1Router.use('/schedule-categories', mgmtScheduleCategoriesRouter);
 import { mgmtSchedulesRouter } from './schedules.route.js';
 mgmtV1Router.use('/schedules', mgmtSchedulesRouter);
 
+/** 대시보드 라우트 */
+import { mgmtDashboardRouter } from './dashboard.route.js';
+mgmtV1Router.use('/dashboard', mgmtDashboardRouter);
+
 /** 과제 라우트 */
 import { mgmtAssignmentsRouter } from './assignments.route.js';
 mgmtV1Router.use('/assignments', mgmtAssignmentsRouter);

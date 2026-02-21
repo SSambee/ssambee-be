@@ -89,6 +89,9 @@ import { ScheduleCategoryController } from '../controllers/schedule-categories.c
 import { SchedulesService } from '../services/schedules.service.js';
 import { SchedulesController } from '../controllers/schedules.controller.js';
 import { UploadsController } from '../controllers/uploads.controller.js';
+import { DashboardRepository } from '../repos/dashboard.repo.js';
+import { DashboardService } from '../services/dashboard.service.js';
+import { DashboardController } from '../controllers/dashboard.controller.js';
 /**
  *  import { redis } from './redis.config.js';
  *  redis 클라이언트르 컨테이너에 등록하여 필요한 서비스에 주입한다.
@@ -113,6 +116,7 @@ const assistantCodeRepo = new AssistantCodeRepository(prisma);
 const assistantOrderRepo = new AssistantOrderRepository(prisma);
 const scheduleCategoryRepo = new ScheduleCategoryRepository(prisma);
 const schedulesRepo = new SchedulesRepository(prisma);
+const dashboardRepo = new DashboardRepository(prisma);
 const parentChildLinkRepo = new ParentChildLinkRepository(prisma);
 const examsRepo = new ExamsRepository(prisma);
 const gradesRepo = new GradesRepository(prisma);
@@ -310,6 +314,8 @@ const schedulesService = new SchedulesService(
   prisma,
 );
 
+const dashboardService = new DashboardService(dashboardRepo, permissionService);
+
 const assignmentsService = new AssignmentsService(assignmentsRepo, prisma);
 
 const assignmentResultsService = new AssignmentResultsService(
@@ -359,6 +365,7 @@ const instructorPostsController = new InstructorPostsController(
 const studentPostsController = new StudentPostsController(studentPostsService);
 const commentsController = new CommentsController(commentsService);
 const uploadsController = new UploadsController(fileStorageService);
+const dashboardController = new DashboardController(dashboardService);
 
 // 4. Create Middlewares (Inject Services)
 const requireAuth = createRequireAuth(authService);
@@ -412,6 +419,7 @@ export const container = {
   assignmentsController,
   assignmentResultsController,
   uploadsController,
+  dashboardController,
   profileController: new ProfileController(profileService),
   // Middlewares
   requireAuth,
