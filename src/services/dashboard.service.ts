@@ -44,6 +44,7 @@ export interface DashboardData {
     score: number;
     examDate: string | null;
   }[];
+  resolvedChildLinkId?: string; // 학부모인 경우 선택된 자녀 링크 ID
 }
 
 export class DashboardService {
@@ -141,6 +142,7 @@ export class DashboardService {
     instructorId?: string,
   ): Promise<DashboardData> {
     let enrollmentIds: string[] = [];
+    let resolvedChildLinkId: string | undefined;
 
     // 1. 기초 권한 확인 및 Enrollment ID 목록 확보
     if (userType === UserType.STUDENT) {
@@ -173,6 +175,7 @@ export class DashboardService {
           childLinkId,
         );
       }
+      resolvedChildLinkId = childLinkId;
 
       const enrollments = await this.enrollmentsRepo.findManyByAppParentLinkIds(
         [childLinkId],
@@ -193,7 +196,7 @@ export class DashboardService {
     }
 
     if (enrollmentIds.length === 0) {
-      return this.getEmptyDashboard();
+      return this.getEmptyDashboard(resolvedChildLinkId);
     }
 
     // 2. 관련 LectureEnrollment 및 ID 추출 (Soft Delete 필터링 포함)
@@ -204,7 +207,7 @@ export class DashboardService {
     );
 
     if (activeLectureEnrollments.length === 0) {
-      return this.getEmptyDashboard();
+      return this.getEmptyDashboard(resolvedChildLinkId);
     }
 
     const leIds = activeLectureEnrollments.map((le) => le.id);
@@ -371,10 +374,11 @@ export class DashboardService {
       todaySchedule,
       academicAchievement,
       recentExams,
+      resolvedChildLinkId,
     };
   }
 
-  private getEmptyDashboard(): DashboardData {
+  private getEmptyDashboard(resolvedChildLinkId?: string): DashboardData {
     const now = new Date();
     const kstNow = toZonedTime(now, KST_TIMEZONE);
     const todayStr = format(kstNow, 'yyyy.MM.dd', { timeZone: KST_TIMEZONE });
@@ -388,6 +392,7 @@ export class DashboardService {
       todaySchedule: [],
       academicAchievement: [],
       recentExams: [],
+      resolvedChildLinkId,
     };
   }
 }
