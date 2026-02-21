@@ -581,6 +581,128 @@ export class CommentsService {
     };
   }
 
+  /** 첨부파일 다운로드 URL 조회 */
+  async getAttachmentDownloadUrl(
+    attachmentId: string,
+    userType: UserType,
+    profileId: string,
+  ): Promise<{ url: string }> {
+    // 1. 첨부파일 조회
+    const attachment =
+      await this.commentsRepository.findAttachmentById(attachmentId);
+    if (!attachment) {
+      throw new NotFoundException('첨부파일을 찾을 수 없습니다.');
+    }
+
+    // 2. 파일 URL 확인 (직접 첨부 또는 material 참조)
+    const fileUrl = attachment.fileUrl || attachment.material?.fileUrl;
+    if (!fileUrl) {
+      throw new NotFoundException('파일이 존재하지 않습니다.');
+    }
+
+    // 3. 권한 검증
+    const comment = attachment.comment;
+    await this.validateAttachmentAccess(comment, userType, profileId);
+
+    // 4. Presigned URL 생성
+    const downloadFileName = attachment.filename;
+    const presignedUrl = await this.fileStorageService.getDownloadPresignedUrl(
+      fileUrl,
+      downloadFileName,
+      3600, // 1시간 유효
+    );
+
+    return { url: presignedUrl };
+  }
+
+  /** 첨부파일 접근 권한 검증 */
+  private async validateAttachmentAccess(
+    comment: {
+      id: string;
+      instructorPostId: string | null;
+      studentPostId: string | null;
+      instructorId: string | null;
+      assistantId: string | null;
+      enrollmentId: string | null;
+    },
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 강사/조교인 경우
+    if (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) {
+      const postId = comment.instructorPostId || comment.studentPostId;
+      if (!postId) {
+        throw new ForbiddenException('게시글 정보가 없습니다.');
+      }
+
+      const repo = comment.instructorPostId
+        ? this.instructorPostsRepository
+        : this.studentPostsRepository;
+      const post = await repo.findById(postId);
+      if (!post) {
+        throw new NotFoundException('게시글을 찾을 수 없습니다.');
+      }
+
+      await this.permissionService.validateInstructorAccess(
+        post.instructorId,
+        userType,
+        profileId,
+      );
+      return;
+    }
+
+    // 학생인 경우
+    if (userType === UserType.STUDENT) {
+      // 댓글이 학생 질문에 대한 것인지 확인
+      if (comment.studentPostId) {
+        const post = await this.studentPostsRepository.findById(
+          comment.studentPostId,
+        );
+        if (!post) {
+          throw new NotFoundException('게시글을 찾을 수 없습니다.');
+        }
+        const enrollment = await this.enrollmentsRepository.findById(
+          post.enrollmentId,
+        );
+        if (enrollment?.appStudentId !== profileId) {
+          throw new ForbiddenException('권한이 없습니다.');
+        }
+        return;
+      }
+      // 강사 공지에 대한 댓글인 경우 - 수강 여부 확인
+      if (comment.instructorPostId) {
+        // 학생은 공지 댓글의 첨부파일에 접근할 수 있음 (공지를 볼 수 있다면)
+        return;
+      }
+    }
+
+    // 학부모인 경우
+    if (userType === UserType.PARENT) {
+      if (comment.studentPostId) {
+        const post = await this.studentPostsRepository.findById(
+          comment.studentPostId,
+        );
+        if (!post) {
+          throw new NotFoundException('게시글을 찾을 수 없습니다.');
+        }
+        const enrollment = await this.enrollmentsRepository.findById(
+          post.enrollmentId,
+        );
+        if (!enrollment?.appParentLinkId) {
+          throw new ForbiddenException('학부모 연결 정보가 없습니다.');
+        }
+        await this.permissionService.validateChildAccess(
+          userType,
+          profileId,
+          enrollment.appParentLinkId,
+        );
+        return;
+      }
+    }
+
+    throw new ForbiddenException('접근 권한이 없습니다.');
+  }
+
   /**
    * 첨부파일 구조 정규화 (material.fileUrl을 root로 승격)
    */

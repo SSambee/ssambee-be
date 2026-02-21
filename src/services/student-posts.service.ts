@@ -16,7 +16,7 @@ import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.
 import { LecturesRepository } from '../repos/lectures.repo.js';
 import { CommentsRepository } from '../repos/comments.repo.js';
 import { PermissionService } from './permission.service.js';
-import { StudentPost, Comment, Material } from '../generated/prisma/client.js';
+import { StudentPost, Material } from '../generated/prisma/client.js';
 import { formatStudentPostStats } from '../utils/posts.util.js';
 import { CommentsService } from './comments.service.js';
 import { FileStorageService } from './filestorage.service.js';
@@ -621,6 +621,96 @@ export class StudentPostsService {
       ...attr,
       fileUrl: attr.fileUrl || attr.material?.fileUrl || null,
     }));
+  }
+
+  /** 첨부파일 다운로드 URL 조회 */
+  async getAttachmentDownloadUrl(
+    attachmentId: string,
+    userType: UserType,
+    profileId: string,
+  ): Promise<{ url: string }> {
+    // 1. 첨부파일 조회
+    const attachment =
+      await this.studentPostsRepository.findAttachmentById(attachmentId);
+    if (!attachment) {
+      throw new NotFoundException('첨부파일을 찾을 수 없습니다.');
+    }
+
+    // 2. 파일 URL 확인
+    const fileUrl = attachment.fileUrl;
+    if (!fileUrl) {
+      throw new NotFoundException('파일이 존재하지 않습니다.');
+    }
+
+    // 3. 권한 검증
+    const post = attachment.studentPost;
+    await this.validateAttachmentAccess(post, userType, profileId);
+
+    // 4. Presigned URL 생성
+    const downloadFileName = attachment.filename;
+    const presignedUrl = await this.fileStorageService.getDownloadPresignedUrl(
+      fileUrl,
+      downloadFileName,
+      3600, // 1시간 유효
+    );
+
+    return { url: presignedUrl };
+  }
+
+  /** 첨부파일 접근 권한 검증 (간소화된 버전) */
+  private async validateAttachmentAccess(
+    post: { id: string; enrollmentId: string; instructorId: string },
+    userType: UserType,
+    profileId: string,
+  ) {
+    if (userType === UserType.STUDENT) {
+      const enrollment = await this.enrollmentsRepository.findById(
+        post.enrollmentId,
+      );
+      if (enrollment?.appStudentId !== profileId) {
+        throw new ForbiddenException('권한이 없습니다.');
+      }
+      return;
+    }
+
+    if (userType === UserType.INSTRUCTOR) {
+      if (post.instructorId !== profileId) {
+        throw new ForbiddenException('권한이 없습니다.');
+      }
+      return;
+    }
+
+    if (userType === UserType.ASSISTANT) {
+      const instructorId =
+        await this.permissionService.getEffectiveInstructorId(
+          userType,
+          profileId,
+        );
+      if (instructorId !== post.instructorId) {
+        throw new ForbiddenException('권한이 없습니다.');
+      }
+      return;
+    }
+
+    if (userType === UserType.PARENT) {
+      const enrollment = await this.enrollmentsRepository.findById(
+        post.enrollmentId,
+      );
+
+      if (!enrollment?.appParentLinkId) {
+        throw new ForbiddenException('학부모 연결 정보가 없습니다.');
+      }
+
+      await this.permissionService.validateChildAccess(
+        userType,
+        profileId,
+        enrollment.appParentLinkId,
+      );
+
+      return;
+    }
+
+    throw new ForbiddenException('접근 권한이 없습니다.');
   }
 
   /** 만료된 질문 자동 완료 처리 (배치용) */
