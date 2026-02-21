@@ -295,4 +295,32 @@ export class StudentPostsController {
       next(error);
     }
   };
+
+  /** 첨부파일 다운로드 URL 조회 */
+  getAttachmentDownloadUrl = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { attachmentId } = req.params;
+      const profileId = getProfileIdOrThrow(req);
+      const user = getAuthUser(req);
+      const userType = user.userType as UserType;
+
+      const result = await this.studentPostsService.getAttachmentDownloadUrl(
+        attachmentId,
+        userType,
+        profileId,
+      );
+
+      return successResponse(res, {
+        statusCode: 200,
+        data: result,
+        message: '다운로드 URL을 생성했습니다.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
