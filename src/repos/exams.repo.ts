@@ -368,6 +368,7 @@ export class ExamsRepository {
               select: {
                 id: true;
                 name: true;
+                resultPresets: true;
               };
             };
           };
@@ -390,6 +391,7 @@ export class ExamsRepository {
               select: {
                 id: true,
                 name: true,
+                resultPresets: true,
               },
             },
           },
