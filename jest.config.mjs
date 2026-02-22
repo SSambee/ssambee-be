@@ -33,9 +33,11 @@ const config = {
         jsc: {
           parser: {
             syntax: 'ecmascript',
-            modules: true,
           },
           target: 'es2022',
+        },
+        module: {
+          type: 'es6',
         },
       },
     ],
