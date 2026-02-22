@@ -133,6 +133,7 @@ describe('성적 BDD 테스트 - @integration', () => {
 
     beforeEach(async () => {
       await dbTestUtil.truncateAll();
+      jest.clearAllMocks();
       const sUser = await prisma.user.create({
         data: {
           id: faker.string.uuid(),
