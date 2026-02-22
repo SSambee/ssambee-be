@@ -95,6 +95,30 @@ export class InstructorPostsService {
     };
   }
 
+  /** 첨부 파일 업로드 처리 Helper */
+  private async uploadAttachments(
+    files: Express.Multer.File[] | undefined,
+  ): Promise<{ filename: string; fileUrl: string }[]> {
+    if (!files?.length) return [];
+
+    const uploadedAttachments: { filename: string; fileUrl: string }[] = [];
+    for (const file of files) {
+      const randomId = randomUUID();
+      const ext = path.extname(file.originalname);
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const key = `attachments/${year}/${month}/${randomId}${ext}`;
+
+      const fileUrl = await this.fileStorageService.upload(file, key);
+      uploadedAttachments.push({
+        filename: file.originalname,
+        fileUrl,
+      });
+    }
+    return uploadedAttachments;
+  }
+
   /** 자료 소유권 검증 */
   private async validateMaterialOwnership(
     materialIds: string[],
@@ -192,23 +216,7 @@ export class InstructorPostsService {
     }
 
     // 직접 첨부 파일 처리 (S3 업로드)
-    const uploadedAttachments: { filename: string; fileUrl: string }[] = [];
-    if (files?.length) {
-      for (const file of files) {
-        const randomId = randomUUID();
-        const ext = path.extname(file.originalname);
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const key = `attachments/${year}/${month}/${randomId}${ext}`;
-
-        const fileUrl = await this.fileStorageService.upload(file, key);
-        uploadedAttachments.push({
-          filename: file.originalname,
-          fileUrl,
-        });
-      }
-    }
+    const uploadedAttachments = await this.uploadAttachments(files);
 
     // 기존 데이터의 attachments와 업로드된 attachments 결합
     const allAttachments = [
@@ -578,23 +586,7 @@ export class InstructorPostsService {
     }
 
     // 직접 첨부 파일 처리 (S3 업로드)
-    const uploadedAttachments: { filename: string; fileUrl: string }[] = [];
-    if (files?.length) {
-      for (const file of files) {
-        const randomId = randomUUID();
-        const ext = path.extname(file.originalname);
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const key = `attachments/${year}/${month}/${randomId}${ext}`;
-
-        const fileUrl = await this.fileStorageService.upload(file, key);
-        uploadedAttachments.push({
-          filename: file.originalname,
-          fileUrl,
-        });
-      }
-    }
+    const uploadedAttachments = await this.uploadAttachments(files);
 
     // 기존 데이터의 attachments와 업로드된 attachments 결합
     const allAttachments = [
