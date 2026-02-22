@@ -157,7 +157,7 @@ describe('시험 BDD 테스트 - @integration', () => {
       const res = await request(app).get('/api/mgmt/v1/exams');
 
       expect(res.status).toBe(200);
-      expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+      expect(res.body.data.length).toBe(1);
       expect(res.body.data[0].title).toBe('Exam 1');
     });
   });
