@@ -14,8 +14,6 @@ import type {
 describe('수강 신청 BDD 테스트 - @integration', () => {
   const app = createTestApp({ useRouter: true });
 
-  beforeAll(async () => {});
-
   afterAll(async () => {
     await dbTestUtil.disconnect();
   });
