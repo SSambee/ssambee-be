@@ -27,7 +27,7 @@ const config = {
     ],
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(better-auth|better-call|@faker-js)/)',
+    'node_modules/(?!(better-auth|better-call|@faker-js|@aws-sdk|better-auth/plugins|better-auth/node)/)',
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
