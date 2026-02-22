@@ -10,6 +10,7 @@ import {
 import {
   createMockPermissionService,
   createMockCommentsService,
+  createMockFileStorageService,
 } from '../test/mocks/services.mock.js';
 import { UserType } from '../constants/auth.constant.js';
 import {
@@ -39,6 +40,7 @@ import type { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import type { StudentPostsRepository } from '../repos/student-posts.repo.js';
 import type { PermissionService } from './permission.service.js';
 import type { CommentsService } from './comments.service.js';
+import type { FileStorageService } from './filestorage.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 
 /** 타입 정의 */
@@ -63,6 +65,7 @@ describe('InstructorPostsService', () => {
   let studentPostsRepo: jest.Mocked<StudentPostsRepository>;
   let permissionService: jest.Mocked<PermissionService>;
   let commentsService: jest.Mocked<CommentsService>;
+  let fileStorageService: jest.Mocked<FileStorageService>;
 
   beforeEach(() => {
     instructorPostsRepo = createMockInstructorPostsRepository();
@@ -73,6 +76,7 @@ describe('InstructorPostsService', () => {
     studentPostsRepo = createMockStudentPostsRepository();
     permissionService = createMockPermissionService();
     commentsService = createMockCommentsService();
+    fileStorageService = createMockFileStorageService();
 
     service = new InstructorPostsService(
       instructorPostsRepo,
@@ -83,6 +87,7 @@ describe('InstructorPostsService', () => {
       permissionService,
       studentPostsRepo,
       commentsService,
+      fileStorageService,
     );
 
     studentPostsRepo.getStats.mockResolvedValue({

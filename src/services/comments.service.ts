@@ -540,6 +540,7 @@ export class CommentsService {
     profileId: string,
     postId?: string,
     postType?: 'instructorPost' | 'studentPost' | null,
+    files?: Express.Multer.File[],
   ) {
     if (!postId || !postType)
       throw new BadRequestException('postId와 postType이 필요합니다.');
@@ -562,10 +563,35 @@ export class CommentsService {
       await this.validateMaterialOwnership(data.materialIds, instructorId);
     }
 
+    // 직접 첨부 파일 처리 (S3 업로드)
+    const uploadedAttachments: { filename: string; fileUrl: string }[] = [];
+    if (files?.length) {
+      for (const file of files) {
+        const randomId = randomUUID();
+        const ext = path.extname(file.originalname);
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const key = `attachments/${year}/${month}/${randomId}${ext}`;
+
+        const fileUrl = await this.fileStorageService.upload(file, key);
+        uploadedAttachments.push({
+          filename: file.originalname,
+          fileUrl,
+        });
+      }
+    }
+
+    // 기존 데이터의 attachments와 업로드된 attachments 결합
+    const allAttachments = [
+      ...(data.attachments || []),
+      ...uploadedAttachments,
+    ];
+
     const updatedComment = await this.commentsRepository.update(commentId, {
       content: data.content,
       materialIds: data.materialIds,
-      attachments: data.attachments,
+      attachments: allAttachments.length ? allAttachments : undefined,
     });
     return {
       ...this.addIsMineField(updatedComment, userType, profileId),
@@ -745,6 +771,7 @@ export class CommentsService {
           );
 
         let hasAccess = false;
+        let matchedEnrollmentId: string | null = null;
         if (post.lectureId) {
           for (const enrollment of enrollments) {
             const le =
@@ -754,22 +781,27 @@ export class CommentsService {
               );
             if (le) {
               hasAccess = true;
+              matchedEnrollmentId = enrollment.id;
               break;
             }
           }
         } else {
-          hasAccess = enrollments.some(
+          const matched = enrollments.find(
             (e) => e.instructorId === post.instructorId,
           );
+          if (matched) {
+            hasAccess = true;
+            matchedEnrollmentId = matched.id;
+          }
         }
 
         if (!hasAccess) throw new ForbiddenException('접근 권한이 없습니다.');
 
         // SELECTED 스코프인 경우 자녀가 타겟에 포함되어있는지
         if (post.scope === PostScope.SELECTED) {
-          const enrollmentIds = enrollments.map((e) => e.id);
-          const isTargeted = post.targets?.some((t: { enrollmentId: string }) =>
-            enrollmentIds.includes(t.enrollmentId),
+          const isTargeted = post.targets?.some(
+            (t: { enrollmentId: string }) =>
+              t.enrollmentId === matchedEnrollmentId,
           );
           if (!isTargeted)
             throw new ForbiddenException('접근 권한이 없는 게시물입니다.');

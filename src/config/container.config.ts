@@ -289,6 +289,7 @@ const instructorPostsService = new InstructorPostsService(
   permissionService,
   studentPostsRepo,
   commentsService,
+  fileStorageService,
 );
 
 const studentPostsService = new StudentPostsService(
@@ -423,6 +424,16 @@ export const container = {
   assignmentsService,
   assignmentResultsService,
   fileStorageService,
+  gradesService,
+  examsService,
+  instructorPostsService,
+  studentPostsService,
+  commentsService,
+  permissionService,
+  assistantCodesService,
+  assistantOrderService,
+  profileService,
+  dashboardService,
   // Controllers
   authController,
   lecturesController,

@@ -6,7 +6,11 @@ import {
   createMockLecturesRepository,
   createMockCommentsRepository,
 } from '../test/mocks/repo.mock.js';
-import { createMockPermissionService } from '../test/mocks/services.mock.js';
+import {
+  createMockPermissionService,
+  createMockCommentsService,
+  createMockFileStorageService,
+} from '../test/mocks/services.mock.js';
 import { UserType } from '../constants/auth.constant.js';
 import {
   ForbiddenException,
@@ -24,10 +28,9 @@ import {
   mockLectureEnrollment,
   mockEnrollment,
 } from '../test/fixtures/enrollments.fixture.js';
-import {
-  mockStudentPost,
-  mockComment,
-} from '../test/fixtures/student-posts.fixture.js';
+import { mockStudentPost } from '../test/fixtures/student-posts.fixture.js';
+import type { CommentsService } from './comments.service.js';
+import type { FileStorageService } from './filestorage.service.js';
 
 describe('StudentPostsService', () => {
   let service: StudentPostsService;
@@ -39,6 +42,8 @@ describe('StudentPostsService', () => {
   let lecturesRepo: ReturnType<typeof createMockLecturesRepository>;
   let commentsRepo: ReturnType<typeof createMockCommentsRepository>;
   let permissionService: ReturnType<typeof createMockPermissionService>;
+  let commentsService: jest.Mocked<CommentsService>;
+  let fileStorageService: jest.Mocked<FileStorageService>;
 
   beforeEach(() => {
     studentPostsRepo = createMockStudentPostsRepository();
@@ -47,6 +52,8 @@ describe('StudentPostsService', () => {
     lecturesRepo = createMockLecturesRepository();
     commentsRepo = createMockCommentsRepository();
     permissionService = createMockPermissionService();
+    commentsService = createMockCommentsService();
+    fileStorageService = createMockFileStorageService();
 
     service = new StudentPostsService(
       studentPostsRepo,
@@ -55,6 +62,8 @@ describe('StudentPostsService', () => {
       lecturesRepo,
       commentsRepo,
       permissionService,
+      commentsService,
+      fileStorageService,
     );
 
     studentPostsRepo.getStats.mockResolvedValue({

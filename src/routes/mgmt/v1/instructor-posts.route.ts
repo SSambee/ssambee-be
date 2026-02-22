@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { upload } from '../../../middlewares/multer.middleware.js';
 import { container } from '../../../config/container.config.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
 import {
@@ -34,6 +35,7 @@ mgmtInstructorPostsRouter.use(requireInstructorOrAssistant);
 /** 공지 생성 */
 mgmtInstructorPostsRouter.post(
   '/submit',
+  upload.single('file'),
   validate(createInstructorPostSchema, 'body'),
   instructorPostsController.createPost,
 );
@@ -62,6 +64,7 @@ mgmtInstructorPostsRouter.get(
 mgmtInstructorPostsRouter.patch(
   '/:postId',
   validate(instructorPostParamsSchema, 'params'),
+  upload.single('file'),
   validate(updateInstructorPostSchema, 'body'),
   instructorPostsController.updatePost,
 );
@@ -76,6 +79,7 @@ mgmtInstructorPostsRouter.delete(
 /** 댓글 작성 (강사/조교) */
 mgmtInstructorPostsRouter.post(
   '/:postId/comments',
+  upload.single('file'),
   validate(instructorPostParamsSchema, 'params'),
   validate(createCommentSchema, 'body'),
   commentsController.createComment,

@@ -15,10 +15,11 @@
     "dev": "tsx watch src/app.ts",
     "build": "tsc",
     "start": "node dist/app.js",
-    "test": "jest --passWithNoTests",
+    "test": "jest --passWithNoTests -t '^(?!.*@integration)'",
     "test:watch": "jest --watch",
     "test:unit": "jest -t '@unit'",
     "test:critical": "jest -t '#critical'",
+    "test:integration": "jest -t '@integration' --runInBand",
     "format": "prettier --write .",
     "prepare": "husky"
   },
@@ -80,6 +81,7 @@
     "@types/node": "^25.0.3",
     "@types/nodemailer": "^7.0.10",
     "@types/pg": "^8.16.0",
+    "@types/supertest": "^6.0.3",
     "eslint": "^9.37.0",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
@@ -87,6 +89,7 @@
     "lint-staged": "^16.2.4",
     "prettier": "^3.6.2",
     "prisma": "^7.2.0",
+    "supertest": "^7.2.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.50.1"

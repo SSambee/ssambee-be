@@ -103,6 +103,12 @@ export class CommentsController {
           ? 'studentPost'
           : null;
 
+      const files = req.files
+        ? (req.files as Express.Multer.File[])
+        : req.file
+          ? [req.file as Express.Multer.File]
+          : undefined;
+
       const result = await this.commentsService.updateComment(
         commentId,
         data,
@@ -110,6 +116,7 @@ export class CommentsController {
         profileId,
         postId,
         postType,
+        files,
       );
 
       return successResponse(res, {
