@@ -12,7 +12,8 @@ const config = {
     '!src/test/**/*.ts',
   ],
   transform: {
-    '^.+\\.(t|j)s$': [
+    // TypeScript 및 JavaScript 파일 변환 (.ts, .js, .mjs, .cjs)
+    '^.+\\.(t|j)sx?$': [
       '@swc/jest',
       {
         // tsconfig.test.json의 내용을 SWC가 이해할 수 있게 설정
@@ -25,10 +26,23 @@ const config = {
         },
       },
     ],
+    // ESM .mjs 파일 변환
+    '^.+\\.mjs$': [
+      '@swc/jest',
+      {
+        jsc: {
+          parser: {
+            syntax: 'ecmascript',
+            modules: true,
+          },
+          target: 'es2022',
+        },
+      },
+    ],
   },
-  transformIgnorePatterns: [
-    'node_modules/(?!(better-auth|better-call|@faker-js|@aws-sdk|better-auth/plugins|better-auth/node)/)',
-  ],
+  // pnpm의 .pnpm 디렉토리 내 better-auth 관련 ESM 패키지 변환
+  // 빈 배열 = 모든 node_modules 파일을 transform (ESM 호환성 위해)
+  transformIgnorePatterns: [],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     // ESM .js 확장자를 .ts로 매핑
