@@ -79,6 +79,7 @@ svcStudentPostsRouter.get(
 /** 질문 수정 */
 svcStudentPostsRouter.patch(
   '/:postId',
+  upload.single('file'),
   validate(studentPostParamsSchema, 'params'),
   validate(updateStudentPostSchema, 'body'),
   studentPostsController.updatePost,

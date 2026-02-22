@@ -10,6 +10,7 @@ import {
   updateCommentSchema,
   commentEditParamsSchema,
 } from '../../../validations/comments.validation.js';
+import { upload } from '../../../middlewares/multer.middleware.js';
 
 export const svcInstructorPostsRouter = Router({ mergeParams: true });
 
@@ -40,6 +41,7 @@ svcInstructorPostsRouter.get(
 /** 댓글 작성 (학생/학부모) */
 svcInstructorPostsRouter.post(
   '/:postId/comments',
+  upload.single('file'),
   validate(instructorPostParamsSchema, 'params'),
   validate(createCommentSchema, 'body'),
   commentsController.createComment,

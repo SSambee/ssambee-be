@@ -75,6 +75,7 @@ mgmtStudentPostsRouter.post(
 /** 답변(댓글) 수정 */
 mgmtStudentPostsRouter.patch(
   '/:postId/comments/:commentId',
+  upload.single('file'),
   validate(commentEditParamsSchema, 'params'),
   validate(updateCommentSchema, 'body'),
   commentsController.updateComment,
