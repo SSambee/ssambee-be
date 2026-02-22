@@ -83,18 +83,24 @@ export class AssistantOrderRepository {
     instructorId: string,
     params: {
       status?: string;
+      priority?: string;
+      search?: string;
       page: number;
       limit: number;
     },
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
-    const { status, page, limit } = params;
+    const { status, priority, search, page, limit } = params;
     const skip = (page - 1) * limit;
 
     const where: Prisma.AssistantOrderWhereInput = {
       instructorId,
       ...(status && { status }),
+      ...(priority && { priority }),
+      ...(search && {
+        title: { contains: search, mode: 'insensitive' },
+      }),
     };
 
     const [orders, totalCount] = await Promise.all([
@@ -104,6 +110,12 @@ export class AssistantOrderRepository {
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
+          instructor: {
+            select: {
+              id: true,
+              user: { select: { name: true } },
+            },
+          },
           assistant: {
             select: { id: true, name: true },
           },
@@ -157,18 +169,24 @@ export class AssistantOrderRepository {
     assistantId: string,
     params: {
       status?: string;
+      priority?: string;
+      search?: string;
       page: number;
       limit: number;
     },
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
-    const { status, page, limit } = params;
+    const { status, priority, search, page, limit } = params;
     const skip = (page - 1) * limit;
 
     const where: Prisma.AssistantOrderWhereInput = {
       assistantId,
       ...(status && { status }),
+      ...(priority && { priority }),
+      ...(search && {
+        title: { contains: search, mode: 'insensitive' },
+      }),
     };
 
     const [orders, totalCount] = await Promise.all([
@@ -185,6 +203,9 @@ export class AssistantOrderRepository {
                 select: { name: true },
               },
             },
+          },
+          assistant: {
+            select: { id: true, name: true },
           },
           lecture: {
             select: { id: true, title: true },

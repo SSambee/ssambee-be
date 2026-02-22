@@ -120,7 +120,7 @@ export class AssistantOrderController {
           user.userType as UserType,
           profileId,
           id,
-          body.status,
+          body.workStatus,
         );
       }
 
