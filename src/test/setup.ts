@@ -1,15 +1,15 @@
-/**
- * Jest 글로벌 설정 파일
- * 테스트 실행 전후의 환경 설정 및 모킹을 담당합니다.
- */
+import dotenv from 'dotenv';
+dotenv.config();
 
 // 테스트 환경 변수 설정
 process.env.NODE_ENV = 'test';
 process.env.ENVIRONMENT = 'test';
 
 // 필수 환경 변수 Mocking (Zod 검증 통과용)
-process.env.PORT = '3000';
-process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/db';
+// .env에 TEST_DATABASE_URL이 있으면 그것을 최우선으로 사용함
+process.env.DATABASE_URL =
+  process.env.TEST_DATABASE_URL || 'postgresql://user:pass@localhost:5432/db';
+process.env.PORT = process.env.PORT || '3000';
 process.env.FRONT_URL = 'http://localhost:3000';
 process.env.BETTER_AUTH_SECRET = 'a'.repeat(32);
 process.env.BETTER_AUTH_URL = 'http://localhost:3001';
