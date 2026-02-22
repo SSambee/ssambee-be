@@ -20,6 +20,9 @@ import {
 import { StudentPostsRepository } from '../repos/student-posts.repo.js';
 import { formatStudentPostStats } from '../utils/posts.util.js';
 import { CommentsService } from './comments.service.js';
+import { FileStorageService } from './filestorage.service.js';
+import path from 'path';
+import { randomUUID } from 'crypto';
 
 export class InstructorPostsService {
   constructor(
@@ -31,6 +34,7 @@ export class InstructorPostsService {
     private readonly permissionService: PermissionService,
     private readonly studentPostsRepository: StudentPostsRepository, // [NEW]
     private readonly commentsService: CommentsService,
+    private readonly fileStorageService: FileStorageService,
   ) {}
 
   /** 공지 타겟 학생 목록 조회 (강사의 모든 강의와 학생 목록) */
@@ -123,6 +127,7 @@ export class InstructorPostsService {
     data: CreateInstructorPostDto,
     profileId: string,
     userType: UserType,
+    files?: Express.Multer.File[],
   ) {
     // 1. 권한 검증 및 강사 ID 조회
     const instructorId = await this.permissionService.getEffectiveInstructorId(
@@ -186,6 +191,31 @@ export class InstructorPostsService {
       await this.validateMaterialOwnership(data.materialIds, instructorId);
     }
 
+    // 직접 첨부 파일 처리 (S3 업로드)
+    const uploadedAttachments: { filename: string; fileUrl: string }[] = [];
+    if (files?.length) {
+      for (const file of files) {
+        const randomId = randomUUID();
+        const ext = path.extname(file.originalname);
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const key = `attachments/${year}/${month}/${randomId}${ext}`;
+
+        const fileUrl = await this.fileStorageService.upload(file, key);
+        uploadedAttachments.push({
+          filename: file.originalname,
+          fileUrl,
+        });
+      }
+    }
+
+    // 기존 데이터의 attachments와 업로드된 attachments 결합
+    const allAttachments = [
+      ...(data.attachments || []),
+      ...uploadedAttachments,
+    ];
+
     // 6. 생성
     const post = await this.instructorPostsRepository.create({
       title: data.title,
@@ -197,7 +227,7 @@ export class InstructorPostsService {
       instructorId,
       authorAssistantId: userType === UserType.ASSISTANT ? profileId : null,
       materialIds: data.materialIds || undefined,
-      attachments: data.attachments || undefined,
+      attachments: allAttachments.length ? allAttachments : undefined,
       targetEnrollmentIds: data.targetEnrollmentIds || undefined,
     });
 
@@ -461,6 +491,7 @@ export class InstructorPostsService {
     data: UpdateInstructorPostDto,
     userType: UserType,
     profileId: string,
+    files?: Express.Multer.File[],
   ) {
     const post = await this.instructorPostsRepository.findById(postId);
     if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
@@ -542,9 +573,34 @@ export class InstructorPostsService {
         JSON.stringify([...(data.targetEnrollmentIds || [])].sort()) ===
           JSON.stringify(currentTargetEnrollmentIds));
 
-    if (isRedundant) {
+    if (isRedundant && (!files || files.length === 0)) {
       return post;
     }
+
+    // 직접 첨부 파일 처리 (S3 업로드)
+    const uploadedAttachments: { filename: string; fileUrl: string }[] = [];
+    if (files?.length) {
+      for (const file of files) {
+        const randomId = randomUUID();
+        const ext = path.extname(file.originalname);
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const key = `attachments/${year}/${month}/${randomId}${ext}`;
+
+        const fileUrl = await this.fileStorageService.upload(file, key);
+        uploadedAttachments.push({
+          filename: file.originalname,
+          fileUrl,
+        });
+      }
+    }
+
+    // 기존 데이터의 attachments와 업로드된 attachments 결합
+    const allAttachments = [
+      ...(data.attachments || []),
+      ...uploadedAttachments,
+    ];
 
     const updatedPost = await this.instructorPostsRepository.update(postId, {
       title: data.title,
@@ -554,7 +610,7 @@ export class InstructorPostsService {
       targetRole: data.targetRole,
       lectureId: data.lectureId,
       materialIds: data.materialIds || undefined,
-      attachments: data.attachments || undefined,
+      attachments: allAttachments.length ? allAttachments : undefined,
       targetEnrollmentIds: data.targetEnrollmentIds || undefined,
     });
 

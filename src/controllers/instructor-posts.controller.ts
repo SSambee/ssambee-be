@@ -52,10 +52,17 @@ export class InstructorPostsController {
         data.lectureId = req.params.lectureId;
       }
 
+      const files = req.files
+        ? (req.files as Express.Multer.File[])
+        : req.file
+          ? [req.file as Express.Multer.File]
+          : undefined;
+
       const result = await this.instructorPostsService.createPost(
         data,
         profileId,
         userType,
+        files,
       );
 
       // 날짜 데이터를 한국 시간으로 변환
@@ -184,11 +191,18 @@ export class InstructorPostsController {
       const user = getAuthUser(req);
       const userType = user.userType as UserType;
 
+      const files = req.files
+        ? (req.files as Express.Multer.File[])
+        : req.file
+          ? [req.file as Express.Multer.File]
+          : undefined;
+
       const result = await this.instructorPostsService.updatePost(
         postId,
         data,
         userType,
         profileId,
+        files,
       );
 
       // 날짜 데이터를 한국 시간으로 변환

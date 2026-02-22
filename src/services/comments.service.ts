@@ -540,6 +540,7 @@ export class CommentsService {
     profileId: string,
     postId?: string,
     postType?: 'instructorPost' | 'studentPost' | null,
+    files?: Express.Multer.File[],
   ) {
     if (!postId || !postType)
       throw new BadRequestException('postId와 postType이 필요합니다.');
@@ -562,10 +563,35 @@ export class CommentsService {
       await this.validateMaterialOwnership(data.materialIds, instructorId);
     }
 
+    // 직접 첨부 파일 처리 (S3 업로드)
+    const uploadedAttachments: { filename: string; fileUrl: string }[] = [];
+    if (files?.length) {
+      for (const file of files) {
+        const randomId = randomUUID();
+        const ext = path.extname(file.originalname);
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const key = `attachments/${year}/${month}/${randomId}${ext}`;
+
+        const fileUrl = await this.fileStorageService.upload(file, key);
+        uploadedAttachments.push({
+          filename: file.originalname,
+          fileUrl,
+        });
+      }
+    }
+
+    // 기존 데이터의 attachments와 업로드된 attachments 결합
+    const allAttachments = [
+      ...(data.attachments || []),
+      ...uploadedAttachments,
+    ];
+
     const updatedComment = await this.commentsRepository.update(commentId, {
       content: data.content,
       materialIds: data.materialIds,
-      attachments: data.attachments,
+      attachments: allAttachments.length ? allAttachments : undefined,
     });
     return {
       ...this.addIsMineField(updatedComment, userType, profileId),

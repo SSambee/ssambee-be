@@ -341,6 +341,7 @@ export class StudentPostsService {
     },
     userType: UserType,
     profileId: string,
+    files?: Express.Multer.File[],
   ) {
     const post = await this.studentPostsRepository.findById(postId);
     if (!post) throw new NotFoundException('질문을 찾을 수 없습니다.');
@@ -380,14 +381,39 @@ export class StudentPostsService {
               ),
           ));
 
-    if (isRedundant) {
+    if (isRedundant && (!files || files.length === 0)) {
       return post;
     }
+
+    // 직접 첨부 파일 처리 (S3 업로드)
+    const uploadedAttachments: { filename: string; fileUrl: string }[] = [];
+    if (files?.length) {
+      for (const file of files) {
+        const randomId = randomUUID();
+        const ext = path.extname(file.originalname);
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const key = `attachments/${year}/${month}/${randomId}${ext}`;
+
+        const fileUrl = await this.fileStorageService.upload(file, key);
+        uploadedAttachments.push({
+          filename: file.originalname,
+          fileUrl,
+        });
+      }
+    }
+
+    // 기존 데이터의 attachments와 업로드된 attachments 결합
+    const allAttachments = [
+      ...(data.attachments || []),
+      ...uploadedAttachments,
+    ];
 
     return this.studentPostsRepository.update(postId, {
       title: data.title,
       content: data.content,
-      attachments: data.attachments,
+      attachments: allAttachments.length ? allAttachments : undefined,
     });
   }
 
