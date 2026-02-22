@@ -308,7 +308,10 @@ export class GradesService {
     // 4. 과제 결과 매핑 (연결된 과제 + 해당 수강생 결과)
     const { assignmentsOnExamReport } = grade.exam;
     const resultMap = new Map(
-      grade.lectureEnrollment.assignmentResults.map((r) => [r.assignmentId, r]),
+      (grade.lectureEnrollment.assignmentResults ?? []).map((r) => [
+        r.assignmentId,
+        r,
+      ]),
     );
 
     const assignments = assignmentsOnExamReport.map((aer) => {
@@ -318,9 +321,9 @@ export class GradesService {
       return {
         assignmentId: assignment.id,
         title: assignment.title,
-        categoryName: assignment.category.name,
+        categoryName: assignment.category?.name ?? '',
         resultIndex: studentResult?.resultIndex ?? null,
-        resultPresets: assignment.category.resultPresets,
+        resultPresets: assignment.category?.resultPresets ?? [],
       };
     });
 
