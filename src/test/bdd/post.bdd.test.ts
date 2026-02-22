@@ -2,118 +2,312 @@ import request from 'supertest';
 import { createTestApp } from '../utils/app.mock.js';
 import { container } from '../../config/container.config.js';
 import { UserType } from '../../constants/auth.constant.js';
-import { mockInstructor, mockLectures } from '../fixtures/lectures.fixture.js';
-import { mockProfiles } from '../fixtures/profile.fixture.js';
+import { dbTestUtil } from '../utils/db-test.util.js';
+import { prisma } from '../../config/db.config.js';
+import { fakerKO as faker } from '@faker-js/faker';
+import type {
+  Instructor,
+  AppStudent,
+  Lecture,
+  Enrollment,
+} from '../../generated/prisma/client.js';
 
-describe('Post & Comment BDD Tests - @integration', () => {
-  const instructor = mockInstructor;
-  const student = mockProfiles.student;
+describe('게시글 및 댓글 BDD 테스트 - @integration', () => {
   const app = createTestApp({ useRouter: true });
 
-  const instructorPostsService = container.instructorPostsService;
-  const studentPostsService = container.studentPostsService;
-  const commentsService = container.commentsService;
+  beforeAll(async () => {
+    // DB 연결 확인 및 준비
+  });
 
-  beforeEach(() => {
-    jest.clearAllMocks();
+  afterAll(async () => {
+    await dbTestUtil.disconnect();
   });
 
   /**
-   * Scenario: Instructor creates a notice and student comments on it
-   * Given: An authenticated instructor and a student
-   * When: The instructor creates an instructor post for a lecture
-   * Then: The post should be created
-   * When: The student views the post and adds a comment
-   * Then: The comment should be recorded
+   * 시나리오: 강사가 공지사항을 작성하고 학생이 댓글을 작성
+   * Given: 인증된 강사와 학생
+   * When: 강사가 강의에 대한 강사 게시글을 작성하면
+   * Then: 게시글이 생성되어야 한다
+   * When: 학생이 게시글을 보고 댓글을 작성하면
+   * Then: 댓글이 기록되어야 한다
    */
-  describe('Scenario: Instructor Post and Student Comment', () => {
-    const lectureId = mockLectures.basic.id;
-    const postId = 'post-1';
+  describe('시나리오: 강사 게시글과 학생 댓글', () => {
+    let instructor: Instructor;
+    let student: AppStudent;
+    let lecture: Lecture;
+    let enrollment: Enrollment;
 
-    it('should allow instructor to post and student to comment', async () => {
-      // 1. Instructor creates post
-      jest.spyOn(container.authService, 'getSession').mockResolvedValue({
-        user: { id: instructor.userId!, email: 'i@e.com', userType: UserType.INSTRUCTOR, name: 'I' },
-        session: { id: 's1' } as any,
-        profile: instructor as any,
+    beforeEach(async () => {
+      await dbTestUtil.truncateAll();
+      jest.clearAllMocks();
+
+      // 1. 강사 생성 (필수 필드 수동 제공)
+      const instructorUser = await prisma.user.create({
+        data: {
+          id: faker.string.uuid(),
+          email: faker.internet.email(),
+          name: '강사님',
+          userType: UserType.INSTRUCTOR,
+          emailVerified: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      instructor = await prisma.instructor.create({
+        data: {
+          userId: instructorUser.id,
+          phoneNumber: faker.phone.number(),
+        },
       });
 
-      jest.spyOn(instructorPostsService, 'createPost').mockResolvedValue({
-        id: postId, title: 'Notice', content: 'Hello'
-      } as any);
+      // 2. 학생 생성
+      const studentUser = await prisma.user.create({
+        data: {
+          id: faker.string.uuid(),
+          email: faker.internet.email(),
+          name: '학생군',
+          userType: UserType.STUDENT,
+          emailVerified: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      student = await prisma.appStudent.create({
+        data: {
+          userId: studentUser.id,
+          phoneNumber: faker.phone.number(),
+        },
+      });
 
+      // 3. 강의 생성
+      lecture = await prisma.lecture.create({
+        data: {
+          instructorId: instructor.id,
+          title: '테스트 강의',
+          subject: '수학',
+          status: 'IN_PROGRESS',
+        },
+      });
+
+      // 4. 수강 등록
+      enrollment = await prisma.enrollment.create({
+        data: {
+          instructorId: instructor.id,
+          appStudentId: student.id,
+          studentName: studentUser.name,
+          studentPhone: student.phoneNumber,
+          school: '테스트고',
+          schoolYear: '1학년',
+          parentPhone: faker.phone.number(),
+        },
+      });
+
+      await prisma.lectureEnrollment.create({
+        data: {
+          enrollmentId: enrollment.id,
+          lectureId: lecture.id,
+        },
+      });
+    });
+
+    it('강사가 게시글을 작성하고 학생이 댓글을 작성할 수 있어야 한다', async () => {
+      // 1. 강사로 세션 모킹
+      jest.spyOn(container.authService, 'getSession').mockResolvedValue({
+        user: {
+          id: instructor.userId,
+          email: 'i@e.com',
+          userType: UserType.INSTRUCTOR,
+          name: '강사님',
+        },
+        session: {
+          id: 's1',
+          expiresAt: new Date(),
+          token: 't1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          userId: instructor.userId,
+          ipAddress: null,
+          userAgent: null,
+        },
+        profile: instructor,
+      });
+
+      // Act: 강사가 게시글 작성
+      const postPayload = {
+        title: 'Notice',
+        content: 'Hello',
+        scope: 'GLOBAL',
+      };
       const res1 = await request(app)
-        .post(`/api/mgmt/v1/lectures/${lectureId}/instructor-posts`)
-        .send({ title: 'Notice', content: 'Hello', scope: 'ALL' });
+        .post(`/api/mgmt/v1/lectures/${lecture.id}/instructor-posts/submit`)
+        .send(postPayload);
 
+      // Assert
       expect(res1.status).toBe(201);
+      const postId = res1.body.data.id;
 
-      // 2. Student adds comment
+      const savedPost = await prisma.instructorPost.findUnique({
+        where: { id: postId },
+      });
+      expect(savedPost).toBeDefined();
+
+      // 2. 학생으로 세션 모킹
       jest.spyOn(container.authService, 'getSession').mockResolvedValue({
-        user: { id: student.userId!, email: 's@e.com', userType: UserType.STUDENT, name: 'S' },
-        session: { id: 's2' } as any,
-        profile: student as any,
+        user: {
+          id: student.userId,
+          email: 's@e.com',
+          userType: UserType.STUDENT,
+          name: '학생군',
+        },
+        session: {
+          id: 's2',
+          expiresAt: new Date(),
+          token: 't2',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          userId: student.userId,
+          ipAddress: null,
+          userAgent: null,
+        },
+        profile: student,
       });
 
-      jest.spyOn(commentsService, 'createComment').mockResolvedValue({
-        id: 'c-1', content: 'Thank you'
-      } as any);
-
+      // Act: 학생이 댓글 작성
+      const commentPayload = { content: 'Thank you' };
       const res2 = await request(app)
         .post(`/api/svc/v1/instructor-posts/${postId}/comments`)
-        .send({ content: 'Thank you' });
+        .send(commentPayload);
 
+      // Assert
       expect(res2.status).toBe(201);
-      expect(res2.body.data.comment.content).toBe('Thank you');
+      const savedComment = await prisma.comment.findUnique({
+        where: { id: res2.body.data.id },
+      });
+      expect(savedComment?.content).toBe('Thank you');
     });
   });
 
-  /**
-   * Scenario: Student creates a question and instructor replies
-   * Given: An authenticated student and an instructor
-   * When: The student creates a student post
-   * Then: The post is created
-   * When: The instructor replies with a comment
-   * Then: The comment is recorded
-   */
-  describe('Scenario: Student Question and Instructor Reply', () => {
-    const postId = 'post-student-1';
+  describe('시나리오: 학생 질문과 강사 답변', () => {
+    let instructor: Instructor;
+    let student: AppStudent;
+    let lecture: Lecture;
+    let enrollment: Enrollment;
 
-    it('should allow student to ask and instructor to reply', async () => {
-      // 1. Student creates post
+    beforeEach(async () => {
+      await dbTestUtil.truncateAll();
+
+      const instructorUser = await prisma.user.create({
+        data: {
+          id: faker.string.uuid(),
+          email: faker.internet.email(),
+          name: 'T',
+          userType: UserType.INSTRUCTOR,
+          emailVerified: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      instructor = await prisma.instructor.create({
+        data: { userId: instructorUser.id, phoneNumber: faker.phone.number() },
+      });
+      const studentUser = await prisma.user.create({
+        data: {
+          id: faker.string.uuid(),
+          email: faker.internet.email(),
+          name: 'S',
+          userType: UserType.STUDENT,
+          emailVerified: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      student = await prisma.appStudent.create({
+        data: { userId: studentUser.id, phoneNumber: faker.phone.number() },
+      });
+      lecture = await prisma.lecture.create({
+        data: {
+          instructorId: instructor.id,
+          title: 'L',
+          status: 'IN_PROGRESS',
+        },
+      });
+      enrollment = await prisma.enrollment.create({
+        data: {
+          instructorId: instructor.id,
+          appStudentId: student.id,
+          studentName: 'S',
+          studentPhone: student.phoneNumber,
+          school: 'Sch',
+          schoolYear: '1',
+          parentPhone: '010',
+        },
+      });
+      await prisma.lectureEnrollment.create({
+        data: { enrollmentId: enrollment.id, lectureId: lecture.id },
+      });
+    });
+
+    it('학생이 질문을 작성하고 강사가 답변할 수 있어야 한다', async () => {
+      // 1. 학생으로 세션 모킹
       jest.spyOn(container.authService, 'getSession').mockResolvedValue({
-        user: { id: student.userId!, email: 's@e.com', userType: UserType.STUDENT, name: 'S' },
-        session: { id: 's2' } as any,
-        profile: student as any,
+        user: {
+          id: student.userId,
+          email: 's@e.com',
+          userType: UserType.STUDENT,
+          name: 'S',
+        },
+        session: {
+          id: 's2',
+          expiresAt: new Date(),
+          token: 't2',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          userId: student.userId,
+          ipAddress: null,
+          userAgent: null,
+        },
+        profile: student,
       });
 
-      jest.spyOn(studentPostsService, 'createPost').mockResolvedValue({
-        id: postId, title: 'Question', content: 'How to?'
-      } as any);
-
+      // Act
       const res1 = await request(app)
         .post('/api/svc/v1/student-posts')
-        .send({ title: 'Question', content: 'How to?', lectureId: mockLectures.basic.id });
+        .send({ title: 'Question', content: 'How to?', lectureId: lecture.id });
 
       expect(res1.status).toBe(201);
+      const postId = res1.body.data.id;
 
-      // 2. Instructor adds comment
+      // 2. 강사로 세션 모킹
       jest.spyOn(container.authService, 'getSession').mockResolvedValue({
-        user: { id: instructor.userId!, email: 'i@e.com', userType: UserType.INSTRUCTOR, name: 'I' },
-        session: { id: 's1' } as any,
-        profile: instructor as any,
+        user: {
+          id: instructor.userId,
+          email: 'i@e.com',
+          userType: UserType.INSTRUCTOR,
+          name: 'T',
+        },
+        session: {
+          id: 's1',
+          expiresAt: new Date(),
+          token: 't1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          userId: instructor.userId,
+          ipAddress: null,
+          userAgent: null,
+        },
+        profile: instructor,
       });
 
-      jest.spyOn(commentsService, 'createComment').mockResolvedValue({
-        id: 'c-2', content: 'Here is the answer'
-      } as any);
-
+      // Act
       const res2 = await request(app)
         .post(`/api/mgmt/v1/student-posts/${postId}/comments`)
         .send({ content: 'Here is the answer' });
 
       expect(res2.status).toBe(201);
-      expect(res2.body.data.comment.content).toBe('Here is the answer');
+      const savedComment = await prisma.comment.findUnique({
+        where: { id: res2.body.data.id },
+      });
+      expect(savedComment?.instructorId).toBe(instructor.id);
     });
   });
 });

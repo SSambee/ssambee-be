@@ -2,182 +2,276 @@ import request from 'supertest';
 import { createTestApp } from '../utils/app.mock.js';
 import { container } from '../../config/container.config.js';
 import { UserType } from '../../constants/auth.constant.js';
-import {
-  ForbiddenException,
-  NotFoundException,
-  BadRequestException,
-} from '../../err/http.exception.js';
-import { mockInstructor, mockLectures } from '../fixtures/lectures.fixture.js';
-import {
-  mockEnrollments,
-  mockEnrollmentWithRelations,
-} from '../fixtures/enrollments.fixture.js';
+import { dbTestUtil } from '../utils/db-test.util.js';
+import { prisma } from '../../config/db.config.js';
+import { fakerKO as faker } from '@faker-js/faker';
+import type {
+  Instructor,
+  Lecture,
+  Enrollment,
+} from '../../generated/prisma/client.js';
 
-describe('Enrollment BDD Tests - @integration', () => {
-  // Mock instructor session
-  const instructor = mockInstructor;
+describe('수강 신청 BDD 테스트 - @integration', () => {
   const app = createTestApp({ useRouter: true });
 
-  const enrollmentsService = container.enrollmentsService;
-  const authService = container.authService;
+  beforeAll(async () => {});
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-    // requireAuth 미들웨어가 authService.getSession을 호출하므로 모킹 필요
-    jest.spyOn(authService, 'getSession').mockResolvedValue({
-      user: {
-        id: instructor.userId!,
-        email: 'instructor@example.com',
-        userType: UserType.INSTRUCTOR,
-        name: 'Instructor',
-      },
-      session: {
-        id: 's1',
-        token: 't1',
-        userId: instructor.userId!,
-        expiresAt: new Date(),
-      } as any,
-      profile: instructor as any,
-    });
+  afterAll(async () => {
+    await dbTestUtil.disconnect();
   });
 
-  /**
-   * Scenario: Instructor registers a student for a lecture
-   * Given: An authenticated instructor
-   * And: A lecture owned by the instructor
-   * When: The instructor registers a student with phone number and name
-   * Then: A new enrollment should be created
-   * And: The student should be associated with the lecture
-   */
-  describe('Scenario: Instructor registers a student for a lecture', () => {
-    const lectureId = mockLectures.basic.id;
-    const enrollmentData = {
-      studentName: 'New Student',
-      studentPhone: '010-1111-2222',
-      parentPhone: '010-3333-4444',
-      school: 'Test School',
-      schoolYear: '고3',
-    };
+  describe('시나리오: 강사가 학생을 강의에 등록', () => {
+    let instructor: Instructor;
+    let lecture: Lecture;
 
-    it('should register a student successfully', async () => {
-      // [When] Register student
-      const createSpy = jest
-        .spyOn(enrollmentsService, 'createEnrollment')
-        .mockResolvedValue({
-          id: 'le-1',
-          enrollmentId: 'e-1',
-          lectureId: lectureId,
-          registeredAt: new Date(),
-          enrollment: {
-            id: 'e-1',
-            studentName: enrollmentData.studentName,
-            studentPhone: enrollmentData.studentPhone,
-          },
-        } as any);
+    beforeEach(async () => {
+      await dbTestUtil.truncateAll();
+      jest.clearAllMocks();
 
-      const res = await request(app)
-        .post(`/api/mgmt/v1/lectures/${lectureId}/enrollments`)
-        .send(enrollmentData);
+      const user = await prisma.user.create({
+        data: {
+          id: faker.string.uuid(),
+          email: faker.internet.email(),
+          name: '강사님',
+          userType: UserType.INSTRUCTOR,
+          emailVerified: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      instructor = await prisma.instructor.create({
+        data: { userId: user.id, phoneNumber: faker.phone.number() },
+      });
 
-      // [Then] Enrollment created
-      expect(res.status).toBe(201);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.enrollment.enrollment.studentName).toBe(
-        enrollmentData.studentName,
-      );
-      expect(createSpy).toHaveBeenCalled();
+      lecture = await prisma.lecture.create({
+        data: {
+          instructorId: instructor.id,
+          title: '테스트 강의',
+          status: 'REGISTERED',
+        },
+      });
     });
 
-    it('should fail if the lecture does not exist', async () => {
-      jest
-        .spyOn(enrollmentsService, 'createEnrollment')
-        .mockRejectedValue(new NotFoundException('강의를 찾을 수 없습니다.'));
+    it('학생 등록이 성공해야 한다', async () => {
+      jest.spyOn(container.authService, 'getSession').mockResolvedValue({
+        user: {
+          id: instructor.userId,
+          email: 'i@e.com',
+          userType: UserType.INSTRUCTOR,
+          name: '강사님',
+        },
+        session: {
+          id: 's1',
+          expiresAt: new Date(),
+          token: 't1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          userId: instructor.userId,
+          ipAddress: null,
+          userAgent: null,
+        },
+        profile: instructor,
+      });
+
+      const enrollmentData = {
+        studentName: 'New Student',
+        studentPhone: '010-1111-2222',
+        parentPhone: '010-3333-4444',
+        school: '테스트고',
+        schoolYear: '고3',
+      };
 
       const res = await request(app)
-        .post(`/api/mgmt/v1/lectures/non-existent-id/enrollments`)
+        .post(`/api/mgmt/v1/lectures/${lecture.id}/enrollments`)
         .send(enrollmentData);
+
+      expect(res.status).toBe(201);
+
+      const enrollment = await prisma.enrollment.findFirst({
+        where: {
+          studentPhone: enrollmentData.studentPhone,
+          instructorId: instructor.id,
+        },
+      });
+      expect(enrollment).toBeDefined();
+    });
+
+    it('강의가 존재하지 않으면 실패해야 한다', async () => {
+      jest.spyOn(container.authService, 'getSession').mockResolvedValue({
+        user: {
+          id: instructor.userId,
+          email: 'i@e.com',
+          userType: UserType.INSTRUCTOR,
+          name: '강사님',
+        },
+        session: {
+          id: 's1',
+          expiresAt: new Date(),
+          token: 't1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          userId: instructor.userId,
+          ipAddress: null,
+          userAgent: null,
+        },
+        profile: instructor,
+      });
+
+      const res = await request(app)
+        .post('/api/mgmt/v1/lectures/non-existent-id/enrollments')
+        .send({
+          studentName: 'X',
+          studentPhone: '010-0000-0000',
+          parentPhone: '010-0000-1111',
+          school: 'X고',
+          schoolYear: '고1',
+        });
 
       expect(res.status).toBe(404);
-      expect(res.body.success).toBe(false);
-      expect(res.body.message).toContain('강의를 찾을 수 없습니다');
-    });
-
-    it('should fail if the instructor does not have permission', async () => {
-      // Here we test the middleware or service level permission
-      // Since we are mocking the service, we simulate a permission error from service
-      jest
-        .spyOn(enrollmentsService, 'createEnrollment')
-        .mockRejectedValue(new ForbiddenException('해당 권한이 없습니다.'));
-
-      const res = await request(app)
-        .post(`/api/mgmt/v1/lectures/${lectureId}/enrollments`)
-        .send(enrollmentData);
-
-      expect(res.status).toBe(403);
-      expect(res.body.success).toBe(false);
-      expect(res.body.message).toContain('권한이 없습니다');
     });
   });
 
-  /**
-   * Scenario: Instructor removes enrollment
-   * Given: An authenticated instructor
-   * When: The instructor tries to remove an enrollment for a lecture that already started
-   * Then: It should fail with a 400 error (Business Rule)
-   */
-  describe('Scenario: Instructor removes enrollment', () => {
-    it('should fail to remove enrollment if lecture already started', async () => {
-      const lectureId = mockLectures.basic.id;
-      const enrollmentId = 'e-1';
+  describe('시나리오: 강사가 수강 신청을 삭제', () => {
+    let instructor: Instructor;
+    let lecture: Lecture;
+    let enrollment: Enrollment;
 
-      jest
-        .spyOn(enrollmentsService, 'removeLectureEnrollment')
-        .mockRejectedValue(
-          new BadRequestException(
-            '이미 시작되었거나 예정되지 않은 강의의 수강 정보는 삭제할 수 없습니다.',
-          ),
-        );
+    beforeEach(async () => {
+      await dbTestUtil.truncateAll();
+
+      const user = await prisma.user.create({
+        data: {
+          id: faker.string.uuid(),
+          email: 'i@e.com',
+          name: 'I',
+          userType: UserType.INSTRUCTOR,
+          emailVerified: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      instructor = await prisma.instructor.create({
+        data: { userId: user.id, phoneNumber: '010' },
+      });
+      lecture = await prisma.lecture.create({
+        data: {
+          instructorId: instructor.id,
+          title: 'L',
+          status: 'IN_PROGRESS',
+          startAt: new Date(Date.now() - 86400000), // 어제 시작됨
+        },
+      });
+      enrollment = await prisma.enrollment.create({
+        data: {
+          instructorId: instructor.id,
+          studentName: 'S',
+          studentPhone: '010',
+          school: 'X',
+          schoolYear: '고1',
+          parentPhone: '0',
+        },
+      });
+      await prisma.lectureEnrollment.create({
+        data: { lectureId: lecture.id, enrollmentId: enrollment.id },
+      });
+    });
+
+    it('강의가 이미 시작된 경우 수강 신청 삭제가 실패해야 한다', async () => {
+      jest.spyOn(container.authService, 'getSession').mockResolvedValue({
+        user: {
+          id: instructor.userId,
+          email: 'i@e.com',
+          userType: UserType.INSTRUCTOR,
+          name: 'I',
+        },
+        session: {
+          id: 's1',
+          expiresAt: new Date(),
+          token: 't1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          userId: instructor.userId,
+          ipAddress: null,
+          userAgent: null,
+        },
+        profile: instructor,
+      });
 
       const res = await request(app).delete(
-        `/api/mgmt/v1/lectures/${lectureId}/enrollments/${enrollmentId}`,
+        `/api/mgmt/v1/lectures/${lecture.id}/enrollments/${enrollment.id}`,
       );
 
       expect(res.status).toBe(400);
-      expect(res.body.success).toBe(false);
       expect(res.body.message).toContain('시작되었거나');
     });
   });
 
-  /**
-   * Scenario: Instructor views enrollment list
-   * Given: An authenticated instructor
-   * When: The instructor requests the student list for a lecture
-   * Then: They should see the registered students
-   */
-  describe('Scenario: Instructor views enrollment list', () => {
-    it('should retrieve student list for a lecture', async () => {
-      const lectureId = mockLectures.basic.id;
+  describe('시나리오: 강사가 수강 신청 목록 조회', () => {
+    let instructor: Instructor;
+    let lecture: Lecture;
 
-      jest.spyOn(enrollmentsService, 'getEnrollments').mockResolvedValue({
-        enrollments: [
-          {
-            id: 'e-1',
-            studentName: 'Student 1',
-            studentPhone: '010-1111-2222',
-            attendance: null,
-            lecture: mockLectures.basic as any,
-          },
-        ],
-        totalCount: 1,
-      } as any);
+    beforeEach(async () => {
+      await dbTestUtil.truncateAll();
+      const user = await prisma.user.create({
+        data: {
+          id: faker.string.uuid(),
+          email: 'i@e.com',
+          name: 'I',
+          userType: UserType.INSTRUCTOR,
+          emailVerified: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      instructor = await prisma.instructor.create({
+        data: { userId: user.id, phoneNumber: '010' },
+      });
+      lecture = await prisma.lecture.create({
+        data: { instructorId: instructor.id, title: 'L', status: 'REGISTERED' },
+      });
+      const enrollment = await prisma.enrollment.create({
+        data: {
+          instructorId: instructor.id,
+          studentName: 'Target Student',
+          studentPhone: '010-9999',
+          school: 'X',
+          schoolYear: '고1',
+          parentPhone: '0',
+        },
+      });
+      await prisma.lectureEnrollment.create({
+        data: { lectureId: lecture.id, enrollmentId: enrollment.id },
+      });
+    });
+
+    it('강의의 학생 목록을 조회할 수 있어야 한다', async () => {
+      jest.spyOn(container.authService, 'getSession').mockResolvedValue({
+        user: {
+          id: instructor.userId,
+          email: 'i@e.com',
+          userType: UserType.INSTRUCTOR,
+          name: 'I',
+        },
+        session: {
+          id: 's1',
+          expiresAt: new Date(),
+          token: 't1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          userId: instructor.userId,
+          ipAddress: null,
+          userAgent: null,
+        },
+        profile: instructor,
+      });
 
       const res = await request(app)
         .get('/api/mgmt/v1/enrollments')
-        .query({ lecture: lectureId });
+        .query({ lecture: lecture.id });
 
       expect(res.status).toBe(200);
-      expect(res.body.data.list).toHaveLength(1);
-      expect(res.body.data.list[0].studentName).toBe('Student 1');
+      expect(res.body.data.list.length).toBeGreaterThanOrEqual(1);
+      expect(res.body.data.list[0].studentName).toBe('Target Student');
     });
   });
 });

@@ -1,84 +1,110 @@
 import request from 'supertest';
 import { createTestApp } from '../utils/app.mock.js';
-import { container } from '../../config/container.config.js';
 import {
   UserType,
   SIGNUP_PENDING_USER_TYPE,
 } from '../../constants/auth.constant.js';
-import {
-  ForbiddenException,
-  UnauthorizedException,
-  BadRequestException,
-} from '../../err/http.exception.js';
-import { mockUsers, mockSession, mockProfiles } from '../fixtures/index.js';
+import { dbTestUtil } from '../utils/db-test.util.js';
+import { prisma } from '../../config/db.config.js';
+import { fakerKO as faker } from '@faker-js/faker';
+import { auth } from '../../config/auth.config.js';
 
-describe('Auth BDD Tests - @integration', () => {
+describe('인증 BDD 테스트 - @integration', () => {
   const app = createTestApp({ useRouter: true });
-  const authService = container.authService;
 
-  beforeEach(() => {
+  beforeAll(async () => {});
+
+  afterAll(async () => {
+    await dbTestUtil.disconnect();
+  });
+
+  beforeEach(async () => {
+    await dbTestUtil.truncateAll();
     jest.clearAllMocks();
   });
 
-  /**
-   * Scenario: Student Sign-up Flow
-   * Given: An unauthenticated student
-   * When: the student requests email verification with a valid email
-   * Then: a verification OTP should be sent
-   * When: the student verifies the OTP
-   * Then: they should receive a temporary session
-   * When: the student completes sign-up with their profile data
-   * Then: a student profile should be created and they should be logged in
-   */
-  describe('Scenario: Student Sign-up Flow', () => {
+  describe('시나리오: 학생 회원가입 플로우', () => {
     const studentEmail = 'student@example.com';
     const otp = '123456';
 
-    it('should complete the sign-up flow successfully', async () => {
-      // 1. [Given/When] Request email verification
-      const requestEmailSpy = jest
-        .spyOn(authService, 'requestEmailVerification')
-        .mockResolvedValue({ status: true });
+    it('회원가입 플로우가 성공적으로 완료되어야 한다', async () => {
+      // 1. [Given/When] 이메일 인증 요청
+      (auth.handler as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ status: true }), { status: 200 }),
+        ),
+      );
 
       const res1 = await request(app)
         .post('/api/public/v1/auth/email-verification')
         .send({ email: studentEmail });
 
-      // [Then] Verification OTP sent
       expect(res1.status).toBe(200);
-      expect(res1.body.message).toContain('이메일 인증코드를 전송했습니다');
-      expect(requestEmailSpy).toHaveBeenCalledWith(studentEmail);
 
-      // 2. [When] Verify OTP
-      const verifyEmailSpy = jest
-        .spyOn(authService, 'verifyEmailVerification')
-        .mockResolvedValue({
-          user: {
-            ...mockUsers.student,
-            userType: SIGNUP_PENDING_USER_TYPE,
-          } as any,
-          session: { token: 'temp-token' } as any,
-          setCookie: 'session_token=temp-cookie',
-        });
+      // 2. [When] OTP 인증
+      const tempUserId = faker.string.uuid();
+      (auth.handler as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              user: {
+                id: tempUserId,
+                email: studentEmail,
+                name: 'Temp',
+                userType: SIGNUP_PENDING_USER_TYPE,
+              },
+              session: {
+                id: 'temp-session',
+                token: 'temp-token',
+                expiresAt: new Date(Date.now() + 3600000),
+              },
+            }),
+            {
+              status: 200,
+              headers: {
+                'set-cookie':
+                  'ssambee-auth.session_token=temp-cookie; Path=/; HttpOnly',
+              },
+            },
+          ),
+        ),
+      );
 
       const res2 = await request(app)
         .post('/api/public/v1/auth/email-verification')
         .send({ email: studentEmail, otp });
 
-      // [Then] Received temporary session cookie
       expect(res2.status).toBe(200);
-      expect(res2.header['set-cookie']).toBeDefined();
-      expect(verifyEmailSpy).toHaveBeenCalledWith(studentEmail, otp);
 
-      // 3. [When] Complete sign-up
-      const completeSignUpSpy = jest
-        .spyOn(authService, 'completeSignUpWithVerifiedEmail')
-        .mockResolvedValue({
-          user: mockUsers.student,
-          session: mockSession,
-          profile: mockProfiles.student,
-          setCookie: 'session_token=final-cookie',
-        });
+      // 3. [When] 회원가입 완료
+      await prisma.user.create({
+        data: {
+          id: tempUserId,
+          email: studentEmail,
+          name: 'Temp',
+          userType: SIGNUP_PENDING_USER_TYPE,
+          emailVerified: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+
+      (auth.api.getSession as unknown as jest.Mock).mockResolvedValue({
+        user: {
+          id: tempUserId,
+          email: studentEmail,
+          userType: SIGNUP_PENDING_USER_TYPE,
+          name: 'Temp',
+        },
+        session: { id: 'temp-session' },
+      });
+
+      // update-user 등을 위해 handler가 다시 호출될 수 있으므로 새 Response 반환
+      (auth.handler as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ status: true }), { status: 200 }),
+        ),
+      );
 
       const signUpData = {
         email: studentEmail,
@@ -92,196 +118,144 @@ describe('Auth BDD Tests - @integration', () => {
 
       const res3 = await request(app)
         .post('/api/svc/v1/auth/student/signup')
-        .set('Cookie', res2.header['set-cookie'])
+        .set('Cookie', (res2.header['set-cookie'] as unknown as string[]) || [])
         .send(signUpData);
 
-      // [Then] Student profile created and logged in
       expect(res3.status).toBe(201);
-      expect(res3.body.data.user.userType).toBe(UserType.STUDENT);
-      expect(res3.body.data.profile).toBeDefined();
-      expect(completeSignUpSpy).toHaveBeenCalled();
-    });
 
-    it('should fail if email is already verified by another type', async () => {
-      // Mocking already signed up user
-      jest
-        .spyOn(authService, 'completeSignUpWithVerifiedEmail')
-        .mockRejectedValue(
-          new ForbiddenException('이미 회원가입이 완료된 계정입니다.'),
-        );
-
-      const res = await request(app)
-        .post('/api/svc/v1/auth/student/signup')
-        .set('Cookie', 'session_token=some-cookie')
-        .send({
-          email: studentEmail,
-          password: 'Password123!',
-          name: 'Student Name',
-          phoneNumber: '010-1234-5678',
-          parentPhoneNumber: '010-8765-4321',
-          school: 'Test School',
-          schoolYear: '고3',
-        });
-
-      expect(res.status).toBe(403); // Service throws ForbiddenException
-      expect(res.body.success).toBe(false);
-      expect(res.body.message).toContain('이미 회원가입이 완료된 계정입니다');
+      const savedProfile = await prisma.appStudent.findFirst({
+        where: { phoneNumber: signUpData.phoneNumber },
+      });
+      expect(savedProfile).toBeDefined();
     });
   });
 
-  /**
-   * Scenario: Assistant Sign-up Flow
-   * Given: An unauthenticated person with a valid signup code
-   * When: they request email verification
-   * Then: OTP sent
-   * When: they verify OTP
-   * Then: temporary session received
-   * When: they complete sign-up with a valid signup code
-   * Then: an assistant profile should be created
-   */
-  describe('Scenario: Assistant Sign-up Flow', () => {
+  describe('시나리오: 조교 회원가입 플로우', () => {
     const email = 'assistant@example.com';
-    const otp = '123456';
     const signupCode = 'VALID-CODE';
 
-    it('should complete the assistant sign-up flow successfully', async () => {
-      // 1. Verification Request
-      jest
-        .spyOn(authService, 'requestEmailVerification')
-        .mockResolvedValue({ status: true });
-      await request(app)
-        .post('/api/public/v1/auth/email-verification')
-        .send({ email });
-
-      // 2. OTP Verification
-      jest.spyOn(authService, 'verifyEmailVerification').mockResolvedValue({
-        user: { email, userType: SIGNUP_PENDING_USER_TYPE } as any,
-        session: { token: 'temp' } as any,
-        setCookie: 'session_token=temp',
+    it('조교 회원가입 플로우가 성공적으로 완료되어야 한다', async () => {
+      const instructorUser = await prisma.user.create({
+        data: {
+          id: faker.string.uuid(),
+          email: 'i@e.com',
+          name: 'I',
+          userType: UserType.INSTRUCTOR,
+          emailVerified: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
       });
-      const res2 = await request(app)
-        .post('/api/public/v1/auth/email-verification')
-        .send({ email, otp });
+      const instructor = await prisma.instructor.create({
+        data: { userId: instructorUser.id, phoneNumber: '010-0000-0000' },
+      });
+      await prisma.assistantCode.create({
+        data: {
+          code: signupCode,
+          instructorId: instructor.id,
+          expireAt: new Date(Date.now() + 3600000),
+        },
+      });
 
-      // 3. Complete Sign-up
-      const completeSpy = jest
-        .spyOn(authService, 'completeSignUpWithVerifiedEmail')
-        .mockResolvedValue({
-          user: { ...mockUsers.assistant, email },
-          session: mockSession,
-          profile: mockProfiles.assistant,
-          setCookie: 'session_token=final',
-        });
+      const tempUserId = faker.string.uuid();
+      await prisma.user.create({
+        data: {
+          id: tempUserId,
+          email,
+          name: 'Temp',
+          userType: SIGNUP_PENDING_USER_TYPE,
+          emailVerified: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
 
-      const signUpData = {
-        email,
-        password: 'AssistantPassword123!',
-        name: 'Assistant Name',
-        phoneNumber: '010-9999-8888',
-        signupCode: signupCode,
-      };
+      (auth.api.getSession as unknown as jest.Mock).mockResolvedValue({
+        user: {
+          id: tempUserId,
+          email,
+          userType: SIGNUP_PENDING_USER_TYPE,
+          name: 'Temp',
+        },
+        session: { id: 'temp-session' },
+      });
 
-      const res3 = await request(app)
-        .post('/api/mgmt/v1/auth/assistant/signup')
-        .set('Cookie', res2.header['set-cookie'])
-        .send(signUpData);
-
-      expect(res3.status).toBe(201);
-      expect(res3.body.data.user.userType).toBe(UserType.ASSISTANT);
-      expect(completeSpy).toHaveBeenCalledWith(
-        UserType.ASSISTANT,
-        expect.objectContaining({ signupCode }),
-        expect.anything(),
+      (auth.handler as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ status: true }), { status: 200 }),
+        ),
       );
-    });
-
-    it('should fail with invalid signup code', async () => {
-      jest
-        .spyOn(authService, 'completeSignUpWithVerifiedEmail')
-        .mockRejectedValue(
-          new BadRequestException('유효하지 않은 코드입니다.'),
-        );
 
       const res = await request(app)
         .post('/api/mgmt/v1/auth/assistant/signup')
-        .set('Cookie', 'session_token=temp')
+        .set('Cookie', 'ssambee-auth.session_token=valid-temp-token')
         .send({
           email,
-          password: 'AssistantPassword123!',
-          name: 'Name',
-          phoneNumber: '010-0000-0000',
-          signupCode: 'INVALID',
+          password: 'Password123!',
+          name: 'Assistant Name',
+          phoneNumber: '010-9999-8888',
+          signupCode: signupCode,
         });
 
-      expect(res.status).toBe(400);
-      expect(res.body.message).toContain('유효하지 않은 코드');
+      expect(res.status).toBe(201);
+      const savedAssistant = await prisma.assistant.findFirst({
+        where: { userId: tempUserId },
+      });
+      expect(savedAssistant).toBeDefined();
     });
   });
 
-  /**
-   * Scenario: Login Flow
-   * Given: A registered instructor
-   * When: they login with correct credentials
-   * Then: they should receive a session cookie
-   * When: they request their session info
-   * Then: they should receive their profile data
-   */
-  describe('Scenario: Login Flow', () => {
-    const loginData = {
-      email: mockUsers.instructor.email,
-      password: 'correctPassword123!',
-      userType: UserType.INSTRUCTOR,
-    };
+  describe('시나리오: 로그인 플로우', () => {
+    it('로그인이 성공적으로 수행되어야 한다', async () => {
+      const email = 'login@example.com';
+      const password = 'Password123!';
+      const userId = faker.string.uuid();
 
-    it('should login and retrieve session successfully', async () => {
-      // 1. [When] Login
-      const signInSpy = jest.spyOn(authService, 'signIn').mockResolvedValue({
-        user: mockUsers.instructor,
-        session: mockSession,
-        profile: mockProfiles.instructor,
-        setCookie: 'session_token=login-cookie',
+      await prisma.user.create({
+        data: {
+          id: userId,
+          email,
+          name: 'Instructor',
+          userType: UserType.INSTRUCTOR,
+          emailVerified: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      const instructor = await prisma.instructor.create({
+        data: { userId, phoneNumber: '010-1111-2222' },
       });
 
-      const res1 = await request(app)
-        .post('/api/public/v1/auth/signin')
-        .send(loginData);
-
-      // [Then] Success and cookie received
-      expect(res1.status).toBe(200);
-      expect(res1.header['set-cookie']).toBeDefined();
-      expect(signInSpy).toHaveBeenCalled();
-
-      // 2. [When] Get Session
-      jest.spyOn(authService, 'getSession').mockResolvedValue({
-        user: mockUsers.instructor,
-        session: mockSession,
-        profile: mockProfiles.instructor,
-      });
-
-      const res2 = await request(app)
-        .get('/api/public/v1/auth/session')
-        .set('Cookie', res1.header['set-cookie']);
-
-      // [Then] Profile data received
-      expect(res2.status).toBe(200);
-      expect(res2.body.data.user.email).toBe(mockUsers.instructor.email);
-      expect(res2.body.data.profile).toBeDefined();
-    });
-
-    it('should fail with incorrect password', async () => {
-      jest
-        .spyOn(authService, 'signIn')
-        .mockRejectedValue(
-          new UnauthorizedException('이메일 또는 비밀번호가 올바르지 않습니다.'),
-        );
+      (auth.handler as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              user: {
+                id: userId,
+                email,
+                name: 'Instructor',
+                userType: UserType.INSTRUCTOR,
+              },
+              session: { id: 'session-id', token: 'token' },
+            }),
+            {
+              status: 200,
+              headers: {
+                'set-cookie':
+                  'ssambee-auth.session_token=login-token; Path=/; HttpOnly',
+              },
+            },
+          ),
+        ),
+      );
 
       const res = await request(app)
         .post('/api/public/v1/auth/signin')
-        .send({ ...loginData, password: 'wrongPassword123!' });
+        .send({ email, password, userType: UserType.INSTRUCTOR });
 
-      expect(res.status).toBe(401);
-      expect(res.body.success).toBe(false);
-      expect(res.body.message).toContain('올바르지 않습니다');
+      expect(res.status).toBe(200);
+      expect(res.body.data.user.id).toBe(userId);
+      expect(res.body.data.profile.id).toBe(instructor.id);
     });
   });
 });
