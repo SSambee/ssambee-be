@@ -421,10 +421,25 @@ describe('GradesService - @unit #critical', () => {
           title: '중간고사',
           questions: [
             {
+              id: 'q1',
               questionNumber: 1,
+              content: '문제 1',
               score: 10,
+              correctAnswer: 'A',
               statistic: {
                 correctRate: 70,
+                choiceRates: null,
+              },
+            },
+            {
+              id: 'q2',
+              questionNumber: 2,
+              content: '문제 2',
+              score: 5,
+              correctAnswer: '정답',
+              statistic: {
+                correctRate: 100,
+                choiceRates: null,
               },
             },
           ],
@@ -446,6 +461,18 @@ describe('GradesService - @unit #critical', () => {
             studentName: '홍길동',
           },
           assignmentResults: [{ assignmentId: 'a1', resultIndex: 2 }],
+          studentAnswers: [
+            {
+              questionId: 'q1',
+              submittedAnswer: 'A',
+              isCorrect: true,
+            },
+            {
+              questionId: 'q2',
+              submittedAnswer: '오답',
+              isCorrect: false,
+            },
+          ],
         },
       } as unknown as Awaited<
         ReturnType<typeof mockGradesRepo.findGradeReportByGradeId>
@@ -475,6 +502,28 @@ describe('GradesService - @unit #critical', () => {
           categoryName: '주간테스트',
           resultIndex: 2,
           resultPresets: ['C', 'B', 'A'],
+        },
+      ]);
+      expect(result.questions).toEqual([
+        {
+          questionNumber: 1,
+          content: '문제 1',
+          score: 10,
+          correctAnswer: 'A',
+          correctRate: 70,
+          choiceRates: null,
+          submittedAnswer: 'A',
+          isCorrect: true,
+        },
+        {
+          questionNumber: 2,
+          content: '문제 2',
+          score: 5,
+          correctAnswer: '정답',
+          correctRate: 100,
+          choiceRates: null,
+          submittedAnswer: '오답',
+          isCorrect: false,
         },
       ]);
       expect(result.average).toBe(88.8);
@@ -713,7 +762,7 @@ describe('GradesService - @unit #critical', () => {
         title: '과제1',
         categoryName: '주간테스트',
         resultIndex: 2,
-        resultLabel: 'A',
+        resultPresets: ['C', 'B', 'A'],
       });
     });
 

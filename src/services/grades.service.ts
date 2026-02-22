@@ -327,20 +327,36 @@ export class GradesService {
       };
     });
 
-    // 5. 응답 데이터 구성
+    // 5. 문제별 정답/학생 답안 매핑
+    const { studentAnswers } = grade.lectureEnrollment;
+    const answerMap = new Map(
+      (studentAnswers ?? []).map((answer) => [answer.questionId, answer]),
+    );
+
+    const questions = grade.exam.questions.map((q) => {
+      const studentAnswer = answerMap.get(q.id);
+
+      return {
+        questionNumber: q.questionNumber,
+        content: q.content,
+        score: q.score,
+        correctAnswer: q.correctAnswer,
+        correctRate: q.statistic?.correctRate ?? 0,
+        choiceRates: q.statistic?.choiceRates ?? null,
+        submittedAnswer: studentAnswer?.submittedAnswer ?? null,
+        isCorrect: studentAnswer?.isCorrect ?? false,
+      };
+    });
+
+    // 6. 응답 데이터 구성
     return {
       studentName: grade.lectureEnrollment.enrollment.studentName,
       score: grade.score,
       rank,
       average: Math.round(average * 10) / 10,
       examTitle: grade.exam.title,
+      questions,
       assignments,
-      questionStatistics: grade.exam.questions.map((q) => ({
-        questionNumber: q.questionNumber,
-        score: q.score,
-        correctRate: q.statistic?.correctRate ?? 0,
-        choiceRates: q.statistic?.choiceRates ?? null,
-      })),
     };
   }
 
@@ -522,19 +538,12 @@ export class GradesService {
       const { assignment } = aer;
       const studentResult = resultMap.get(assignment.id);
 
-      // resultIndex로 resultPresets에서 라벨 가져오기
-      let resultLabel: string | null = null;
-      if (studentResult && assignment.category.resultPresets) {
-        resultLabel =
-          assignment.category.resultPresets[studentResult.resultIndex] ?? null;
-      }
-
       return {
         assignmentId: assignment.id,
         title: assignment.title,
-        categoryName: assignment.category.name,
+        categoryName: assignment.category?.name ?? '',
         resultIndex: studentResult?.resultIndex ?? null,
-        resultLabel,
+        resultPresets: assignment.category?.resultPresets ?? [],
       };
     });
 
