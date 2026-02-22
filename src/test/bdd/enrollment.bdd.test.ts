@@ -136,6 +136,7 @@ describe('수강 신청 BDD 테스트 - @integration', () => {
 
     beforeEach(async () => {
       await dbTestUtil.truncateAll();
+      jest.clearAllMocks();
 
       const user = await prisma.user.create({
         data: {
