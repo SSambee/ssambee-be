@@ -476,6 +476,17 @@ export class AuthService {
       userType,
     };
 
+    const { setCookie } = await this.callAuthHandler<{ status: boolean }>({
+      path: '/update-user',
+      method: 'POST',
+      headers,
+      body: {
+        name: data.name || data.email,
+        userType,
+      },
+      fallbackErrorMessage: '사용자 정보 업데이트에 실패했습니다.',
+    });
+
     const updatedResult = await this.prisma.$transaction(async (tx) => {
       const updatedUser = await tx.user.update({
         where: { id: authSession.user.id },
@@ -500,25 +511,14 @@ export class AuthService {
         profile = await this.createParent(authSession.user.id, data, tx);
       }
 
-      const { setCookie } = await this.callAuthHandler<{ status: boolean }>({
-        path: '/update-user',
-        method: 'POST',
-        headers,
-        body: {
-          name: data.name || data.email,
-          userType,
-        },
-        fallbackErrorMessage: '사용자 정보 업데이트에 실패했습니다.',
-      });
-
-      return { updatedUser, profile, setCookie };
+      return { updatedUser, profile };
     });
 
     if (!updatedResult) {
       throw new NotFoundException('사용자를 찾을 수 없습니다.');
     }
 
-    const { updatedUser, profile, setCookie } = updatedResult;
+    const { updatedUser, profile } = updatedResult;
 
     const user: AuthUser = {
       id: updatedUser.id,
