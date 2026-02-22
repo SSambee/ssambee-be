@@ -30,7 +30,11 @@ export type CreateAssistantOrderDto = z.infer<
  */
 export const getAssistantOrdersQuerySchema = z.object({
   /** 상태별 필터링 (대기, 진행중, 완료) */
-  status: z.enum(['PENDING', 'IN_PROGRESS', 'END']).optional(),
+  workStatus: z.enum(['PENDING', 'IN_PROGRESS', 'END']).optional(),
+  /** 중요도별 필터링 (보통, 높음, 긴급) */
+  priority: z.enum(['NORMAL', 'HIGH', 'URGENT']).optional(),
+  /** 제목 검색어 */
+  search: z.string().max(100, '검색어는 100자 이내로 입력해주세요.').optional(),
   /** 페이지 번호 */
   page: z.coerce.number().int().min(1).default(1),
   /** 페이지당 항목 수 */
@@ -51,7 +55,7 @@ export const updateAssistantOrderSchema = z.object({
   /** 상세 메모 */
   memo: z.string().optional(),
   /** 지시 상태 */
-  status: z.enum(['PENDING', 'IN_PROGRESS', 'END']).optional(),
+  workStatus: z.enum(['PENDING', 'IN_PROGRESS', 'END']).optional(),
   /** 우선순위 */
   priority: z.enum(['NORMAL', 'HIGH', 'URGENT']).optional(),
   /** 관련 강의 ID */
@@ -72,7 +76,7 @@ export type UpdateAssistantOrderDto = z.infer<
  */
 export const updateAssistantOrderStatusSchema = z.object({
   /** 변경할 상태 */
-  status: z.enum(['PENDING', 'IN_PROGRESS', 'END']),
+  workStatus: z.enum(['PENDING', 'IN_PROGRESS', 'END']),
 });
 
 /** 조교 지시사항 상태 변경 DTO 타입 */

@@ -94,11 +94,23 @@ export class AssistantOrderService {
     }
 
     return {
-      ...order,
+      id: order.id,
+      title: order.title,
+      memo: order.memo,
+      workStatus: order.status,
+      priority: order.priority,
+      createdAt: order.createdAt,
+      deadlineAt: order.deadlineAt,
       instructor: {
         id: order.instructor.id,
         name: order.instructor.user.name,
       },
+      assistant: {
+        id: order.assistant.id,
+        name: order.assistant.name,
+      },
+      attachments: order.attachments,
+      lecture: order.lecture,
     };
   }
 
@@ -109,11 +121,13 @@ export class AssistantOrderService {
     instructorId: string,
     query: GetAssistantOrdersQueryDto,
   ) {
-    const { status, page, limit } = query;
+    const { workStatus, priority, search, page, limit } = query;
 
     const { orders, totalCount } =
       await this.assistantOrderRepository.findManyByInstructorId(instructorId, {
-        status,
+        status: workStatus,
+        priority,
+        search,
         page,
         limit,
       });
@@ -121,9 +135,11 @@ export class AssistantOrderService {
     const stats =
       await this.assistantOrderRepository.getStatsByInstructorId(instructorId);
 
+    const mappedOrders = orders.map((order) => this.mapToOrderListItem(order));
+
     return {
       stats,
-      orders,
+      orders: mappedOrders,
       pagination: {
         totalCount,
         page,
@@ -139,22 +155,50 @@ export class AssistantOrderService {
     assistantId: string,
     query: GetAssistantOrdersQueryDto,
   ) {
-    const { status, page, limit } = query;
+    const { workStatus, priority, search, page, limit } = query;
 
     const { orders, totalCount } =
       await this.assistantOrderRepository.findManyByAssistantId(assistantId, {
-        status,
+        status: workStatus,
+        priority,
+        search,
         page,
         limit,
       });
 
+    const mappedOrders = orders.map((order) => this.mapToOrderListItem(order));
+
     return {
-      orders,
+      orders: mappedOrders,
       pagination: {
         totalCount,
         page,
         limit,
       },
+    };
+  }
+
+  private mapToOrderListItem(order: {
+    id: string;
+    title: string;
+    memo: string | null;
+    status: string;
+    priority: string;
+    createdAt: Date;
+    deadlineAt: Date | null;
+    instructor?: { user: { name: string } };
+    assistant?: { name: string };
+  }) {
+    return {
+      id: order.id,
+      title: order.title,
+      memo: order.memo,
+      workStatus: order.status,
+      priority: order.priority,
+      createdAt: order.createdAt,
+      deadlineAt: order.deadlineAt,
+      instructorName: order.instructor?.user?.name,
+      assistantName: order.assistant?.name,
     };
   }
 
@@ -182,7 +226,7 @@ export class AssistantOrderService {
     }
 
     // 2. Material 검증 (materialIds가 있는 경우)
-    const { materialIds, deadlineAt, ...rest } = data;
+    const { materialIds, deadlineAt, workStatus, ...rest } = data;
     const attachments = [];
 
     if (materialIds && materialIds.length > 0) {
@@ -207,6 +251,7 @@ export class AssistantOrderService {
     // 3. 업데이트 수행
     return await this.assistantOrderRepository.update(orderId, {
       ...rest,
+      status: workStatus,
       deadlineAt: deadlineAt ? new Date(deadlineAt) : undefined,
       attachments: attachments.length > 0 ? attachments : undefined,
     });
@@ -219,7 +264,7 @@ export class AssistantOrderService {
     userType: UserType,
     profileId: string,
     orderId: string,
-    status: string,
+    workStatus: string,
   ) {
     // 1. 지시 조회 및 권한 검증
     const order = await this.assistantOrderRepository.findById(orderId);
@@ -236,7 +281,7 @@ export class AssistantOrderService {
     }
 
     // 2. 상태 업데이트 수행
-    return await this.assistantOrderRepository.updateStatus(orderId, status);
+    return await this.assistantOrderRepository.updateStatus(orderId, workStatus);
   }
 
   /**

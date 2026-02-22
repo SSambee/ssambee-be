@@ -132,8 +132,20 @@ describe('AssistantOrderService', () => {
 
     it('페이지네이션과 통계와 함께 요청들을 반환해야 한다', async () => {
       const mockOrders = [
-        { id: '1', title: 'Order 1' },
-        { id: '2', title: 'Order 2' },
+        {
+          id: '1',
+          title: 'Order 1',
+          status: 'PENDING',
+          instructor: { user: { name: 'Inst' } },
+          assistant: { name: 'Asst' },
+        },
+        {
+          id: '2',
+          title: 'Order 2',
+          status: 'END',
+          instructor: { user: { name: 'Inst' } },
+          assistant: { name: 'Asst' },
+        },
       ];
       const mockTotalCount = 2;
       const mockStats = {
@@ -157,6 +169,8 @@ describe('AssistantOrderService', () => {
         instructorId,
         {
           status: undefined,
+          priority: undefined,
+          search: undefined,
           page: 1,
           limit: 10,
         },
@@ -164,18 +178,12 @@ describe('AssistantOrderService', () => {
       expect(mockOrderRepo.getStatsByInstructorId).toHaveBeenCalledWith(
         instructorId,
       );
-      expect(result).toEqual({
-        stats: mockStats,
-        orders: mockOrders,
-        pagination: {
-          totalCount: mockTotalCount,
-          page: 1,
-          limit: 10,
-        },
-      });
+      expect(result.orders[0]).toHaveProperty('workStatus', 'PENDING');
+      expect(result.orders[0]).toHaveProperty('instructorName', 'Inst');
+      expect(result.pagination.totalCount).toBe(mockTotalCount);
     });
 
-    it('상태로 필터링해야 한다', async () => {
+    it('상태, 중요도, 검색어로 필터링해야 한다', async () => {
       const mockOrders = [{ id: '1', title: 'Order 1' }];
       const mockTotalCount = 1;
 
@@ -184,13 +192,21 @@ describe('AssistantOrderService', () => {
         totalCount: mockTotalCount,
       });
 
-      const query = { status: 'PENDING', page: 1, limit: 10 } as const;
+      const query = {
+        workStatus: 'PENDING',
+        priority: 'HIGH',
+        search: 'Task',
+        page: 1,
+        limit: 10,
+      } as const;
       await service.getOrdersByInstructor(instructorId, query);
 
       expect(mockOrderRepo.findManyByInstructorId).toHaveBeenCalledWith(
         instructorId,
         {
           status: 'PENDING',
+          priority: 'HIGH',
+          search: 'Task',
           page: 1,
           limit: 10,
         },
@@ -203,10 +219,15 @@ describe('AssistantOrderService', () => {
 
     it('조교용 요청들을 페이지네이션과 함께 반환해야 한다', async () => {
       const mockOrders = [
-        { id: '1', title: 'Order 1' },
-        { id: '2', title: 'Order 2' },
+        {
+          id: '1',
+          title: 'Order 1',
+          status: 'PENDING',
+          instructor: { user: { name: 'Inst' } },
+          assistant: { name: 'Asst' },
+        },
       ];
-      const mockTotalCount = 2;
+      const mockTotalCount = 1;
 
       (mockOrderRepo.findManyByAssistantId as jest.Mock).mockResolvedValue({
         orders: mockOrders,
@@ -220,21 +241,17 @@ describe('AssistantOrderService', () => {
         assistantId,
         {
           status: undefined,
+          priority: undefined,
+          search: undefined,
           page: 1,
           limit: 10,
         },
       );
-      expect(result).toEqual({
-        orders: mockOrders,
-        pagination: {
-          totalCount: mockTotalCount,
-          page: 1,
-          limit: 10,
-        },
-      });
+      expect(result.orders[0]).toHaveProperty('workStatus', 'PENDING');
+      expect(result.pagination.totalCount).toBe(mockTotalCount);
     });
 
-    it('상태로 필터링해야 한다', async () => {
+    it('상태, 중요도, 검색어로 필터링해야 한다', async () => {
       const mockOrders = [{ id: '1', title: 'Order 1' }];
       const mockTotalCount = 1;
 
@@ -243,13 +260,21 @@ describe('AssistantOrderService', () => {
         totalCount: mockTotalCount,
       });
 
-      const query = { status: 'PENDING', page: 1, limit: 10 } as const;
+      const query = {
+        workStatus: 'PENDING',
+        priority: 'HIGH',
+        search: 'Task',
+        page: 1,
+        limit: 10,
+      } as const;
       await service.getOrdersByAssistant(assistantId, query);
 
       expect(mockOrderRepo.findManyByAssistantId).toHaveBeenCalledWith(
         assistantId,
         {
           status: 'PENDING',
+          priority: 'HIGH',
+          search: 'Task',
           page: 1,
           limit: 10,
         },
@@ -266,9 +291,14 @@ describe('AssistantOrderService', () => {
       instructorId,
       assistantId,
       title: 'Task',
+      status: 'PENDING',
       instructor: {
         id: instructorId,
         user: { name: 'Instructor Name' },
+      },
+      assistant: {
+        id: assistantId,
+        name: 'Assistant Name',
       },
     };
 
@@ -282,11 +312,23 @@ describe('AssistantOrderService', () => {
       );
 
       expect(result).toEqual({
-        ...mockOrder,
+        id: orderId,
+        title: 'Task',
+        memo: undefined,
+        workStatus: 'PENDING',
+        priority: undefined,
+        createdAt: undefined,
+        deadlineAt: undefined,
         instructor: {
           id: instructorId,
           name: 'Instructor Name',
         },
+        assistant: {
+          id: assistantId,
+          name: 'Assistant Name',
+        },
+        attachments: undefined,
+        lecture: undefined,
       });
     });
 
@@ -300,11 +342,23 @@ describe('AssistantOrderService', () => {
       );
 
       expect(result).toEqual({
-        ...mockOrder,
+        id: orderId,
+        title: 'Task',
+        memo: undefined,
+        workStatus: 'PENDING',
+        priority: undefined,
+        createdAt: undefined,
+        deadlineAt: undefined,
         instructor: {
           id: instructorId,
           name: 'Instructor Name',
         },
+        assistant: {
+          id: assistantId,
+          name: 'Assistant Name',
+        },
+        attachments: undefined,
+        lecture: undefined,
       });
     });
 
@@ -344,13 +398,15 @@ describe('AssistantOrderService', () => {
 
     const updateData = {
       title: 'Updated Title',
+      workStatus: 'IN_PROGRESS',
     };
 
     it('요청를 성공적으로 수정해야 한다', async () => {
       (mockOrderRepo.findById as jest.Mock).mockResolvedValue(mockOrder);
       (mockOrderRepo.update as jest.Mock).mockResolvedValue({
         ...mockOrder,
-        ...updateData,
+        title: updateData.title,
+        status: updateData.workStatus,
       });
 
       await service.updateOrder(
@@ -361,7 +417,8 @@ describe('AssistantOrderService', () => {
       );
 
       expect(mockOrderRepo.update).toHaveBeenCalledWith(orderId, {
-        ...updateData,
+        title: updateData.title,
+        status: updateData.workStatus,
         deadlineAt: undefined,
         attachments: undefined,
       });
