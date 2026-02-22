@@ -771,6 +771,7 @@ export class CommentsService {
           );
 
         let hasAccess = false;
+        let matchedEnrollmentId: string | null = null;
         if (post.lectureId) {
           for (const enrollment of enrollments) {
             const le =
@@ -780,22 +781,27 @@ export class CommentsService {
               );
             if (le) {
               hasAccess = true;
+              matchedEnrollmentId = enrollment.id;
               break;
             }
           }
         } else {
-          hasAccess = enrollments.some(
+          const matched = enrollments.find(
             (e) => e.instructorId === post.instructorId,
           );
+          if (matched) {
+            hasAccess = true;
+            matchedEnrollmentId = matched.id;
+          }
         }
 
         if (!hasAccess) throw new ForbiddenException('접근 권한이 없습니다.');
 
         // SELECTED 스코프인 경우 자녀가 타겟에 포함되어있는지
         if (post.scope === PostScope.SELECTED) {
-          const enrollmentIds = enrollments.map((e) => e.id);
-          const isTargeted = post.targets?.some((t: { enrollmentId: string }) =>
-            enrollmentIds.includes(t.enrollmentId),
+          const isTargeted = post.targets?.some(
+            (t: { enrollmentId: string }) =>
+              t.enrollmentId === matchedEnrollmentId,
           );
           if (!isTargeted)
             throw new ForbiddenException('접근 권한이 없는 게시물입니다.');
