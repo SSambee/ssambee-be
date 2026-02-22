@@ -10,7 +10,7 @@ interface TableNameResult {
 export const dbTestUtil = {
   /**
    * 모든 테이블 데이터 삭제
-   * 주의: 외래 키 제약 조건으로 인해 삭제 순서가 중요함
+   * CASCADE로 인해 FK 제약 조건이 자동으로 처리됨
    */
   async truncateAll() {
     try {
