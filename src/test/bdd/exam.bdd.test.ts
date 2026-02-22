@@ -91,10 +91,10 @@ describe('시험 BDD 테스트 - @integration', () => {
       const savedExam = await prisma.exam.findFirst({
         where: { lectureId: lecture.id, title: examData.title },
       });
-      expect(savedExam).toBeDefined();
+      expect(savedExam).not.toBeNull();
 
       const questions = await prisma.question.findMany({
-        where: { examId: savedExam?.id },
+        where: { examId: savedExam!.id },
       });
       expect(questions).toHaveLength(1);
       expect(questions[0].content).toBe('문제 1');
