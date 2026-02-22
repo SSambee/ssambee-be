@@ -339,6 +339,9 @@ export class GradesService {
       return {
         questionNumber: q.questionNumber,
         content: q.content,
+        type: q.type,
+        source: q.source ?? null,
+        category: q.category ?? null,
         score: q.score,
         correctAnswer: q.correctAnswer,
         correctRate: q.statistic?.correctRate ?? 0,
@@ -355,6 +358,7 @@ export class GradesService {
       rank,
       average: Math.round(average * 10) / 10,
       examTitle: grade.exam.title,
+      examCategory: grade.exam.category,
       questions,
       assignments,
     };

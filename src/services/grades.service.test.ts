@@ -419,11 +419,15 @@ describe('GradesService - @unit #critical', () => {
         lectureEnrollmentId: 'le-1',
         exam: {
           title: '중간고사',
+          category: '정기고사',
           questions: [
             {
               id: 'q1',
               questionNumber: 1,
               content: '문제 1',
+              type: 'MULTIPLE',
+              source: null,
+              category: '유형1',
               score: 10,
               correctAnswer: 'A',
               statistic: {
@@ -435,6 +439,9 @@ describe('GradesService - @unit #critical', () => {
               id: 'q2',
               questionNumber: 2,
               content: '문제 2',
+              type: 'ESSAY',
+              source: 'EBS',
+              category: '서술형',
               score: 5,
               correctAnswer: '정답',
               statistic: {
@@ -508,6 +515,9 @@ describe('GradesService - @unit #critical', () => {
         {
           questionNumber: 1,
           content: '문제 1',
+          type: 'MULTIPLE',
+          source: null,
+          category: '유형1',
           score: 10,
           correctAnswer: 'A',
           correctRate: 70,
@@ -518,6 +528,9 @@ describe('GradesService - @unit #critical', () => {
         {
           questionNumber: 2,
           content: '문제 2',
+          type: 'ESSAY',
+          source: 'EBS',
+          category: '서술형',
           score: 5,
           correctAnswer: '정답',
           correctRate: 100,
@@ -526,6 +539,7 @@ describe('GradesService - @unit #critical', () => {
           isCorrect: false,
         },
       ]);
+      expect(result.examCategory).toBe('정기고사');
       expect(result.average).toBe(88.8);
     });
   });
