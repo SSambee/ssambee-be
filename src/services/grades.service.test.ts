@@ -409,6 +409,127 @@ describe('GradesService - @unit #critical', () => {
     });
   });
 
+  describe('[조회] getGradeDetail (학생/학부모용)', () => {
+    it('과제 결과와 프리셋 배열을 함께 반환한다', async () => {
+      const gradeId = 'grade-1';
+      const mockGrade = {
+        score: 92,
+        rank: 1,
+        examId: mockExam.id,
+        lectureEnrollmentId: 'le-1',
+        exam: {
+          title: '중간고사',
+          questions: [
+            {
+              id: 'q1',
+              questionNumber: 1,
+              content: '문제 1',
+              score: 10,
+              correctAnswer: 'A',
+              statistic: {
+                correctRate: 70,
+                choiceRates: null,
+              },
+            },
+            {
+              id: 'q2',
+              questionNumber: 2,
+              content: '문제 2',
+              score: 5,
+              correctAnswer: '정답',
+              statistic: {
+                correctRate: 100,
+                choiceRates: null,
+              },
+            },
+          ],
+          assignmentsOnExamReport: [
+            {
+              assignment: {
+                id: 'a1',
+                title: '과제1',
+                category: {
+                  name: '주간테스트',
+                  resultPresets: ['C', 'B', 'A'],
+                },
+              },
+            },
+          ],
+        },
+        lectureEnrollment: {
+          enrollment: {
+            studentName: '홍길동',
+          },
+          assignmentResults: [{ assignmentId: 'a1', resultIndex: 2 }],
+          studentAnswers: [
+            {
+              questionId: 'q1',
+              submittedAnswer: 'A',
+              isCorrect: true,
+            },
+            {
+              questionId: 'q2',
+              submittedAnswer: '오답',
+              isCorrect: false,
+            },
+          ],
+        },
+      } as unknown as Awaited<
+        ReturnType<typeof mockGradesRepo.findGradeReportByGradeId>
+      >;
+
+      mockGradesRepo.findGradeReportByGradeId.mockResolvedValue(mockGrade);
+      mockGradesRepo.calculateRankByExamId.mockResolvedValue(1);
+      mockGradesRepo.calculateAverageByExamId.mockResolvedValue(88.8);
+
+      const result = await gradesService.getGradeDetail(
+        gradeId,
+        mockUserType,
+        mockProfileId,
+      );
+
+      expect(
+        mockPermissionService.validateLectureEnrollmentReadAccess,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({ enrollment: { studentName: '홍길동' } }),
+        mockUserType,
+        mockProfileId,
+      );
+      expect(result.assignments).toEqual([
+        {
+          assignmentId: 'a1',
+          title: '과제1',
+          categoryName: '주간테스트',
+          resultIndex: 2,
+          resultPresets: ['C', 'B', 'A'],
+        },
+      ]);
+      expect(result.questions).toEqual([
+        {
+          questionNumber: 1,
+          content: '문제 1',
+          score: 10,
+          correctAnswer: 'A',
+          correctRate: 70,
+          choiceRates: null,
+          submittedAnswer: 'A',
+          isCorrect: true,
+        },
+        {
+          questionNumber: 2,
+          content: '문제 2',
+          score: 5,
+          correctAnswer: '정답',
+          correctRate: 100,
+          choiceRates: null,
+          submittedAnswer: '오답',
+          isCorrect: false,
+        },
+      ]);
+      expect(result.average).toBe(88.8);
+    });
+  });
+
   describe('[조회] getGradeDetailForInstructor', () => {
     it('유효한 요청에 대해 성적 및 답안 정보를 반환한다', async () => {
       // 준비
@@ -641,7 +762,7 @@ describe('GradesService - @unit #critical', () => {
         title: '과제1',
         categoryName: '주간테스트',
         resultIndex: 2,
-        resultLabel: 'A',
+        resultPresets: ['C', 'B', 'A'],
       });
     });
 
