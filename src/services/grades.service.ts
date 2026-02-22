@@ -286,24 +286,15 @@ export class GradesService {
 
   /** 성적 상세 조회 (학생/학부모용) */
   async getGradeDetail(gradeId: string, userType: UserType, profileId: string) {
-    // 1. 성적 상세 조회
-    const grade = await this.gradesRepo.findByIdWithDetails(gradeId);
+    // 1. 성적 및 성적표 조회용 정보 조회
+    const grade = await this.gradesRepo.findGradeReportByGradeId(gradeId);
     if (!grade) {
       throw new NotFoundException('성적 정보를 찾을 수 없습니다.');
     }
 
     // 2. LectureEnrollment 정보로 권한 확인
-    const lectureEnrollment =
-      await this.lectureEnrollmentsRepo.findByIdWithDetails(
-        grade.lectureEnrollmentId,
-      );
-
-    if (!lectureEnrollment) {
-      throw new NotFoundException('수강 정보를 찾을 수 없습니다.');
-    }
-
     await this.permissionService.validateLectureEnrollmentReadAccess(
-      lectureEnrollment,
+      grade.lectureEnrollment,
       userType,
       profileId,
     );
@@ -314,13 +305,33 @@ export class GradesService {
       this.gradesRepo.calculateAverageByExamId(grade.examId),
     ]);
 
-    // 4. 응답 데이터 구성
+    // 4. 과제 결과 매핑 (연결된 과제 + 해당 수강생 결과)
+    const { assignmentsOnExamReport } = grade.exam;
+    const resultMap = new Map(
+      grade.lectureEnrollment.assignmentResults.map((r) => [r.assignmentId, r]),
+    );
+
+    const assignments = assignmentsOnExamReport.map((aer) => {
+      const assignment = aer.assignment;
+      const studentResult = resultMap.get(assignment.id);
+
+      return {
+        assignmentId: assignment.id,
+        title: assignment.title,
+        categoryName: assignment.category.name,
+        resultIndex: studentResult?.resultIndex ?? null,
+        resultPresets: assignment.category.resultPresets,
+      };
+    });
+
+    // 5. 응답 데이터 구성
     return {
       studentName: grade.lectureEnrollment.enrollment.studentName,
       score: grade.score,
       rank,
       average: Math.round(average * 10) / 10,
       examTitle: grade.exam.title,
+      assignments,
       questionStatistics: grade.exam.questions.map((q) => ({
         questionNumber: q.questionNumber,
         score: q.score,
