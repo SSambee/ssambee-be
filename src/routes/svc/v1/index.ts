@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { svcAuthRouter } from './auth.routes.js';
 import { svcEnrollmentsRouter } from './enrollments.route.js';
 import { svcChildrenRouter } from './children.route.js';
+import { svcLecturesRouter } from './lectures.route.js';
 import { svcGradesRouter } from './grades.route.js';
 import { svcClinicsRouter } from './clinics.route.js';
 import { svcMaterialsRouter } from './materials.route.js';
@@ -16,8 +17,12 @@ export const svcV1Router = Router();
 /** 인증 라우트 */
 svcV1Router.use('/auth', svcAuthRouter);
 
-/** 학생/학부모 강사-수강 목록 라우트 */
+/** 학생 강사-수강 목록 라우트 */
 svcV1Router.use('/enrollments', svcEnrollmentsRouter);
+
+/** 학생 강의별 수강 라우트 (하위 호환성 유지) */
+svcV1Router.use('/lectures', svcLecturesRouter);
+svcV1Router.use('/enrollments/lectures', svcLecturesRouter);
 
 /** 학부모/자녀 라우트 */
 svcV1Router.use('/children', svcChildrenRouter);
