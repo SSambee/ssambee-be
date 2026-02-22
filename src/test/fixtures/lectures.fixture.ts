@@ -25,7 +25,9 @@ export const mockInstructorWithUser = {
 export const mockLectures: Record<string, LectureDetail> = {
   /** 기본 강의 */
   basic: {
-    id: faker.string.alphanumeric({ length: 24, casing: 'lower' }), // cuid2 형식 (24자 소문자 영숫자)
+    id:
+      faker.string.alpha({ length: 1, casing: 'lower' }) +
+      faker.string.alphanumeric({ length: 23, casing: 'lower' }), // cuid2 형식 (첫 자: 소문자 알파벳, 나머지 23자: 소문자 영숫자)
     instructorId: mockInstructor.id,
     title: faker.commerce.productName() + ' 강의',
     subject: faker.helpers.arrayElement(['국어', '영어', '수학']),
