@@ -29,18 +29,36 @@ export class MorganLambdaStream implements StreamOptions {
    * @param message Morgan 포맷에 따라 생성된 로그 문자열
    */
   write(message: string): void {
-    const url = config.MONITOR_LAMBDA_URL;
-    const apiKey = config.INTERNAL_INGEST_SECRET; // 인가 처리를 위한 시크릿
-
-    // URL이 설정되어 있지 않으면 로깅을 스킵합니다.
-    if (!url) {
+    if (!config.MONITOR_LAMBDA_URL) {
       return;
     }
 
+    const url = `${config.MONITOR_LAMBDA_URL}/ingest`;
+    const apiKey = config.INTERNAL_INGEST_SECRET; // 인가 처리를 위한 시크릿
+
+    const trimmedMessage = message.trim();
+
+    // 상태 코드를 파싱하여 로그 레벨 결정 (예: "GET /api 200 ..." -> 200)
+    // Morgan 포맷에 따라 다를 수 있지만 일반적으로 상태 코드는 숫자 3자리입니다.
+    let level: LogLevel = LOG_LEVEL.INFO;
+    const statusMatch = trimmedMessage.match(/\s(\d{3})(?:\s|$)/);
+    if (statusMatch) {
+      const statusCode = parseInt(statusMatch[1], 10);
+      if (statusCode >= 500) {
+        level = LOG_LEVEL.ERROR;
+      } else if (statusCode >= 400) {
+        level = LOG_LEVEL.INFO;
+      }
+    }
+
     const payload: LogPayload = {
-      message: message.trim(),
+      message: trimmedMessage,
       timestamp: new Date().toISOString(),
-      level: LOG_LEVEL.INFO,
+      level: level,
+    };
+
+    const envelope = {
+      logs: [payload],
     };
 
     // 비동기 비차단(Non-blocking) 방식으로 전송
@@ -51,7 +69,7 @@ export class MorganLambdaStream implements StreamOptions {
         'Content-Type': 'application/json',
         ...(apiKey && { 'x-internal-secret': apiKey }),
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(envelope),
       signal: AbortSignal.timeout(5000),
     })
       .then((res) => {
