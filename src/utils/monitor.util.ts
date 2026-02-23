@@ -25,9 +25,14 @@ const postToLambda = async (data: object) => {
   if (isTest() || !config.ALARM_LAMBDA_URL) return;
 
   try {
-    const response = await fetch(config.ALARM_LAMBDA_URL, {
+    const response = await fetch(`${config.ALARM_LAMBDA_URL}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(config.INTERNAL_INGEST_SECRET && {
+          'x-internal-secret': config.INTERNAL_INGEST_SECRET,
+        }),
+      },
       body: JSON.stringify(data),
       signal: AbortSignal.timeout(LAMBDA_FETCH_TIMEOUT_MS),
     });

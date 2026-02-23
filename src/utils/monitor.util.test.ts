@@ -26,6 +26,9 @@ describe('Monitor Utility - @unit', () => {
   });
 
   it('should collect metrics and send them via fetch when ALARM_LAMBDA is set', async () => {
+    const { config } = await import('../config/env.config.js');
+    config.INTERNAL_INGEST_SECRET = 'test-secret';
+
     (os.totalmem as jest.Mock).mockReturnValue(1000);
     (os.freemem as jest.Mock).mockReturnValue(200);
     (os.loadavg as jest.Mock).mockReturnValue([0.5, 0.4, 0.3]);
@@ -37,7 +40,10 @@ describe('Monitor Utility - @unit', () => {
       'http://mock-lambda.url',
       expect.objectContaining({
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-secret': 'test-secret',
+        },
       }),
     );
 
