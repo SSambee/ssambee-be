@@ -47,7 +47,12 @@ redis.on(REDIS_STATUS.ERROR, async (error: Error) => {
     try {
       const response = await fetch(config.ALARM_LAMBDA_URL!, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(config.INTERNAL_INGEST_SECRET && {
+            'x-internal-secret': config.INTERNAL_INGEST_SECRET,
+          }),
+        },
         signal: controller.signal,
         body: JSON.stringify({
           type: 'REDIS_ERROR',
