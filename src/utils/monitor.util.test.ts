@@ -9,7 +9,7 @@ jest.mock('../config/env.config.js', () => ({
     INTERNAL_INGEST_SECRET: undefined,
   },
   isTest: jest.fn().mockReturnValue(false),
-  isDevelopment: jest.fn().mockReturnValue(true),
+  isDevelopment: jest.fn().mockReturnValue(false),
   isProduction: () => true,
 }));
 
