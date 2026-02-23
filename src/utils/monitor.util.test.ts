@@ -5,10 +5,11 @@ jest.mock('node:os');
 jest.mock('../config/env.config.js', () => ({
   config: {
     ALARM_LAMBDA_URL: 'http://mock-lambda.url',
-    ENVIRONMENT: 'development',
+    ENVIRONMENT: 'production',
   },
   isTest: jest.fn().mockReturnValue(false),
   isDevelopment: jest.fn().mockReturnValue(true),
+  isProduction: () => true,
 }));
 
 describe('Monitor Utility - @unit', () => {

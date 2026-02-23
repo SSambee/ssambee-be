@@ -1,5 +1,5 @@
 import { StreamOptions } from 'morgan';
-import { config } from '../config/env.config.js';
+import { config, isProduction } from '../config/env.config.js';
 
 /**
  * 로그 레벨 정의 (Enum 대신 Const Object와 Union Type 사용)
@@ -29,7 +29,7 @@ export class MorganLambdaStream implements StreamOptions {
    * @param message Morgan 포맷에 따라 생성된 로그 문자열
    */
   write(message: string): void {
-    if (!config.MONITOR_LAMBDA_URL) {
+    if (!isProduction() || !config.MONITOR_LAMBDA_URL) {
       return;
     }
 

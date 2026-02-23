@@ -7,6 +7,7 @@ jest.mock('../config/env.config.js', () => ({
     MONITOR_LAMBDA_URL: 'https://example.com/log',
     INTERNAL_INGEST_SECRET: 'test-api-key',
   },
+  isProduction: () => true,
 }));
 
 describe('MorganLambdaStream', () => {
