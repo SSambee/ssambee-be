@@ -1,8 +1,10 @@
 import * as Sentry from '@sentry/node';
 import { nodeProfilingIntegration } from '@sentry/profiling-node';
-import { config } from './env.config.js';
+import { config, isProduction } from './env.config.js';
 
 export const initSentry = () => {
+  if (!isProduction()) return;
+
   Sentry.init({
     dsn: config.SENTRY_DSN,
     integrations: [nodeProfilingIntegration()],

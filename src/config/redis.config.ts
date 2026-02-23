@@ -1,5 +1,5 @@
 import { Redis } from 'ioredis';
-import { config } from './env.config.js';
+import { config, isProduction } from './env.config.js';
 
 export const REDIS_STATUS = {
   CONNECT: 'connect',
@@ -35,6 +35,11 @@ redis.on(REDIS_STATUS.ERROR, async (error: Error) => {
   if (now - lastAlertTimestamp < ALERT_COOLDOWN_MS) return;
   lastAlertTimestamp = now;
 
+  if (!isProduction()) {
+    console.error('[Redis Error]', error.message);
+    return;
+  }
+
   if (!config.ALARM_LAMBDA_URL) {
     console.error('[Redis Error] 알람 URL이 설정되지 않음', error.message);
     return;
@@ -47,7 +52,12 @@ redis.on(REDIS_STATUS.ERROR, async (error: Error) => {
     try {
       const response = await fetch(config.ALARM_LAMBDA_URL!, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(config.INTERNAL_INGEST_SECRET && {
+            'x-internal-secret': config.INTERNAL_INGEST_SECRET,
+          }),
+        },
         signal: controller.signal,
         body: JSON.stringify({
           type: 'REDIS_ERROR',

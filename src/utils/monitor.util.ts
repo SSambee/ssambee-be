@@ -1,5 +1,10 @@
 import os from 'node:os';
-import { config, isDevelopment, isTest } from '../config/env.config.js';
+import {
+  config,
+  isDevelopment,
+  isProduction,
+  isTest,
+} from '../config/env.config.js';
 
 /**
  * 전송할 지표 인터페이스
@@ -22,12 +27,17 @@ const LAMBDA_FETCH_TIMEOUT_MS = 10000; // 10 초 postToLambda 무한대기 방�
 
 /** 전송 로직 */
 const postToLambda = async (data: object) => {
-  if (isTest() || !config.ALARM_LAMBDA_URL) return;
+  if (!isProduction() || !config.ALARM_LAMBDA_URL) return;
 
   try {
-    const response = await fetch(config.ALARM_LAMBDA_URL, {
+    const response = await fetch(`${config.ALARM_LAMBDA_URL}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(config.INTERNAL_INGEST_SECRET && {
+          'x-internal-secret': config.INTERNAL_INGEST_SECRET,
+        }),
+      },
       body: JSON.stringify(data),
       signal: AbortSignal.timeout(LAMBDA_FETCH_TIMEOUT_MS),
     });
@@ -79,7 +89,7 @@ let monitoringInterval: NodeJS.Timeout | null = null;
 
 /** 모니터링 주기를 시작합니다. */
 export const startSystemMonitoring = (intervalMs: number = 60000) => {
-  if (isTest() || monitoringInterval) return;
+  if (!isProduction() || monitoringInterval) return;
 
   // 최초 즉시 실행
   sendSystemMetrics();

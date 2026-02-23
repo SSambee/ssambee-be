@@ -5,10 +5,12 @@ jest.mock('node:os');
 jest.mock('../config/env.config.js', () => ({
   config: {
     ALARM_LAMBDA_URL: 'http://mock-lambda.url',
-    ENVIRONMENT: 'development',
+    ENVIRONMENT: 'production',
+    INTERNAL_INGEST_SECRET: undefined,
   },
   isTest: jest.fn().mockReturnValue(false),
-  isDevelopment: jest.fn().mockReturnValue(true),
+  isDevelopment: jest.fn().mockReturnValue(false),
+  isProduction: () => true,
 }));
 
 describe('Monitor Utility - @unit', () => {
@@ -26,6 +28,10 @@ describe('Monitor Utility - @unit', () => {
   });
 
   it('should collect metrics and send them via fetch when ALARM_LAMBDA is set', async () => {
+    const { config } = await import('../config/env.config.js');
+    const originalSecret = config.INTERNAL_INGEST_SECRET;
+    config.INTERNAL_INGEST_SECRET = 'test-secret';
+
     (os.totalmem as jest.Mock).mockReturnValue(1000);
     (os.freemem as jest.Mock).mockReturnValue(200);
     (os.loadavg as jest.Mock).mockReturnValue([0.5, 0.4, 0.3]);
@@ -37,7 +43,10 @@ describe('Monitor Utility - @unit', () => {
       'http://mock-lambda.url',
       expect.objectContaining({
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-secret': 'test-secret',
+        },
       }),
     );
 
@@ -53,6 +62,8 @@ describe('Monitor Utility - @unit', () => {
         timestamp: expect.any(String),
       }),
     );
+
+    config.INTERNAL_INGEST_SECRET = originalSecret;
   });
 
   it('should not send metrics if ALARM_LAMBDA_URL is not set', async () => {

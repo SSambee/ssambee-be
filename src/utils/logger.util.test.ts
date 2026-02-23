@@ -7,6 +7,7 @@ jest.mock('../config/env.config.js', () => ({
     MONITOR_LAMBDA_URL: 'https://example.com/log',
     INTERNAL_INGEST_SECRET: 'test-api-key',
   },
+  isProduction: () => true,
 }));
 
 describe('MorganLambdaStream', () => {
@@ -28,26 +29,35 @@ describe('MorganLambdaStream', () => {
     jest.restoreAllMocks();
   });
 
-  it('should send log to Lambda when URL is configured', async () => {
+  it('should send log to Lambda with envelope when URL is configured', async () => {
     const logMessage = 'GET /health 200';
     stream.write(logMessage);
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      'https://example.com/log',
+      'https://example.com/log/ingest',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
           'x-internal-secret': 'test-api-key',
         }),
-        body: expect.stringContaining(logMessage),
+        body: expect.stringContaining('"logs":['),
       }),
     );
 
-    const payload = JSON.parse(fetchSpy.mock.calls[0][1].body);
+    const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
+    const payload = body.logs[0];
     expect(payload.message).toBe(logMessage);
     expect(payload.level).toBe(LOG_LEVEL.INFO);
     expect(payload.timestamp).toBeDefined();
+  });
+
+  it('should categorize 5xx status codes as ERROR', async () => {
+    const logMessage = 'POST /login 500';
+    stream.write(logMessage);
+
+    const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
+    expect(body.logs[0].level).toBe(LOG_LEVEL.ERROR);
   });
 
   it('should not send log when URL is missing', () => {
