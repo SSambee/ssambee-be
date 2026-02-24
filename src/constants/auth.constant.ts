@@ -20,6 +20,10 @@ export const UserTypeToModel = {
 
 // 인증 쿠키 이름
 export const AUTH_COOKIE_NAME = 'ssambee-auth.session_token';
+export const AUTH_COOKIE_NAMES = [
+  AUTH_COOKIE_NAME,
+  `__Secure-${AUTH_COOKIE_NAME}`,
+] as const;
 
 export const AssistantStatus = {
   PENDING: 'PENDING',

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/auth.service.js';
-import { AUTH_COOKIE_NAME, UserType } from '../constants/auth.constant.js';
+import { AUTH_COOKIE_NAMES, UserType } from '../constants/auth.constant.js';
 import {
   ForbiddenException,
   UnauthorizedException,
@@ -34,12 +34,14 @@ export class AuthController {
   };
 
   private clearSessionCookie = (res: Response) => {
-    res.cookie(AUTH_COOKIE_NAME, '', {
-      httpOnly: true,
-      secure: isProduction(),
-      sameSite: 'lax',
-      path: '/',
-      expires: new Date(0), // 1970년으로 설정하여 즉시 삭제 유도
+    AUTH_COOKIE_NAMES.forEach((cookieName) => {
+      res.cookie(cookieName, '', {
+        httpOnly: true,
+        secure: isProduction(),
+        sameSite: 'lax',
+        path: '/',
+        expires: new Date(0), // 1970년으로 설정하여 즉시 삭제 유도
+      });
     });
   };
 
