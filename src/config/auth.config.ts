@@ -89,6 +89,10 @@ export const auth = betterAuth({
   advanced: {
     cookiePrefix: 'ssambee-auth',
     useSecureCookies: !isDevelopment(),
+    crossSubDomainCookies: {
+      enabled: true,
+      domain: 'ssambee.com', // 최상위 도메인 설정
+    },
   },
 
   trustedOrigins: config.FRONT_URL ? config.FRONT_URL.split(',') : [],
