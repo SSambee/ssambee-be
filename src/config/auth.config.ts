@@ -31,6 +31,16 @@ const buildVerifyEmailLink = (url: string): string => {
   return parsedUrl.toString();
 };
 
+const trustedOrigins = config.FRONT_URL
+  ? Array.from(
+      new Set(
+        config.FRONT_URL.split(',')
+          .map((origin) => origin.trim())
+          .filter(Boolean),
+      ),
+    )
+  : [];
+
 export const auth = betterAuth({
   database: prismaAdapter(prisma as unknown as PrismaClient, {
     provider: 'postgresql',
@@ -90,12 +100,11 @@ export const auth = betterAuth({
     cookiePrefix: 'ssambee-auth',
     useSecureCookies: !isDevelopment(),
     crossSubDomainCookies: {
-      enabled: true,
-      domain: 'ssambee.com', // 최상위 도메인 설정
+      enabled: false,
     },
   },
 
-  trustedOrigins: config.FRONT_URL ? config.FRONT_URL.split(',') : [],
+  trustedOrigins,
   plugins: [
     admin({
       ac: ac,
