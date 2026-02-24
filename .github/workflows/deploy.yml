@@ -94,32 +94,34 @@ jobs:
       - name: Create .env file
         run: |
           # 환경 변수 파일 생성
-          echo "NODE_ENV=$NODE_ENV" > .env
-          echo "PORT=$PORT" >> .env
-          echo "DATABASE_URL=$DATABASE_URL" >> .env
-          echo "FRONT_URL=$FRONT_URL" >> .env
-          echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET" >> .env
-          echo "BETTER_AUTH_URL=$BETTER_AUTH_URL" >> .env
-          echo "SENTRY_DSN=$SENTRY_DSN" >> .env
-          echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> .env
-          echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> .env
-          echo "AWS_REGION=$AWS_REGION" >> .env
-          echo "AWS_S3_BUCKET_DOCUMENTS=$AWS_S3_BUCKET_DOCUMENTS" >> .env
-          echo "AWS_S3_BUCKET_REPORTS=$AWS_S3_BUCKET_REPORTS" >> .env
-          echo "AWS_CLOUDFRONT_URL_DOCUMENTS=$AWS_CLOUDFRONT_URL_DOCUMENTS" >> .env
-          echo "AWS_CLOUDFRONT_URL_REPORTS=$AWS_CLOUDFRONT_URL_REPORTS" >> .env
-          echo "AWS_CLOUDFRONT_KEY_PAIR_ID=$AWS_CLOUDFRONT_KEY_PAIR_ID" >> .env
-          echo "REDIS_URL=$REDIS_URL" >> .env
-          echo "ALARM_LAMBDA_URL=$ALARM_LAMBDA_URL" >> .env
-          echo "MONITOR_LAMBDA_URL=$MONITOR_LAMBDA_URL" >> .env
-          echo "DISCORD_WEBHOOK_URL=$DISCORD_WEBHOOK_URL" >> .env
-          echo "INTERNAL_INGEST_SECRET=$INTERNAL_INGEST_SECRET" >> .env
-          echo "SMTP_HOST=$SMTP_HOST" >> .env
-          echo "SMTP_PORT=$SMTP_PORT" >> .env
-          echo "SMTP_USER=$SMTP_USER" >> .env
-          echo "SMTP_PASS=$SMTP_PASS" >> .env
-          echo "SMTP_FROM=$SMTP_FROM" >> .env
-          echo "AWS_CLOUDFRONT_PRIVATE_KEY=\"$AWS_CLOUDFRONT_PRIVATE_KEY\"" >> .env
+          cat <<EOF > .env
+          NODE_ENV=$NODE_ENV
+          PORT=$PORT
+          DATABASE_URL=$DATABASE_URL
+          FRONT_URL=$FRONT_URL
+          BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET
+          BETTER_AUTH_URL=$BETTER_AUTH_URL
+          SENTRY_DSN=$SENTRY_DSN
+          AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+          AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+          AWS_REGION=$AWS_REGION
+          AWS_S3_BUCKET_DOCUMENTS=$AWS_S3_BUCKET_DOCUMENTS
+          AWS_S3_BUCKET_REPORTS=$AWS_S3_BUCKET_REPORTS
+          AWS_CLOUDFRONT_URL_DOCUMENTS=$AWS_CLOUDFRONT_URL_DOCUMENTS
+          AWS_CLOUDFRONT_URL_REPORTS=$AWS_CLOUDFRONT_URL_REPORTS
+          AWS_CLOUDFRONT_KEY_PAIR_ID=$AWS_CLOUDFRONT_KEY_PAIR_ID
+          REDIS_URL=$REDIS_URL
+          ALARM_LAMBDA_URL=$ALARM_LAMBDA_URL
+          MONITOR_LAMBDA_URL=$MONITOR_LAMBDA_URL
+          DISCORD_WEBHOOK_URL=$DISCORD_WEBHOOK_URL
+          INTERNAL_INGEST_SECRET=$INTERNAL_INGEST_SECRET
+          SMTP_HOST=$SMTP_HOST
+          SMTP_PORT=$SMTP_PORT
+          SMTP_USER=$SMTP_USER
+          SMTP_PASS=$SMTP_PASS
+          SMTP_FROM=$SMTP_FROM
+          AWS_CLOUDFRONT_PRIVATE_KEY="$AWS_CLOUDFRONT_PRIVATE_KEY"
+          EOF
 
           # 리포지토리 이름을 소문자로 변환
           RAW_IMAGE_NAME="${{ github.repository }}"
