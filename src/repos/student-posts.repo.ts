@@ -318,6 +318,7 @@ export class StudentPostsRepository {
             id: true,
             enrollmentId: true,
             instructorId: true,
+            authorRole: true,
           },
         },
       },

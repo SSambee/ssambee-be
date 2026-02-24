@@ -214,13 +214,6 @@ export class DashboardService {
     const lectureIds = [
       ...new Set(activeLectureEnrollments.map((le) => le.lectureId)),
     ];
-    const filteredInstructorIds = instructorId
-      ? [instructorId]
-      : [
-          ...new Set(
-            activeLectureEnrollments.map((le) => le.lecture.instructorId),
-          ),
-        ];
 
     // 3. 병렬 데이터 페칭 (성능 최적화 및 Aggregation)
     const [clinics, attendances, allGrades, announcementsRaw] =
@@ -258,16 +251,11 @@ export class DashboardService {
           },
           take: 50,
         }),
-        // 4) Announcements (최근 공지사항 3개)
+        // 4) Announcements (최근 공지사항 3개 - SELECTED 스코프 중 해당 학생이 타겟으로 지정된 공지만)
         this.instructorPostsRepo.findMany({
           page: 1,
           limit: 3,
-          instructorId: instructorId,
-          studentFiltering: {
-            lectureIds,
-            instructorIds: filteredInstructorIds,
-            enrollmentIds,
-          },
+          targetEnrollmentIds: enrollmentIds,
         }),
       ]);
 
