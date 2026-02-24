@@ -42,10 +42,6 @@ export class GradesService {
       throw new NotFoundException('시험을 찾을 수 없습니다.');
     }
 
-    // if (exam.gradingStatus === GradingStatus.COMPLETED) {
-    //   throw new BadRequestException('이미 채점이 완료된 시험입니다.');
-    // }
-
     // 2. 권한 검증 (강사/조교)
     const lecture = await this.lecturesRepo.findById(exam.lectureId);
     if (!lecture) {
@@ -157,11 +153,7 @@ export class GradesService {
         throw new NotFoundException('시험을 찾을 수 없습니다.');
       }
 
-      // if (currentExam.gradingStatus === GradingStatus.COMPLETED) {
-      //   throw new BadRequestException('이미 채점이 완료된 시험입니다.');
-      // }
-
-      if (currentExam.gradingStatus === GradingStatus.PENDING) {
+      if (currentExam.gradingStatus !== GradingStatus.IN_PROGRESS) {
         await this.examsRepo.updateGradingStatus(
           examId,
           GradingStatus.IN_PROGRESS,
@@ -299,7 +291,7 @@ export class GradesService {
       profileId,
     );
 
-    // 3. 등수 및 평균 계산
+    // 3. 등수 조회 및 평균 계산
     const [rank, average] = await Promise.all([
       this.gradesRepo.calculateRankByExamId(grade.examId, grade.score),
       this.gradesRepo.calculateAverageByExamId(grade.examId),
@@ -418,16 +410,6 @@ export class GradesService {
     // 3. 데이터 가공 (getStudentGradeWithAnswers 로직 재사용/변형)
     const { questions } = grade.exam;
 
-    // findByIdWithDetails에는 studentAnswers가 포함되어 있지 않음 (repo 확인 필요)
-    // findByIdWithDetails는 questions include함.
-    // studentAnswers는 lectureEnrollment에 include되어 있지 않음 in findByIdWithDetails
-    // 따라서 별도로 가져오거나 repo 메소드를 수정해야 함.
-    // repo의 findByIdWithDetails를 보면 lectureEnrollment.enrollment만 select함.
-
-    // 해결책: studentAnswers를 가져오기 위해 별도 조회 혹은 repo 메소드 수정.
-    // 여기서는 repo에 새로운 메소드를 만들기보다 필요한 데이터를 가져오도록 수정하는게 좋겠으나
-    // 일단 studentAnswers를 가져오는 쿼리를 실행.
-
     const studentAnswers = await this.prisma.studentAnswer.findMany({
       where: {
         lectureEnrollmentId: grade.lectureEnrollmentId,
@@ -460,7 +442,7 @@ export class GradesService {
     };
   }
 
-  /** [NEW] 성적표 리포트 조회 (관리자용) - ID 기반 */
+  /** 성적표 리포트 조회 (관리자용) - ID 기반 */
   async getGradeReport(gradeId: string, userType: UserType, profileId: string) {
     // 1. 상세 리포트 데이터 조회
     const gradeData = await this.gradesRepo.findGradeReportByGradeId(gradeId);
@@ -494,10 +476,6 @@ export class GradesService {
     // 4. 데이터 가공
 
     // 4-1. 문항별 상세 정보
-    // studentAnswers contains all answers for the enrollment. Filter by examId/questionId if needed.
-    // The repo method we added returns all studentAnswers for the enrollment.
-    // We need to map them to the questions of this specific exam.
-
     // Filter studentAnswers for this exam only
     const examQuestionIds = new Set(exam.questions.map((q) => q.id));
     const relevantAnswers = studentAnswers.filter((a) =>
@@ -590,7 +568,48 @@ export class GradesService {
     };
   }
 
-  /** [NEW] 성적표 리포트 파일 업로드 - ID 기반 */
+  /** 성적표 리포트 설명 업데이트 - ID 기반 */
+  async updateGradeReportDescription(
+    gradeId: string,
+    description: string,
+    userType: UserType,
+    profileId: string,
+  ) {
+    // 1. Grade 권한 검증 및 데이터 확보
+    // 리포트가 아직 없을 수도 있으므로 Grade를 먼저 조회
+    const grade = await this.gradesRepo.findByIdWithDetails(gradeId);
+    if (!grade) {
+      throw new NotFoundException('성적 정보를 찾을 수 없습니다.');
+    }
+
+    // lecture 정보가 include되어 있지 않으므로 별도 조회
+    const lecture = await this.lecturesRepo.findById(grade.exam.lectureId);
+    if (!lecture) {
+      throw new NotFoundException('강의를 찾을 수 없습니다.');
+    }
+
+    await this.permissionService.validateInstructorAccess(
+      lecture.instructorId,
+      userType,
+      profileId,
+    );
+
+    // 2. DB 업데이트 (Upsert)
+    const result = await this.gradesRepo.updateGradeReportDescriptionByGradeId(
+      gradeId,
+      description,
+    );
+
+    if (!result) {
+      throw new BadRequestException(
+        '성적표 리포트 설명 업데이트에 실패했습니다.',
+      );
+    }
+
+    return result;
+  }
+
+  /** 성적표 리포트 파일 업로드 - ID 기반 */
   async uploadGradeReportFile(
     gradeId: string,
     file: Express.Multer.File,
@@ -632,48 +651,7 @@ export class GradesService {
     return { reportUrl };
   }
 
-  /** [NEW] 성적표 리포트 설명 업데이트 - ID 기반 */
-  async updateGradeReportDescription(
-    gradeId: string,
-    description: string,
-    userType: UserType,
-    profileId: string,
-  ) {
-    // 1. Grade 권한 검증 및 데이터 확보
-    // 리포트가 아직 없을 수도 있으므로 Grade를 먼저 조회
-    const grade = await this.gradesRepo.findByIdWithDetails(gradeId);
-    if (!grade) {
-      throw new NotFoundException('성적 정보를 찾을 수 없습니다.');
-    }
-
-    // lecture 정보가 include되어 있지 않으므로 별도 조회
-    const lecture = await this.lecturesRepo.findById(grade.exam.lectureId);
-    if (!lecture) {
-      throw new NotFoundException('강의를 찾을 수 없습니다.');
-    }
-
-    await this.permissionService.validateInstructorAccess(
-      lecture.instructorId,
-      userType,
-      profileId,
-    );
-
-    // 2. DB 업데이트 (Upsert)
-    const result = await this.gradesRepo.updateGradeReportDescriptionByGradeId(
-      gradeId,
-      description,
-    );
-
-    if (!result) {
-      throw new BadRequestException(
-        '성적표 리포트 설명 업데이트에 실패했습니다.',
-      );
-    }
-
-    return result;
-  }
-
-  /** [NEW] 성적표 리포트 파일 다운로드 URL 생성 - ID 기반 */
+  /** 성적표 리포트 파일 다운로드 URL 생성 - ID 기반 */
   async getGradeReportFileDownloadUrl(
     gradeId: string,
     userType: UserType,

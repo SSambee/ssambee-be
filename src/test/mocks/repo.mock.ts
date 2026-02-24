@@ -181,6 +181,7 @@ export const createMockClinicsRepository = () =>
     'findFailedGradesByExamId',
     'findExistingClinics',
     'createMany',
+    'deleteManyByExamAndEnrollments',
     'findByInstructor',
     'findByIds',
     'updateMany',

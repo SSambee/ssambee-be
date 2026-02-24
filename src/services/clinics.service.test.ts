@@ -47,6 +47,7 @@ describe('ClinicsService - @unit #critical', () => {
       <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>) =>
         callback(mockPrisma as unknown as Prisma.TransactionClient),
     );
+    (mockPrisma.clinic.findMany as jest.Mock).mockResolvedValue([]);
 
     clinicsService = new ClinicsService(
       mockClinicsRepo,
@@ -100,7 +101,7 @@ describe('ClinicsService - @unit #critical', () => {
         >,
       );
       mockClinicsRepo.findFailedGradesByExamId.mockResolvedValue([]);
-      mockClinicsRepo.findExistingClinics.mockResolvedValue([]);
+      (mockPrisma.clinic.findMany as jest.Mock).mockResolvedValue([]);
 
       // 실행
       const result = await clinicsService.completeGrading(
@@ -115,6 +116,7 @@ describe('ClinicsService - @unit #critical', () => {
       expect(mockExamsRepo.updateGradingStatus).toHaveBeenCalledWith(
         examId,
         GradingStatus.COMPLETED,
+        expect.anything(),
       );
     });
 
@@ -274,9 +276,9 @@ describe('ClinicsService - @unit #critical', () => {
           ReturnType<typeof mockClinicsRepo.findFailedGradesByExamId>
         >,
       );
-      mockClinicsRepo.findExistingClinics.mockResolvedValue(
+      (mockPrisma.clinic.findMany as jest.Mock).mockResolvedValue(
         existingClinics as Awaited<
-          ReturnType<typeof mockClinicsRepo.findExistingClinics>
+          ReturnType<typeof mockPrisma.clinic.findMany>
         >,
       );
       mockClinicsRepo.createMany.mockResolvedValue({ count: 1 });
@@ -295,6 +297,79 @@ describe('ClinicsService - @unit #critical', () => {
       const callArgs = mockClinicsRepo.createMany.mock.calls[0][0];
       expect(callArgs).toHaveLength(1);
       expect(callArgs[0].lectureEnrollmentId).toBe('le-2');
+    });
+
+    it('완료 상태에서 재채점 후 클리닉 완료 요청 시 동기화가 수행된다', async () => {
+      const mockExam = {
+        ...mockExams.basic,
+        gradingStatus: GradingStatus.COMPLETED,
+      } as Awaited<ReturnType<typeof mockExamsRepo.findById>>;
+
+      const failedGrades = [
+        {
+          id: 'grade-2',
+          lectureId: mockExam.lectureId,
+          examId: mockExam.id,
+          lectureEnrollmentId: 'le-2',
+          lectureEnrollment: {
+            id: 'le-2',
+            lectureId: mockExam.lectureId,
+            registeredAt: new Date(),
+            enrollmentId: 'enroll-2',
+            enrollment: {
+              id: 'enroll-2',
+              studentName: '학생2',
+              studentPhone: '010-8765-4321',
+              school: '테스트고',
+              schoolYear: 'HIGH1',
+            },
+          },
+          score: 40,
+          isPass: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ];
+
+      const existingClinics = [{ lectureEnrollmentId: 'le-1' }] as Awaited<
+        ReturnType<typeof mockPrisma.clinic.findMany>
+      >;
+
+      mockExamsRepo.findById.mockResolvedValue(mockExam);
+      mockLecturesRepo.findById.mockResolvedValue(
+        mockLectures.basic as Awaited<
+          ReturnType<typeof mockLecturesRepo.findById>
+        >,
+      );
+      mockClinicsRepo.findFailedGradesByExamId.mockResolvedValue(
+        failedGrades as Awaited<
+          ReturnType<typeof mockClinicsRepo.findFailedGradesByExamId>
+        >,
+      );
+      (mockPrisma.clinic.findMany as jest.Mock).mockResolvedValue(
+        existingClinics,
+      );
+      mockClinicsRepo.createMany.mockResolvedValue({ count: 1 });
+      mockClinicsRepo.deleteManyByExamAndEnrollments.mockResolvedValue({
+        count: 1,
+      } as Awaited<
+        ReturnType<typeof mockClinicsRepo.deleteManyByExamAndEnrollments>
+      >);
+
+      const result = await clinicsService.completeGrading(
+        examId,
+        createData,
+        userType,
+        profileId,
+      );
+
+      expect(result.createCount).toBe(1);
+      expect(result.deleteCount).toBe(1);
+      expect(mockClinicsRepo.createMany).toHaveBeenCalledTimes(1);
+      expect(
+        mockClinicsRepo.deleteManyByExamAndEnrollments,
+      ).toHaveBeenCalledWith(examId, ['le-1'], expect.anything());
+      expect(mockExamsRepo.updateGradingStatus).not.toHaveBeenCalled();
     });
   });
 

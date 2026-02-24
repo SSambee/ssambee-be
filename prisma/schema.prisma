@@ -569,29 +569,6 @@ model GradeReport {
   @@map("grade_reports")
 }
 
-// // [Audit] 성적 수정 로그 (New)
-// model GradeLog {
-//   id      String @id @default(cuid(2))
-//   gradeId String @map("grade_id")
-
-//   previousScore Int     @map("previous_score")
-//   newScore      Int     @map("new_score")
-//   reason        String?
-
-//   updatedByInstructorId String? @map("updated_by_instructor_id")
-//   updatedByAssistantId  String? @map("updated_by_assistant_id")
-
-//   createdAt DateTime @default(now()) @map("created_at")
-
-//   grade      Grade       @relation(fields: [gradeId], references: [id], onDelete: Cascade)
-//   instructor Instructor? @relation(fields: [updatedByInstructorId], references: [id])
-//   assistant  Assistant?  @relation(fields: [updatedByAssistantId], references: [id])
-
-//   @@index([gradeId])
-//   @@map("grade_logs")
-// }
-
-
 // --------------------------------------------------------
 // 6. CLINIC (클리닉/재시험 관리)
 // --------------------------------------------------------
@@ -673,8 +650,6 @@ model Schedule {
   @@index([instructorId, startTime])
   @@map("schedules")
 }
-
-
 
 model Material {
   id           String  @id @default(cuid(2))
