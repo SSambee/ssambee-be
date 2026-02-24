@@ -112,6 +112,14 @@ else
     COMPOSE="docker compose"
 fi
 
+# 최신 이미지를 GHCR  로 가져오도록 강제로 명시
+echo -e "${YELLOW}최신 이미지를 GHCR에서 Pull 합니다...${NC}"
+if [ "$TARGET" = "green" ]; then
+    $COMPOSE pull backend-green
+else
+    $COMPOSE pull backend-blue
+fi
+
 # 새 컨테이너 시작
 echo -e "${YELLOW}[$TARGET] 컨테이너 시작 중...${NC}"
 
@@ -121,12 +129,6 @@ else
     $COMPOSE --profile blue up -d backend-blue nginx
 fi
 
-echo -e "${YELLOW}최신 이미지를 GHCR에서 Pull 합니다...${NC}"
-if [ "$TARGET" = "green" ]; then
-    $COMPOSE pull backend-green
-else
-    $COMPOSE pull backend-blue
-fi
 
 # 컨테이너 실행 대기
 echo -e "${YELLOW}[$TARGET] 컨테이너 실행 대기 중...${NC}"
