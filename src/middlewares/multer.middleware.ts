@@ -25,6 +25,11 @@ const fileFilter = (
     'image/jpeg',
     'image/jpg',
     'image/png',
+    // 맥 전용 이미지 (HEIC/HEIF)
+    'image/heic',
+    'image/heif',
+    'image/heic-sequence',
+    'image/heif-sequence',
     // PDF
     'application/pdf',
     // Word
@@ -44,7 +49,8 @@ const fileFilter = (
   ];
 
   // HWP 파일 확장자 (브라우저에서 MIME 타입이 다르게 전송될 수 있음)
-  const allowedExtensions = ['.hwp', '.hwpx'];
+  // 맥 전용 이미지 확장자 (HEIC/HEIF)
+  const allowedExtensions = ['.hwp', '.hwpx', '.heic', '.heif'];
 
   // 파일 확장자 추출
   const ext = path.extname(file.originalname).toLowerCase();

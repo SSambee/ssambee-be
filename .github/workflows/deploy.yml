@@ -119,7 +119,7 @@ jobs:
           echo "SMTP_USER=$SMTP_USER" >> .env
           echo "SMTP_PASS=$SMTP_PASS" >> .env
           echo "SMTP_FROM=$SMTP_FROM" >> .env
-          echo "AWS_CLOUDFRONT_PRIVATE_KEY" >> .env
+          echo "AWS_CLOUDFRONT_PRIVATE_KEY=\"$AWS_CLOUDFRONT_PRIVATE_KEY\"" >> .env
 
           # 리포지토리 이름을 소문자로 변환
           RAW_IMAGE_NAME="${{ github.repository }}"
