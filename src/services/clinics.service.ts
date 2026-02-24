@@ -56,126 +56,84 @@ export class ClinicsService {
     let createCount = 0;
     let deleteCount = 0;
     let totalFailedCount = 0;
+    const shouldUpdateStatus = exam.gradingStatus !== GradingStatus.COMPLETED;
 
-    if (exam.isAutoClinic) {
-      // 불합격자 조회
-      const failedGrades =
-        await this.clinicsRepo.findFailedGradesByExamId(examId);
-      totalFailedCount = failedGrades.length;
-      const failedEnrollmentIds = failedGrades.map(
-        (g) => g.lectureEnrollmentId,
-      );
-
-      // 기존 클리닉 상태에 따른 처리
-      if (exam.gradingStatus !== GradingStatus.COMPLETED) {
-        // [Case A] 채점 완료 전 -> 신규 생성 로직
-        const existingClinics = await this.clinicsRepo.findExistingClinics(
-          examId,
-          failedEnrollmentIds,
-        );
-        const existingIds = new Set(
-          existingClinics.map((c) => c.lectureEnrollmentId),
-        );
-
-        const targets = failedGrades.filter(
-          (g) => !existingIds.has(g.lectureEnrollmentId),
-        );
-
-        if (targets.length > 0) {
-          const deadlineDate = deadline ? new Date(deadline) : undefined;
-          const assignedInstructorId = lecture.instructorId;
-
-          const createResult = await this.prisma.$transaction(async (tx) => {
-            const res = await this.clinicsRepo.createMany(
-              targets.map((t) => ({
-                lectureId: exam.lectureId,
-                examId: examId,
-                lectureEnrollmentId: t.lectureEnrollmentId,
-                title: title,
-                deadline: deadlineDate,
-                memo: memo,
-                instructorId: assignedInstructorId,
-              })),
-              tx,
-            );
-
-            // 상태 변경 (여기서 함께 처리)
-            await this.examsRepo.updateGradingStatus(
-              examId,
-              GradingStatus.COMPLETED,
-              tx,
-            );
-            return res;
-          });
-          createCount = createResult.count;
-        } else {
-          // 생성할 대상이 없더라도 상태는 변경
-          await this.examsRepo.updateGradingStatus(
-            examId,
-            GradingStatus.COMPLETED,
-          );
-        }
-      } else {
-        // [Case B] 이미 채점 완료된 경우 -> 동기화(Sync) 로직
-        // 1) 전체 기존 클리닉 조회 (이 시험에 대해)
-        const allExistingClinics = await this.prisma.clinic.findMany({
-          where: { examId },
-          select: { lectureEnrollmentId: true },
-        });
-        const existingIds = new Set(
-          allExistingClinics.map((c) => c.lectureEnrollmentId),
-        );
-        const failedIdsSet = new Set(failedEnrollmentIds);
-
-        // 추가 생성 대상: 불합격자 목록에 있지만 기존 클리닉이 없는 경우
-        const toCreate = failedGrades.filter(
-          (g) => !existingIds.has(g.lectureEnrollmentId),
-        );
-
-        // 삭제 대상: 기존 클리닉은 있지만 불합격자 목록에 없는 경우 (합격자로 변경됨)
-        const toDeleteIds = allExistingClinics
-          .filter((c) => !failedIdsSet.has(c.lectureEnrollmentId))
-          .map((c) => c.lectureEnrollmentId);
-
-        if (toCreate.length > 0 || toDeleteIds.length > 0) {
-          await this.prisma.$transaction(async (tx) => {
-            if (toDeleteIds.length > 0) {
-              const delRes =
-                await this.clinicsRepo.deleteManyByExamAndEnrollments(
-                  examId,
-                  toDeleteIds,
-                  tx,
-                );
-              deleteCount = delRes.count;
-            }
-            if (toCreate.length > 0) {
-              const deadlineDate = deadline ? new Date(deadline) : undefined;
-              const assignedInstructorId = lecture.instructorId;
-              const createRes = await this.clinicsRepo.createMany(
-                toCreate.map((t) => ({
-                  lectureId: exam.lectureId,
-                  examId: examId,
-                  lectureEnrollmentId: t.lectureEnrollmentId,
-                  title: title,
-                  deadline: deadlineDate,
-                  memo: memo,
-                  instructorId: assignedInstructorId,
-                })),
-                tx,
-              );
-              createCount = createRes.count;
-            }
-          });
-        }
-      }
-    } else {
-      // isAutoClinic 가 false인 경우 상태만 COMPLETED로 변경
-      if (exam.gradingStatus !== GradingStatus.COMPLETED) {
+    if (!exam.isAutoClinic) {
+      if (shouldUpdateStatus) {
         await this.examsRepo.updateGradingStatus(
           examId,
           GradingStatus.COMPLETED,
         );
       }
+      return {
+        createCount,
+        deleteCount,
+        message: '채점이 완료되었습니다.',
+      };
+    }
+
+    // 불합격자 조회
+    const failedGrades =
+      await this.clinicsRepo.findFailedGradesByExamId(examId);
+    totalFailedCount = failedGrades.length;
+    const failedEnrollmentIds = failedGrades.map((g) => g.lectureEnrollmentId);
+    const allExistingClinics = await this.prisma.clinic.findMany({
+      where: { examId },
+      select: { lectureEnrollmentId: true },
+    });
+
+    const existingIds = new Set(
+      allExistingClinics.map((c) => c.lectureEnrollmentId),
+    );
+    const failedIdsSet = new Set(failedEnrollmentIds);
+
+    // 추가 생성 대상: 불합격자 목록에 있지만 기존 클리닉이 없는 경우
+    const toCreate = failedGrades.filter(
+      (g) => !existingIds.has(g.lectureEnrollmentId),
+    );
+
+    // 삭제 대상: 기존 클리닉은 있지만 불합격자 목록에 없는 경우 (합격자로 변경됨)
+    const toDeleteIds = allExistingClinics
+      .filter((c) => !failedIdsSet.has(c.lectureEnrollmentId))
+      .map((c) => c.lectureEnrollmentId);
+
+    if (toCreate.length > 0 || toDeleteIds.length > 0 || shouldUpdateStatus) {
+      await this.prisma.$transaction(async (tx) => {
+        if (toDeleteIds.length > 0) {
+          const delRes = await this.clinicsRepo.deleteManyByExamAndEnrollments(
+            examId,
+            toDeleteIds,
+            tx,
+          );
+          deleteCount = delRes.count;
+        }
+
+        if (toCreate.length > 0) {
+          const deadlineDate = deadline ? new Date(deadline) : undefined;
+          const assignedInstructorId = lecture.instructorId;
+          const createRes = await this.clinicsRepo.createMany(
+            toCreate.map((t) => ({
+              lectureId: exam.lectureId,
+              examId: examId,
+              lectureEnrollmentId: t.lectureEnrollmentId,
+              title: title,
+              deadline: deadlineDate,
+              memo: memo,
+              instructorId: assignedInstructorId,
+            })),
+            tx,
+          );
+          createCount = createRes.count;
+        }
+
+        if (shouldUpdateStatus) {
+          await this.examsRepo.updateGradingStatus(
+            examId,
+            GradingStatus.COMPLETED,
+            tx,
+          );
+        }
+      });
     }
 
     let message = '채점이 완료되었습니다.';

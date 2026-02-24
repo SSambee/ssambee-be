@@ -21,6 +21,9 @@ export const createMockPrisma = () => ({
   grade: {
     findMany: jest.fn(),
   },
+  clinic: {
+    findMany: jest.fn(),
+  },
   studentAnswer: {
     findMany: jest.fn(),
   },
