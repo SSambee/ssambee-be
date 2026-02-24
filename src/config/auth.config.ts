@@ -12,6 +12,7 @@ import { prisma } from './db.config.js';
 import { config, isDevelopment, isProduction } from './env.config.js';
 import { SIGNUP_PENDING_USER_TYPE } from '../constants/auth.constant.js';
 import { sendEmailOtp, sendVerificationLinkMail } from '../utils/mail.util.js';
+import { getDomain } from 'tldts';
 
 const getVerifyEmailPath = (): string => {
   return '/api/public/v1/auth/verify-email';
@@ -45,32 +46,12 @@ const toSharedCookieDomain = (value?: string): string | undefined => {
   if (!value) {
     return undefined;
   }
-
-  let hostname = value.trim().toLowerCase();
-
-  if (hostname.includes('://')) {
-    try {
-      hostname = new URL(hostname).hostname;
-    } catch (_error) {
-      return undefined;
-    }
-  } else {
-    hostname = hostname.split(':')[0].split('/')[0];
-  }
-
-  if (!hostname || hostname === 'localhost') {
+  const domain = getDomain(value.trim().toLowerCase());
+  if (!domain) {
     return undefined;
   }
 
-  const host = hostname.startsWith('.') ? hostname.substring(1) : hostname;
-  const segments = host.split('.');
-
-  if (segments.length < 2) {
-    return undefined;
-  }
-
-  const baseDomain = segments.slice(-2).join('.');
-  return `.${baseDomain}`;
+  return `.${domain}`;
 };
 
 const crossDomainCookieDomain = isProduction()
