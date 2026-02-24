@@ -9,7 +9,7 @@ import {
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import type { PrismaClient } from '../generated/prisma/client.js';
 import { prisma } from './db.config.js';
-import { config, isDevelopment } from './env.config.js';
+import { config, isDevelopment, isProduction } from './env.config.js';
 import { SIGNUP_PENDING_USER_TYPE } from '../constants/auth.constant.js';
 import { sendEmailOtp, sendVerificationLinkMail } from '../utils/mail.util.js';
 
@@ -40,6 +40,44 @@ const trustedOrigins = config.FRONT_URL
       ),
     )
   : [];
+
+const toSharedCookieDomain = (value?: string): string | undefined => {
+  if (!value) {
+    return undefined;
+  }
+
+  let hostname = value.trim().toLowerCase();
+
+  if (hostname.includes('://')) {
+    try {
+      hostname = new URL(hostname).hostname;
+    } catch (_error) {
+      return undefined;
+    }
+  } else {
+    hostname = hostname.split(':')[0].split('/')[0];
+  }
+
+  if (!hostname || hostname === 'localhost') {
+    return undefined;
+  }
+
+  const host = hostname.startsWith('.') ? hostname.substring(1) : hostname;
+  const segments = host.split('.');
+
+  if (segments.length < 2) {
+    return undefined;
+  }
+
+  const baseDomain = segments.slice(-2).join('.');
+  return `.${baseDomain}`;
+};
+
+const crossDomainCookieDomain = isProduction()
+  ? toSharedCookieDomain(
+      config.AUTH_COOKIE_DOMAIN || config.BETTER_AUTH_URL || 'http://localhost',
+    )
+  : undefined;
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma as unknown as PrismaClient, {
@@ -100,7 +138,14 @@ export const auth = betterAuth({
     cookiePrefix: 'ssambee-auth',
     useSecureCookies: !isDevelopment(),
     crossSubDomainCookies: {
-      enabled: false,
+      ...(crossDomainCookieDomain
+        ? {
+            enabled: true,
+            domain: crossDomainCookieDomain,
+          }
+        : {
+            enabled: false,
+          }),
     },
   },
 
