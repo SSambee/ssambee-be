@@ -9,9 +9,10 @@ import {
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import type { PrismaClient } from '../generated/prisma/client.js';
 import { prisma } from './db.config.js';
-import { config, isDevelopment } from './env.config.js';
+import { config, isDevelopment, isProduction } from './env.config.js';
 import { SIGNUP_PENDING_USER_TYPE } from '../constants/auth.constant.js';
 import { sendEmailOtp, sendVerificationLinkMail } from '../utils/mail.util.js';
+import { getDomain } from 'tldts';
 
 const getVerifyEmailPath = (): string => {
   return '/api/public/v1/auth/verify-email';
@@ -40,6 +41,24 @@ const trustedOrigins = config.FRONT_URL
       ),
     )
   : [];
+
+const toSharedCookieDomain = (value?: string): string | undefined => {
+  if (!value) {
+    return undefined;
+  }
+  const domain = getDomain(value.trim().toLowerCase());
+  if (!domain) {
+    return undefined;
+  }
+
+  return `.${domain}`;
+};
+
+const crossDomainCookieDomain = isProduction()
+  ? toSharedCookieDomain(
+      config.AUTH_COOKIE_DOMAIN || config.BETTER_AUTH_URL || 'http://localhost',
+    )
+  : undefined;
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma as unknown as PrismaClient, {
@@ -100,7 +119,14 @@ export const auth = betterAuth({
     cookiePrefix: 'ssambee-auth',
     useSecureCookies: !isDevelopment(),
     crossSubDomainCookies: {
-      enabled: false,
+      ...(crossDomainCookieDomain
+        ? {
+            enabled: true,
+            domain: crossDomainCookieDomain,
+          }
+        : {
+            enabled: false,
+          }),
     },
   },
 

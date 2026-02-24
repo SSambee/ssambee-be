@@ -7,7 +7,47 @@ import {
 } from '../err/http.exception.js';
 import { successResponse } from '../utils/response.util.js';
 import { AuthResponse } from '../types/auth.types.js';
-import { isProduction } from '../config/env.config.js';
+import { config, isProduction } from '../config/env.config.js';
+
+const getCrossDomainCookie = (): string | undefined => {
+  const toSharedCookieDomain = (value?: string): string | undefined => {
+    if (!value) {
+      return undefined;
+    }
+
+    let hostname = value.trim().toLowerCase();
+
+    if (hostname.includes('://')) {
+      try {
+        hostname = new URL(hostname).hostname;
+      } catch (_error) {
+        return undefined;
+      }
+    } else {
+      hostname = hostname.split(':')[0].split('/')[0];
+    }
+
+    if (!hostname || hostname === 'localhost') {
+      return undefined;
+    }
+
+    const host = hostname.startsWith('.') ? hostname.substring(1) : hostname;
+    const segments = host.split('.');
+
+    if (segments.length < 2) {
+      return undefined;
+    }
+
+    const baseDomain = segments.slice(-2).join('.');
+    return `.${baseDomain}`;
+  };
+
+  return toSharedCookieDomain(
+    config.AUTH_COOKIE_DOMAIN || config.BETTER_AUTH_URL,
+  );
+};
+
+const crossDomainCookie = getCrossDomainCookie();
 
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -40,6 +80,7 @@ export class AuthController {
         secure: isProduction(),
         sameSite: 'lax',
         path: '/',
+        ...(crossDomainCookie ? { domain: crossDomainCookie } : {}),
         expires: new Date(0), // 1970년으로 설정하여 즉시 삭제 유도
       });
     });
