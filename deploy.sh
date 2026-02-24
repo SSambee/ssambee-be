@@ -121,6 +121,13 @@ else
     $COMPOSE --profile blue up -d backend-blue nginx
 fi
 
+echo -e "${YELLOW}최신 이미지를 GHCR에서 Pull 합니다...${NC}"
+if [ "$TARGET" = "green" ]; then
+    $COMPOSE pull backend-green
+else
+    $COMPOSE pull backend-blue
+fi
+
 # 컨테이너 실행 대기
 echo -e "${YELLOW}[$TARGET] 컨테이너 실행 대기 중...${NC}"
 RETRY_COUNT=0
