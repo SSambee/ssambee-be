@@ -8,7 +8,11 @@ import {
   GetStudentPostsQueryDto,
   GetMyLecturesQueryDto,
 } from '../validations/student-posts.validation.js';
-import { StudentPostStatus, AuthorRole } from '../constants/posts.constant.js';
+import {
+  StudentPostStatus,
+  AuthorRole,
+  InquiryWriterType,
+} from '../constants/posts.constant.js';
 import { UserType } from '../constants/auth.constant.js';
 import { StudentPostsRepository } from '../repos/student-posts.repo.js';
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
@@ -130,11 +134,14 @@ export class StudentPostsService {
     let instructorId: string | undefined;
     let appStudentId: string | undefined;
     let enrollmentIds: string[] | undefined; // [NEW] 학부모용
+    // 학생/학부모는 본인 authorRole 게시글만 조회 가능
+    let forcedWriterType: InquiryWriterType | undefined;
 
     if (userType === UserType.INSTRUCTOR) {
       instructorId = profileId;
     } else if (userType === UserType.STUDENT) {
       appStudentId = profileId;
+      forcedWriterType = InquiryWriterType.STUDENT;
     } else if (userType === UserType.ASSISTANT) {
       const id = await this.permissionService.getEffectiveInstructorId(
         userType,
@@ -161,6 +168,7 @@ export class StudentPostsService {
           stats: null,
         };
       }
+      forcedWriterType = InquiryWriterType.PARENT;
     } else {
       throw new ForbiddenException('접근 권한이 없습니다.');
     }
@@ -171,6 +179,8 @@ export class StudentPostsService {
       instructorId,
       appStudentId,
       enrollmentIds, // [NEW] 학부모용
+      // 학생/학부모는 본인 작성 글만 보도록 강제
+      ...(forcedWriterType !== undefined && { writerType: forcedWriterType }),
     });
 
     // [Stats] 학생 질문 통계 추가 (강사/조교인 경우)
@@ -443,6 +453,9 @@ export class StudentPostsService {
     profileId: string,
   ) {
     if (userType === UserType.STUDENT) {
+      // 학생은 학생이 작성한 글만 접근 가능 (학부모 글 접근 차단)
+      if (post.authorRole !== AuthorRole.STUDENT)
+        throw new ForbiddenException('권한이 없습니다.');
       const enrollment = await this.enrollmentsRepository.findById(
         post.enrollmentId,
       );
@@ -469,7 +482,10 @@ export class StudentPostsService {
     }
 
     if (userType === UserType.PARENT) {
-      // 학부모 조회 권한 검증 (자녀의 질문도 조회 가능)
+      // 학부모는 학부모가 작성한 글만 접근 가능 (학생 글 접근 차단)
+      if (post.authorRole !== AuthorRole.PARENT)
+        throw new ForbiddenException('권한이 없습니다.');
+
       const enrollment = await this.enrollmentsRepository.findById(
         post.enrollmentId,
       );
@@ -672,11 +688,19 @@ export class StudentPostsService {
 
   /** 첨부파일 접근 권한 검증 (간소화된 버전) */
   private async validateAttachmentAccess(
-    post: { id: string; enrollmentId: string; instructorId: string },
+    post: {
+      id: string;
+      enrollmentId: string;
+      instructorId: string;
+      authorRole: string;
+    },
     userType: UserType,
     profileId: string,
   ) {
     if (userType === UserType.STUDENT) {
+      // 학생은 학생이 작성한 게시글의 첨부파일만 접근 가능
+      if (post.authorRole !== AuthorRole.STUDENT)
+        throw new ForbiddenException('권한이 없습니다.');
       const enrollment = await this.enrollmentsRepository.findById(
         post.enrollmentId,
       );
@@ -703,6 +727,10 @@ export class StudentPostsService {
     }
 
     if (userType === UserType.PARENT) {
+      // 학부모는 학부모가 작성한 게시글의 첨부파일만 접근 가능
+      if (post.authorRole !== AuthorRole.PARENT)
+        throw new ForbiddenException('권한이 없습니다.');
+
       const enrollment = await this.enrollmentsRepository.findById(
         post.enrollmentId,
       );
