@@ -14,7 +14,8 @@ COPY  . .
 
 # TS 빌드
 RUN pnpm exec prisma generate
-RUN pnpm run build 
+RUN pnpm run build
+RUN cp -rn src/* dist/ 2>/dev/null || true
 
 # 프로덕션 이미지 빌드
 FROM node:24-alpine
