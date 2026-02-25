@@ -1,142 +1,255 @@
+<div align="center">
+
 ![SSam B Logo](assets/ssam-b-logo.png)
 
 # SSam B 백엔드
 
-이 레포는 **SSam B** 학원/수업 운영 플랫폼의 **백엔드 서버(Node.js)** 입니다.
+**학원/수업 운영을 위한 통합 플랫폼의 백엔드 서버**
+
 Express 기반 REST API 서버로, 강사/조교/학생/학부모의 교육 운영 흐름을 하나의 API로 통합합니다.
 
-## 핵심 역할
+|                                                                           프론트엔드                                                                            |                                                                            백엔드                                                                             |                                                              배포 링크                                                               |
+| :-------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------------: |
+| [![Frontend Repo](https://img.shields.io/badge/Frontend_Repo-2B2E3A?style=for-the-badge&logo=github&logoColor=white)](https://github.com/EduOps-Lab/ssambee-fe) | [![Backend Repo](https://img.shields.io/badge/Backend_Repo-2B2E3A?style=for-the-badge&logo=github&logoColor=white)](https://github.com/EduOps-Lab/ssambee-be) | [![Deployed](https://img.shields.io/badge/Deployed-3863F6?style=for-the-badge&logo=vercel&logoColor=white)](https://www.ssambee.com) |
 
-- 회원/권한/인증 기반 API 제공
-- 수강 데이터(강의, 수강생, 성적, 과제, 출결, 게시글, 일정 등) 관리
-- 파일 업로드/정적 자료 제공을 위한 스토리지 연동
-- 알림/로그/모니터링 연동(선택 환경)
-- 라우트/서비스/리포지토리 분리로 운영/확장성 확보
+</div>
 
-## 기술 스택
+## 📋 목차
 
-- Runtime: Node.js 24.x
-- Language: TypeScript
-- Framework: Express
-- ORM: Prisma (PostgreSQL)
-- Auth: Better Auth + 세션 쿠키 + auth 미들웨어
-- Infra/Utilities:
-  - PostgreSQL
-  - Redis (선택)
-  - AWS S3 / CloudFront (파일)
-  - Sentry (에러 추적)
-  - Nodemailer (SMTP 메일 발송)
-  - Docker / Nginx
+- [✨ 핵심 역할](#-핵심-역할)
+- [🛠 기술 스택](#-기술-스택)
+- [📁 프로젝트 및 API 구조](#-프로젝트-및-api-구조)
+- [🗄️ 데이터베이스 및 도메인](#-데이터베이스-및-도메인)
+- [🔐 인증 및 인가 처리 플로우](#-인증-및-인가-처리-플로우)
+- [🚀 실행 및 배포](#-실행-및-배포)
 
-## 실행 구조
+---
 
-- 진입점: `src/app.ts`
-- 서버 부팅 흐름:
-  1. 환경 변수 로드 및 검증
-  2. Sentry 초기화
-  3. 보안 헤더/CORS 설정
-  4. 파싱 미들웨어 및 라우터 등록
-  5. 공통 에러 핸들러 등록
-  6. Graceful Shutdown으로 DB 연결 종료 및 자원 정리
+## ✨ 핵심 역할
 
-## 프로젝트 구조
+- **회원/권한/인증 관리:** Better Auth 기반의 세션 관리, 회원가입, 로그인 및 역할에 따른 API 접근 제어
+- **수강 데이터 관리:** 강의, 수강생, 성적, 과제, 출결, 게시글, 일정 등의 교육 운영 데이터 중앙 관리
+- **스토리지 연동:** 파일 업로드 및 정적 자료 제공을 위한 AWS S3 / CloudFront 연동
+- **운영 확장성:** 라우트/서비스/리포지토리의 명확한 분리와 의존성 주입(DI)을 통한 유지보수성 및 확장성 확보
+- **모니터링 연동:** Sentry, Nodemailer 등 알림/로그/모니터링 시스템 구축
 
-- `src/app.ts` : 앱 부팅/미들웨어/라우팅/종료 처리
-- `src/config` : 환경/DB/Redis/Sentry/Auth 등 설정
-- `src/routes` : `/api/mgmt`, `/api/svc`, `/api/public`으로 API 분기
-- `src/controllers` : HTTP 요청/응답 제어
-- `src/services` : 비즈니스 로직
-- `src/repos` : Prisma 기반 데이터 접근
-- `src/validations` : zod 기반 요청 검증
-- `src/middlewares` : 인증, 에러 핸들링, 로깅, 타이머
-- `src/utils` : 공용 유틸(이메일/로그/날짜/모니터링 등)
-- `prisma/schema.prisma` : DB 스키마 및 도메인 모델
-- 의존성 주입: 프레임워크 DI 컨테이너 없이도 `createRequireAuth`, 라우터 팩토리, 서비스 생성자 기반으로 명시적으로 의존성을 주입해 사용했기 때문에, 인증/권한, 외부 서비스 클라이언트, 레포지토리 계층을 교체 가능한 형태로 분리할 수 있습니다. 덕분에 라우팅 단에서는 동작 규칙에만 집중하고 구현체 결합을 낮춰 테스트가 쉬워지며, 기능 추가 시 변경 영향을 최소화할 수 있어 실제 운영 서비스에서의 유지보수성에 직접적인 가치를 더합니다.
+---
 
-## API 분류
+## 🛠 기술 스택
 
-백엔드는 크게 3개 라우트 그룹으로 나뉩니다.
+| 분류         | 스택                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Backend**  | ![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white) ![Express](https://img.shields.io/badge/Express-000000?style=for-the-badge&logo=express&logoColor=white) ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white) ![Prisma](https://img.shields.io/badge/Prisma-2D3748?style=for-the-badge&logo=prisma&logoColor=white) ![Better Auth](https://img.shields.io/badge/Better_Auth-000000?style=for-the-badge&logo=authelia&logoColor=white) ![Jest](https://img.shields.io/badge/Jest-C21325?style=for-the-badge&logo=jest&logoColor=white) |
+| **Database** | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white) ![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **Infra**    | ![AWS](https://img.shields.io/badge/Amazon_AWS-232F3E?style=for-the-badge&logo=amazonwebservices&logoColor=white) ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white) ![Nginx](https://img.shields.io/badge/Nginx-009639?style=for-the-badge&logo=nginx&logoColor=white) ![Sentry](https://img.shields.io/badge/Sentry-362D59?style=for-the-badge&logo=sentry&logoColor=white)                                                                                                                                                                                                                              |
 
-### 1) `mgmt` (강사/조교 운영 API)
+---
 
-- 인증, 강의/수강, 시험, 클리닉, 조교, 과제/성적, 일정, 공지, 자료, 대시보드 등
-- 운영권한 사용자 대상 기능을 묶음
+## 📁 프로젝트 및 API 구조
 
-### 2) `svc` (학생/학부모 서비스 API)
+Express와 Prisma 기반의 3계층 아키텍쳐(Controller - Service - Repository)와 의존성 주입(DI) 패턴을 적용하여, 로직의 응집도를 높이고 교체 및 확장이 유리한 구조입니다.
 
-- 인증, 수강, 자녀 연동, 성적, 클리닉, 자료, 질문/공지 열람, 내 정보/업로드 등
-- 일반 사용자 관점의 기능 중심
+### 폴더 구조
 
-### 3) `public` (공개 인증 API)
+```text
+src/
+├── app.ts                  # 🚀 앱 부팅, 미들웨어, 라우팅 및 종료 제어
+├── config/                 # ⚙️ 환경 변수, DB, Redis, Auth 구성
+├── routes/                 # 🛤️ 엔드포인트 라우팅 (mgmt, svc, public)
+├── controllers/            # 🎮 HTTP 요청 및 응답 제어
+├── services/               # 💼 비즈니스 로직
+├── repos/                  # 🗄️ Prisma 기반 데이터 접근(Repository)
+├── validations/            # ✅ Zod 기반 요청 데이터 검증
+├── middlewares/            # 🛡️ 인증, 로깅, 에러 핸들링, 타이머 등 미들웨어
+└── utils/                  # 🛠️ 공용 유틸리티 (메일, 모니터링, 날짜 등)
+prisma/
+└── schema.prisma           # 📝 DB 스키마 및 도메인 모델 정의
+```
 
-- 회원 가입/이메일 인증/로그인 관련 공개 라우트
-- 로그인/인증의 진입점 역할
+> **의존성 주입(DI):** 프레임워크 DI 컨테이너 없이도 라우터 팩토리, 서비스 생성자 기반으로 명시적 의존성을 주입합니다. 로직의 결합도를 낮춰 테스트가 쉬워지며, 기능 추가/수정 시 안정성을 보장합니다.
 
-## 엔드포인트 구조(요약)
+### API 분류
 
-- Base: `/api/{domain}/v1`
-- `/api/mgmt/v1`
-  - `/lectures`, `/lectures/:lectureId/assignments`, `/lectures/:lectureId/instructor-posts`
-  - `/enrollments`, `/exams`, `/assignment-results`, `/grades`
-  - `/materials`, `/instructor-posts`, `/student-posts`, `/assistant-order`
-  - `/clinics`, `/schedule-categories`, `/schedules`, `/dashboard`, `/assistant-codes`, `/assistants`
-- `/api/svc/v1`
-  - `/enrollments`, `/lectures`, `/enrollments/lectures`
-  - `/children`, `/grades`, `/clinics`
-  - `/materials`, `/student-posts`, `/instructor-posts`, `/dashboard`
-  - `/me`, `/uploads`
-- `/api/public/v1`
-  - `/auth` (로그인/인증 공용 라우트)
+백엔드의 라우팅(`Base: /api/{domain}/v1`)은 크게 3가지 도메인으로 나뉩니다. 모든 서비스는 `GET /health` 경로를 통해 상태 체크를 지원합니다.
 
-- 공통: `GET /health` 헬스체크 제공
+1. **`mgmt` (강사/조교 운영 API):**
+   - 운영권한 사용자 대상 기능을 묶음
+   - 라우트: `/lectures`, `/enrollments`, `/exams`, `/assignment-results`, `/grades`, `/materials`, `/instructor-posts`, `/student-posts`, `/dashboard` 등
+2. **`svc` (학생/학부모 서비스 API):**
+   - 일반 사용자 관점의 서비스(조회, 제출 등)에 집중
+   - 라우트: `/enrollments`, `/children`, `/grades`, `/clinics`, `/student-posts`, `/me`, `/uploads` 등
+3. **`public` (공개 인증 API):**
+   - 비로그인 사용자의 접근 진입로
+   - 라우트: `/auth` (회원 가입, 이메일 인증, 로그인)
 
-## 데이터 구조(요약)
+---
 
-- 사용자 계층: `User`를 중심으로 강사(`Instructor`), 조교(`Assistant`), 학생(`AppStudent`), 학부모(`AppParent`)가 연결됨
-  - `mgmt`(강사와 조교)계층은 강사의 인증체계를 중심으로 수업을 운영하는 주체, 데이터 생산자
-  - `svc`(학생 유저와 학부모 유저)계층은 `Enrollment` 중심으로 해당되는 데이터를 조회하는 조회자
-- 수강 운영 계열: `Enrollment` ↔ `Lecture` ↔ `LectureEnrollment`/`Attendance`
-- 과제/평가 계열: `Exam`, `Clinic`, `Assignment`, `Grade`
-- 커뮤니케이션 계열: `InstructorPost`, `StudentPost`, `Comment`
-- 자원/운영 계열: `Material`, `Schedule`, `ScheduleCategory`
-- 인증/보안 확장: Better Auth 기본 모델(`User`, `Session`, `Verification` 등) + 플랫폼용 인증 메타(`VerificationCode`, 조교 서명 상태 등)
+## 🗄️ 데이터베이스 및 도메인
 
-## 인증 및 인가 처리 플로우
+사용자 계층(`User`, `Instructor`, `Assistant`, `AppStudent`, `AppParent`)을 중심으로 운영 주체와 서비스 이용 주체가 명확하게 나뉩니다. 크게 5개의 비즈니스 도메인으로 관리됩니다.
 
-1. 라우트가 미들웨어 체인을 통과합니다.
-2. `requireAuth`가 요청 헤더에서 세션을 조회해 유효하지 않으면 `401` 응답
-3. 유효한 세션은 `req.user`, `req.profile`, `req.authSession`에 주입됩니다.
-4. 이후 인가 미들웨어(`requireInstructor`, `requireInstructorOrAssistant`, `requireStudent`, `requireParent`, `requireStudentOrParent`)가 사용자 타입을 검증합니다.
-5. 조교(`ASSISTANT`)는 서명 승인(`signStatus === SIGNED`) 여부까지 확인되어야 접근 가능
-6. 미들웨어에서 검증 실패 시 `401` 또는 `403` 반환
+<details>
+<summary><strong>👉 데이터베이스 도메인 다이어그램 펼쳐보기</strong></summary>
+<br>
 
-인증 설정은 Better Auth로 관리되며, 다음 특성이 적용됩니다.
+```mermaid
+flowchart LR
+  subgraph A["유저 & 인증/인가"]
+    User["User (Better Auth)"] --> Session
+    User --> Account
+    User --> AppStudent
+    User --> AppParent
+    User --> Instructor
+    User --> Assistant
+    AppParent --> ParentChildLink
+    Instructor --> AssistantCode
+    VerificationCode
+  end
 
-- 쿠키 기반 세션(기본 7일) + 주기적 갱신(1일)
-- 크로스 도메인 쿠키 옵션(운영 환경 기준)
-- trust origin 제한(FRONT_URL 기반)
-- 관리자/사용자 역할 체계(admin/user/instructor) 기반 보완 설정
+  subgraph B["수업"]
+    Instructor --> Lecture
+    Instructor --> Enrollment
+    Enrollment -. optional .-> AppStudent
+    Enrollment -. optional .-> ParentChildLink
+    Enrollment --> LectureEnrollment
+    Lecture --> LectureEnrollment
+    Lecture --> LectureTime
+    LectureEnrollment --> Attendance
+  end
 
-## 배포 구조
+  subgraph C["시험 & 과제"]
+    Lecture --> Exam
+    Exam --> Question
+    Question --> StudentAnswer
+    Exam --> Grade
+    Grade --> GradeReport
+    Lecture --> Assignment
+    Assignment --> AssignmentResult
+    Exam --> Clinic
+    LectureEnrollment --> Clinic
+  end
 
-- `docker-compose.yml` 기준 Blue/Green 배포 구성이 존재
-  - `backend-blue`, `backend-green` 두 서비스 중 하나를 활성화
-  - Nginx가 80/443 수신 후 백엔드로 라우팅
-- 운영 환경에서는 `.env` 기반으로 `NODE_ENV=production`, `PORT=4000` 사용
-- 무중단 종료 처리
-  - `SIGTERM`/`SIGINT` 수신 시 라우팅 중단 → 기존 요청 처리 → DB 연결 종료 순으로 정리
-- `SENTRY_DSN`, Redis, Lambda 연동 값은 존재 시 동작
+  subgraph D["소통"]
+    Instructor --> InstructorPost
+    Lecture --> InstructorPost
+    InstructorPost --> InstructorPostTarget
+    Enrollment --> InstructorPostTarget
+    Enrollment --> StudentPost
+    InstructorPost --> Comment
+    StudentPost --> Comment
+    InstructorPost --> InstructorPostAttachment
+    Comment --> CommentAttachment
+  end
 
-## 실행/개발 명령
+  subgraph E["유틸리티"]
+    Instructor --> ScheduleCategory
+    ScheduleCategory --> Schedule
+    Instructor --> Material
+    Lecture --> Material
+    Instructor --> AssistantOrder
+    Assistant --> AssistantOrder
+    AssistantOrder --> OrderAttachment
+    Material -. optional .-> OrderAttachment
+  end
 
-- 의존성 설치: `pnpm install`
-- 개발 실행: `pnpm dev`
-- 빌드: `pnpm build`
-- 운영 실행: `pnpm start`
-- 테스트: `pnpm test`
+  %% cross-cutting (attachments reuse)
+  Material -. optional .-> InstructorPostAttachment
+  Material -. optional .-> CommentAttachment
+```
 
-## 배포/운영 참고
+</details>
 
-- `docker-compose.yml`로 Blue/Green(`backend-blue`, `backend-green`) + Nginx 컨테이너 실행 가능
-- 운영에서는 `.env` 기반 환경변수 주입
-- Sentry/람다/Redis 연동은 설정 유무에 따라 선택 동작
+<br>
+
+| 도메인               | 구성 및 특징                                                        |
+| -------------------- | ------------------------------------------------------------------- |
+| **유저 & 인증/인가** | Better Auth 기본 모델 기반 사용자 식별. 플랫폼 전용 확장 메타 제공. |
+| **수업 운영 계열**   | `Enrollment` ↔ `Lecture` ↔ `LectureEnrollment`/`Attendance`         |
+| **시험 & 과제 계열** | 시험, 과제 평가 산출 및 리포트, 보완학습(`Clinic`)                  |
+| **소통 계열**        | 공지, 질문 게시판(`InstructorPost`, `StudentPost`, `Comment`)       |
+| **자원 및 유틸리티** | 자료함(`Material`), 일정(`Schedule`), 조교 업무 지시                |
+
+---
+
+## 🔐 인증 및 인가 처리 플로우
+
+<details>
+<summary><strong>👉 인증 및 인가 처리 플로우 다이어그램 보기</strong></summary>
+<br>
+
+```mermaid
+sequenceDiagram
+    participant Client as 클라이언트 (Frontend)
+    participant Server as 서버 (Better Auth)
+    participant DB as 데이터베이스
+
+    rect rgb(240, 240, 240)
+    Note over Client, DB: 1. 인증 단계 (Authentication - 로그인)
+    Client->>Server: 1. 로그인 요청 (signIn.email 등)
+    Server->>DB: 2. 자격 증명(아이디/비밀번호) 확인
+    DB-->>Server: 3. 검증 결과 반환
+    Server->>DB: 4. 세션(Session) 생성 및 저장
+    Server-->>Client: 5. HttpOnly 쿠키 발급 (Set-Cookie) 및 응답 반환
+    end
+
+    rect rgb(240, 248, 255)
+    Note over Client, DB: 2. 인가 단계 (Authorization - 보호된 자원 접근)
+    Client->>Server: 6. 보호된 API/페이지 요청 (발급된 쿠키 자동 포함)
+    Server->>DB: 7. 쿠키 내 세션 ID 유효성 및 권한 확인
+    DB-->>Server: 8. 인가(Authorization) 결과 반환
+    alt 권한 있음 (유효한 세션)
+        Server-->>Client: 9. 요청 처리 및 데이터 응답
+    else 권한 없음 (만료되거나 잘못된 세션)
+        Server-->>Client: 9. 401/403 에러 반환 (접근 거부)
+    end
+    end
+```
+
+</details>
+
+<br>
+
+**보안 처리 흐름:**
+
+1. 보호 라우트로 접근할 때 미들웨어 체인을 통과합니다.
+2. `requireAuth`: 요청 헤더에서 세션을 조회해 유효하지 않으면 `401` 반환.
+3. 유효한 세션은 `req.user`, `req.profile`, `req.authSession`에 안전하게 주입됩니다.
+4. 권한 인가: 이후 `requireInstructor`, `requireStudent` 등의 권한 미들웨어를 통해 사용자 타입을 검증합니다.
+5. 특수 조건: 조교(`ASSISTANT`)의 경우 서명 승인(`signStatus === SIGNED`) 상태까지 확인하여 접근을 제한합니다.
+6. 인프라 최적화: Better Auth를 활용해 크로스 도메인 쿠키(운영 환경), trust origin 설정(FRONT_URL 기반)으로 안전하게 동작합니다.
+
+### 💡 트러블슈팅: 도메인 분리 환경에서의 세션 쿠키 유실 문제 해결
+
+**문제(증상):** 프론트엔드(`www`)와 백엔드(`api`) 분리 환경에서, 로그인 시 `Set-Cookie`는 정상 발급되나 이후 보호된 라우트(세션 조회 등) 요청에 쿠키가 실리지 않아 세션 기반 라우팅에서 탈락(401)하는 증상이 발생했습니다.  
+**원인:** Better Auth 쿠키가 단일 도메인 기준으로 동작하여 서브도메인 간 공유가 되지 않았고, 세션 조회 실패 시 즉각적으로 쿠키를 삭제하는 강한 로직이 맞물렸기 때문이었습니다.  
+**해결방법:** `AUTH_COOKIE_DOMAIN` 환경변수와 `crossSubDomainCookies` 옵션을 활용하여 운영 환경 공통 도메인(`.ssambee.com`)을 기준으로 쿠키를 발급하도록 개선했습니다. 또한 로그아웃 등 세션 쿠키 삭제 시에도 도메인 정합성을 맞추어 다중 서브도메인 환경 전체에서 안정적으로 세션을 유지하도록 조치했습니다.
+
+---
+
+## 🚀 실행 및 배포
+
+### 로컬 개발 및 실행
+
+```bash
+# 의존성 설치
+$ pnpm install
+
+# 로컬 개발 서버 실행
+$ pnpm dev
+
+# 빌드
+$ pnpm build
+
+# 운영 빌드 실행
+$ pnpm start
+
+# 테스트 실행
+$ pnpm test
+```
+
+### 서버 부팅 및 배포
+
+- **앱 부팅 흐름:** (1) 환경 변수 검증 → (2) Sentry 초기화 → (3) 보안/CORS 설정 → (4) 라우터 및 파싱 미들웨어 등록 → (5) 에러 핸들러 세팅 → (6) Graceful Shutdown
+- **배포 아키텍쳐:** `docker-compose.yml` 기준으로 Nginx와 Blue/Green 무중단 배포를 지원합니다.
+  - 컨테이너 종료(`SIGTERM`/`SIGINT`) 수신 시 라우팅을 중단하고 수신된 기존 요청 처리를 마친 뒤 DB 연결을 종료합니다.
+- **인프라 선택적 연동:** `.env` 값을 기준으로 Sentry(에러 추적), Redis, AWS 연동은 제공된 환경변수가 있을 시에만 동작하도록 설계되었습니다.
