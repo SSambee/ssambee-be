@@ -126,7 +126,7 @@ jobs:
           # 리포지토리 이름을 소문자로 변환
           RAW_IMAGE_NAME="${{ github.repository }}"
           echo "GITHUB_REPOSITORY=${RAW_IMAGE_NAME,,}" >> .env
-          chmod 644 .env
+          chmod 600 .env
 
       # 생성된 .env와 필요한 소스들을(Sparse Checkout한것) 실행 위치로 복사한다.
       - name: Sync files to app directory
