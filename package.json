@@ -17,7 +17,7 @@
     "start": "node dist/app.js",
     "test": "jest --passWithNoTests -t '^(?!.*@integration)'",
     "test:watch": "jest --watch",
-    "test:unit": "jest -t '@unit'",
+    "test:unit": "jest -t '@unit' --testPathIgnorePatterns='/src/test/bdd/' '/src/test/integration/'",
     "test:critical": "jest -t '#critical'",
     "test:integration": "jest -t '@integration' --runInBand",
     "format": "prettier --write .",
