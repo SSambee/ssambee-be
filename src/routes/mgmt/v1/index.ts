@@ -90,3 +90,6 @@ mgmtV1Router.use('/grades', mgmtGradesRouter);
 /** 프로필 라우트 */
 import { mgmtProfileRouter } from './profile.route.js';
 mgmtV1Router.use('/me', mgmtProfileRouter);
+
+import { mgmtKakaoRouter } from './kakao.route.js';
+mgmtV1Router.use('/kakao', mgmtKakaoRouter);

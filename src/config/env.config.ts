@@ -44,6 +44,9 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
   SMTP_SECURE: z.coerce.boolean().optional(),
+  KAKAO_REST_API_KEY: z.string().optional(),
+  KAKAO_REDIRECT_URI: z.string().optional(),
+  KAKAO_CLIENT_SECRET: z.string().optional(),
 });
 
 const parseEnvironment = () => {
@@ -79,6 +82,9 @@ const parseEnvironment = () => {
       SMTP_PASS: process.env.SMTP_PASS,
       SMTP_FROM: process.env.SMTP_FROM,
       SMTP_SECURE: process.env.SMTP_SECURE,
+      KAKAO_REST_API_KEY: process.env.KAKAO_REST_API_KEY,
+      KAKAO_REDIRECT_URI: process.env.KAKAO_REDIRECT_URI,
+      KAKAO_CLIENT_SECRET: process.env.KAKAO_CLIENT_SECRET,
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
