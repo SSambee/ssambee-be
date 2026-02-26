@@ -270,3 +270,11 @@ $ pnpm test
 | :--------------------------------------------: | :------------------------------------------: | :-------------------------------------------------------: | :---------------------------------------------: |
 | ![창기](https://github.com/p-changki.png?s=20) | ![유리](https://github.com/yoorrll.png?s=20) | ![경민](https://github.com/play-ancora-gyungmin.png?s=20) | ![윤기](https://github.com/rklpoi5678.png?s=20) |
 |                  PM & 프론트                   |                    프론트                    |                          백엔드                           |                  백엔드 & 배포                  |
+
+---
+
+<div align="center">
+
+**Made with ❤️ by SSam B Team**
+
+</div>
