@@ -16,12 +16,20 @@ Express 기반 REST API 서버로, 강사/조교/학생/학부모의 교육 운�
 
 ## 📋 목차
 
-- [✨ 핵심 역할](#-핵심-역할)
-- [🛠 기술 스택](#-기술-스택)
-- [📁 프로젝트 및 API 구조](#-프로젝트-및-api-구조)
-- [🗄️ 데이터베이스 및 도메인](#-데이터베이스-및-도메인)
-- [🔐 인증 및 인가 처리 플로우](#-인증-및-인가-처리-플로우)
-- [🚀 실행 및 배포](#-실행-및-배포)
+- [SSam B 백엔드](#ssam-b-백엔드)
+  - [📋 목차](#-목차)
+  - [✨ 핵심 역할](#-핵심-역할)
+  - [🛠 기술 스택](#-기술-스택)
+  - [📁 프로젝트 및 API 구조](#-프로젝트-및-api-구조)
+    - [폴더 구조](#폴더-구조)
+    - [API 분류](#api-분류)
+  - [🗄️ 데이터베이스 및 도메인](#️-데이터베이스-및-도메인)
+  - [🔐 인증 및 인가 처리 플로우](#-인증-및-인가-처리-플로우)
+    - [💡 트러블슈팅: 도메인 분리 환경에서의 세션 쿠키 유실 문제 해결](#-트러블슈팅-도메인-분리-환경에서의-세션-쿠키-유실-문제-해결)
+  - [🚀 실행 및 배포](#-실행-및-배포)
+    - [로컬 개발 및 실행](#로컬-개발-및-실행)
+    - [서버 부팅 및 배포](#서버-부팅-및-배포)
+  - [🛸 팀 소개](#-팀-소개)
 
 ---
 
@@ -37,11 +45,11 @@ Express 기반 REST API 서버로, 강사/조교/학생/학부모의 교육 운�
 
 ## 🛠 기술 스택
 
-| 분류         | 스택                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Backend**  | ![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white) ![Express](https://img.shields.io/badge/Express-000000?style=for-the-badge&logo=express&logoColor=white) ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white) ![Prisma](https://img.shields.io/badge/Prisma-2D3748?style=for-the-badge&logo=prisma&logoColor=white) ![Better Auth](https://img.shields.io/badge/Better_Auth-000000?style=for-the-badge&logo=authelia&logoColor=white) ![Jest](https://img.shields.io/badge/Jest-C21325?style=for-the-badge&logo=jest&logoColor=white) |
-| **Database** | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white) ![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| **Infra**    | ![AWS](https://img.shields.io/badge/Amazon_AWS-232F3E?style=for-the-badge&logo=amazonwebservices&logoColor=white) ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white) ![Nginx](https://img.shields.io/badge/Nginx-009639?style=for-the-badge&logo=nginx&logoColor=white) ![Sentry](https://img.shields.io/badge/Sentry-362D59?style=for-the-badge&logo=sentry&logoColor=white) ![Terraform](https://img.shields.io/badge/Terraform-844FBA?style=for-the-badge&logo=terraform&logoColor=white)    ![Fail2ban](https://img.shields.io/badge/Fail2ban-F22C2C?style=for-the-badge&logo=fail2ban&logoColor=white)   ![Certbot](https://img.shields.io/badge/Certbot-EF3124?style=for-the-badge&logo=certbot&logoColor=white)                                                                                                                                                                                                                        |
+| 분류         | 스택                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Backend**  | ![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white) ![Express](https://img.shields.io/badge/Express-000000?style=for-the-badge&logo=express&logoColor=white) ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white) ![Prisma](https://img.shields.io/badge/Prisma-2D3748?style=for-the-badge&logo=prisma&logoColor=white) ![Better Auth](https://img.shields.io/badge/Better_Auth-000000?style=for-the-badge&logo=authelia&logoColor=white) ![Jest](https://img.shields.io/badge/Jest-C21325?style=for-the-badge&logo=jest&logoColor=white)                                                                                                        |
+| **Database** | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white) ![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **Infra**    | ![AWS](https://img.shields.io/badge/Amazon_AWS-232F3E?style=for-the-badge&logo=amazonwebservices&logoColor=white) ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white) ![Nginx](https://img.shields.io/badge/Nginx-009639?style=for-the-badge&logo=nginx&logoColor=white) ![Sentry](https://img.shields.io/badge/Sentry-362D59?style=for-the-badge&logo=sentry&logoColor=white) ![Terraform](https://img.shields.io/badge/Terraform-844FBA?style=for-the-badge&logo=terraform&logoColor=white) ![Fail2ban](https://img.shields.io/badge/Fail2ban-F22C2C?style=for-the-badge&logo=fail2ban&logoColor=white) ![Certbot](https://img.shields.io/badge/Certbot-EF3124?style=for-the-badge&logo=certbot&logoColor=white) |
 
 ---
 
@@ -253,3 +261,12 @@ $ pnpm test
 - **배포 아키텍쳐:** `docker-compose.yml` 기준으로 Nginx와 Blue/Green 무중단 배포를 지원합니다.
   - 컨테이너 종료(`SIGTERM`/`SIGINT`) 수신 시 라우팅을 중단하고 수신된 기존 요청 처리를 마친 뒤 DB 연결을 종료합니다.
 - **인프라 선택적 연동:** `.env` 값을 기준으로 Sentry(에러 추적), Redis, AWS 연동은 제공된 환경변수가 있을 시에만 동작하도록 설계되었습니다.
+
+---
+
+## 🛸 팀 소개
+
+|                   👑 박창기                    |                    이유리                    |                          임경민                           |                     김윤기                      |
+| :--------------------------------------------: | :------------------------------------------: | :-------------------------------------------------------: | :---------------------------------------------: |
+| ![창기](https://github.com/p-changki.png?s=20) | ![유리](https://github.com/yoorrll.png?s=20) | ![경민](https://github.com/play-ancora-gyungmin.png?s=20) | ![윤기](https://github.com/rklpoi5678.png?s=20) |
+|                  PM & 프론트                   |                    프론트                    |                          백엔드                           |                  백엔드 & 배포                  |
