@@ -52,13 +52,13 @@ else
 fi
 
 # 환경 변수 확인 (!)
-if [ -z "$DATABASE_URL" ]; then
-    echo -e "${RED}경고: DATABASE_URL이 로드되지 않았습니다! .env 파일을 확인하세요.${NC}"
+if [ -z "$MIGRATION_DATABASE_URL" ]; then
+    echo -e "${RED}경고: MIGRATION_DATABASE_URL이 로드되지 않았습니다! .env 파일을 확인하세요.${NC}"
     # DATABASE_URL이 로드되지 않은 경우, 파일 내용은 있는데 변수명이 틀렸는지 확인하기 위해 출력
-    if grep -q "^DATABASE_URL=" "$ENV_PATH"; then
-        echo -e "${RED}DATABASE_URL 키가 파일에 존재하지만 로드 실패${NC}"
+    if grep -q "^MIGRATION_DATABASE_URL=" "$ENV_PATH"; then
+        echo -e "${RED}MIGRATION_DATABASE_URL 키가 파일에 존재하지만 로드 실패${NC}"
     else
-        echo -e "${RED}DATABASE_URL 키가 파일에 없습니다.${NC}"
+        echo -e "${RED}MIGRATION_DATABASE_URL 키가 파일에 없습니다.${NC}"
     fi
     exit 1
 fi
@@ -161,9 +161,9 @@ done
 if [ "$CONTAINER_READY" = true ]; then
     echo -e "${YELLOW}[$TARGET] 환경에 Prisma 마이그레이션 실행 중...${NC}"
     
-    CLEAN_DATABASE_URL=$(echo "$DATABASE_URL" | tr -d '\r' | xargs)
+    CLEAN_DATABASE_URL=$(echo "$MIGRATION_DATABASE_URL" | tr -d '\r' | xargs)
 
-    if docker exec -e DATABASE_URL="$CLEAN_DATABASE_URL" $NEW_CONTAINER pnpm prisma migrate deploy; then
+    if docker exec -e MIGRATION_DATABASE_URL="$CLEAN_DATABASE_URL" $NEW_CONTAINER pnpm prisma migrate deploy; then
         echo -e "${GREEN}[$TARGET] 환경 Prisma 마이그레이션 성공!${NC}"
     else
         echo -e "${RED}[$TARGET] 환경 Prisma 마이그레이션 실패!${NC}"
