@@ -63,6 +63,7 @@ jobs:
       NODE_ENV: ${{ secrets.NODE_ENV }}
       PORT: ${{ secrets.PORT }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
       FRONT_URL: ${{ secrets.FRONT_URL }}
       BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
       BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
@@ -98,6 +99,7 @@ jobs:
           NODE_ENV=$NODE_ENV
           PORT=$PORT
           DATABASE_URL=$DATABASE_URL
+          MIGRATION_DATABASE_URL=$MIGRATION_DATABASE_URL
           FRONT_URL=$FRONT_URL
           BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET
           BETTER_AUTH_URL=$BETTER_AUTH_URL
