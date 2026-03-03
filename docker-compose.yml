@@ -9,6 +9,7 @@ services:
       - .env
     volumes:
       - ./.env:/app/.env
+      - /certs/global-bundle.pem:/certs/global-bundle.pem:ro
     environment:
       - NODE_ENV=production
       - PORT=4000
@@ -28,6 +29,7 @@ services:
       - .env
     volumes:
       - ./.env:/app/.env
+      - /certs/global-bundle.pem:/certs/global-bundle.pem:ro
     environment:
       - NODE_ENV=production
       - PORT=4000
