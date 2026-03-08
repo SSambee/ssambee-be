@@ -33,14 +33,21 @@ export function defineStudentPostAbility(ctx: AbilityContext): AppAbility {
     }
 
     case UT.INSTRUCTOR: {
-      const condition = { instructorId: ctx.effectiveInstructorId! };
+      if (!ctx.effectiveInstructorId) {
+        // Retrun empty ability - no permissions granted
+        break;
+      }
+      const condition = { instructorId: ctx.effectiveInstructorId };
       can(A.Read, 'StudentPost', condition);
       can(A.List, 'StudentPost', condition);
       break;
     }
 
     case UT.ASSISTANT: {
-      const condition = { instructorId: ctx.effectiveInstructorId! };
+      if (!ctx.effectiveInstructorId) {
+        break;
+      }
+      const condition = { instructorId: ctx.effectiveInstructorId };
       can(A.Read, 'StudentPost', condition);
       can(A.List, 'StudentPost', condition);
       break;
