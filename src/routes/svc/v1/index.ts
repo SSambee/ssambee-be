@@ -9,7 +9,6 @@ import { svcMaterialsRouter } from './materials.route.js';
 import { svcStudentPostsRouter } from './student-posts.route.js';
 import { svcInstructorPostsRouter } from './instructor-posts.route.js';
 import { svcMeRouter } from './me.route.js';
-import { svcUploadsRouter } from './uploads.route.js';
 import { svcDashboardRouter } from './dashboard.route.js';
 
 export const svcV1Router = Router();
@@ -47,6 +46,3 @@ svcV1Router.use('/dashboard', svcDashboardRouter);
 
 /** 내 정보 라우트 */
 svcV1Router.use('/me', svcMeRouter);
-
-/** 파일 업로드 라우트 */
-svcV1Router.use('/uploads', svcUploadsRouter);
