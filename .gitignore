@@ -18,6 +18,7 @@ dist
 # misc
 .vscode
 .cursor
+.omx 
 .DS_Store
 .env.local
 .env.development.local
