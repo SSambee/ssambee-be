@@ -53,7 +53,7 @@ export const createMockFileStorageService =
   (): jest.Mocked<FileStorageService> =>
     ({
       upload: jest.fn(),
-      getPresignedUrl: jest.fn(),
+      getPresignedUrl: jest.fn(async (url) => url),
       delete: jest.fn(),
     }) as unknown as jest.Mocked<FileStorageService>;
 
@@ -64,5 +64,6 @@ export const createMockCommentsService = (): jest.Mocked<CommentsService> =>
     createComment: jest.fn(),
     updateComment: jest.fn(),
     deleteComment: jest.fn(),
+    deleteCommentAttachmentsByPostId: jest.fn(),
     getCommentsByPostId: jest.fn(),
   }) as unknown as jest.Mocked<CommentsService>;
