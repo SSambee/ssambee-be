@@ -8,11 +8,7 @@ import {
   GetStudentPostsQueryDto,
   GetMyLecturesQueryDto,
 } from '../validations/student-posts.validation.js';
-import {
-  StudentPostStatus,
-  AuthorRole,
-  InquiryWriterType,
-} from '../constants/posts.constant.js';
+import { StudentPostStatus, AuthorRole } from '../constants/posts.constant.js';
 import { UserType } from '../constants/auth.constant.js';
 import { StudentPostsRepository } from '../repos/student-posts.repo.js';
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
@@ -26,6 +22,12 @@ import { CommentsService } from './comments.service.js';
 import { FileStorageService } from './filestorage.service.js';
 import path from 'path';
 import { randomUUID } from 'crypto';
+import { subject } from '@casl/ability';
+import { accessibleBy } from '@casl/prisma';
+import { defineStudentPostAbility } from '../casl/student-post.ability.js';
+import type { AbilityContext } from '../casl/student-post.ability.js';
+import { Action as A } from '../casl/actions.js';
+import type { AppAbility } from '../casl/ability.types.js';
 
 export class StudentPostsService {
   constructor(
@@ -121,7 +123,7 @@ export class StudentPostsService {
 
     return {
       ...result,
-      attachments: this.normalizeAttachments(result.attachments),
+      attachments: await this.normalizeAttachments(result.attachments),
     };
   }
 
@@ -131,71 +133,59 @@ export class StudentPostsService {
     userType: UserType,
     profileId: string,
   ) {
-    let instructorId: string | undefined;
-    let appStudentId: string | undefined;
-    let enrollmentIds: string[] | undefined; // [NEW] 학부모용
-    // 학생/학부모는 본인 authorRole 게시글만 조회 가능
-    let forcedWriterType: InquiryWriterType | undefined;
-
-    if (userType === UserType.INSTRUCTOR) {
-      instructorId = profileId;
-    } else if (userType === UserType.STUDENT) {
-      appStudentId = profileId;
-      forcedWriterType = InquiryWriterType.STUDENT;
-    } else if (userType === UserType.ASSISTANT) {
-      const id = await this.permissionService.getEffectiveInstructorId(
-        userType,
-        profileId,
-      );
-      if (!id) throw new ForbiddenException('강사 정보를 찾을 수 없습니다.');
-      instructorId = id;
-    } else if (userType === UserType.PARENT) {
-      // 학부모: 등록된 자녀 링크 확인
+    if (userType === UserType.PARENT) {
       const childLinks = await this.permissionService.getChildLinks(profileId);
-
-      if (!childLinks || childLinks.length === 0)
+      if (!childLinks || childLinks.length === 0) {
         throw new NotFoundException('등록된 자녀가 없습니다.');
-
-      // 학부모: 모든 자녀의 enrollment ID 조회
-      enrollmentIds =
-        await this.permissionService.getParentEnrollmentIds(profileId);
-
-      if (!enrollmentIds || enrollmentIds.length === 0) {
-        // 자녀는 있지만 수강 중인 강의가 없는 경우 빈 목록 반환
-        return {
-          posts: [],
-          totalCount: 0,
-          stats: null,
-        };
       }
-      forcedWriterType = InquiryWriterType.PARENT;
-    } else {
+      const enrollmentIds =
+        await this.permissionService.getParentEnrollmentIds(profileId);
+      if (!enrollmentIds || enrollmentIds.length === 0) {
+        return { posts: [], totalCount: 0, stats: null };
+      }
+    }
+
+    const ability = await this.buildAbility(userType, profileId);
+    if (!ability.can(A.List, 'StudentPost')) {
       throw new ForbiddenException('접근 권한이 없습니다.');
     }
+
+    const accessFilter = accessibleBy(ability, A.List).StudentPost;
 
     const result = await this.studentPostsRepository.findMany({
       ...query,
       status: query.answerStatus, // answerStatus → status 매핑
-      instructorId,
-      appStudentId,
-      enrollmentIds, // [NEW] 학부모용
-      // 학생/학부모는 본인 작성 글만 보도록 강제
-      ...(forcedWriterType !== undefined && { writerType: forcedWriterType }),
+      accessFilter,
     });
 
     // [Stats] 학생 질문 통계 추가 (강사/조교인 경우)
-    // DRY: formatStudentPostStats 헬퍼 함수 사용 - instructor-posts.service.ts와 동일 로직 공유
     let stats = null;
-    if (instructorId) {
-      const statsRaw = await this.studentPostsRepository.getStats(instructorId);
+    let effectiveInstructorId: string | undefined;
+
+    if (userType === UserType.INSTRUCTOR) {
+      effectiveInstructorId = profileId;
+    } else if (userType === UserType.ASSISTANT) {
+      effectiveInstructorId =
+        await this.permissionService.getEffectiveInstructorId(
+          userType,
+          profileId,
+        );
+    }
+
+    if (effectiveInstructorId) {
+      const statsRaw = await this.studentPostsRepository.getStats(
+        effectiveInstructorId,
+      );
       stats = formatStudentPostStats(statsRaw);
     }
 
     return {
-      posts: result.posts.map((post) => ({
-        ...post,
-        attachments: this.normalizeAttachments(post.attachments),
-      })),
+      posts: await Promise.all(
+        result.posts.map(async (post) => ({
+          ...post,
+          attachments: await this.normalizeAttachments(post.attachments),
+        })),
+      ),
       totalCount: result.totalCount,
       stats,
     };
@@ -271,7 +261,8 @@ export class StudentPostsService {
     if (!post) throw new NotFoundException('질문을 찾을 수 없습니다.');
 
     // 권한 검증
-    await this.validatePostAccess(post, userType, profileId);
+    const ability = await this.buildAbility(userType, profileId);
+    this.assertPostAccess(ability, A.Read, post);
 
     // 댓글에 isMine 및 첨부파일 필터링/정규화 적용
     const processedComments = post.comments
@@ -280,7 +271,7 @@ export class StudentPostsService {
 
     return {
       ...post,
-      attachments: this.normalizeAttachments(post.attachments),
+      attachments: await this.normalizeAttachments(post.attachments),
       comments: processedComments,
     };
   }
@@ -296,21 +287,21 @@ export class StudentPostsService {
     if (!post) throw new NotFoundException('질문을 찾을 수 없습니다.');
 
     // 권한 검증
-    await this.validatePostAccess(post, userType, profileId);
+    const ability = await this.buildAbility(userType, profileId);
 
     // 강사는 상태를 변경할 수 없음 (댓글만 작성 가능)
-    if (userType === UserType.INSTRUCTOR) {
+    if (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) {
       throw new ForbiddenException(
         '강사는 질문의 완료 상태를 변경할 수 없습니다. 학생이 완료 처리해야 합니다.',
       );
     }
 
-    // 학부모인 경우 본인이 작성한 질문만 상태 변경 가능
-    if (userType === UserType.PARENT && post.authorRole !== AuthorRole.PARENT) {
-      throw new ForbiddenException(
-        '본인이 작성한 질문만 상태를 변경할 수 있습니다.',
-      );
-    }
+    this.assertPostAccess(
+      ability,
+      A.UpdateStatus,
+      post,
+      '본인이 작성한 질문만 상태를 변경할 수 있습니다.',
+    );
 
     // 학생/학부모: RESOLVED ↔ COMPLETED 토글만 허용
     if (userType === UserType.STUDENT || userType === UserType.PARENT) {
@@ -356,12 +347,13 @@ export class StudentPostsService {
     const post = await this.studentPostsRepository.findById(postId);
     if (!post) throw new NotFoundException('질문을 찾을 수 없습니다.');
 
-    await this.validatePostAccess(post, userType, profileId);
-
-    // 학부모인 경우 본인이 작성한 질문만 수정 가능
-    if (userType === UserType.PARENT && post.authorRole !== AuthorRole.PARENT) {
-      throw new ForbiddenException('본인이 작성한 질문만 수정할 수 있습니다.');
-    }
+    const ability = await this.buildAbility(userType, profileId);
+    this.assertPostAccess(
+      ability,
+      A.Update,
+      post,
+      '본인이 작성한 질문만 수정할 수 있습니다.',
+    );
 
     if (!data.title && !data.content && data.attachments === undefined) {
       throw new BadRequestException('수정할 내용이 없습니다.');
@@ -412,6 +404,14 @@ export class StudentPostsService {
           fileUrl,
         });
       }
+
+      // 새 파일 업로드 성공 후 기존 첨부 파일 삭제 (고아 파일 방지)
+      const oldAttachments = post.attachments ?? [];
+      await Promise.all(
+        oldAttachments
+          .filter((a) => a.fileUrl)
+          .map((a) => this.fileStorageService.delete(a.fileUrl!)),
+      );
     }
 
     // 기존 데이터의 attachments와 업로드된 attachments 결합
@@ -432,12 +432,28 @@ export class StudentPostsService {
     const post = await this.studentPostsRepository.findById(postId);
     if (!post) throw new NotFoundException('질문을 찾을 수 없습니다.');
 
-    await this.validatePostAccess(post, userType, profileId);
+    const ability = await this.buildAbility(userType, profileId);
+    this.assertPostAccess(
+      ability,
+      A.Delete,
+      post,
+      '본인이 작성한 질문만 삭제할 수 있습니다.',
+    );
 
-    // 학부모인 경우 본인이 작성한 질문만 삭제 가능
-    if (userType === UserType.PARENT && post.authorRole !== AuthorRole.PARENT) {
-      throw new ForbiddenException('본인이 작성한 질문만 삭제할 수 있습니다.');
+    // S3 첨부파일 삭제
+    if (post.attachments?.length) {
+      for (const attachment of post.attachments) {
+        if (attachment.fileUrl) {
+          await this.fileStorageService.delete(attachment.fileUrl);
+        }
+      }
     }
+
+    // 댓글 첨부파일 삭제
+    await this.commentsService.deleteCommentAttachmentsByPostId(
+      postId,
+      'studentPost',
+    );
 
     return this.studentPostsRepository.delete(postId);
   }
@@ -446,64 +462,50 @@ export class StudentPostsService {
   // Private Helper Methods
   // ----------------------------------------------------------------
 
-  /** 게시글 접근 권한 검증 Helper */
-  private async validatePostAccess(
-    post: StudentPost,
+  private assertPostAccess(
+    ability: AppAbility,
+    action: A,
+    post: Partial<StudentPost>,
+    message: string = '권한이 없습니다.',
+  ) {
+    if (!ability.can(action, subject('StudentPost', post as StudentPost))) {
+      throw new ForbiddenException(message);
+    }
+  }
+
+  private async buildAbility(
     userType: UserType,
     profileId: string,
-  ) {
-    if (userType === UserType.STUDENT) {
-      // 학생은 학생이 작성한 글만 접근 가능 (학부모 글 접근 차단)
-      if (post.authorRole !== AuthorRole.STUDENT)
-        throw new ForbiddenException('권한이 없습니다.');
-      const enrollment = await this.enrollmentsRepository.findById(
-        post.enrollmentId,
-      );
-      if (enrollment?.appStudentId !== profileId)
-        throw new ForbiddenException('권한이 없습니다.');
-      return;
+  ): Promise<AppAbility> {
+    const ctx: AbilityContext = { userType, profileId };
+
+    switch (userType) {
+      case UserType.STUDENT: {
+        const enrollments =
+          await this.enrollmentsRepository.findManyByAppStudentId(profileId);
+        ctx.enrollmentIds = enrollments.map((e) => e.id);
+        break;
+      }
+      case UserType.INSTRUCTOR: {
+        ctx.effectiveInstructorId = profileId;
+        break;
+      }
+      case UserType.ASSISTANT: {
+        ctx.effectiveInstructorId =
+          await this.permissionService.getEffectiveInstructorId(
+            userType,
+            profileId,
+          );
+        break;
+      }
+      case UserType.PARENT: {
+        ctx.parentEnrollmentIds =
+          await this.permissionService.getParentEnrollmentIds(profileId);
+        break;
+      }
     }
 
-    if (userType === UserType.INSTRUCTOR) {
-      if (post.instructorId !== profileId)
-        throw new ForbiddenException('권한이 없습니다.');
-      return;
-    }
-
-    if (userType === UserType.ASSISTANT) {
-      const instructorId =
-        await this.permissionService.getEffectiveInstructorId(
-          userType,
-          profileId,
-        );
-      if (instructorId !== post.instructorId)
-        throw new ForbiddenException('권한이 없습니다.');
-      return;
-    }
-
-    if (userType === UserType.PARENT) {
-      // 학부모는 학부모가 작성한 글만 접근 가능 (학생 글 접근 차단)
-      if (post.authorRole !== AuthorRole.PARENT)
-        throw new ForbiddenException('권한이 없습니다.');
-
-      const enrollment = await this.enrollmentsRepository.findById(
-        post.enrollmentId,
-      );
-
-      if (!enrollment?.appParentLinkId)
-        throw new ForbiddenException('학부모 연결 정보가 없습니다.');
-
-      // 본인 자녀의 질문인지 확인 (조회용)
-      await this.permissionService.validateChildAccess(
-        userType,
-        profileId,
-        enrollment.appParentLinkId,
-      );
-
-      return;
-    }
-
-    throw new ForbiddenException('접근 권한이 없습니다.');
+    return defineStudentPostAbility(ctx);
   }
 
   /** 학생 질문 작성을 위한 Enrollment ID 조회 Helper */
@@ -585,7 +587,7 @@ export class StudentPostsService {
 
         return {
           ...commentWithIsMine,
-          attachments: this.normalizeAttachments(finalAttachments),
+          attachments: await this.normalizeAttachments(finalAttachments),
         };
       }),
     );
@@ -645,17 +647,26 @@ export class StudentPostsService {
   /**
    * 첨부파일 구조 정규화 (material.fileUrl을 root로 승격)
    */
-  private normalizeAttachments<
+  private async normalizeAttachments<
     T extends {
       fileUrl: string | null;
       material?: { fileUrl: string | null } | null;
     },
-  >(attachments: T[] | null | undefined) {
+  >(attachments: T[] | null | undefined): Promise<T[]> {
     if (!attachments) return [];
-    return attachments.map((attr) => ({
-      ...attr,
-      fileUrl: attr.fileUrl || attr.material?.fileUrl || null,
-    }));
+    return Promise.all(
+      attachments.map(async (attr) => {
+        const url = attr.fileUrl || attr.material?.fileUrl || null;
+        let presignedUrl = null;
+        if (url) {
+          presignedUrl = await this.fileStorageService.getPresignedUrl(url);
+        }
+        return {
+          ...attr,
+          fileUrl: presignedUrl,
+        };
+      }),
+    );
   }
 
   /** 첨부파일 다운로드 URL 조회 */
@@ -674,7 +685,8 @@ export class StudentPostsService {
     if (!fileUrl) throw new NotFoundException('파일이 존재하지 않습니다.');
 
     const post = attachment.studentPost;
-    await this.validateAttachmentAccess(post, userType, profileId);
+    const ability = await this.buildAbility(userType, profileId);
+    this.assertPostAccess(ability, A.Read, post);
 
     const downloadFileName = attachment.filename;
     const presignedUrl = await this.fileStorageService.getDownloadPresignedUrl(
@@ -684,70 +696,6 @@ export class StudentPostsService {
     );
 
     return { url: presignedUrl };
-  }
-
-  /** 첨부파일 접근 권한 검증 (간소화된 버전) */
-  private async validateAttachmentAccess(
-    post: {
-      id: string;
-      enrollmentId: string;
-      instructorId: string;
-      authorRole: string;
-    },
-    userType: UserType,
-    profileId: string,
-  ) {
-    if (userType === UserType.STUDENT) {
-      // 학생은 학생이 작성한 게시글의 첨부파일만 접근 가능
-      if (post.authorRole !== AuthorRole.STUDENT)
-        throw new ForbiddenException('권한이 없습니다.');
-      const enrollment = await this.enrollmentsRepository.findById(
-        post.enrollmentId,
-      );
-      if (enrollment?.appStudentId !== profileId)
-        throw new ForbiddenException('권한이 없습니다.');
-      return;
-    }
-
-    if (userType === UserType.INSTRUCTOR) {
-      if (post.instructorId !== profileId)
-        throw new ForbiddenException('권한이 없습니다.');
-      return;
-    }
-
-    if (userType === UserType.ASSISTANT) {
-      const instructorId =
-        await this.permissionService.getEffectiveInstructorId(
-          userType,
-          profileId,
-        );
-      if (instructorId !== post.instructorId)
-        throw new ForbiddenException('권한이 없습니다.');
-      return;
-    }
-
-    if (userType === UserType.PARENT) {
-      // 학부모는 학부모가 작성한 게시글의 첨부파일만 접근 가능
-      if (post.authorRole !== AuthorRole.PARENT)
-        throw new ForbiddenException('권한이 없습니다.');
-
-      const enrollment = await this.enrollmentsRepository.findById(
-        post.enrollmentId,
-      );
-
-      if (!enrollment?.appParentLinkId)
-        throw new ForbiddenException('학부모 연결 정보가 없습니다.');
-
-      await this.permissionService.validateChildAccess(
-        userType,
-        profileId,
-        enrollment.appParentLinkId,
-      );
-
-      return;
-    }
-
-    throw new ForbiddenException('접근 권한이 없습니다.');
   }
 
   /** 만료된 질문 자동 완료 처리 (배치용) */

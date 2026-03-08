@@ -37,6 +37,8 @@
     "@aws-sdk/client-ssm": "^3.988.0",
     "@aws-sdk/cloudfront-signer": "^3.988.0",
     "@aws-sdk/s3-request-presigner": "^3.984.0",
+    "@casl/ability": "^6.8.0",
+    "@casl/prisma": "^1.6.1",
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
     "@sentry/node": "^10.38.0",

@@ -92,7 +92,6 @@ import { AssignmentCategoryController } from '../controllers/assignment-categori
 
 import { SchedulesService } from '../services/schedules.service.js';
 import { SchedulesController } from '../controllers/schedules.controller.js';
-import { UploadsController } from '../controllers/uploads.controller.js';
 
 import { DashboardRepository } from '../repos/dashboard.repo.js';
 import { DashboardService } from '../services/dashboard.service.js';
@@ -391,7 +390,6 @@ const instructorPostsController = new InstructorPostsController(
 );
 const studentPostsController = new StudentPostsController(studentPostsService);
 const commentsController = new CommentsController(commentsService);
-const uploadsController = new UploadsController(fileStorageService);
 const dashboardController = new DashboardController(dashboardService);
 
 // 4. Create Middlewares (Inject Services)
@@ -458,7 +456,6 @@ export const container = {
   assignmentsController,
   assignmentResultsController,
   dashboardController,
-  uploadsController,
   profileController: new ProfileController(profileService),
   // Middlewares
   requireAuth,

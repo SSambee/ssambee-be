@@ -112,6 +112,7 @@ svcStudentPostsRouter.post(
 /** 댓글 수정 (본인만 가능) */
 svcStudentPostsRouter.patch(
   '/:postId/comments/:commentId',
+  upload.single('file'),
   validate(commentEditParamsSchema, 'params'),
   validate(updateCommentSchema, 'body'),
   commentsController.updateComment,

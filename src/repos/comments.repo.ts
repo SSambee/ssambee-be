@@ -156,6 +156,30 @@ export class CommentsRepository {
     });
   }
 
+  /** 직접 첨부 파일 목록 조회 (S3 삭제용, materialId 없는 것만) */
+  async findDirectAttachmentsByCommentId(commentId: string) {
+    return this.prisma.commentAttachment.findMany({
+      where: { commentId, materialId: null },
+      select: { id: true, fileUrl: true, filename: true },
+    });
+  }
+
+  /** 특정 게시글의 모든 댓글에 딸린 직접 첨부 파일 조회 (post 삭제 시 S3 정리용) */
+  async findDirectAttachmentsByPostId(
+    postId: string,
+    postType: 'instructorPost' | 'studentPost',
+  ) {
+    return this.prisma.commentAttachment.findMany({
+      where: {
+        comment: {
+          [postType + 'Id']: postId,
+        },
+        materialId: null,
+      },
+      select: { fileUrl: true },
+    });
+  }
+
   /** 첨부파일 ID로 조회 (다운로드용) */
   async findAttachmentById(
     attachmentId: string,
