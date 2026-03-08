@@ -387,15 +387,6 @@ export class StudentPostsService {
       return post;
     }
 
-    // 새 파일이 업로드될 경우, 기존 직접 첨부 파일을 S3에서 삭제 (고아 파일 방지)
-    if (files?.length) {
-      for (const attachment of post.attachments ?? []) {
-        if (attachment.fileUrl) {
-          await this.fileStorageService.delete(attachment.fileUrl);
-        }
-      }
-    }
-
     // 직접 첨부 파일 처리 (S3 업로드)
     const uploadedAttachments: { filename: string; fileUrl: string }[] = [];
     if (files?.length) {
@@ -413,6 +404,14 @@ export class StudentPostsService {
           fileUrl,
         });
       }
+
+      // 새 파일 업로드 성공 후 기존 첨부 파일 삭제 (고아 파일 방지)
+      const oldAttachments = post.attachments ?? [];
+      await Promise.all(
+        oldAttachments
+          .filter((a) => a.fileUrl)
+          .map((a) => this.fileStorageService.delete(a.fileUrl!)),
+      );
     }
 
     // 기존 데이터의 attachments와 업로드된 attachments 결합
