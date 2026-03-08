@@ -84,6 +84,31 @@ export class EnrollmentsService {
     );
 
     return await this.prisma.$transaction(async (tx) => {
+      const resolveStudentId = async () => {
+        let studentId = data.appStudentId;
+
+        if (!studentId && data.studentPhone) {
+          const studentPhone = data.studentPhone as string;
+          const studentName = data.studentName as string | undefined;
+          const parentPhone = data.parentPhone as string | undefined;
+
+          if (studentName && parentPhone) {
+            const student =
+              await this.studentRepository.findByPhoneNumberAndProfile(
+                studentPhone,
+                studentName,
+                parentPhone,
+                tx,
+              );
+            if (student) {
+              studentId = student.id;
+            }
+          }
+        }
+
+        return studentId;
+      };
+
       // 3. 기존 Enrollment 확인 (같은 강사, 같은 학생 번호)
       let enrollmentId: string | null = null;
 
@@ -96,7 +121,21 @@ export class EnrollmentsService {
           );
 
         if (existingEnrollments.length > 0) {
-          enrollmentId = existingEnrollments[0].id;
+          const existingEnrollment = existingEnrollments[0];
+          enrollmentId = existingEnrollment.id;
+
+          if (!existingEnrollment.appStudentId) {
+            const studentId = await resolveStudentId();
+            if (studentId) {
+              await this.enrollmentsRepository.update(
+                existingEnrollment.id,
+                {
+                  appStudent: { connect: { id: studentId } },
+                },
+                tx,
+              );
+            }
+          }
         }
       }
 
@@ -121,25 +160,7 @@ export class EnrollmentsService {
           }
         }
 
-        let studentId = data.appStudentId;
-        if (!studentId && data.studentPhone) {
-          const studentPhone = data.studentPhone as string;
-          const studentName = data.studentName as string | undefined;
-          const parentPhone = data.parentPhone as string | undefined;
-
-          if (studentName && parentPhone) {
-            const student =
-              await this.studentRepository.findByPhoneNumberAndProfile(
-                studentPhone,
-                studentName,
-                parentPhone,
-                tx,
-              );
-            if (student) {
-              studentId = student.id;
-            }
-          }
-        }
+        const studentId = await resolveStudentId();
 
         const newEnrollment = await this.enrollmentsRepository.create(
           {
