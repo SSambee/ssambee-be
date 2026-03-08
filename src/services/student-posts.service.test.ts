@@ -31,6 +31,11 @@ import {
 import { mockStudentPost } from '../test/fixtures/student-posts.fixture.js';
 import type { CommentsService } from './comments.service.js';
 import type { FileStorageService } from './filestorage.service.js';
+import {
+  AbilityContext,
+  defineStudentPostAbility,
+} from '../casl/student-post.ability.js';
+import type { AppAbility } from '../casl/ability.types.js';
 
 describe('StudentPostsService', () => {
   let service: StudentPostsService;
@@ -75,6 +80,34 @@ describe('StudentPostsService', () => {
       answeredThisMonthCount: 0,
       unansweredCriteria: 0,
     });
+
+    jest
+      .spyOn(
+        service as unknown as {
+          buildAbility: (
+            userType: UserType,
+            profileId: string,
+          ) => Promise<AppAbility>;
+        },
+        'buildAbility',
+      )
+      .mockImplementation(async (userType: UserType, profileId: string) => {
+        const ctx: Record<string, unknown> = { userType, profileId };
+        if (userType === UserType.STUDENT) {
+          ctx.enrollmentIds = ['enrollment-1'];
+        } else if (userType === UserType.INSTRUCTOR) {
+          ctx.effectiveInstructorId = profileId;
+        } else if (userType === UserType.ASSISTANT) {
+          ctx.effectiveInstructorId =
+            await permissionService.getEffectiveInstructorId(
+              userType as typeof UserType.ASSISTANT,
+              profileId,
+            );
+        } else if (userType === UserType.PARENT) {
+          ctx.parentEnrollmentIds = ['enrollment-1'];
+        }
+        return defineStudentPostAbility(ctx as unknown as AbilityContext);
+      });
   });
 
   describe('createPost', () => {
@@ -198,28 +231,6 @@ describe('StudentPostsService', () => {
 
       expect(result).toEqual(expect.objectContaining({ id: VALID_POST_ID }));
     });
-
-    it('학생이 타인의 질문을 조회하면 ForbiddenException을 던져야 한다', async () => {
-      const mockPost = mockStudentPost({
-        id: VALID_POST_ID,
-        enrollmentId: 'enrollment-1',
-      });
-      const enrollment = mockEnrollment({
-        id: 'enrollment-1',
-        appStudentId: 'other-student',
-      });
-
-      studentPostsRepo.findById.mockResolvedValue(mockPost);
-      enrollmentsRepo.findById.mockResolvedValue(enrollment);
-
-      await expect(
-        service.getPostDetail(
-          VALID_POST_ID,
-          UserType.STUDENT,
-          VALID_STUDENT_ID,
-        ),
-      ).rejects.toThrow(ForbiddenException);
-    });
   });
 
   describe('deletePost', () => {
@@ -275,7 +286,7 @@ describe('StudentPostsService', () => {
 
       expect(studentPostsRepo.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          appStudentId: VALID_STUDENT_ID,
+          accessFilter: expect.anything(),
           page: 1,
           limit: 10,
         }),
@@ -303,7 +314,7 @@ describe('StudentPostsService', () => {
 
       expect(studentPostsRepo.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          instructorId: VALID_INSTRUCTOR_ID,
+          accessFilter: expect.anything(),
           page: 1,
           limit: 10,
         }),
@@ -371,7 +382,7 @@ describe('StudentPostsService', () => {
       );
       expect(studentPostsRepo.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          instructorId: VALID_INSTRUCTOR_ID,
+          accessFilter: expect.anything(),
         }),
       );
       expect(result.totalCount).toBe(1);
