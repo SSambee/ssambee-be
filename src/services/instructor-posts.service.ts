@@ -241,7 +241,7 @@ export class InstructorPostsService {
 
     return {
       ...post,
-      attachments: this.normalizeAttachments(post.attachments),
+      attachments: await this.normalizeAttachments(post.attachments),
     };
   }
 
@@ -381,10 +381,12 @@ export class InstructorPostsService {
     }
 
     return {
-      posts: result.posts.map((post) => ({
-        ...post,
-        attachments: this.normalizeAttachments(post.attachments),
-      })),
+      posts: await Promise.all(
+        result.posts.map(async (post) => ({
+          ...post,
+          attachments: await this.normalizeAttachments(post.attachments),
+        })),
+      ),
       totalCount: result.totalCount,
       stats,
     };
@@ -399,17 +401,19 @@ export class InstructorPostsService {
     await this.validatePostAccess(post, userType, profileId, 'READ');
 
     // 댓글에 isMine 및 첨부파일 정규화 적용
-    const commentsWithIsMine = post.comments.map((comment) => {
-      const commentWithIsMine = this.commentsService.addIsMineFieldToComment(
-        comment,
-        userType,
-        profileId,
-      );
-      return {
-        ...commentWithIsMine,
-        attachments: this.normalizeAttachments(comment.attachments),
-      };
-    });
+    const commentsWithIsMine = await Promise.all(
+      post.comments.map(async (comment) => {
+        const commentWithIsMine = this.commentsService.addIsMineFieldToComment(
+          comment,
+          userType,
+          profileId,
+        );
+        return {
+          ...commentWithIsMine,
+          attachments: await this.normalizeAttachments(comment.attachments),
+        };
+      }),
+    );
 
     if (userType === UserType.STUDENT) {
       // 학생용 첨부파일 필터링 (권한이 있는 자료만 노출)
@@ -420,14 +424,14 @@ export class InstructorPostsService {
 
       return {
         ...post,
-        attachments: this.normalizeAttachments(accessibleAttachments),
+        attachments: await this.normalizeAttachments(accessibleAttachments),
         comments: commentsWithIsMine,
       };
     }
 
     return {
       ...post,
-      attachments: this.normalizeAttachments(post.attachments),
+      attachments: await this.normalizeAttachments(post.attachments),
       comments: commentsWithIsMine,
     };
   }
@@ -480,17 +484,26 @@ export class InstructorPostsService {
   /**
    * 첨부파일 구조 정규화 (material.fileUrl을 root로 승격)
    */
-  private normalizeAttachments<
+  private async normalizeAttachments<
     T extends {
       fileUrl: string | null;
       material?: { fileUrl: string | null } | null;
     },
-  >(attachments: T[] | null | undefined) {
+  >(attachments: T[] | null | undefined): Promise<T[]> {
     if (!attachments) return [];
-    return attachments.map((attr) => ({
-      ...attr,
-      fileUrl: attr.fileUrl || attr.material?.fileUrl || null,
-    }));
+    return Promise.all(
+      attachments.map(async (attr) => {
+        const fileUrl = attr.fileUrl || attr.material?.fileUrl || null;
+        let presignedUrl = null;
+        if (fileUrl) {
+          presignedUrl = await this.fileStorageService.getPresignedUrl(fileUrl);
+        }
+        return {
+          ...attr,
+          fileUrl: presignedUrl,
+        };
+      }),
+    );
   }
 
   /** 공지 수정 */
@@ -612,7 +625,7 @@ export class InstructorPostsService {
 
     return {
       ...updatedPost,
-      attachments: this.normalizeAttachments(updatedPost.attachments),
+      attachments: await this.normalizeAttachments(updatedPost.attachments),
     };
   }
 
@@ -623,6 +636,12 @@ export class InstructorPostsService {
 
     // 권한 검증
     await this.validatePostAccess(post, userType, profileId, 'DELETE');
+
+    // 댓글 첨부파일 삭제
+    await this.commentsService.deleteCommentAttachmentsByPostId(
+      postId,
+      'instructorPost',
+    );
 
     return this.instructorPostsRepository.delete(postId);
   }

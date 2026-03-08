@@ -493,7 +493,7 @@ export class CommentsService {
         });
       return {
         ...this.addIsMineField(comment, userType, profileId),
-        attachments: this.normalizeAttachments(comment.attachments),
+        attachments: await this.normalizeAttachments(comment.attachments),
       };
     }
 
@@ -505,7 +505,7 @@ export class CommentsService {
     });
     return {
       ...this.addIsMineField(result, userType, profileId),
-      attachments: this.normalizeAttachments(result.attachments),
+      attachments: await this.normalizeAttachments(result.attachments),
     };
   }
 
@@ -529,7 +529,34 @@ export class CommentsService {
     );
     await this.validateCommentOwnership(comment, userType, profileId);
 
+    // 직접 업로드된 첨부 파일을 S3에서 삭제 (고아 파일 방지)
+    const directAttachments =
+      await this.commentsRepository.findDirectAttachmentsByCommentId(commentId);
+    for (const attachment of directAttachments) {
+      if (attachment.fileUrl) {
+        await this.fileStorageService.delete(attachment.fileUrl);
+      }
+    }
+
     return this.commentsRepository.delete(commentId);
+  }
+
+  /** 특정 게시글의 모든 댓글에 포함된 직접 첨부 파일을 S3에서 삭제 (고아 파일 방지) */
+  async deleteCommentAttachmentsByPostId(
+    postId: string,
+    postType: 'instructorPost' | 'studentPost',
+  ) {
+    const attachments =
+      await this.commentsRepository.findDirectAttachmentsByPostId(
+        postId,
+        postType,
+      );
+
+    for (const attachment of attachments) {
+      if (attachment.fileUrl) {
+        await this.fileStorageService.delete(attachment.fileUrl);
+      }
+    }
   }
 
   /** 댓글 수정 */
@@ -563,6 +590,19 @@ export class CommentsService {
       await this.validateMaterialOwnership(data.materialIds, instructorId);
     }
 
+    // 새 파일이 업로드될 경우, 기존 직접 첨부 파일(직접 업로드된 파일) S3에서 삭제 (고아 파일 방지)
+    if (files?.length) {
+      const existingDirectAttachments =
+        await this.commentsRepository.findDirectAttachmentsByCommentId(
+          commentId,
+        );
+      for (const attachment of existingDirectAttachments) {
+        if (attachment.fileUrl) {
+          await this.fileStorageService.delete(attachment.fileUrl);
+        }
+      }
+    }
+
     // 직접 첨부 파일 처리 (S3 업로드)
     const uploadedAttachments: { filename: string; fileUrl: string }[] = [];
     if (files?.length) {
@@ -582,11 +622,9 @@ export class CommentsService {
       }
     }
 
-    // 기존 데이터의 attachments와 업로드된 attachments 결합
-    const allAttachments = [
-      ...(data.attachments || []),
-      ...uploadedAttachments,
-    ];
+    // 기존 material 첨부(강사 자료)들은 유지하고, 새 직접 첨부가 있으면 교체
+    const materialAttachments = data.attachments || [];
+    const allAttachments = [...materialAttachments, ...uploadedAttachments];
 
     const updatedComment = await this.commentsRepository.update(commentId, {
       content: data.content,
@@ -595,7 +633,7 @@ export class CommentsService {
     });
     return {
       ...this.addIsMineField(updatedComment, userType, profileId),
-      attachments: this.normalizeAttachments(updatedComment.attachments),
+      attachments: await this.normalizeAttachments(updatedComment.attachments),
     };
   }
 
@@ -814,16 +852,25 @@ export class CommentsService {
   }
 
   /** 첨부파일 구조 정규화 (material.fileUrl을 root로 승격) */
-  private normalizeAttachments<
+  private async normalizeAttachments<
     T extends {
       fileUrl: string | null;
       material?: { fileUrl: string | null } | null;
     },
-  >(attachments: T[] | null | undefined) {
+  >(attachments: T[] | null | undefined): Promise<T[]> {
     if (!attachments) return [];
-    return attachments.map((attr) => ({
-      ...attr,
-      fileUrl: attr.fileUrl || attr.material?.fileUrl || null,
-    }));
+    return Promise.all(
+      attachments.map(async (attr) => {
+        const fileUrl = attr.fileUrl || attr.material?.fileUrl || null;
+        let presignedUrl = null;
+        if (fileUrl) {
+          presignedUrl = await this.fileStorageService.getPresignedUrl(fileUrl);
+        }
+        return {
+          ...attr,
+          fileUrl: presignedUrl,
+        };
+      }),
+    );
   }
 }
