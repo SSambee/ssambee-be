@@ -153,6 +153,7 @@ export class StudentPostsRepository {
       page: number;
       limit: number;
       orderBy?: 'latest' | 'oldest';
+      accessFilter?: Prisma.StudentPostWhereInput;
     },
     tx?: Prisma.TransactionClient,
   ) {
@@ -173,6 +174,7 @@ export class StudentPostsRepository {
     const skip = (page - 1) * limit;
 
     const where: Prisma.StudentPostWhereInput = {
+      ...(params.accessFilter && { AND: [params.accessFilter] }),
       ...(lectureId && { lectureId }),
       ...(instructorId && { instructorId }),
       ...(enrollmentId && { enrollmentId }),
