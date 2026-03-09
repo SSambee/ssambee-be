@@ -150,10 +150,17 @@ export class InstructorPostsService {
     };
 
     // CASL Create 권한 검증
-    ForbiddenError.from(ability).throwUnlessCan(
-      A.Create,
-      subject('InstructorPost', newPostTemp as unknown as InstructorPost),
-    );
+    try {
+      ForbiddenError.from(ability).throwUnlessCan(
+        A.Create,
+        subject('InstructorPost', newPostTemp as unknown as InstructorPost),
+      );
+    } catch (error) {
+      if (error instanceof ForbiddenError) {
+        throw new ForbiddenException(error.message);
+      }
+      throw error;
+    }
 
     // 2. 입력값 검증
     if (!data.title || data.title.trim() === '') {
@@ -392,10 +399,17 @@ export class InstructorPostsService {
 
     // 조회 권한 검증
     const ability = await this.getAbility(userType, profileId);
-    ForbiddenError.from(ability).throwUnlessCan(
-      A.Read,
-      subject('InstructorPost', post as InstructorPost),
-    );
+    try {
+      ForbiddenError.from(ability).throwUnlessCan(
+        A.Read,
+        subject('InstructorPost', post as InstructorPost),
+      );
+    } catch (error) {
+      if (error instanceof ForbiddenError) {
+        throw new ForbiddenException(error.message);
+      }
+      throw error;
+    }
 
     // 댓글에 isMine 및 첨부파일 정규화 적용
     const commentsWithIsMine = await Promise.all(
@@ -497,10 +511,17 @@ export class InstructorPostsService {
 
     // 권한 검증
     const ability = await this.getAbility(userType, profileId);
-    ForbiddenError.from(ability).throwUnlessCan(
-      A.Update,
-      subject('InstructorPost', post as InstructorPost),
-    );
+    try {
+      ForbiddenError.from(ability).throwUnlessCan(
+        A.Update,
+        subject('InstructorPost', post as InstructorPost),
+      );
+    } catch (error) {
+      if (error instanceof ForbiddenError) {
+        throw new ForbiddenException(error.message);
+      }
+      throw error;
+    }
 
     // 스코프 및 강의 유효성 검사
     const targetScope = data.scope || post.scope;
@@ -621,10 +642,17 @@ export class InstructorPostsService {
 
     // 권한 검증
     const ability = await this.getAbility(userType, profileId);
-    ForbiddenError.from(ability).throwUnlessCan(
-      A.Delete,
-      subject('InstructorPost', post),
-    );
+    try {
+      ForbiddenError.from(ability).throwUnlessCan(
+        A.Delete,
+        subject('InstructorPost', post),
+      );
+    } catch (error) {
+      if (error instanceof ForbiddenError) {
+        throw new ForbiddenException(error.message);
+      }
+      throw error;
+    }
 
     // 댓글 첨부파일 삭제
     await this.commentsService.deleteCommentAttachmentsByPostId(
