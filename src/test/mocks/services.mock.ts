@@ -53,8 +53,34 @@ export const createMockFileStorageService =
   (): jest.Mocked<FileStorageService> =>
     ({
       upload: jest.fn(),
-      getPresignedUrl: jest.fn(async (url) => url),
+      getPresignedUrl: jest.fn(async (url: string) => url),
+      getDownloadPresignedUrl: jest.fn(async (url: string) => url),
       delete: jest.fn(),
+      uploadAttachment: jest.fn(async (file: Express.Multer.File) => ({
+        filename: file.originalname,
+        fileUrl: `https://mock.s3/${file.originalname}`,
+      })),
+      uploadAttachments: jest.fn(
+        async (files: Express.Multer.File[] | undefined) =>
+          (files ?? []).map((f) => ({
+            filename: f.originalname,
+            fileUrl: `https://mock.s3/${f.originalname}`,
+          })),
+      ),
+      resolvePresignedUrls: jest.fn(
+        async <
+          T extends {
+            fileUrl: string | null;
+            material?: { fileUrl: string | null } | null;
+          },
+        >(
+          attachments: T[] | null | undefined,
+        ) =>
+          (attachments ?? []).map((a) => ({
+            ...a,
+            fileUrl: a.fileUrl || a.material?.fileUrl || null,
+          })),
+      ),
     }) as unknown as jest.Mocked<FileStorageService>;
 
 /** Mock CommentsService 생성 */
