@@ -384,6 +384,83 @@ describe('EnrollmentsService - @unit #critical', () => {
         expect(mockEnrollmentsRepo.create).not.toHaveBeenCalled();
       });
 
+      it('기존 Enrollment를 재사용할 때 appParentLinkId가 비어 있으면 자동 연결을 보정한다', async () => {
+        const existingEnrollment = {
+          ...mockEnrollments.active,
+          appParentLinkId: null,
+          studentPhone: createEnrollmentRequests.basic.studentPhone,
+          studentName: createEnrollmentRequests.basic.studentName,
+          parentPhone: createEnrollmentRequests.basic.parentPhone,
+        };
+
+        mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
+        mockPermissionService.validateInstructorAccess.mockResolvedValue();
+        mockEnrollmentsRepo.findManyByInstructorAndPhones.mockResolvedValue([
+          existingEnrollment,
+        ]);
+        mockParentsService.findLinkByPhoneNumberAndProfile.mockResolvedValue(
+          mockParentLinks.active,
+        );
+        mockEnrollmentsRepo.update.mockResolvedValue({
+          ...existingEnrollment,
+          appParentLinkId: mockParentLinks.active.id,
+        });
+        mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValueOnce(
+          null,
+        );
+        mockLectureEnrollmentsRepo.create.mockResolvedValue({
+          id: 'le-1',
+          memo: null,
+          lectureId,
+          enrollmentId: existingEnrollment.id,
+          registeredAt: new Date(),
+        });
+        mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValueOnce(
+          {
+            id: 'le-1',
+            memo: null,
+            lectureId,
+            enrollmentId: existingEnrollment.id,
+            registeredAt: new Date(),
+            enrollment: {
+              ...existingEnrollment,
+              appParentLinkId: mockParentLinks.active.id,
+            },
+          },
+        );
+
+        await enrollmentsService.createEnrollment(
+          lectureId,
+          {
+            ...createEnrollmentRequests.basic,
+            instructorId,
+            status: EnrollmentStatus.ACTIVE,
+          },
+          UserType.INSTRUCTOR,
+          instructorId,
+        );
+
+        expect(
+          mockParentsService.findLinkByPhoneNumberAndProfile,
+        ).toHaveBeenCalledWith(
+          createEnrollmentRequests.basic.studentPhone,
+          createEnrollmentRequests.basic.studentName,
+          createEnrollmentRequests.basic.parentPhone,
+        );
+        expect(mockEnrollmentsRepo.update).toHaveBeenCalledWith(
+          existingEnrollment.id,
+          {
+            appParentLink: {
+              connect: {
+                id: mockParentLinks.active.id,
+              },
+            },
+          },
+          mockPrisma,
+        );
+        expect(mockEnrollmentsRepo.create).not.toHaveBeenCalled();
+      });
+
       it('수강생 등록 시 학생 전화번호가 학부모-자녀 링크와 일치할 때, ParentLink가 자동으로 연결된다', async () => {
         mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
         mockPermissionService.validateInstructorAccess.mockResolvedValue();
