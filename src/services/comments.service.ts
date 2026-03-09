@@ -23,8 +23,6 @@ import {
   PostScope,
 } from '../constants/posts.constant.js';
 import { FileStorageService } from './filestorage.service.js';
-import path from 'path';
-import { randomUUID } from 'crypto';
 
 export class CommentsService {
   constructor(
@@ -451,23 +449,8 @@ export class CommentsService {
     }
 
     // 직접 첨부 파일 처리 (S3 업로드)
-    const uploadedAttachments: { filename: string; fileUrl: string }[] = [];
-    if (files?.length) {
-      for (const file of files) {
-        const randomId = randomUUID();
-        const ext = path.extname(file.originalname);
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const key = `attachments/${year}/${month}/${randomId}${ext}`;
-
-        const fileUrl = await this.fileStorageService.upload(file, key);
-        uploadedAttachments.push({
-          filename: file.originalname,
-          fileUrl,
-        });
-      }
-    }
+    const uploadedAttachments =
+      await this.fileStorageService.uploadAttachments(files);
 
     // 기존 데이터의 attachments와 업로드된 attachments 결합
     const allAttachments = [
@@ -493,7 +476,9 @@ export class CommentsService {
         });
       return {
         ...this.addIsMineField(comment, userType, profileId),
-        attachments: await this.normalizeAttachments(comment.attachments),
+        attachments: await this.fileStorageService.resolvePresignedUrls(
+          comment.attachments,
+        ),
       };
     }
 
@@ -505,7 +490,9 @@ export class CommentsService {
     });
     return {
       ...this.addIsMineField(result, userType, profileId),
-      attachments: await this.normalizeAttachments(result.attachments),
+      attachments: await this.fileStorageService.resolvePresignedUrls(
+        result.attachments,
+      ),
     };
   }
 
@@ -604,23 +591,8 @@ export class CommentsService {
     }
 
     // 직접 첨부 파일 처리 (S3 업로드)
-    const uploadedAttachments: { filename: string; fileUrl: string }[] = [];
-    if (files?.length) {
-      for (const file of files) {
-        const randomId = randomUUID();
-        const ext = path.extname(file.originalname);
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const key = `attachments/${year}/${month}/${randomId}${ext}`;
-
-        const fileUrl = await this.fileStorageService.upload(file, key);
-        uploadedAttachments.push({
-          filename: file.originalname,
-          fileUrl,
-        });
-      }
-    }
+    const uploadedAttachments =
+      await this.fileStorageService.uploadAttachments(files);
 
     // 기존 material 첨부(강사 자료)들은 유지하고, 새 직접 첨부가 있으면 교체
     const materialAttachments = data.attachments || [];
@@ -633,7 +605,9 @@ export class CommentsService {
     });
     return {
       ...this.addIsMineField(updatedComment, userType, profileId),
-      attachments: await this.normalizeAttachments(updatedComment.attachments),
+      attachments: await this.fileStorageService.resolvePresignedUrls(
+        updatedComment.attachments,
+      ),
     };
   }
 
@@ -849,28 +823,5 @@ export class CommentsService {
     }
 
     throw new ForbiddenException('접근 권한이 없습니다.');
-  }
-
-  /** 첨부파일 구조 정규화 (material.fileUrl을 root로 승격) */
-  private async normalizeAttachments<
-    T extends {
-      fileUrl: string | null;
-      material?: { fileUrl: string | null } | null;
-    },
-  >(attachments: T[] | null | undefined): Promise<T[]> {
-    if (!attachments) return [];
-    return Promise.all(
-      attachments.map(async (attr) => {
-        const fileUrl = attr.fileUrl || attr.material?.fileUrl || null;
-        let presignedUrl = null;
-        if (fileUrl) {
-          presignedUrl = await this.fileStorageService.getPresignedUrl(fileUrl);
-        }
-        return {
-          ...attr,
-          fileUrl: presignedUrl,
-        };
-      }),
-    );
   }
 }

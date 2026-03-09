@@ -7,6 +7,8 @@ import { getSignedUrl as getS3SignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getSignedUrl as getCloudFrontSignedUrl } from '@aws-sdk/cloudfront-signer';
 import { s3Client } from '../middlewares/multer.middleware.js';
 import { config } from '../config/env.config.js';
+import path from 'path';
+import { randomUUID } from 'crypto';
 
 /** S3 버킷 타입 정의 */
 export const BucketType = {
@@ -155,7 +157,7 @@ export class FileStorageService {
     const command = new GetObjectCommand({
       Bucket: bucketName,
       Key: key,
-      ResponseContentDisposition: `attachment; filename="${encodedFileName}"; filename*=UTF-8''${encodedFileName}`,
+      ResponseContentDisposition: `attachment; filename="${fileName}"; filename*=UTF-8''${encodedFileName}`,
     });
 
     return getS3SignedUrl(s3Client, command, { expiresIn });
@@ -183,6 +185,69 @@ export class FileStorageService {
       console.error(`Failed to delete file from S3: ${fileUrl}`, error);
       // 삭제 실패가 비즈니스 로직을 중단시키지 않도록 예외를 던지지 않음 (로그만 남김)
     }
+  }
+
+  /**
+   * URL에서 파일 키 추출
+   * S3 URL과 CloudFront URL 모두 지원
+   * @param url 파일 URL
+   * @returns S3 키
+   */
+  /**
+   * 체파일 1개를 `attachments/{year}/{month}/{uuid}{ext}` 경로에 업로드
+   * @returns `{ filename, fileUrl }` 업로드 결과
+   */
+  async uploadAttachment(
+    file: Express.Multer.File,
+  ): Promise<{ filename: string; fileUrl: string }> {
+    const decodedOriginalName = Buffer.from(
+      file.originalname,
+      'latin1',
+    ).toString('utf-8');
+    const randomId = randomUUID();
+    const ext = path.extname(decodedOriginalName);
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const key = `attachments/${year}/${month}/${randomId}${ext}`;
+
+    const fileUrl = await this.upload(file, key);
+    return { filename: decodedOriginalName, fileUrl };
+  }
+
+  /**
+   * 여러 파일을 배치로 체파일 업로드
+   * 파일이 없으면 빈 배열 반환
+   */
+  async uploadAttachments(
+    files: Express.Multer.File[] | undefined,
+  ): Promise<{ filename: string; fileUrl: string }[]> {
+    if (!files?.length) return [];
+    const results: { filename: string; fileUrl: string }[] = [];
+    for (const file of files) {
+      results.push(await this.uploadAttachment(file));
+    }
+    return results;
+  }
+
+  /**
+   * 체파일 배열의 fileUrl을 Presigned URL로 교체
+   * material.fileUrl → 루트 fileUrl 승격도 포함 (normalizeAttachments 대체)
+   */
+  async resolvePresignedUrls<
+    T extends {
+      fileUrl: string | null;
+      material?: { fileUrl: string | null } | null;
+    },
+  >(attachments: T[] | null | undefined): Promise<T[]> {
+    if (!attachments) return [];
+    return Promise.all(
+      attachments.map(async (attr) => {
+        const url = attr.fileUrl || attr.material?.fileUrl || null;
+        const presignedUrl = url ? await this.getPresignedUrl(url) : null;
+        return { ...attr, fileUrl: presignedUrl };
+      }),
+    );
   }
 
   /**
