@@ -251,11 +251,25 @@ export class FileStorageService {
   }
 
   /**
-   * URL에서 파일 키 추출
-   * S3 URL과 CloudFront URL 모두 지원
-   * @param url 파일 URL
-   * @returns S3 키
+   * 업로드된 파일들을 정리 (오류 발생 시 클린업용)
+   * @param uploadedFiles 업로드된 파일 정보 배열
+   * @param bucketType 버킷 타입
    */
+  async cleanup(
+    uploadedFiles: { fileUrl: string | null | undefined }[],
+    bucketType: BucketType = BucketType.DOCUMENTS,
+  ): Promise<void> {
+    if (!uploadedFiles?.length) return;
+
+    await Promise.allSettled(
+      uploadedFiles
+        .map((f) => f.fileUrl)
+        .filter((url): url is string => Boolean(url))
+        .map((url) => this.delete(url, bucketType)),
+    );
+  }
+
+  /** 키 추출 */
   private extractKeyFromUrl(url: string): string {
     // CloudFront URL 형태: https://d123.cloudfront.net/path/to/key
     // S3 URL 형태: https://bucket.s3.amazonaws.com/path/to/key
