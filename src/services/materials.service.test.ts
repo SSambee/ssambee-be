@@ -722,14 +722,41 @@ describe('MaterialsService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('지원하지 않는 사용자 타입이 다운로드를 시도하면 ForbiddenException이 발생해야 한다', async () => {
-      materialsRepo.findById.mockResolvedValue(mockMaterials.basic);
+    it('학부모가 자녀의 수강 강의 자료를 다운로드 시 성공해야 한다', async () => {
+      const mockMaterial = mockMaterials.basic;
+      materialsRepo.findById.mockResolvedValue(mockMaterial);
+      permissionService.getParentEnrollmentIds.mockResolvedValue([
+        'enrollment-1',
+      ]);
+      materialsRepo.isAccessibleByParent.mockResolvedValue(true);
+      fileStorageService.getDownloadPresignedUrl.mockResolvedValue(
+        'presigned-url',
+      );
+
+      const result = await service.getDownloadUrl(
+        mockMaterial.id,
+        UserType.PARENT,
+        'parent-1',
+      );
+
+      expect(materialsRepo.isAccessibleByParent).toHaveBeenCalledWith(
+        mockMaterial.id,
+        'enrollment-1',
+        mockMaterial.lectureId,
+      );
+      expect(result.url).toBe('presigned-url');
+    });
+
+    it('학부모가 STUDENT 전용 자료(isAccessibleByParent=false)를 다운로드 시도하면 ForbiddenException이 발생해야 한다', async () => {
+      const mockMaterial = mockMaterials.basic;
+      materialsRepo.findById.mockResolvedValue(mockMaterial);
+      permissionService.getParentEnrollmentIds.mockResolvedValue([
+        'enrollment-1',
+      ]);
+      materialsRepo.isAccessibleByParent.mockResolvedValue(false);
+
       await expect(
-        service.getDownloadUrl(
-          mockMaterials.basic.id,
-          UserType.PARENT,
-          'parent',
-        ),
+        service.getDownloadUrl(mockMaterial.id, UserType.PARENT, 'parent-1'),
       ).rejects.toThrow(ForbiddenException);
     });
   });

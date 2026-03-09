@@ -488,7 +488,7 @@ export class MaterialsService {
       let hasAccess = false;
       for (const enrollmentId of enrollmentIds) {
         const isAccessible =
-          await this.materialsRepository.isAccessibleByStudent(
+          await this.materialsRepository.isAccessibleByParent(
             materialsId,
             enrollmentId,
             material.lectureId ?? undefined,
