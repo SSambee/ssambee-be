@@ -386,7 +386,9 @@ describe('InstructorPostsService', () => {
         instructorId,
       );
       expect(instructorPostsRepo.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ abilityFilter: expect.any(Object) }),
+        expect.objectContaining({
+          abilityFilter: { OR: [{ instructorId: instructorId }] },
+        }),
       );
       expect(result.totalCount).toBe(1);
     });
@@ -413,7 +415,9 @@ describe('InstructorPostsService', () => {
         assistantId,
       );
       expect(instructorPostsRepo.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ abilityFilter: expect.any(Object) }),
+        expect.objectContaining({
+          abilityFilter: { OR: [{ instructorId: instructorId }] },
+        }),
       );
     });
 
@@ -449,7 +453,13 @@ describe('InstructorPostsService', () => {
       );
       expect(instructorPostsRepo.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          abilityFilter: expect.any(Object),
+          abilityFilter: expect.objectContaining({
+            OR: expect.arrayContaining([
+              expect.objectContaining({
+                targetRole: { in: [TargetRole.ALL, TargetRole.STUDENT] },
+              }),
+            ]),
+          }),
         }),
       );
       expect(result.totalCount).toBe(1);
@@ -1413,7 +1423,15 @@ describe('InstructorPostsService', () => {
 
         // Assert: findMany가 allowedTargetRoles와 함께 호출되었는지 확인
         expect(instructorPostsRepo.findMany).toHaveBeenCalledWith(
-          expect.objectContaining({}),
+          expect.objectContaining({
+            abilityFilter: expect.objectContaining({
+              OR: expect.arrayContaining([
+                expect.objectContaining({
+                  targetRole: { in: [TargetRole.ALL, TargetRole.STUDENT] },
+                }),
+              ]),
+            }),
+          }),
         );
       });
 
@@ -1447,7 +1465,15 @@ describe('InstructorPostsService', () => {
 
         // Assert: findMany가 allowedTargetRoles와 함께 호출되었는지 확인
         expect(instructorPostsRepo.findMany).toHaveBeenCalledWith(
-          expect.objectContaining({}),
+          expect.objectContaining({
+            abilityFilter: expect.objectContaining({
+              OR: expect.arrayContaining([
+                expect.objectContaining({
+                  targetRole: { in: [TargetRole.ALL, TargetRole.PARENT] },
+                }),
+              ]),
+            }),
+          }),
         );
       });
 
@@ -1471,7 +1497,9 @@ describe('InstructorPostsService', () => {
 
         // Assert: 강사는 allowedTargetRoles 필터가 없어야 함
         expect(instructorPostsRepo.findMany).toHaveBeenCalledWith(
-          expect.objectContaining({}),
+          expect.objectContaining({
+            abilityFilter: { OR: [{ instructorId: instructorId }] },
+          }),
         );
       });
     });
