@@ -8,6 +8,8 @@ import {
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 import { InstructorRepository } from '../repos/instructor.repo.js';
+import { StudentRepository } from '../repos/student.repo.js';
+import { ParentChildLinkRepository } from '../repos/parent-child-link.repo.js';
 import { PermissionService } from './permission.service.js';
 import { UserType } from '../constants/auth.constant.js';
 import {
@@ -25,6 +27,10 @@ import type {
 export type LectureWithEnrollments = Lecture & {
   lectureEnrollments?: LectureEnrollment[];
 };
+
+type LectureEnrollmentRequest = NonNullable<
+  CreateLectureDto['enrollments']
+>[number];
 
 export type GetLecturesResponse = {
   lectures: {
@@ -93,6 +99,8 @@ export class LecturesService {
     private readonly enrollmentsRepository: EnrollmentsRepository,
     private readonly lectureEnrollmentsRepository: LectureEnrollmentsRepository,
     private readonly instructorRepository: InstructorRepository,
+    private readonly studentRepository: StudentRepository,
+    private readonly parentChildLinkRepository: ParentChildLinkRepository,
     private readonly permissionService: PermissionService,
     private readonly prisma: PrismaClient,
   ) {}
@@ -116,6 +124,32 @@ export class LecturesService {
       // 2. 수강생 처리 (있는 경우)
       let lectureEnrollments: LectureEnrollment[] = [];
       if (data.enrollments && data.enrollments.length > 0) {
+        const resolveStudentId = async (
+          enrollmentReq: LectureEnrollmentRequest,
+        ) => {
+          const student =
+            await this.studentRepository.findByPhoneNumberAndProfile(
+              enrollmentReq.studentPhone,
+              enrollmentReq.studentName,
+              enrollmentReq.parentPhone,
+              tx,
+            );
+          return student?.id;
+        };
+
+        const resolveParentLinkId = async (
+          enrollmentReq: LectureEnrollmentRequest,
+        ) => {
+          const link =
+            await this.parentChildLinkRepository.findByPhoneNumberAndProfile(
+              enrollmentReq.studentPhone,
+              enrollmentReq.studentName,
+              enrollmentReq.parentPhone,
+              tx,
+            );
+          return link?.id;
+        };
+
         // 2-1. 요청된 학생들의 전화번호 목록 추출
         const studentPhones = data.enrollments.map((e) => e.studentPhone);
 
@@ -138,11 +172,42 @@ export class LecturesService {
         for (const enrollmentReq of data.enrollments) {
           const existing = existingPhoneMap.get(enrollmentReq.studentPhone);
           if (existing) {
+            const connectionData: Prisma.EnrollmentUpdateInput = {};
+
+            if (!existing.appStudentId) {
+              const studentId = await resolveStudentId(enrollmentReq);
+              if (studentId) {
+                connectionData.appStudent = { connect: { id: studentId } };
+              }
+            }
+
+            if (!existing.appParentLinkId) {
+              const parentLinkId = await resolveParentLinkId(enrollmentReq);
+              if (parentLinkId) {
+                connectionData.appParentLink = {
+                  connect: { id: parentLinkId },
+                };
+              }
+            }
+
+            if (Object.keys(connectionData).length > 0) {
+              await this.enrollmentsRepository.update(
+                existing.id,
+                connectionData,
+                tx,
+              );
+            }
+
             // 이미 존재하는 주소록(Enrollment)이면 ID 사용
             // 정보 업데이트가 필요한 경우 여기서 할 수도 있으나,
             // 현재 요구사항은 "기존 주소록에 있으면 그걸 쓴다"임.
             finalEnrollmentIds.push(existing.id);
           } else {
+            const [studentId, parentLinkId] = await Promise.all([
+              resolveStudentId(enrollmentReq),
+              resolveParentLinkId(enrollmentReq),
+            ]);
+
             // 없으면 새로 생성할 목록에 추가
             newEnrollmentsData.push({
               instructorId,
@@ -151,6 +216,8 @@ export class LecturesService {
               school: enrollmentReq.school,
               schoolYear: enrollmentReq.schoolYear,
               parentPhone: enrollmentReq.parentPhone,
+              appStudentId: studentId,
+              appParentLinkId: parentLinkId,
               status: EnrollmentStatus.ACTIVE,
             });
           }
