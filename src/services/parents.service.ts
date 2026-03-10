@@ -46,6 +46,11 @@ export class ParentsService {
     }
 
     return await this.prisma.$transaction(async (tx) => {
+      const parent = await this.parentRepository.findById(profileId, tx);
+      if (!parent) {
+        throw new NotFoundException('학부모 정보를 찾을 수 없습니다.');
+      }
+
       // 2. ParentChildLink 생성
       const newLink = await this.parentChildLinkRepository.create(
         {
@@ -59,6 +64,8 @@ export class ParentsService {
       // 3. 기존 Enrollment 중 해당 자녀 번호로 된 것들을 찾아 자동 연결 (Backfill)
       await this.enrollmentsRepository.updateAppParentLinkIdByStudentPhone(
         data.phoneNumber,
+        data.name,
+        parent.phoneNumber,
         newLink.id,
         tx,
       );
