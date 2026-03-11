@@ -54,30 +54,33 @@ export class AttendancesService {
       profileId,
     );
 
-    this.validateAttendanceWritableLecture(lecture.status);
-
-    // 3. 강의의 유효한 수강생 목록(LectureEnrollment) 조회
-    //    (요청된 enrollmentId가 실제 이 강의의 수강생인지 검증하기 위함 + lectureEnrollmentId 획득)
-    const validLectureEnrollments =
-      await this.lectureEnrollmentsRepository.findManyByLectureIdWithEnrollments(
+    return await this.prisma.$transaction(async (tx) => {
+      const currentLecture = await this.lecturesRepository.findById(
         lectureId,
+        tx,
+      );
+      if (!currentLecture) {
+        throw new NotFoundException('강의를 찾을 수 없습니다.');
+      }
+
+      this.validateAttendanceWritableLecture(currentLecture.status);
+
+      // tx 안에서 최신 수강생 목록을 기준으로 검증하고 출결을 저장한다.
+      const validLectureEnrollments =
+        await this.lectureEnrollmentsRepository.findManyByLectureIdWithEnrollments(
+          lectureId,
+          tx,
+        );
+
+      const lectureEnrollmentMap = new Map(
+        validLectureEnrollments.map((le) => [le.enrollmentId, le]),
       );
 
-    // Map으로 변환하여 빠른 조회 (enrollmentId -> lectureEnrollment)
-    const lectureEnrollmentMap = new Map(
-      validLectureEnrollments.map((le) => [le.enrollmentId, le]),
-    );
-
-    // 5. Transactional Upsert
-    return await this.prisma.$transaction(async (tx) => {
       const results = [];
       for (const item of data.attendances) {
-        // 해당 enrollmentId가 이 강의에 유효하게 등록되어 있는지 확인
         const lectureEnrollment = lectureEnrollmentMap.get(item.enrollmentId);
 
         if (!lectureEnrollment) {
-          // 존재하지 않는 수강생은 건너뛰거나 에러 처리
-          // 여기서는 '해당 강의의 수강생이 아님'으로 간주하고 에러 발생
           throw new NotFoundException(
             `수강 정보(ID: ${item.enrollmentId})가 해당 강의에 존재하지 않습니다.`,
           );
@@ -132,43 +135,54 @@ export class AttendancesService {
       profileId,
     );
 
-    this.validateAttendanceWritableLecture(lecture.status);
-
-    // 1. LectureEnrollment 확인
-    const lectureEnrollment =
-      await this.lectureEnrollmentsRepository.findByLectureIdAndEnrollmentId(
+    return await this.prisma.$transaction(async (tx) => {
+      const currentLecture = await this.lecturesRepository.findById(
         lectureId,
-        enrollmentId,
+        tx,
       );
+      if (!currentLecture) {
+        throw new NotFoundException('강의를 찾을 수 없습니다.');
+      }
 
-    if (!lectureEnrollment) {
-      throw new NotFoundException('해당 강의의 수강생이 아닙니다.');
-    }
+      this.validateAttendanceWritableLecture(currentLecture.status);
 
-    return await this.attendancesRepository.upsert(
-      {
-        lectureEnrollmentId_date: {
+      const lectureEnrollment =
+        await this.lectureEnrollmentsRepository.findByLectureIdAndEnrollmentId(
+          lectureId,
+          enrollmentId,
+          tx,
+        );
+
+      if (!lectureEnrollment) {
+        throw new NotFoundException('해당 강의의 수강생이 아닙니다.');
+      }
+
+      return await this.attendancesRepository.upsert(
+        {
+          lectureEnrollmentId_date: {
+            lectureEnrollmentId: lectureEnrollment.id,
+            date: data.date,
+          },
+        },
+        {
+          lectureId,
+          enrollmentId,
           lectureEnrollmentId: lectureEnrollment.id,
           date: data.date,
+          status: data.status,
+          enterTime: data.enterTime ? new Date(data.enterTime) : null,
+          leaveTime: data.leaveTime ? new Date(data.leaveTime) : null,
+          memo: data.memo,
         },
-      },
-      {
-        lectureId,
-        enrollmentId,
-        lectureEnrollmentId: lectureEnrollment.id,
-        date: data.date,
-        status: data.status,
-        enterTime: data.enterTime ? new Date(data.enterTime) : null,
-        leaveTime: data.leaveTime ? new Date(data.leaveTime) : null,
-        memo: data.memo,
-      },
-      {
-        status: data.status,
-        enterTime: data.enterTime ? new Date(data.enterTime) : undefined,
-        leaveTime: data.leaveTime ? new Date(data.leaveTime) : undefined,
-        memo: data.memo,
-      },
-    );
+        {
+          status: data.status,
+          enterTime: data.enterTime ? new Date(data.enterTime) : undefined,
+          leaveTime: data.leaveTime ? new Date(data.leaveTime) : undefined,
+          memo: data.memo,
+        },
+        tx,
+      );
+    });
   }
 
   /** 수강생 출결 조회 + 통계 (강의별) */
@@ -228,9 +242,27 @@ export class AttendancesService {
       profileId,
     );
 
-    this.validateAttendanceWritableLecture(lecture.status);
+    await this.prisma.$transaction(async (tx) => {
+      const currentAttendance = await this.attendancesRepository.findById(
+        attendanceId,
+        tx,
+      );
+      if (!currentAttendance) {
+        throw new NotFoundException('출결 정보를 찾을 수 없습니다.');
+      }
 
-    await this.attendancesRepository.delete(attendanceId);
+      const currentLecture = await this.lecturesRepository.findById(
+        currentAttendance.lectureId,
+        tx,
+      );
+      if (!currentLecture) {
+        throw new NotFoundException('강의를 찾을 수 없습니다.');
+      }
+
+      this.validateAttendanceWritableLecture(currentLecture.status);
+
+      await this.attendancesRepository.delete(attendanceId, tx);
+    });
   }
 
   /** Helper Functions */
