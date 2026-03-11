@@ -82,6 +82,15 @@ export class AttendancesRepository {
       data,
     });
   }
+
+  /** 출결 삭제 */
+  async delete(id: string, tx?: Prisma.TransactionClient): Promise<void> {
+    const client = tx ?? this.prisma;
+    await client.attendance.delete({
+      where: { id },
+    });
+  }
+
   // 출석 통계 조회 (총 출석 수, 결석 수)
   async getAttendanceStatsByLectureEnrollment(
     lectureEnrollmentId: string,

@@ -38,6 +38,10 @@ mgmtV1Router.use('/assistants', mgmtAssistantsRouter);
 import { mgmtMaterialsRouter } from './materials.route.js';
 mgmtV1Router.use('/materials', mgmtMaterialsRouter);
 
+/** 출결 라우트 */
+import { mgmtAttendancesRouter } from './attendances.route.js';
+mgmtV1Router.use('/attendances', mgmtAttendancesRouter);
+
 /** 공지(소통) 라우트 */
 import { mgmtInstructorPostsRouter } from './instructor-posts.route.js';
 mgmtV1Router.use('/instructor-posts', mgmtInstructorPostsRouter);
