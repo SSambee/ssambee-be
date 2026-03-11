@@ -204,6 +204,35 @@ export class AttendancesService {
     return { attendances, stats };
   }
 
+  /** 출결 삭제 */
+  async deleteAttendance(
+    attendanceId: string,
+    userType: UserType,
+    profileId: string,
+  ): Promise<void> {
+    const attendance = await this.attendancesRepository.findById(attendanceId);
+    if (!attendance) {
+      throw new NotFoundException('출결 정보를 찾을 수 없습니다.');
+    }
+
+    const lecture = await this.lecturesRepository.findById(
+      attendance.lectureId,
+    );
+    if (!lecture) {
+      throw new NotFoundException('강의를 찾을 수 없습니다.');
+    }
+
+    await this.permissionService.validateInstructorAccess(
+      lecture.instructorId,
+      userType,
+      profileId,
+    );
+
+    this.validateAttendanceWritableLecture(lecture.status);
+
+    await this.attendancesRepository.delete(attendanceId);
+  }
+
   /** Helper Functions */
 
   /** 조회 권한 체크 (강사/조교/학생/학부모) */

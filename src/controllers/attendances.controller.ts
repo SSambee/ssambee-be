@@ -122,4 +122,31 @@ export class AttendancesController {
       next(error);
     }
   };
+
+  /** 출결 삭제 */
+  deleteAttendance = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { attendanceId } = req.params;
+      const user = getAuthUser(req);
+      const profileId = getProfileIdOrThrow(req);
+      const userType = user.userType as UserType;
+
+      await this.attendancesService.deleteAttendance(
+        attendanceId,
+        userType,
+        profileId,
+      );
+
+      return successResponse(res, {
+        statusCode: 204,
+        message: '출결이 삭제되었습니다.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

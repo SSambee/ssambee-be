@@ -1,7 +1,20 @@
-import { createBulkAttendancesSchema } from './attendances.validation.js';
+import {
+  attendanceIdParamSchema,
+  createBulkAttendancesSchema,
+} from './attendances.validation.js';
 import { AttendanceStatus } from '../constants/attendances.constant.js';
 
 describe('attendances.validation', () => {
+  describe('attendanceIdParamSchema', () => {
+    it('attendanceId가 없으면 실패해야 한다', () => {
+      const result = attendanceIdParamSchema.safeParse({
+        attendanceId: '   ',
+      });
+
+      expect(result.success).toBe(false);
+    });
+  });
+
   describe('createBulkAttendancesSchema', () => {
     it('같은 enrollmentId가 중복되면 실패해야 한다', () => {
       const result = createBulkAttendancesSchema.safeParse({

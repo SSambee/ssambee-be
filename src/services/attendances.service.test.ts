@@ -373,4 +373,63 @@ describe('AttendancesService - @unit #critical', () => {
       });
     });
   });
+
+  describe('[출결 삭제] deleteAttendance', () => {
+    const attendanceId = mockAttendances.present.id;
+    const instructorId = mockInstructor.id;
+
+    const persistedAttendance = {
+      ...mockAttendances.present,
+      lectureId: mockLectures.basic.id,
+      enrollmentId: mockEnrollments.active.id,
+      lectureEnrollmentId: mockAttendanceLectureEnrollment.id,
+    };
+
+    it('진행 중인 강의의 출결은 삭제할 수 있다', async () => {
+      mockAttendancesRepo.findById.mockResolvedValue(
+        persistedAttendance as never,
+      );
+      mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
+      mockPermissionService.validateInstructorAccess.mockResolvedValue();
+
+      await attendancesService.deleteAttendance(
+        attendanceId,
+        UserType.INSTRUCTOR,
+        instructorId,
+      );
+
+      expect(mockAttendancesRepo.findById).toHaveBeenCalledWith(attendanceId);
+      expect(mockAttendancesRepo.delete).toHaveBeenCalledWith(attendanceId);
+    });
+
+    it('출결 정보가 없으면 NotFoundException을 던진다', async () => {
+      mockAttendancesRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        attendancesService.deleteAttendance(
+          'missing-attendance-id',
+          UserType.INSTRUCTOR,
+          instructorId,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('진행 중이 아닌 강의의 출결은 삭제할 수 없다', async () => {
+      mockAttendancesRepo.findById.mockResolvedValue(
+        persistedAttendance as never,
+      );
+      mockLecturesRepo.findById.mockResolvedValue(mockLectures.completed);
+      mockPermissionService.validateInstructorAccess.mockResolvedValue();
+
+      await expect(
+        attendancesService.deleteAttendance(
+          attendanceId,
+          UserType.INSTRUCTOR,
+          instructorId,
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockAttendancesRepo.delete).not.toHaveBeenCalled();
+    });
+  });
 });

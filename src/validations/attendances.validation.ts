@@ -12,6 +12,12 @@ export const lectureEnrollmentParamSchema = z.object({
   enrollmentId: z.string().trim().min(1, 'Enrollment ID는 필수입니다.'),
 });
 
+/** 출결 ID 경로 파라미터 검증 스키마 */
+export const attendanceIdParamSchema = z.object({
+  /** 출결 ID */
+  attendanceId: z.string().trim().min(1, 'Attendance ID는 필수입니다.'),
+});
+
 /**
  * 단일 출결 생성 요청 검증 스키마
  */
