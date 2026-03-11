@@ -50,14 +50,31 @@ const bulkAttendanceItemSchema = z.object({
 /**
  * 일괄 출결 생성 요청 검증 스키마
  */
-export const createBulkAttendancesSchema = z.object({
-  /** 출결 날짜 (전체 적용) */
-  date: z.coerce.date(),
-  /** 출결 항목 목록 */
-  attendances: z
-    .array(bulkAttendanceItemSchema)
-    .min(1, '최소 1개 이상의 출결 정보가 필요합니다.'),
-});
+export const createBulkAttendancesSchema = z
+  .object({
+    /** 출결 날짜 (전체 적용) */
+    date: z.coerce.date(),
+    /** 출결 항목 목록 */
+    attendances: z
+      .array(bulkAttendanceItemSchema)
+      .min(1, '최소 1개 이상의 출결 정보가 필요합니다.'),
+  })
+  .superRefine((data, ctx) => {
+    const seenEnrollmentIds = new Set<string>();
+
+    data.attendances.forEach((attendance, index) => {
+      if (seenEnrollmentIds.has(attendance.enrollmentId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['attendances', index, 'enrollmentId'],
+          message: '중복된 Enrollment ID는 허용되지 않습니다.',
+        });
+        return;
+      }
+
+      seenEnrollmentIds.add(attendance.enrollmentId);
+    });
+  });
 
 /** 일괄 출결 항목 DTO 타입 */
 export type BulkAttendanceDto = z.infer<typeof bulkAttendanceItemSchema>;

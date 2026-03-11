@@ -1,7 +1,11 @@
 import { PrismaClient } from '../generated/prisma/client.js';
 import type { Attendance, Enrollment } from '../generated/prisma/client.js';
 import { UserType } from '../constants/auth.constant.js';
-import { NotFoundException } from '../err/http.exception.js';
+import { LectureStatus } from '../constants/lectures.constant.js';
+import {
+  BadRequestException,
+  NotFoundException,
+} from '../err/http.exception.js';
 import { AttendancesRepository } from '../repos/attendances.repo.js';
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
@@ -49,6 +53,8 @@ export class AttendancesService {
       userType,
       profileId,
     );
+
+    this.validateAttendanceWritableLecture(lecture.status);
 
     // 3. 강의의 유효한 수강생 목록(LectureEnrollment) 조회
     //    (요청된 enrollmentId가 실제 이 강의의 수강생인지 검증하기 위함 + lectureEnrollmentId 획득)
@@ -117,6 +123,17 @@ export class AttendancesService {
     userType: UserType,
     profileId: string,
   ) {
+    const lecture = await this.lecturesRepository.findById(lectureId);
+    if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
+
+    await this.permissionService.validateInstructorAccess(
+      lecture.instructorId,
+      userType,
+      profileId,
+    );
+
+    this.validateAttendanceWritableLecture(lecture.status);
+
     // 1. LectureEnrollment 확인
     const lectureEnrollment =
       await this.lectureEnrollmentsRepository.findByLectureIdAndEnrollmentId(
@@ -127,15 +144,6 @@ export class AttendancesService {
     if (!lectureEnrollment) {
       throw new NotFoundException('해당 강의의 수강생이 아닙니다.');
     }
-
-    const lecture = await this.lecturesRepository.findById(lectureId);
-    if (!lecture) throw new NotFoundException('강의를 찾을 수 없습니다.');
-
-    await this.permissionService.validateInstructorAccess(
-      lecture.instructorId,
-      userType,
-      profileId,
-    );
 
     return await this.attendancesRepository.upsert(
       {
@@ -209,5 +217,13 @@ export class AttendancesService {
       userType,
       profileId,
     );
+  }
+
+  private validateAttendanceWritableLecture(status: string) {
+    if (status !== LectureStatus.IN_PROGRESS) {
+      throw new BadRequestException(
+        '출결은 진행 중인 강의에서만 등록할 수 있습니다.',
+      );
+    }
   }
 }

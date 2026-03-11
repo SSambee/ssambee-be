@@ -1,5 +1,8 @@
 import { AttendancesService } from './attendances.service.js';
-import { NotFoundException } from '../err/http.exception.js';
+import {
+  BadRequestException,
+  NotFoundException,
+} from '../err/http.exception.js';
 import {
   createMockAttendancesRepository,
   createMockEnrollmentsRepository,
@@ -165,8 +168,28 @@ describe('AttendancesService - @unit #critical', () => {
         ).rejects.toThrow(NotFoundException);
       });
 
+      it('진행 중이 아닌 강의에는 단체 출결을 등록할 수 없다', async () => {
+        mockLecturesRepo.findById.mockResolvedValue(mockLectures.completed);
+        mockPermissionService.validateInstructorAccess.mockResolvedValue();
+
+        await expect(
+          attendancesService.createBulkAttendances(
+            lectureId,
+            mockCreateBulkData,
+            UserType.INSTRUCTOR,
+            instructorId,
+          ),
+        ).rejects.toThrow(BadRequestException);
+
+        expect(
+          mockAttendanceLectureEnrollmentsRepo.findManyByLectureIdWithEnrollments,
+        ).not.toHaveBeenCalled();
+        expect(mockAttendancesRepo.upsert).not.toHaveBeenCalled();
+      });
+
       it('해당 강의의 수강생이 아닌 enrollmentId로 출결 등록을 시도하면 NotFoundException을 던진다', async () => {
         mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
+        mockPermissionService.validateInstructorAccess.mockResolvedValue();
         mockAttendanceLectureEnrollmentsRepo.findManyByLectureIdWithEnrollments.mockResolvedValue(
           [
             {
@@ -248,7 +271,31 @@ describe('AttendancesService - @unit #critical', () => {
     });
 
     describe('ATT-04: 단일 출결 등록 실패', () => {
+      it('진행 중이 아닌 강의에는 단일 출결을 등록할 수 없다', async () => {
+        mockLecturesRepo.findById.mockResolvedValue(
+          mockLectures.withEnrollments,
+        );
+        mockPermissionService.validateInstructorAccess.mockResolvedValue();
+
+        await expect(
+          attendancesService.createAttendance(
+            lectureId,
+            enrollmentId,
+            createAttendanceRequests.basic,
+            UserType.INSTRUCTOR,
+            instructorId,
+          ),
+        ).rejects.toThrow(BadRequestException);
+
+        expect(
+          mockAttendanceLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId,
+        ).not.toHaveBeenCalled();
+        expect(mockAttendancesRepo.upsert).not.toHaveBeenCalled();
+      });
+
       it('해당 강의에 등록되지 않은 수강생이면 NotFoundException을 던진다', async () => {
+        mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
+        mockPermissionService.validateInstructorAccess.mockResolvedValue();
         mockAttendanceLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValue(
           null,
         );
