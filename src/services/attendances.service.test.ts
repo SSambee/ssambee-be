@@ -37,11 +37,13 @@ describe('AttendancesService - @unit #critical', () => {
   let mockParentsService: ReturnType<typeof createMockParentsService>;
   let mockPermissionService: ReturnType<typeof createMockPermissionService>;
   let mockPrisma: PrismaClient;
+  let mockTx: Prisma.TransactionClient;
   let attendancesService: AttendancesService;
 
   const mockTransaction = () => {
+    mockTx = {} as Prisma.TransactionClient;
     (mockPrisma.$transaction as jest.Mock).mockImplementation(async (fn) =>
-      fn(mockPrisma as unknown as Prisma.TransactionClient),
+      fn(mockTx),
     );
   };
 
@@ -130,15 +132,15 @@ describe('AttendancesService - @unit #critical', () => {
       expect(mockLecturesRepo.findById).toHaveBeenNthCalledWith(
         2,
         lectureId,
-        mockPrisma,
+        mockTx,
       );
       expect(
         mockAttendanceLectureEnrollmentsRepo.findManyByLectureIdWithEnrollments,
-      ).toHaveBeenCalledWith(lectureId, mockPrisma);
+      ).toHaveBeenCalledWith(lectureId, mockTx);
       expect(mockAttendancesRepo.upsert).toHaveBeenCalledTimes(2);
       expect(
         mockAttendancesRepo.upsert.mock.calls.every(
-          (call) => call[3] === mockPrisma,
+          (call) => call[3] === mockTx,
         ),
       ).toBe(true);
     });
@@ -234,7 +236,7 @@ describe('AttendancesService - @unit #critical', () => {
 
       expect(
         mockAttendanceLectureEnrollmentsRepo.findManyByLectureIdWithEnrollments,
-      ).toHaveBeenCalledWith(lectureId, mockPrisma);
+      ).toHaveBeenCalledWith(lectureId, mockTx);
       expect(mockAttendancesRepo.upsert).not.toHaveBeenCalled();
     });
   });
@@ -274,11 +276,11 @@ describe('AttendancesService - @unit #critical', () => {
       expect(mockLecturesRepo.findById).toHaveBeenNthCalledWith(
         2,
         lectureId,
-        mockPrisma,
+        mockTx,
       );
       expect(
         mockAttendanceLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId,
-      ).toHaveBeenCalledWith(lectureId, enrollmentId, mockPrisma);
+      ).toHaveBeenCalledWith(lectureId, enrollmentId, mockTx);
       expect(mockAttendancesRepo.upsert).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({
@@ -287,7 +289,7 @@ describe('AttendancesService - @unit #critical', () => {
           status: AttendanceStatus.PRESENT,
         }),
         expect.anything(),
-        mockPrisma,
+        mockTx,
       );
     });
 
@@ -355,7 +357,7 @@ describe('AttendancesService - @unit #critical', () => {
 
       expect(
         mockAttendanceLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId,
-      ).toHaveBeenCalledWith(lectureId, 'invalid-enrollment-id', mockPrisma);
+      ).toHaveBeenCalledWith(lectureId, 'invalid-enrollment-id', mockTx);
       expect(mockAttendancesRepo.upsert).not.toHaveBeenCalled();
     });
   });
@@ -447,7 +449,7 @@ describe('AttendancesService - @unit #critical', () => {
       expect(mockAttendancesRepo.findById).toHaveBeenNthCalledWith(
         2,
         attendanceId,
-        mockPrisma,
+        mockTx,
       );
       expect(mockLecturesRepo.findById).toHaveBeenNthCalledWith(
         1,
@@ -456,11 +458,11 @@ describe('AttendancesService - @unit #critical', () => {
       expect(mockLecturesRepo.findById).toHaveBeenNthCalledWith(
         2,
         persistedAttendance.lectureId,
-        mockPrisma,
+        mockTx,
       );
       expect(mockAttendancesRepo.delete).toHaveBeenCalledWith(
         attendanceId,
-        mockPrisma,
+        mockTx,
       );
     });
 
