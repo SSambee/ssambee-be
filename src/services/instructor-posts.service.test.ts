@@ -819,6 +819,9 @@ describe('InstructorPostsService', () => {
         authorAssistantId: 'other-assistant',
       };
       instructorPostsRepo.findById.mockResolvedValue(post);
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        post.instructorId,
+      );
 
       await expect(
         service.updatePost(
@@ -965,6 +968,9 @@ describe('InstructorPostsService', () => {
         authorAssistantId: 'other-assistant',
       };
       instructorPostsRepo.findById.mockResolvedValue(post);
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        post.instructorId,
+      );
 
       await expect(
         service.deletePost(post.id, UserType.ASSISTANT, 'assistant-1'),
