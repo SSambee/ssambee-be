@@ -57,6 +57,7 @@ export const createMockFileStorageService =
       getPresignedUrl: jest.fn(async (url: string) => url),
       getDownloadPresignedUrl: jest.fn(async (url: string) => url),
       delete: jest.fn(),
+      cleanup: jest.fn(async () => undefined),
       uploadAttachment: jest.fn(async (file: Express.Multer.File) => ({
         filename: file.originalname,
         fileUrl: `https://mock.s3/${file.originalname}`,
