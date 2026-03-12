@@ -452,19 +452,20 @@ export class CommentsService {
     const uploadedAttachments =
       await this.fileStorageService.uploadAttachments(files);
 
-    try {
-      // 기존 데이터의 attachments와 업로드된 attachments 결합
-      const allAttachments = [
-        ...(data.attachments || []),
-        ...uploadedAttachments,
-      ];
+    // 기존 데이터의 attachments와 업로드된 attachments 결합
+    const allAttachments = [
+      ...(data.attachments || []),
+      ...uploadedAttachments,
+    ];
 
-      // 강사/조교가 학생 질문에 댓글 작성 시 트랜잭션으로 처리
-      if (
-        studentPostForStatus &&
-        studentPostForStatus.status === StudentPostStatus.BEFORE
-      ) {
-        const comment =
+    // 강사/조교가 학생 질문에 댓글 작성 시 트랜잭션으로 처리
+    if (
+      studentPostForStatus &&
+      studentPostForStatus.status === StudentPostStatus.BEFORE
+    ) {
+      let comment;
+      try {
+        comment =
           await this.commentsRepository.createCommentWithStudentPostStatusUpdate(
             {
               content: data.content,
@@ -477,31 +478,38 @@ export class CommentsService {
               attachments: allAttachments.length ? allAttachments : undefined,
             },
           );
-        return {
-          ...this.addIsMineField(comment, userType, profileId),
-          attachments: await this.fileStorageService.resolvePresignedUrls(
-            comment.attachments,
-          ),
-        };
+      } catch (error) {
+        // DB 작업 실패 시 업로드된 파일 삭제 (고아 파일 방지)
+        await this.fileStorageService.cleanup(uploadedAttachments);
+        throw error;
       }
+      return {
+        ...this.addIsMineField(comment, userType, profileId),
+        attachments: await this.fileStorageService.resolvePresignedUrls(
+          comment.attachments,
+        ),
+      };
+    }
 
-      // 일반 댓글 생성
-      const result = await this.commentsRepository.create({
+    // 일반 댓글 생성
+    let result;
+    try {
+      result = await this.commentsRepository.create({
         ...data,
         ...writerInfo,
         attachments: allAttachments.length ? allAttachments : undefined,
       });
-      return {
-        ...this.addIsMineField(result, userType, profileId),
-        attachments: await this.fileStorageService.resolvePresignedUrls(
-          result.attachments,
-        ),
-      };
     } catch (error) {
       // DB 작업 실패 시 업로드된 파일 삭제 (고아 파일 방지)
       await this.fileStorageService.cleanup(uploadedAttachments);
       throw error;
     }
+    return {
+      ...this.addIsMineField(result, userType, profileId),
+      attachments: await this.fileStorageService.resolvePresignedUrls(
+        result.attachments,
+      ),
+    };
   }
 
   /** 댓글 삭제 */
@@ -602,27 +610,28 @@ export class CommentsService {
     const uploadedAttachments =
       await this.fileStorageService.uploadAttachments(files);
 
-    try {
-      // 기존 material 첨부(강사 자료)들은 유지하고, 새 직접 첨부가 있으면 교체
-      const materialAttachments = data.attachments || [];
-      const allAttachments = [...materialAttachments, ...uploadedAttachments];
+    // 기존 material 첨부(강사 자료)들은 유지하고, 새 직접 첨부가 있으면 교체
+    const materialAttachments = data.attachments || [];
+    const allAttachments = [...materialAttachments, ...uploadedAttachments];
 
-      const updatedComment = await this.commentsRepository.update(commentId, {
+    let updatedComment;
+    try {
+      updatedComment = await this.commentsRepository.update(commentId, {
         content: data.content,
         materialIds: data.materialIds,
         attachments: allAttachments.length ? allAttachments : undefined,
       });
-      return {
-        ...this.addIsMineField(updatedComment, userType, profileId),
-        attachments: await this.fileStorageService.resolvePresignedUrls(
-          updatedComment.attachments,
-        ),
-      };
     } catch (error) {
       // DB 작업 실패 시 업로드된 파일 삭제 (고아 파일 방지)
       await this.fileStorageService.cleanup(uploadedAttachments);
       throw error;
     }
+    return {
+      ...this.addIsMineField(updatedComment, userType, profileId),
+      attachments: await this.fileStorageService.resolvePresignedUrls(
+        updatedComment.attachments,
+      ),
+    };
   }
 
   /** 첨부파일 다운로드 URL 조회 */
