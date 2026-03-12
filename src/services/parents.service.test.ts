@@ -75,6 +75,7 @@ describe('ParentsService - @unit #critical', () => {
         mockParentChildLinkRepo.findByParentIdAndPhoneNumber.mockResolvedValue(
           null,
         );
+        mockParentRepo.findById.mockResolvedValue(mockParents.basic);
         mockParentChildLinkRepo.create.mockResolvedValue(
           mockParentLinks.active,
         );
@@ -112,6 +113,8 @@ describe('ParentsService - @unit #critical', () => {
           mockEnrollmentsRepo.updateAppParentLinkIdByStudentPhone,
         ).toHaveBeenCalledWith(
           childData.phoneNumber,
+          childData.name,
+          mockParents.basic.phoneNumber,
           mockParentLinks.active.id,
           expect.anything(),
         );
@@ -121,6 +124,7 @@ describe('ParentsService - @unit #critical', () => {
         mockParentChildLinkRepo.findByParentIdAndPhoneNumber.mockResolvedValue(
           null,
         );
+        mockParentRepo.findById.mockResolvedValue(mockParents.basic);
         mockParentChildLinkRepo.create.mockResolvedValue(
           mockParentLinks.active,
         );

@@ -135,6 +135,7 @@ export const createMockAttendancesRepository = () =>
     'findById',
     'findByEnrollmentId',
     'update',
+    'delete',
     'findByLectureEnrollmentId',
     'getAttendanceStatsByLectureEnrollment',
   ]);

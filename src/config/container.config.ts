@@ -204,6 +204,8 @@ const lecturesService = new LecturesService(
   enrollmentsRepo,
   lectureEnrollmentsRepo,
   instructorRepo,
+  studentRepo,
+  parentChildLinkRepo,
   permissionService,
   prisma,
 );

@@ -84,44 +84,9 @@ export class EnrollmentsService {
     );
 
     return await this.prisma.$transaction(async (tx) => {
-      // 3. 기존 Enrollment 확인 (같은 강사, 같은 학생 번호)
-      let enrollmentId: string | null = null;
-
-      if (data.studentPhone) {
-        const existingEnrollments =
-          await this.enrollmentsRepository.findManyByInstructorAndPhones(
-            lecture.instructorId,
-            [data.studentPhone],
-            tx,
-          );
-
-        if (existingEnrollments.length > 0) {
-          enrollmentId = existingEnrollments[0].id;
-        }
-      }
-
-      // 4. 없으면 새로 생성
-      if (!enrollmentId) {
-        let parentLinkId = data.appParentLinkId;
-        if (!parentLinkId && data.studentPhone) {
-          const studentPhone = data.studentPhone as string;
-          const studentName = data.studentName as string | undefined;
-          const parentPhone = data.parentPhone as string | undefined;
-
-          if (studentName && parentPhone) {
-            const link =
-              await this.parentsService.findLinkByPhoneNumberAndProfile(
-                studentPhone,
-                studentName,
-                parentPhone,
-              );
-            if (link) {
-              parentLinkId = link.id;
-            }
-          }
-        }
-
+      const resolveStudentId = async () => {
         let studentId = data.appStudentId;
+
         if (!studentId && data.studentPhone) {
           const studentPhone = data.studentPhone as string;
           const studentName = data.studentName as string | undefined;
@@ -140,6 +105,80 @@ export class EnrollmentsService {
             }
           }
         }
+
+        return studentId;
+      };
+
+      const resolveParentLinkId = async () => {
+        let parentLinkId = data.appParentLinkId;
+
+        if (!parentLinkId && data.studentPhone) {
+          const studentPhone = data.studentPhone as string;
+          const studentName = data.studentName as string;
+          const parentPhone = data.parentPhone as string;
+
+          if (studentName && parentPhone) {
+            const link =
+              await this.parentsService.findLinkByPhoneNumberAndProfile(
+                studentPhone,
+                studentName,
+                parentPhone,
+              );
+            if (link) {
+              parentLinkId = link.id;
+            }
+          }
+        }
+
+        return parentLinkId;
+      };
+
+      // 3. 기존 Enrollment 확인 (같은 강사, 같은 학생 번호)
+      let enrollmentId: string | null = null;
+
+      if (data.studentPhone) {
+        const existingEnrollments =
+          await this.enrollmentsRepository.findManyByInstructorAndPhones(
+            lecture.instructorId,
+            [data.studentPhone],
+            tx,
+          );
+
+        if (existingEnrollments.length > 0) {
+          const existingEnrollment = existingEnrollments[0];
+          enrollmentId = existingEnrollment.id;
+          const connectionData: Prisma.EnrollmentUpdateInput = {};
+
+          if (!existingEnrollment.appStudentId) {
+            const studentId = await resolveStudentId();
+            if (studentId) {
+              connectionData.appStudent = { connect: { id: studentId } };
+            }
+          }
+
+          if (!existingEnrollment.appParentLinkId) {
+            const parentLinkId = await resolveParentLinkId();
+            if (parentLinkId) {
+              connectionData.appParentLink = {
+                connect: { id: parentLinkId },
+              };
+            }
+          }
+
+          if (Object.keys(connectionData).length > 0) {
+            await this.enrollmentsRepository.update(
+              existingEnrollment.id,
+              connectionData,
+              tx,
+            );
+          }
+        }
+      }
+
+      // 4. 없으면 새로 생성
+      if (!enrollmentId) {
+        const parentLinkId = await resolveParentLinkId();
+        const studentId = await resolveStudentId();
 
         const newEnrollment = await this.enrollmentsRepository.create(
           {

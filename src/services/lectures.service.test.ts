@@ -7,6 +7,8 @@ import {
   createMockLecturesRepository,
   createMockEnrollmentsRepository,
   createMockInstructorRepository,
+  createMockStudentRepository,
+  createMockParentChildLinkRepository,
   createMockPermissionService,
   createMockPrisma,
   createMockLectureEnrollmentsRepository,
@@ -18,6 +20,8 @@ import {
   createLectureRequests,
   updateLectureRequests,
   mockEnrollments,
+  mockStudents,
+  mockParentLinks,
 } from '../test/fixtures/index.js';
 import { mockUsers } from '../test/fixtures/user.fixture.js';
 
@@ -32,6 +36,10 @@ describe('LecturesService - @unit #critical', () => {
   let mockLecturesRepo: ReturnType<typeof createMockLecturesRepository>;
   let mockEnrollmentsRepo: ReturnType<typeof createMockEnrollmentsRepository>;
   let mockInstructorRepo: ReturnType<typeof createMockInstructorRepository>;
+  let mockStudentRepo: ReturnType<typeof createMockStudentRepository>;
+  let mockParentChildLinkRepo: ReturnType<
+    typeof createMockParentChildLinkRepository
+  >;
   let mockLectureEnrollmentsRepo: ReturnType<
     typeof createMockLectureEnrollmentsRepository
   >;
@@ -49,6 +57,8 @@ describe('LecturesService - @unit #critical', () => {
     mockLecturesRepo = createMockLecturesRepository();
     mockEnrollmentsRepo = createMockEnrollmentsRepository();
     mockInstructorRepo = createMockInstructorRepository();
+    mockStudentRepo = createMockStudentRepository();
+    mockParentChildLinkRepo = createMockParentChildLinkRepository();
     mockLectureEnrollmentsRepo = createMockLectureEnrollmentsRepository();
     mockPermissionService = createMockPermissionService();
     mockPrisma = createMockPrisma() as unknown as PrismaClient;
@@ -59,6 +69,8 @@ describe('LecturesService - @unit #critical', () => {
       mockEnrollmentsRepo,
       mockLectureEnrollmentsRepo,
       mockInstructorRepo,
+      mockStudentRepo,
+      mockParentChildLinkRepo,
       mockPermissionService,
       mockPrisma,
     );
@@ -155,6 +167,128 @@ describe('LecturesService - @unit #critical', () => {
           expect.any(Array),
           expect.anything(),
         );
+      });
+
+      it('강의 생성 시 새 Enrollment에 앱 학생과 학부모 링크를 자동 연결한다', async () => {
+        const enrollmentRequest =
+          createLectureRequests.withEnrollments.enrollments![0];
+
+        mockInstructorRepo.findById.mockResolvedValue(mockInstructor);
+        mockLecturesRepo.create.mockResolvedValue({
+          ...mockLectures.withEnrollments,
+          lectureTimes: [],
+        });
+        mockEnrollmentsRepo.findManyByInstructorAndPhones.mockResolvedValue([]);
+        mockStudentRepo.findByPhoneNumberAndProfile.mockResolvedValue(
+          mockStudents.basic,
+        );
+        mockParentChildLinkRepo.findByPhoneNumberAndProfile.mockResolvedValue(
+          mockParentLinks.active,
+        );
+        mockEnrollmentsRepo.createMany.mockResolvedValue([
+          mockEnrollments.active,
+        ]);
+        mockLectureEnrollmentsRepo.createMany.mockResolvedValue([]);
+
+        (mockPrisma.$transaction as jest.Mock).mockImplementation(
+          async (fn) => await fn(mockPrisma),
+        );
+
+        await lecturesService.createLecture(mockInstructor.id, {
+          ...createLectureRequests.withEnrollments,
+          enrollments: [enrollmentRequest],
+          startAt: new Date(createLectureRequests.withEnrollments.startAt),
+          endAt: new Date(createLectureRequests.withEnrollments.endAt),
+        });
+
+        expect(
+          mockStudentRepo.findByPhoneNumberAndProfile,
+        ).toHaveBeenCalledWith(
+          enrollmentRequest.studentPhone,
+          enrollmentRequest.studentName,
+          enrollmentRequest.parentPhone,
+          mockPrisma,
+        );
+        expect(
+          mockParentChildLinkRepo.findByPhoneNumberAndProfile,
+        ).toHaveBeenCalledWith(
+          enrollmentRequest.studentPhone,
+          enrollmentRequest.studentName,
+          enrollmentRequest.parentPhone,
+          mockPrisma,
+        );
+        expect(mockEnrollmentsRepo.createMany).toHaveBeenCalledWith(
+          [
+            expect.objectContaining({
+              appStudentId: mockStudents.basic.id,
+              appParentLinkId: mockParentLinks.active.id,
+            }),
+          ],
+          mockPrisma,
+        );
+      });
+
+      it('강의 생성 시 기존 Enrollment를 재사용할 때 비어 있는 앱 연결을 보정한다', async () => {
+        const enrollmentRequest =
+          createLectureRequests.withEnrollments.enrollments![0];
+        const existingEnrollment = {
+          ...mockEnrollments.active,
+          studentPhone: enrollmentRequest.studentPhone,
+          studentName: enrollmentRequest.studentName,
+          parentPhone: enrollmentRequest.parentPhone,
+          appStudentId: null,
+          appParentLinkId: null,
+        };
+
+        mockInstructorRepo.findById.mockResolvedValue(mockInstructor);
+        mockLecturesRepo.create.mockResolvedValue({
+          ...mockLectures.withEnrollments,
+          lectureTimes: [],
+        });
+        mockEnrollmentsRepo.findManyByInstructorAndPhones.mockResolvedValue([
+          existingEnrollment,
+        ]);
+        mockStudentRepo.findByPhoneNumberAndProfile.mockResolvedValue(
+          mockStudents.basic,
+        );
+        mockParentChildLinkRepo.findByPhoneNumberAndProfile.mockResolvedValue(
+          mockParentLinks.active,
+        );
+        mockEnrollmentsRepo.update.mockResolvedValue({
+          ...existingEnrollment,
+          appStudentId: mockStudents.basic.id,
+          appParentLinkId: mockParentLinks.active.id,
+        });
+        mockLectureEnrollmentsRepo.createMany.mockResolvedValue([]);
+
+        (mockPrisma.$transaction as jest.Mock).mockImplementation(
+          async (fn) => await fn(mockPrisma),
+        );
+
+        await lecturesService.createLecture(mockInstructor.id, {
+          ...createLectureRequests.withEnrollments,
+          enrollments: [enrollmentRequest],
+          startAt: new Date(createLectureRequests.withEnrollments.startAt),
+          endAt: new Date(createLectureRequests.withEnrollments.endAt),
+        });
+
+        expect(mockEnrollmentsRepo.update).toHaveBeenCalledWith(
+          existingEnrollment.id,
+          {
+            appStudent: {
+              connect: {
+                id: mockStudents.basic.id,
+              },
+            },
+            appParentLink: {
+              connect: {
+                id: mockParentLinks.active.id,
+              },
+            },
+          },
+          mockPrisma,
+        );
+        expect(mockEnrollmentsRepo.createMany).not.toHaveBeenCalled();
       });
     });
 

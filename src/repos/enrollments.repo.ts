@@ -374,16 +374,20 @@ export class EnrollmentsRepository {
     });
   }
 
-  /** 학생 전화번호 기준 AppParentLinkId 업데이트 (자녀 등록 시 연동) */
+  /** 학생/학부모 프로필 기준 AppParentLinkId 업데이트 (자녀 등록 시 연동) */
   async updateAppParentLinkIdByStudentPhone(
     studentPhone: string,
+    studentName: string,
+    parentPhoneNumber: string,
     appParentLinkId: string,
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
     return await client.enrollment.updateMany({
       where: {
-        studentPhone: studentPhone,
+        studentPhone,
+        studentName,
+        parentPhone: parentPhoneNumber,
         appParentLinkId: null, // 아직 연동되지 않은 건들이만
       },
       data: {
