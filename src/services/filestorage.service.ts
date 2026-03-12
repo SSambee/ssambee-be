@@ -224,10 +224,15 @@ export class FileStorageService {
   ): Promise<{ filename: string; fileUrl: string }[]> {
     if (!files?.length) return [];
     const results: { filename: string; fileUrl: string }[] = [];
-    for (const file of files) {
-      results.push(await this.uploadAttachment(file));
+    try {
+      for (const file of files) {
+        results.push(await this.uploadAttachment(file));
+      }
+      return results;
+    } catch (error) {
+      await this.cleanup(results);
+      throw error;
     }
-    return results;
   }
 
   /**
