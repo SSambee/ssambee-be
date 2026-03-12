@@ -593,8 +593,8 @@ export class CommentsService {
       await this.validateMaterialOwnership(data.materialIds, instructorId);
     }
 
-    // 새 파일이 업로드될 경우, 기존 직접 첨부 파일(직접 업로드된 파일) S3에서 삭제 (고아 파일 방지)
-    if (files?.length) {
+    // 새 파일 업로드 또는 기존 첨부 명시적 삭제 요청 시 S3 기존 직접 첨부 파일 삭제 (고아 파일 방지)
+    if (files?.length || data.removeAttachments) {
       const existingDirectAttachments =
         await this.commentsRepository.findDirectAttachmentsByCommentId(
           commentId,
@@ -614,12 +614,20 @@ export class CommentsService {
     const materialAttachments = data.attachments || [];
     const allAttachments = [...materialAttachments, ...uploadedAttachments];
 
+    // removeAttachments가 true이면 빈 배열을 전달해 기존 직접 첨부를 DB에서도 제거
+    // 그 외 첨부가 없으면 undefined를 전달해 기존 값 유지
+    const attachmentsForRepo = data.removeAttachments
+      ? []
+      : allAttachments.length
+        ? allAttachments
+        : undefined;
+
     let updatedComment;
     try {
       updatedComment = await this.commentsRepository.update(commentId, {
         content: data.content,
         materialIds: data.materialIds,
-        attachments: allAttachments.length ? allAttachments : undefined,
+        attachments: attachmentsForRepo,
       });
     } catch (error) {
       // DB 작업 실패 시 업로드된 파일 삭제 (고아 파일 방지)
