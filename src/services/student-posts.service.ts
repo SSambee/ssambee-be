@@ -386,8 +386,11 @@ export class StudentPostsService {
     const uploadedAttachments =
       await this.fileStorageService.uploadAttachments(files);
 
-    if (uploadedAttachments.length > 0) {
-      // 새 파일 업로드 성공 후 기존 첨부 파일 삭제 (고아 파일 방지)
+    // 새 파일 업로드 또는 기존 첨부 명시적 제거(attachments: []) 시 S3 기존 파일 삭제 (고아 파일 방지)
+    const isAttachmentUpdate =
+      uploadedAttachments.length > 0 ||
+      (data.attachments !== undefined && data.attachments.length === 0);
+    if (isAttachmentUpdate) {
       const oldAttachments = post.attachments ?? [];
       await Promise.all(
         oldAttachments
@@ -405,7 +408,12 @@ export class StudentPostsService {
     return this.studentPostsRepository.update(postId, {
       title: data.title,
       content: data.content,
-      attachments: allAttachments.length ? allAttachments : undefined,
+      // data.attachments가 명시적으로 지정됐거나 새 파일이 업로드된 경우 빈 배열 포함하여 전달
+      // 그렇지 않으면 undefined로 전달하여 기존 첨부 유지
+      attachments:
+        data.attachments !== undefined || uploadedAttachments.length > 0
+          ? allAttachments
+          : undefined,
     });
   }
 
