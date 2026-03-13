@@ -5,7 +5,7 @@ import {
 } from '../constants/enrollments.constant.js';
 import { PaginationDefaults } from '../constants/common.constant.js';
 import { Regex } from '../constants/regex.constant.js';
-import { paginationQuerySchema } from './common.validation.js';
+import { dateTimeSchema, paginationQuerySchema } from './common.validation.js';
 
 /**
  * 수강 ID 경로 파라미터 검증 스키마
@@ -61,6 +61,8 @@ export const createEnrollmentSchema = z.object({
     .regex(Regex.PHONE, '유효한 전화번호 형식이 아닙니다.'),
   /** 메모 (선택) */
   memo: z.string().optional(),
+  /** 등록일시 (선택) */
+  registeredAt: dateTimeSchema.optional(),
 });
 
 /** 수강 등록 DTO 타입 */
@@ -92,6 +94,8 @@ export const updateEnrollmentSchema = z.object({
     .optional(),
   /** 메모 */
   memo: z.string().optional(),
+  /** 등록일시 */
+  registeredAt: dateTimeSchema.optional(),
   /** 수강 상태 */
   status: z.nativeEnum(EnrollmentStatus).optional(),
 });

@@ -295,6 +295,15 @@ export const createEnrollmentRequests = {
     parentPhone: faker.phone.number({ style: 'national' }),
   },
 
+  withRegisteredAt: {
+    studentName: faker.person.fullName(),
+    school: `${faker.location.city()}고등학교`,
+    schoolYear: '고2',
+    studentPhone: faker.phone.number({ style: 'national' }),
+    parentPhone: faker.phone.number({ style: 'national' }),
+    registeredAt: new Date('2024-03-15T00:00:00.000Z'),
+  },
+
   withParentLink: {
     studentName: faker.person.fullName(),
     school: `${faker.location.city()}고등학교`,
@@ -328,6 +337,10 @@ export const updateEnrollmentRequests = {
 
   partial: {
     memo: faker.lorem.sentence(),
+  },
+
+  withRegisteredAt: {
+    registeredAt: new Date('2024-04-01T00:00:00.000Z'),
   },
 
   statusChange: {
