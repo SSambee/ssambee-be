@@ -188,6 +188,12 @@ export class AssistantOrderService {
     deadlineAt: Date | null;
     instructor?: { user: { name: string } };
     assistant?: { name: string };
+    attachments?: {
+      id: string;
+      filename: string;
+      fileUrl: string | null;
+      materialId: string | null;
+    }[];
   }) {
     return {
       id: order.id,
@@ -199,6 +205,7 @@ export class AssistantOrderService {
       deadlineAt: order.deadlineAt,
       instructorName: order.instructor?.user?.name,
       assistantName: order.assistant?.name,
+      attachments: order.attachments ?? [],
     };
   }
 
@@ -281,7 +288,10 @@ export class AssistantOrderService {
     }
 
     // 2. 상태 업데이트 수행
-    return await this.assistantOrderRepository.updateStatus(orderId, workStatus);
+    return await this.assistantOrderRepository.updateStatus(
+      orderId,
+      workStatus,
+    );
   }
 
   /**

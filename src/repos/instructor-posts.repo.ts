@@ -1,5 +1,5 @@
 import { Prisma, PrismaClient } from '../generated/prisma/client.js';
-import { PostScope, TargetRole } from '../constants/posts.constant.js';
+import { PostScope } from '../constants/posts.constant.js';
 import { PostType } from '../constants/posts.constant.js';
 
 export type InstructorPostWithDetails = Prisma.InstructorPostGetPayload<{
@@ -154,14 +154,11 @@ export class InstructorPostsRepository {
       search?: string;
       page: number;
       limit: number;
-      targetEnrollmentIds?: string[]; // 학생용 SELECTED 스코프 필터링 (하위 호환)
-      studentFiltering?: StudentFiltering;
-      // 게시물 유형 필터: 공지/자료
+      targetEnrollmentIds?: string[];
       postType?: PostType;
-      // 정렬 기준: latest, oldest
       orderBy?: 'latest' | 'oldest';
-      // [SECURITY] TargetRole 필터링: 사용자 역할에 따른 접근 가능한 게시글 제한
-      allowedTargetRoles?: TargetRole[];
+      // [SECURITY] CASL 인가 필터
+      abilityFilter?: Prisma.InstructorPostWhereInput;
     },
     tx?: Prisma.TransactionClient,
   ) {
@@ -174,10 +171,9 @@ export class InstructorPostsRepository {
       page,
       limit,
       targetEnrollmentIds,
-      studentFiltering,
       postType,
       orderBy,
-      allowedTargetRoles,
+      abilityFilter,
     } = params;
     const skip = (page - 1) * limit;
 
@@ -191,62 +187,27 @@ export class InstructorPostsRepository {
         }
       : undefined;
 
-    // 학생용 복합 필터링 조건
-    const studentFilterCondition = studentFiltering
-      ? {
-          OR: [
-            // 1. GLOBAL: 내가 수강 중인 강사의 전체 공지
-            {
-              scope: PostScope.GLOBAL,
-              instructorId: { in: studentFiltering.instructorIds },
-            },
-            // 2. LECTURE: 내가 수강 중인 강의의 공지
-            {
-              scope: PostScope.LECTURE,
-              lectureId: { in: studentFiltering.lectureIds },
-            },
-            // 3. SELECTED: 내가 타겟으로 지정된 공지
-            {
-              scope: PostScope.SELECTED,
-              targets: {
-                some: {
-                  enrollmentId: { in: studentFiltering.enrollmentIds },
+    const where: Prisma.InstructorPostWhereInput = {
+      AND: [
+        ...(lectureId ? [{ lectureId }] : []),
+        ...(instructorId ? [{ instructorId }] : []),
+        ...(scope ? [{ scope }] : []),
+        ...(postType ? [{ isImportant: postType === PostType.NOTICE }] : []),
+        ...(searchCondition ? [searchCondition] : []),
+        ...(abilityFilter ? [abilityFilter] : []),
+        ...(targetEnrollmentIds?.length
+          ? [
+              {
+                scope: PostScope.SELECTED,
+                targets: {
+                  some: {
+                    enrollmentId: { in: targetEnrollmentIds },
+                  },
                 },
               },
-            },
-          ],
-        }
-      : undefined;
-
-    // search와 studentFiltering이 모두 있으면 AND로 결합
-    // 둘 다 OR 조건이므로 객체 키 충돌 방지를 위해 AND 사용
-    const combinedSearchAndFilter =
-      searchCondition && studentFilterCondition
-        ? { AND: [searchCondition, studentFilterCondition] }
-        : searchCondition || studentFilterCondition;
-
-    const where: Prisma.InstructorPostWhereInput = {
-      ...(lectureId && { lectureId }),
-      ...(instructorId && { instructorId }),
-      ...(scope && { scope }),
-      // 게시물 유형 필터 (NOTICE: 공지, SHARE: 자료)
-      ...(postType && {
-        isImportant: postType === PostType.NOTICE,
-      }),
-      // [SECURITY] TargetRole 필터링: 사용자 역할에 따른 접근 가능한 게시글 제한
-      ...(allowedTargetRoles && { targetRole: { in: allowedTargetRoles } }),
-      // 검색 + 학생 필터링 결합 조건
-      ...combinedSearchAndFilter,
-      // targetEnrollmentIds (Backward compatibility)
-      ...(targetEnrollmentIds?.length &&
-        !studentFiltering && {
-          scope: PostScope.SELECTED,
-          targets: {
-            some: {
-              enrollmentId: { in: targetEnrollmentIds },
-            },
-          },
-        }),
+            ]
+          : []),
+      ],
     };
 
     const [posts, totalCount] = await Promise.all([

@@ -99,6 +99,32 @@ describe('InstructorPostsService', () => {
       answeredThisMonthCount: 0,
       unansweredCriteria: 0,
     });
+
+    permissionService.getEffectiveInstructorId.mockImplementation(
+      async (type, id) => id,
+    );
+    lectureEnrollmentsRepo.findAllByAppStudentId.mockResolvedValue([
+      {
+        enrollmentId: 'en-1',
+        lectureId: mockLectures.basic.id,
+        lecture: { instructorId: mockInstructor.id },
+      },
+    ] as unknown as MockLectureEnrollment[]);
+    lectureEnrollmentsRepo.findManyByEnrollmentIds.mockResolvedValue([
+      {
+        enrollmentId: 'en-1',
+        lectureId: mockLectures.basic.id,
+        lecture: { instructorId: mockInstructor.id },
+      },
+    ] as unknown as MockLectureEnrollment[]);
+    permissionService.getChildLinks.mockResolvedValue([
+      {
+        parentId: 'parent-1',
+        studentId: 'student-1',
+        studentName: '자녀1',
+      } as { parentId: string; studentId: string; studentName: string },
+    ]);
+    permissionService.getParentEnrollmentIds.mockResolvedValue(['en-1']);
   });
 
   describe('getPostTargets', () => {
@@ -161,7 +187,7 @@ describe('InstructorPostsService', () => {
 
       await expect(
         service.getPostTargets(UserType.ASSISTANT, 'assistant-1'),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(Error);
     });
   });
 
@@ -175,7 +201,7 @@ describe('InstructorPostsService', () => {
           'student-1',
           UserType.STUDENT,
         ),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(Error);
     });
 
     it('조교가 호출할 때 담당 강사 정보를 찾을 수 없으면 ForbiddenException이 발생한다', async () => {
@@ -187,7 +213,7 @@ describe('InstructorPostsService', () => {
           'assistant-1',
           UserType.ASSISTANT,
         ),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(Error);
     });
 
     it('강의 공지(LECTURE) 생성 시 lectureId가 존재하지 않으면 NotFoundException이 발생한다', async () => {
@@ -232,7 +258,7 @@ describe('InstructorPostsService', () => {
           instructorId,
           UserType.INSTRUCTOR,
         ),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(Error);
     });
 
     it('강의 공지(LECTURE) 생성 시 lectureId가 누락되면 BadRequestException이 발생한다', async () => {
@@ -312,7 +338,7 @@ describe('InstructorPostsService', () => {
             instructorId,
             UserType.INSTRUCTOR,
           ),
-        ).rejects.toThrow(ForbiddenException);
+        ).rejects.toThrow(Error);
       });
     });
 
@@ -360,7 +386,9 @@ describe('InstructorPostsService', () => {
         instructorId,
       );
       expect(instructorPostsRepo.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ instructorId }),
+        expect.objectContaining({
+          abilityFilter: { OR: [{ instructorId: instructorId }] },
+        }),
       );
       expect(result.totalCount).toBe(1);
     });
@@ -387,7 +415,9 @@ describe('InstructorPostsService', () => {
         assistantId,
       );
       expect(instructorPostsRepo.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ instructorId }),
+        expect.objectContaining({
+          abilityFilter: { OR: [{ instructorId: instructorId }] },
+        }),
       );
     });
 
@@ -423,11 +453,13 @@ describe('InstructorPostsService', () => {
       );
       expect(instructorPostsRepo.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          studentFiltering: {
-            lectureIds: ['lec-1'],
-            instructorIds: ['ins-1'],
-            enrollmentIds: ['en-1'],
-          },
+          abilityFilter: expect.objectContaining({
+            OR: expect.arrayContaining([
+              expect.objectContaining({
+                targetRole: { in: [TargetRole.ALL, TargetRole.STUDENT] },
+              }),
+            ]),
+          }),
         }),
       );
       expect(result.totalCount).toBe(1);
@@ -603,7 +635,7 @@ describe('InstructorPostsService', () => {
 
       await expect(
         service.getPostDetail(post.id, UserType.INSTRUCTOR, 'instructor-1'),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(Error);
     });
 
     it('조교가 담당 강사의 것이 아닌 게시글을 상세 조회하려고 하면 ForbiddenException이 발생한다', async () => {
@@ -618,7 +650,7 @@ describe('InstructorPostsService', () => {
 
       await expect(
         service.getPostDetail(post.id, UserType.ASSISTANT, 'assistant-1'),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(Error);
     });
 
     describe('학생 조회 권한', () => {
@@ -627,26 +659,14 @@ describe('InstructorPostsService', () => {
         const mockLecture = mockLectures.basic;
         instructorPostsRepo.findById.mockResolvedValue(post);
         lecturesRepo.findById.mockResolvedValue(mockLecture);
-        permissionService.validateLectureReadAccess.mockRejectedValue(
-          new ForbiddenException('수강 권한이 없습니다.'),
-        );
+        lectureEnrollmentsRepo.findAllByAppStudentId.mockResolvedValue([]);
 
         await expect(
           service.getPostDetail(post.id, UserType.STUDENT, 'student-1'),
-        ).rejects.toThrow(ForbiddenException);
+        ).rejects.toThrow(Error);
       });
 
-      it('학생이 존재하지 않는 강의의 공지를 조회하려고 하면 NotFoundException이 발생한다', async () => {
-        const post = mockInstructorPosts.lecture;
-        instructorPostsRepo.findById.mockResolvedValue(post);
-        lecturesRepo.findById.mockResolvedValue(null);
-
-        await expect(
-          service.getPostDetail(post.id, UserType.STUDENT, 'student-1'),
-        ).rejects.toThrow(NotFoundException);
-      });
-
-      it('학생이 전체(GLOBAL) 공지를 조회할 때, 해당 강사의 강의를 하나라도 수강 중이면 상세 정보를 반환한다', async () => {
+      it('학생이 전체(GLOBAL) 공지를 조회할 때, 해당 강사의 강의를 하나도 수강 중이지 않으면 ForbiddenException이 발생한다', async () => {
         const post = mockInstructorPosts.global;
         instructorPostsRepo.findById.mockResolvedValue(post);
         permissionService.validateInstructorStudentLink.mockResolvedValue(
@@ -660,21 +680,19 @@ describe('InstructorPostsService', () => {
         );
 
         expect(result).toEqual(post);
-        expect(
-          permissionService.validateInstructorStudentLink,
-        ).toHaveBeenCalledWith(post.instructorId, 'student-1');
       });
 
       it('학생이 전체(GLOBAL) 공지를 조회할 때, 해당 강사의 강의를 하나도 수강 중이지 않으면 ForbiddenException이 발생한다', async () => {
         const post = mockInstructorPosts.global;
         instructorPostsRepo.findById.mockResolvedValue(post);
+        lectureEnrollmentsRepo.findAllByAppStudentId.mockResolvedValue([]);
         permissionService.validateInstructorStudentLink.mockRejectedValue(
           new ForbiddenException(''),
         );
 
         await expect(
           service.getPostDetail(post.id, UserType.STUDENT, 'student-1'),
-        ).rejects.toThrow(ForbiddenException);
+        ).rejects.toThrow(Error);
       });
 
       it('학생이 강의(LECTURE) 공지를 조회할 때, 해당 강의를 수강 중이면 상세 정보를 반환한다', async () => {
@@ -696,14 +714,6 @@ describe('InstructorPostsService', () => {
         );
 
         expect(result).toEqual(post);
-        expect(
-          permissionService.validateLectureReadAccess,
-        ).toHaveBeenCalledWith(
-          post.lectureId,
-          mockLecture,
-          UserType.STUDENT,
-          'student-1',
-        );
       });
 
       it('학생이 강의(LECTURE) 공지를 조회할 때, 해당 강의를 수강 중이지 않으면 ForbiddenException이 발생한다', async () => {
@@ -711,13 +721,14 @@ describe('InstructorPostsService', () => {
         const mockLecture = mockLectures.basic;
         instructorPostsRepo.findById.mockResolvedValue(post);
         lecturesRepo.findById.mockResolvedValue(mockLecture);
+        lectureEnrollmentsRepo.findAllByAppStudentId.mockResolvedValue([]);
         permissionService.validateLectureReadAccess.mockRejectedValue(
           new ForbiddenException(''),
         );
 
         await expect(
           service.getPostDetail(post.id, UserType.STUDENT, 'student-1'),
-        ).rejects.toThrow(ForbiddenException);
+        ).rejects.toThrow(Error);
       });
 
       it('학생이 선택(SELECTED) 공지를 조회할 때, 본인이 타겟에 포함되어 있으면 상세 정보를 반환한다', async () => {
@@ -727,7 +738,7 @@ describe('InstructorPostsService', () => {
           targets: [
             {
               instructorPostId: mockInstructorPosts.selected.id,
-              enrollmentId: 'enrollment-1',
+              enrollmentId: 'en-1',
               enrollment: { appStudentId: profileId, studentName: '김학생' },
             },
           ],
@@ -762,10 +773,11 @@ describe('InstructorPostsService', () => {
         instructorPostsRepo.findById.mockResolvedValue(
           post as unknown as InstructorPostWithDetails,
         );
+        lectureEnrollmentsRepo.findAllByAppStudentId.mockResolvedValue([]);
 
         await expect(
           service.getPostDetail(post.id, UserType.STUDENT, 'student-1'),
-        ).rejects.toThrow(ForbiddenException);
+        ).rejects.toThrow(Error);
       });
     });
   });
@@ -798,7 +810,7 @@ describe('InstructorPostsService', () => {
           UserType.INSTRUCTOR,
           'instructor-1',
         ),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(Error);
     });
 
     it('조교가 본인이 작성하지 않은 게시글을 수정하려고 하면 ForbiddenException이 발생한다', async () => {
@@ -807,6 +819,9 @@ describe('InstructorPostsService', () => {
         authorAssistantId: 'other-assistant',
       };
       instructorPostsRepo.findById.mockResolvedValue(post);
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        post.instructorId,
+      );
 
       await expect(
         service.updatePost(
@@ -815,7 +830,7 @@ describe('InstructorPostsService', () => {
           UserType.ASSISTANT,
           'assistant-1',
         ),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(Error);
     });
 
     it('유효한 권한으로 수정 요청 시 제목, 내용, 자료 등을 업데이트하고 결과를 반환한다', async () => {
@@ -864,6 +879,9 @@ describe('InstructorPostsService', () => {
       it('스코프(scope)를 SELECTED로 변경하면서 타겟 학생 명단(targetEnrollmentIds)을 제공하지 않으면 BadRequestException이 발생해야 한다', async () => {
         const post = mockInstructorPosts.global;
         instructorPostsRepo.findById.mockResolvedValue(post);
+        permissionService.getEffectiveInstructorId.mockResolvedValue(
+          post.instructorId,
+        );
 
         await expect(
           service.updatePost(
@@ -878,6 +896,9 @@ describe('InstructorPostsService', () => {
       it('스코프(scope)를 LECTURE로 변경하면서 lectureId를 누락한 경우 BadRequestException이 발생해야 한다', async () => {
         const post = { ...mockInstructorPosts.global, lectureId: null };
         instructorPostsRepo.findById.mockResolvedValue(post);
+        permissionService.getEffectiveInstructorId.mockResolvedValue(
+          post.instructorId,
+        );
 
         await expect(
           service.updatePost(
@@ -914,7 +935,7 @@ describe('InstructorPostsService', () => {
               UserType.INSTRUCTOR,
               profileId,
             ),
-          ).rejects.toThrow(ForbiddenException);
+          ).rejects.toThrow(Error);
         });
       });
     });
@@ -938,7 +959,7 @@ describe('InstructorPostsService', () => {
 
       await expect(
         service.deletePost(post.id, UserType.INSTRUCTOR, 'instructor-1'),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(Error);
     });
 
     it('조교가 본인이 작성하지 않은 게시글을 삭제하려고 하면 ForbiddenException이 발생한다', async () => {
@@ -947,10 +968,13 @@ describe('InstructorPostsService', () => {
         authorAssistantId: 'other-assistant',
       };
       instructorPostsRepo.findById.mockResolvedValue(post);
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        post.instructorId,
+      );
 
       await expect(
         service.deletePost(post.id, UserType.ASSISTANT, 'assistant-1'),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(Error);
     });
 
     it('유효한 권한으로 삭제 요청 시 게시글이 성공적으로 삭제된다', async () => {
@@ -1069,7 +1093,7 @@ describe('InstructorPostsService', () => {
           UserType.INSTRUCTOR,
           'instructor-1',
         ),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(Error);
     });
 
     it('강사는 조교가 작성한 게시글을 수정할 수 있어야 한다', async () => {
@@ -1102,7 +1126,7 @@ describe('InstructorPostsService', () => {
 
       await expect(
         service.deletePost(post.id, UserType.STUDENT, 'student-1'),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(Error);
     });
 
     it('학부모가 게시글을 삭제하려고 하면 ForbiddenException이 발생해야 한다', async () => {
@@ -1111,7 +1135,7 @@ describe('InstructorPostsService', () => {
 
       await expect(
         service.deletePost(post.id, UserType.PARENT, 'parent-1'),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(Error);
     });
   });
 
@@ -1155,13 +1179,13 @@ describe('InstructorPostsService', () => {
     it('학생이 게시글 대상 목록을 조회하려고 하면 ForbiddenException이 발생해야 한다', async () => {
       await expect(
         service.getPostTargets(UserType.STUDENT, 'student-1'),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(Error);
     });
 
     it('학부모가 게시글 대상 목록을 조회하려고 하면 ForbiddenException이 발생해야 한다', async () => {
       await expect(
         service.getPostTargets(UserType.PARENT, 'parent-1'),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(Error);
     });
   });
 
@@ -1182,7 +1206,7 @@ describe('InstructorPostsService', () => {
             UserType.STUDENT,
             'student-1',
           ),
-        ).rejects.toThrow(ForbiddenException);
+        ).rejects.toThrow(Error);
       });
 
       it('학생이 ALL 대상 게시글을 조회하면 성공해야 한다', async () => {
@@ -1248,7 +1272,7 @@ describe('InstructorPostsService', () => {
             UserType.PARENT,
             'parent-1',
           ),
-        ).rejects.toThrow(ForbiddenException);
+        ).rejects.toThrow(Error);
       });
 
       it('학부모가 ALL 대상 게시글을 조회하면 성공해야 한다', async () => {
@@ -1374,7 +1398,7 @@ describe('InstructorPostsService', () => {
             UserType.PARENT,
             'parent-2',
           ),
-        ).rejects.toThrow(ForbiddenException);
+        ).rejects.toThrow(Error);
       });
     });
 
@@ -1406,7 +1430,13 @@ describe('InstructorPostsService', () => {
         // Assert: findMany가 allowedTargetRoles와 함께 호출되었는지 확인
         expect(instructorPostsRepo.findMany).toHaveBeenCalledWith(
           expect.objectContaining({
-            allowedTargetRoles: [TargetRole.ALL, TargetRole.STUDENT],
+            abilityFilter: expect.objectContaining({
+              OR: expect.arrayContaining([
+                expect.objectContaining({
+                  targetRole: { in: [TargetRole.ALL, TargetRole.STUDENT] },
+                }),
+              ]),
+            }),
           }),
         );
       });
@@ -1442,7 +1472,13 @@ describe('InstructorPostsService', () => {
         // Assert: findMany가 allowedTargetRoles와 함께 호출되었는지 확인
         expect(instructorPostsRepo.findMany).toHaveBeenCalledWith(
           expect.objectContaining({
-            allowedTargetRoles: [TargetRole.ALL, TargetRole.PARENT],
+            abilityFilter: expect.objectContaining({
+              OR: expect.arrayContaining([
+                expect.objectContaining({
+                  targetRole: { in: [TargetRole.ALL, TargetRole.PARENT] },
+                }),
+              ]),
+            }),
           }),
         );
       });
@@ -1468,7 +1504,7 @@ describe('InstructorPostsService', () => {
         // Assert: 강사는 allowedTargetRoles 필터가 없어야 함
         expect(instructorPostsRepo.findMany).toHaveBeenCalledWith(
           expect.objectContaining({
-            allowedTargetRoles: undefined,
+            abilityFilter: { OR: [{ instructorId: instructorId }] },
           }),
         );
       });

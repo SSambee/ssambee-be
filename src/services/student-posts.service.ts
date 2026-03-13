@@ -20,8 +20,7 @@ import { StudentPost, Material } from '../generated/prisma/client.js';
 import { formatStudentPostStats } from '../utils/posts.util.js';
 import { CommentsService } from './comments.service.js';
 import { FileStorageService } from './filestorage.service.js';
-import path from 'path';
-import { randomUUID } from 'crypto';
+
 import { subject } from '@casl/ability';
 import { accessibleBy } from '@casl/prisma';
 import { defineStudentPostAbility } from '../casl/student-post.ability.js';
@@ -85,24 +84,22 @@ export class StudentPostsService {
     if (!enrollment)
       throw new NotFoundException('수강 정보를 찾을 수 없습니다.');
 
-    // 직접 첨부 파일 처리 (S3 업로드)
-    const uploadedAttachments: { filename: string; fileUrl: string }[] = [];
-    if (files?.length) {
-      for (const file of files) {
-        const randomId = randomUUID();
-        const ext = path.extname(file.originalname);
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const key = `attachments/${year}/${month}/${randomId}${ext}`;
+    // CASL 생성 권한 검증 (조건: 본인 enrollment 소속 + 올바른 authorRole)
+    const abilityForCreate = await this.buildAbility(userType, profileId);
+    this.assertPostAccess(
+      abilityForCreate,
+      A.Create,
+      {
+        enrollmentId,
+        authorRole,
+        instructorId: enrollment.instructorId,
+      },
+      '질문 작성 권한이 없습니다.',
+    );
 
-        const fileUrl = await this.fileStorageService.upload(file, key);
-        uploadedAttachments.push({
-          filename: file.originalname,
-          fileUrl,
-        });
-      }
-    }
+    // 직접 첨부 파일 처리 (S3 업로드)
+    const uploadedAttachments =
+      await this.fileStorageService.uploadAttachments(files);
 
     // 기존 데이터의 attachments와 업로드된 attachments 결합
     const allAttachments = [
@@ -123,7 +120,9 @@ export class StudentPostsService {
 
     return {
       ...result,
-      attachments: await this.normalizeAttachments(result.attachments),
+      attachments: await this.fileStorageService.resolvePresignedUrls(
+        result.attachments,
+      ),
     };
   }
 
@@ -183,7 +182,9 @@ export class StudentPostsService {
       posts: await Promise.all(
         result.posts.map(async (post) => ({
           ...post,
-          attachments: await this.normalizeAttachments(post.attachments),
+          attachments: await this.fileStorageService.resolvePresignedUrls(
+            post.attachments,
+          ),
         })),
       ),
       totalCount: result.totalCount,
@@ -271,7 +272,9 @@ export class StudentPostsService {
 
     return {
       ...post,
-      attachments: await this.normalizeAttachments(post.attachments),
+      attachments: await this.fileStorageService.resolvePresignedUrls(
+        post.attachments,
+      ),
       comments: processedComments,
     };
   }
@@ -286,21 +289,13 @@ export class StudentPostsService {
     const post = await this.studentPostsRepository.findById(postId);
     if (!post) throw new NotFoundException('질문을 찾을 수 없습니다.');
 
-    // 권한 검증
+    // 권한 검증 (강사/조교는 UpdateStatus 권한 없음 — CASL 정의에서 자동 거부)
     const ability = await this.buildAbility(userType, profileId);
-
-    // 강사는 상태를 변경할 수 없음 (댓글만 작성 가능)
-    if (userType === UserType.INSTRUCTOR || userType === UserType.ASSISTANT) {
-      throw new ForbiddenException(
-        '강사는 질문의 완료 상태를 변경할 수 없습니다. 학생이 완료 처리해야 합니다.',
-      );
-    }
-
     this.assertPostAccess(
       ability,
       A.UpdateStatus,
       post,
-      '본인이 작성한 질문만 상태를 변경할 수 있습니다.',
+      '질문의 상태를 변경할 권한이 없습니다.',
     );
 
     // 학생/학부모: RESOLVED ↔ COMPLETED 토글만 허용
@@ -388,24 +383,14 @@ export class StudentPostsService {
     }
 
     // 직접 첨부 파일 처리 (S3 업로드)
-    const uploadedAttachments: { filename: string; fileUrl: string }[] = [];
-    if (files?.length) {
-      for (const file of files) {
-        const randomId = randomUUID();
-        const ext = path.extname(file.originalname);
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const key = `attachments/${year}/${month}/${randomId}${ext}`;
+    const uploadedAttachments =
+      await this.fileStorageService.uploadAttachments(files);
 
-        const fileUrl = await this.fileStorageService.upload(file, key);
-        uploadedAttachments.push({
-          filename: file.originalname,
-          fileUrl,
-        });
-      }
-
-      // 새 파일 업로드 성공 후 기존 첨부 파일 삭제 (고아 파일 방지)
+    // 새 파일 업로드 또는 기존 첨부 명시적 제거(attachments: []) 시 S3 기존 파일 삭제 (고아 파일 방지)
+    const isAttachmentUpdate =
+      uploadedAttachments.length > 0 ||
+      (data.attachments !== undefined && data.attachments.length === 0);
+    if (isAttachmentUpdate) {
       const oldAttachments = post.attachments ?? [];
       await Promise.all(
         oldAttachments
@@ -423,7 +408,12 @@ export class StudentPostsService {
     return this.studentPostsRepository.update(postId, {
       title: data.title,
       content: data.content,
-      attachments: allAttachments.length ? allAttachments : undefined,
+      // data.attachments가 명시적으로 지정됐거나 새 파일이 업로드된 경우 빈 배열 포함하여 전달
+      // 그렇지 않으면 undefined로 전달하여 기존 첨부 유지
+      attachments:
+        data.attachments !== undefined || uploadedAttachments.length > 0
+          ? allAttachments
+          : undefined,
     });
   }
 
@@ -587,7 +577,10 @@ export class StudentPostsService {
 
         return {
           ...commentWithIsMine,
-          attachments: await this.normalizeAttachments(finalAttachments),
+          attachments:
+            await this.fileStorageService.resolvePresignedUrls(
+              finalAttachments,
+            ),
         };
       }),
     );
@@ -642,31 +635,6 @@ export class StudentPostsService {
     }
 
     return result;
-  }
-
-  /**
-   * 첨부파일 구조 정규화 (material.fileUrl을 root로 승격)
-   */
-  private async normalizeAttachments<
-    T extends {
-      fileUrl: string | null;
-      material?: { fileUrl: string | null } | null;
-    },
-  >(attachments: T[] | null | undefined): Promise<T[]> {
-    if (!attachments) return [];
-    return Promise.all(
-      attachments.map(async (attr) => {
-        const url = attr.fileUrl || attr.material?.fileUrl || null;
-        let presignedUrl = null;
-        if (url) {
-          presignedUrl = await this.fileStorageService.getPresignedUrl(url);
-        }
-        return {
-          ...attr,
-          fileUrl: presignedUrl,
-        };
-      }),
-    );
   }
 
   /** 첨부파일 다운로드 URL 조회 */

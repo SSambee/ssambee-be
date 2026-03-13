@@ -57,6 +57,7 @@ svcInstructorPostsRouter.post(
 /** 댓글 수정 (본인만 가능) */
 svcInstructorPostsRouter.patch(
   '/:postId/comments/:commentId',
+  upload.single('file'),
   validate(commentEditParamsSchema, 'params'),
   validate(updateCommentSchema, 'body'),
   commentsController.updateComment,

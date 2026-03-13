@@ -202,6 +202,26 @@ describe('StudentPostsService', () => {
         service.createPost(postData, UserType.STUDENT, VALID_STUDENT_ID),
       ).rejects.toThrow(ForbiddenException);
     });
+
+    it('강사가 글을 작성하려고 하면 ForbiddenException을 던져야 한다 (CASL Create 거부)', async () => {
+      await expect(
+        service.createPost(
+          { title: '제목', content: '내용', lectureId: VALID_LECTURE_ID },
+          UserType.INSTRUCTOR,
+          VALID_INSTRUCTOR_ID,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('조교가 글을 작성하려고 하면 ForbiddenException을 던져야 한다 (CASL Create 거부)', async () => {
+      await expect(
+        service.createPost(
+          { title: '제목', content: '내용', lectureId: VALID_LECTURE_ID },
+          UserType.ASSISTANT,
+          'assistant-1',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
   });
 
   describe('getPostDetail', () => {
@@ -607,6 +627,83 @@ describe('StudentPostsService', () => {
         }),
       );
       expect(result.totalCount).toBe(1);
+    });
+  });
+  describe('updateStatus', () => {
+    const VALID_POST_ID = 'post-1';
+    const VALID_INSTRUCTOR_ID = 'instructor-1';
+
+    it('강사가 상태 변경 시도 시 ForbiddenException을 던져야 한다 (CASL UpdateStatus 거부)', async () => {
+      const mockPost = mockStudentPost({
+        id: VALID_POST_ID,
+        enrollmentId: 'enrollment-1',
+        instructorId: VALID_INSTRUCTOR_ID,
+        authorRole: AuthorRole.STUDENT,
+      });
+
+      studentPostsRepo.findById.mockResolvedValue(mockPost);
+
+      await expect(
+        service.updateStatus(
+          VALID_POST_ID,
+          StudentPostStatus.COMPLETED,
+          UserType.INSTRUCTOR,
+          VALID_INSTRUCTOR_ID,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('조교가 상태 변경 시도 시 ForbiddenException을 던져야 한다 (CASL UpdateStatus 거부)', async () => {
+      const mockPost = mockStudentPost({
+        id: VALID_POST_ID,
+        enrollmentId: 'enrollment-1',
+        instructorId: VALID_INSTRUCTOR_ID,
+        authorRole: AuthorRole.STUDENT,
+      });
+
+      permissionService.getEffectiveInstructorId.mockResolvedValue(
+        VALID_INSTRUCTOR_ID,
+      );
+      studentPostsRepo.findById.mockResolvedValue(mockPost);
+
+      await expect(
+        service.updateStatus(
+          VALID_POST_ID,
+          StudentPostStatus.COMPLETED,
+          UserType.ASSISTANT,
+          'assistant-1',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('학생이 취소 중인 질문 상태 변경 시 성공해야 한다', async () => {
+      const mockPost = mockStudentPost({
+        id: VALID_POST_ID,
+        enrollmentId: 'enrollment-1',
+        instructorId: VALID_INSTRUCTOR_ID,
+        authorRole: AuthorRole.STUDENT,
+        status: StudentPostStatus.REGISTERED,
+        comments: [{ id: 'comment-1' }],
+      });
+
+      studentPostsRepo.findById.mockResolvedValue(mockPost);
+      studentPostsRepo.updateStatus.mockResolvedValue({
+        ...mockPost,
+        status: StudentPostStatus.COMPLETED,
+      });
+
+      const result = await service.updateStatus(
+        VALID_POST_ID,
+        StudentPostStatus.COMPLETED,
+        UserType.STUDENT,
+        'student-1',
+      );
+
+      expect(result.status).toBe(StudentPostStatus.COMPLETED);
+      expect(studentPostsRepo.updateStatus).toHaveBeenCalledWith(
+        VALID_POST_ID,
+        StudentPostStatus.COMPLETED,
+      );
     });
   });
 });

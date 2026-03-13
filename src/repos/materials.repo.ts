@@ -1,4 +1,5 @@
 import { Prisma, PrismaClient } from '../generated/prisma/client.js';
+import { TargetRole } from '../constants/posts.constant.js';
 
 export class MaterialsRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -123,19 +124,57 @@ export class MaterialsRepository {
     });
   }
 
-  /** 학생의 자료 접근 권한 확인 (게시글 타겟팅 기준) */
+  /** 학생의 자료 접근 권한 확인 (게시글 타겟팅 및 TargetRole 기준) */
   async isAccessibleByStudent(
     materialId: string,
     enrollmentId: string,
     lectureId?: string,
     tx?: Prisma.TransactionClient,
   ): Promise<boolean> {
+    return this.isAccessibleByRole(
+      materialId,
+      enrollmentId,
+      TargetRole.STUDENT,
+      lectureId,
+      tx,
+    );
+  }
+
+  /** 학부모의 자료 접근 권한 확인 (게시글 타겟팅 및 TargetRole 기준) */
+  async isAccessibleByParent(
+    materialId: string,
+    enrollmentId: string,
+    lectureId?: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<boolean> {
+    return this.isAccessibleByRole(
+      materialId,
+      enrollmentId,
+      TargetRole.PARENT,
+      lectureId,
+      tx,
+    );
+  }
+
+  /** 특정 역할(STUDENT/PARENT)의 자료 접근 권한 확인 (내부 공통 로직) */
+  private async isAccessibleByRole(
+    materialId: string,
+    enrollmentId: string,
+    role: TargetRole,
+    lectureId?: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<boolean> {
     const client = tx ?? this.prisma;
-    // 자료가 게시글에 첨부되어 있는지 확인
+    const allowedTargetRoles = [TargetRole.ALL, role];
+
+    // 자료가 게시글에 첨부되어 있는지 확인하되, 해당 역할이 볼 수 있는 게시글만 필터링
     const attachments = await client.instructorPostAttachment.findMany({
       where: {
         materialId,
-        ...(lectureId && { instructorPost: { lectureId } }),
+        instructorPost: {
+          targetRole: { in: allowedTargetRoles },
+          ...(lectureId && { lectureId }),
+        },
       },
       include: {
         instructorPost: {

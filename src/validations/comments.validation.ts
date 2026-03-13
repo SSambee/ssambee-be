@@ -44,6 +44,13 @@ export const updateCommentSchema = z.object({
       }),
     )
     .optional(),
+  /** 기존 직접 첨부 파일 전체 제거 여부 (FormData에서 문자열로 올 수 있으므로 coerce 사용) */
+  removeAttachments: z.preprocess((val) => {
+    if (val === undefined) return undefined;
+    if (val === true || val === 'true') return true;
+    if (val === false || val === 'false') return false;
+    return val;
+  }, z.boolean().optional()),
 });
 
 /**

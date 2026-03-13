@@ -212,6 +212,7 @@ export const createMockMaterialsRepository = () =>
     'softDelete',
     'delete',
     'isAccessibleByStudent',
+    'isAccessibleByParent',
   ]);
 
 /** Mock InstructorPostsRepository 생성 */

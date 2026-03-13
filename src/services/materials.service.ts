@@ -470,6 +470,38 @@ export class MaterialsService {
       if (!isAccessible) {
         throw new ForbiddenException('해당 자료에 접근 권한이 없습니다.');
       }
+    } else if (userType === UserType.PARENT) {
+      // 학부모: 자녀의 자료 접근 권한 확인
+      const enrollmentIds =
+        await this.permissionService.getParentEnrollmentIds(profileId);
+      if (!enrollmentIds || enrollmentIds.length === 0) {
+        throw new ForbiddenException('연결된 자녀 수강 정보가 없습니다.');
+      }
+
+      if (material.lectureId) {
+        await this.permissionService.validateParentLectureAccess(
+          profileId,
+          material.lectureId,
+        );
+      }
+
+      let hasAccess = false;
+      for (const enrollmentId of enrollmentIds) {
+        const isAccessible =
+          await this.materialsRepository.isAccessibleByParent(
+            materialsId,
+            enrollmentId,
+            material.lectureId ?? undefined,
+          );
+        if (isAccessible) {
+          hasAccess = true;
+          break;
+        }
+      }
+
+      if (!hasAccess) {
+        throw new ForbiddenException('해당 자료에 접근 권한이 없습니다.');
+      }
     } else {
       throw new ForbiddenException('접근 권한이 없습니다.');
     }
