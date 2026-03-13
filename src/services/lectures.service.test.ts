@@ -15,6 +15,7 @@ import {
 } from '../test/mocks/index.js';
 import {
   mockInstructor,
+  mockInstructorWithUser,
   mockLectures,
   mockLecturesListResponse,
   createLectureRequests,
@@ -80,7 +81,10 @@ describe('LecturesService - @unit #critical', () => {
     describe('LECTURE-01: 강의 생성 성공', () => {
       it('강사가 기본 정보만으로 강의 생성을 요청할 때, 강의가 생성되고 연관 관계가 없는 상태로 반환된다', async () => {
         // 준비
-        mockInstructorRepo.findById.mockResolvedValue(mockInstructor);
+        mockInstructorRepo.findById.mockResolvedValue({
+          ...mockInstructor,
+          ...mockInstructorWithUser,
+        });
         mockLecturesRepo.create.mockResolvedValue({
           ...mockLectures.basic,
           lectureTimes: [],
@@ -114,7 +118,10 @@ describe('LecturesService - @unit #critical', () => {
       });
 
       it('강사가 수강생 목록과 함께 강의 생성을 요청할 때, 강의와 수강 정보가 모두 생성되고 반환된다', async () => {
-        mockInstructorRepo.findById.mockResolvedValue(mockInstructor);
+        mockInstructorRepo.findById.mockResolvedValue({
+          ...mockInstructor,
+          ...mockInstructorWithUser,
+        });
         mockLecturesRepo.create.mockResolvedValue({
           ...mockLectures.withEnrollments,
           lectureTimes: [],
@@ -173,7 +180,10 @@ describe('LecturesService - @unit #critical', () => {
         const enrollmentRequest =
           createLectureRequests.withEnrollments.enrollments![0];
 
-        mockInstructorRepo.findById.mockResolvedValue(mockInstructor);
+        mockInstructorRepo.findById.mockResolvedValue({
+          ...mockInstructor,
+          ...mockInstructorWithUser,
+        });
         mockLecturesRepo.create.mockResolvedValue({
           ...mockLectures.withEnrollments,
           lectureTimes: [],
@@ -240,7 +250,10 @@ describe('LecturesService - @unit #critical', () => {
           appParentLinkId: null,
         };
 
-        mockInstructorRepo.findById.mockResolvedValue(mockInstructor);
+        mockInstructorRepo.findById.mockResolvedValue({
+          ...mockInstructor,
+          ...mockInstructorWithUser,
+        });
         mockLecturesRepo.create.mockResolvedValue({
           ...mockLectures.withEnrollments,
           lectureTimes: [],
@@ -289,6 +302,53 @@ describe('LecturesService - @unit #critical', () => {
           mockPrisma,
         );
         expect(mockEnrollmentsRepo.createMany).not.toHaveBeenCalled();
+      });
+
+      it('강의 생성 시 수강생 요청의 registeredAt을 LectureEnrollment에 반영한다', async () => {
+        const registeredAt = new Date('2024-03-01T00:00:00.000Z');
+        const enrollmentRequest = {
+          ...createLectureRequests.withEnrollments.enrollments![0],
+          registeredAt,
+        };
+
+        mockInstructorRepo.findById.mockResolvedValue({
+          ...mockInstructor,
+          ...mockInstructorWithUser,
+        });
+        mockLecturesRepo.create.mockResolvedValue({
+          ...mockLectures.withEnrollments,
+          lectureTimes: [],
+        });
+        mockEnrollmentsRepo.findManyByInstructorAndPhones.mockResolvedValue([]);
+        mockEnrollmentsRepo.createMany.mockResolvedValue([
+          {
+            ...mockEnrollments.active,
+            studentPhone: enrollmentRequest.studentPhone,
+          },
+        ]);
+        mockLectureEnrollmentsRepo.createMany.mockResolvedValue([]);
+
+        (mockPrisma.$transaction as jest.Mock).mockImplementation(
+          async (fn) => await fn(mockPrisma),
+        );
+
+        await lecturesService.createLecture(mockInstructor.id, {
+          ...createLectureRequests.withEnrollments,
+          enrollments: [enrollmentRequest],
+          startAt: new Date(createLectureRequests.withEnrollments.startAt),
+          endAt: new Date(createLectureRequests.withEnrollments.endAt),
+        });
+
+        expect(mockLectureEnrollmentsRepo.createMany).toHaveBeenCalledWith(
+          [
+            expect.objectContaining({
+              lectureId: mockLectures.withEnrollments.id,
+              enrollmentId: mockEnrollments.active.id,
+              registeredAt,
+            }),
+          ],
+          mockPrisma,
+        );
       });
     });
 
