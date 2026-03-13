@@ -8,6 +8,13 @@ import { getPagingData } from '../utils/pagination.util.js';
 import { UserType } from '../constants/auth.constant.js';
 import { successResponse } from '../utils/response.util.js';
 import { getAuthUser, getProfileIdOrThrow } from '../utils/user.util.js';
+import { transformDateFieldsToKst } from '../utils/date.util.js';
+
+const ENROLLMENT_DATE_FIELDS = [
+  'registeredAt',
+  'createdAt',
+  'updatedAt',
+] as Array<keyof Record<string, unknown>>;
 
 export class EnrollmentsController {
   constructor(private readonly enrollmentsService: EnrollmentsService) {}
@@ -30,7 +37,10 @@ export class EnrollmentsController {
           );
 
         const responseData = getPagingData(
-          enrollments,
+          transformDateFieldsToKst<Record<string, unknown>>(
+            enrollments as unknown as Record<string, unknown>[],
+            ENROLLMENT_DATE_FIELDS,
+          ),
           totalCount,
           query.page,
           query.limit,
@@ -52,7 +62,10 @@ export class EnrollmentsController {
         );
 
       const responseData = getPagingData(
-        enrollments,
+        transformDateFieldsToKst<Record<string, unknown>>(
+          enrollments as unknown as Record<string, unknown>[],
+          ENROLLMENT_DATE_FIELDS,
+        ),
         totalCount,
         query.page,
         query.limit,
@@ -89,7 +102,10 @@ export class EnrollmentsController {
         );
 
       const responseData = getPagingData(
-        enrollments,
+        transformDateFieldsToKst<Record<string, unknown>>(
+          enrollments as unknown as Record<string, unknown>[],
+          ENROLLMENT_DATE_FIELDS,
+        ),
         totalCount,
         query.page,
         query.limit,
@@ -141,8 +157,32 @@ export class EnrollmentsController {
         );
       }
 
+      const transformedEnrollment = transformDateFieldsToKst(
+        enrollment as Record<string, unknown>,
+        ENROLLMENT_DATE_FIELDS,
+      ) as Record<string, unknown>;
+
+      if (Array.isArray(transformedEnrollment.lectures)) {
+        transformedEnrollment.lectures = transformDateFieldsToKst<
+          Record<string, unknown>
+        >(
+          transformedEnrollment.lectures as Record<string, unknown>[],
+          ENROLLMENT_DATE_FIELDS,
+        );
+      }
+
+      if (
+        transformedEnrollment.enrollment &&
+        typeof transformedEnrollment.enrollment === 'object'
+      ) {
+        transformedEnrollment.enrollment = transformDateFieldsToKst(
+          transformedEnrollment.enrollment as Record<string, unknown>,
+          ENROLLMENT_DATE_FIELDS,
+        );
+      }
+
       return successResponse(res, {
-        data: { enrollment },
+        data: { enrollment: transformedEnrollment },
         message: '수강 상세 조회 성공',
       });
     } catch (error) {
@@ -169,8 +209,25 @@ export class EnrollmentsController {
           profileId,
         );
 
+      const transformedLectureEnrollments = transformDateFieldsToKst(
+        lectureEnrollments as Record<string, unknown>[],
+        ENROLLMENT_DATE_FIELDS,
+      ) as Array<Record<string, unknown>>;
+
+      transformedLectureEnrollments.forEach((lectureEnrollment) => {
+        if (
+          lectureEnrollment.lecture &&
+          typeof lectureEnrollment.lecture === 'object'
+        ) {
+          lectureEnrollment.lecture = transformDateFieldsToKst(
+            lectureEnrollment.lecture as Record<string, unknown>,
+            ENROLLMENT_DATE_FIELDS,
+          );
+        }
+      });
+
       return successResponse(res, {
-        data: { lectureEnrollments },
+        data: { lectureEnrollments: transformedLectureEnrollments },
         message: '강사별 강의 목록 조회 성공',
       });
     } catch (error) {
