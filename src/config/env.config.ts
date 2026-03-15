@@ -1,7 +1,16 @@
 import dotenv from 'dotenv';
 import { z } from 'zod';
+import { loadSecrets } from './secrets.js';
 
 dotenv.config();
+
+/**
+ * 개발 환경일때 먼저 SSM 시크릿을 로드 로컬에 이미 있으면 스킵
+ * 없으면 SSM에서 가져와 process.env에 박아줌
+ */
+if (process.env.NODE_ENV !== 'test') {
+  await loadSecrets();
+}
 
 const envSchema = z.object({
   ENVIRONMENT: z
@@ -10,15 +19,72 @@ const envSchema = z.object({
   PORT: z.coerce.number().min(1000).max(65535),
   DATABASE_URL: z.string().startsWith('postgresql://'),
   FRONT_URL: z.string(),
+  BETTER_AUTH_SECRET: z.string().min(32),
+  BETTER_AUTH_URL: z.string().url(),
+  AUTH_COOKIE_DOMAIN: z.string().optional(),
+  SENTRY_DSN: z.string(),
+  AWS_REGION: z.string().default('ap-northeast-2'),
+  AWS_S3_BUCKET_DOCUMENTS: z.string().default('ssambee-dev-lms-documents'),
+  AWS_S3_BUCKET_REPORTS: z.string().default('ssambee-dev-lms-reports'),
+  AWS_CLOUDFRONT_URL_DOCUMENTS: z.string().default(''),
+  AWS_CLOUDFRONT_URL_REPORTS: z.string().default(''),
+  AWS_CLOUDFRONT_KEY_PAIR_ID: z.string().default(''),
+  AWS_CLOUDFRONT_PRIVATE_KEY: z.string().optional().default(''),
+  REDIS_URL: z.string().optional(),
+  ALARM_LAMBDA_URL: z.string().optional(),
+  LOG_LAMBDA_URL: z.string().optional(),
+  LOG_LAMBDA_API_KEY: z.string().optional(),
+  LAMBDA_URL: z.string().optional(),
+  MONITOR_LAMBDA_URL: z.string().optional(),
+  DISCORD_WEBHOOK_URL: z.string().optional(),
+  INTERNAL_INGEST_SECRET: z.string().optional(),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
+  SMTP_SECURE: z.coerce.boolean().optional(),
+  KAKAO_REST_API_KEY: z.string().optional(),
+  KAKAO_REDIRECT_URI: z.string().optional(),
+  KAKAO_CLIENT_SECRET: z.string().optional(),
 });
 
 const parseEnvironment = () => {
   try {
+    // process.env에는 로컬 .env의 값 혹은 SSM에서 가져온 값이 들어갑니다.
     return envSchema.parse({
       ENVIRONMENT: process.env.NODE_ENV,
       PORT: process.env.PORT,
       DATABASE_URL: process.env.DATABASE_URL,
       FRONT_URL: process.env.FRONT_URL,
+      BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
+      BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
+      AUTH_COOKIE_DOMAIN: process.env.AUTH_COOKIE_DOMAIN,
+      SENTRY_DSN: process.env.SENTRY_DSN,
+      AWS_REGION: process.env.AWS_REGION,
+      AWS_S3_BUCKET_DOCUMENTS: process.env.AWS_S3_BUCKET_DOCUMENTS,
+      AWS_S3_BUCKET_REPORTS: process.env.AWS_S3_BUCKET_REPORTS,
+      AWS_CLOUDFRONT_URL_DOCUMENTS: process.env.AWS_CLOUDFRONT_URL_DOCUMENTS,
+      AWS_CLOUDFRONT_URL_REPORTS: process.env.AWS_CLOUDFRONT_URL_REPORTS,
+      AWS_CLOUDFRONT_KEY_PAIR_ID: process.env.AWS_CLOUDFRONT_KEY_PAIR_ID,
+      AWS_CLOUDFRONT_PRIVATE_KEY: process.env.AWS_CLOUDFRONT_PRIVATE_KEY,
+      REDIS_URL: process.env.REDIS_URL,
+      ALARM_LAMBDA_URL: process.env.ALARM_LAMBDA_URL,
+      LOG_LAMBDA_URL: process.env.LOG_LAMBDA_URL,
+      LOG_LAMBDA_API_KEY: process.env.LOG_LAMBDA_API_KEY,
+      LAMBDA_URL: process.env.LAMBDA_URL,
+      MONITOR_LAMBDA_URL: process.env.MONITOR_LAMBDA_URL,
+      DISCORD_WEBHOOK_URL: process.env.DISCORD_WEBHOOK_URL,
+      INTERNAL_INGEST_SECRET: process.env.INTERNAL_INGEST_SECRET,
+      SMTP_HOST: process.env.SMTP_HOST,
+      SMTP_PORT: process.env.SMTP_PORT,
+      SMTP_USER: process.env.SMTP_USER,
+      SMTP_PASS: process.env.SMTP_PASS,
+      SMTP_FROM: process.env.SMTP_FROM,
+      SMTP_SECURE: process.env.SMTP_SECURE,
+      KAKAO_REST_API_KEY: process.env.KAKAO_REST_API_KEY,
+      KAKAO_REDIRECT_URI: process.env.KAKAO_REDIRECT_URI,
+      KAKAO_CLIENT_SECRET: process.env.KAKAO_CLIENT_SECRET,
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
