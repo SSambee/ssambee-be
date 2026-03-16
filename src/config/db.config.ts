@@ -1,6 +1,7 @@
 import { PrismaClient, Prisma } from '../generated/prisma/client.js';
 import { PrismaPg } from '@prisma/adapter-pg'; // Assuming this is the correct import path
 import { config, isDevelopment } from './env.config.js';
+import fs from 'fs';
 
 const getPrismaLogLevel = () => {
   if (!isDevelopment()) {
@@ -12,6 +13,10 @@ const getPrismaLogLevel = () => {
 
 const adapter = new PrismaPg({
   connectionString: config.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: true,
+    ca: fs.readFileSync('/certs/global-bundle.pem').toString(),
+  },
 });
 
 export const prisma = new PrismaClient({
