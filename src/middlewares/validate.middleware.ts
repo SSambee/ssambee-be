@@ -15,7 +15,12 @@ export const validate =
   async (req, res, next) => {
     try {
       const dataToValidate = req[type] || {};
-      await schema.parseAsync(dataToValidate);
+      const validatedData = await schema.parseAsync(dataToValidate);
+      try {
+        req[type] = validatedData;
+      } catch {
+        Object.defineProperty(req, type, { value: validatedData });
+      }
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {

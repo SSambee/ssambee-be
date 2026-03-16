@@ -38,3 +38,15 @@ export class ConflictException extends HttpException {
     super(description, 409);
   }
 }
+
+export class UnprocessableEntityException extends HttpException {
+  constructor(description = 'UNPROCESSABLE_ENTITY') {
+    super(description, 422);
+  }
+}
+
+export class InternalServerErrorException extends HttpException {
+  constructor(description = 'INTERNAL_SERVER_ERROR') {
+    super(description, 500);
+  }
+}
