@@ -167,7 +167,9 @@ export class LecturesService {
 
         // 2-3. 새롭게 생성해야 할 Enrollment와 재사용할 Enrollment 분류
         const newEnrollmentsData: Prisma.EnrollmentUncheckedCreateInput[] = [];
-        const finalEnrollmentIds: string[] = [];
+        const pendingLectureEnrollments: Prisma.LectureEnrollmentUncheckedCreateInput[] =
+          [];
+        const pendingNewLectureEnrollments: LectureEnrollmentRequest[] = [];
 
         for (const enrollmentReq of data.enrollments) {
           const existing = existingPhoneMap.get(enrollmentReq.studentPhone);
@@ -201,7 +203,13 @@ export class LecturesService {
             // 이미 존재하는 주소록(Enrollment)이면 ID 사용
             // 정보 업데이트가 필요한 경우 여기서 할 수도 있으나,
             // 현재 요구사항은 "기존 주소록에 있으면 그걸 쓴다"임.
-            finalEnrollmentIds.push(existing.id);
+            pendingLectureEnrollments.push({
+              lectureId: lecture.id,
+              enrollmentId: existing.id,
+              ...(enrollmentReq.registeredAt
+                ? { registeredAt: enrollmentReq.registeredAt }
+                : {}),
+            });
           } else {
             const [studentId, parentLinkId] = await Promise.all([
               resolveStudentId(enrollmentReq),
@@ -220,6 +228,7 @@ export class LecturesService {
               appParentLinkId: parentLinkId,
               status: EnrollmentStatus.ACTIVE,
             });
+            pendingNewLectureEnrollments.push(enrollmentReq);
           }
         }
 
@@ -227,24 +236,31 @@ export class LecturesService {
         if (newEnrollmentsData.length > 0) {
           const createdEnrollments =
             await this.enrollmentsRepository.createMany(newEnrollmentsData, tx);
-          // createManyAndReturn을 쓰면 ID를 바로 얻을 수 있음 (Prisma 최신 버전 가정)
-          // 만약 createManyAndReturn을 지원하지 않는 환경이면 별도 조회 필요하지만
-          // EnrollmentsRepository.createMany가 createManyAndReturn을 쓴다고 가정 (코드 리뷰 내용 기반)
-          finalEnrollmentIds.push(
-            ...createdEnrollments.map((e: { id: string }) => e.id),
+          const createdEnrollmentByPhone = new Map(
+            createdEnrollments.map(
+              (e: { id: string; studentPhone: string }) => [
+                e.studentPhone,
+                e.id,
+              ],
+            ),
+          );
+
+          pendingLectureEnrollments.push(
+            ...pendingNewLectureEnrollments.map((enrollmentReq) => ({
+              lectureId: lecture.id,
+              enrollmentId: createdEnrollmentByPhone.get(
+                enrollmentReq.studentPhone,
+              )!,
+              ...(enrollmentReq.registeredAt
+                ? { registeredAt: enrollmentReq.registeredAt }
+                : {}),
+            })),
           );
         }
 
         // 2-5. LectureEnrollment 생성 (강의와 학생 연결)
-        const lectureEnrollmentData = finalEnrollmentIds.map(
-          (enrollmentId) => ({
-            lectureId: lecture.id,
-            enrollmentId: enrollmentId,
-          }),
-        );
-
         lectureEnrollments = await this.lectureEnrollmentsRepository.createMany(
-          lectureEnrollmentData,
+          pendingLectureEnrollments,
           tx,
         );
       }

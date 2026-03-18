@@ -163,7 +163,7 @@ if [ "$CONTAINER_READY" = true ]; then
     
     CLEAN_DATABASE_URL=$(echo "$MIGRATION_DATABASE_URL" | tr -d '\r' | xargs)
 
-    if docker exec -e MIGRATION_DATABASE_URL="$CLEAN_DATABASE_URL" $NEW_CONTAINER pnpm prisma migrate deploy; then
+    if docker exec -e DATABASE_URL="$CLEAN_DATABASE_URL" $NEW_CONTAINER pnpm prisma migrate deploy; then
         echo -e "${GREEN}[$TARGET] 환경 Prisma 마이그레이션 성공!${NC}"
     else
         echo -e "${RED}[$TARGET] 환경 Prisma 마이그레이션 실패!${NC}"

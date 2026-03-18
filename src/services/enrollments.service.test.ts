@@ -37,17 +37,21 @@ import { PrismaClient } from '../generated/prisma/client.js';
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import { LectureEnrollmentsRepository } from '../repos/lecture-enrollments.repo.js';
 
-type EnrollmentWithRelations = Awaited<
-  ReturnType<EnrollmentsRepository['findByIdWithRelations']>
+type EnrollmentWithRelations = NonNullable<
+  Awaited<ReturnType<EnrollmentsRepository['findByIdWithRelations']>>
 >;
 
-type EnrollmentWithLectures = Awaited<
-  ReturnType<EnrollmentsRepository['findByIdWithLectures']>
+type EnrollmentWithLectures = NonNullable<
+  Awaited<ReturnType<EnrollmentsRepository['findByIdWithLectures']>>
 >;
 
 type EnrollmentListItem = Awaited<
   ReturnType<EnrollmentsRepository['findMany']>
 >['enrollments'][number];
+
+type LectureEnrollmentListItem = Awaited<
+  ReturnType<LectureEnrollmentsRepository['findManyByEnrollmentId']>
+>[number];
 
 type LectureEnrollmentDetail = NonNullable<
   Awaited<ReturnType<LectureEnrollmentsRepository['findByIdWithDetails']>>
@@ -301,6 +305,59 @@ describe('EnrollmentsService - @unit #critical', () => {
         expect(mockEnrollmentsRepo.create).toHaveBeenCalledWith(
           expect.objectContaining({
             appStudentId: mockStudents.basic.id,
+          }),
+          mockPrisma,
+        );
+      });
+
+      it('registeredAt이 주어지면 개별 등록 시 해당 값으로 저장한다', async () => {
+        const createData = createEnrollmentRequests.withRegisteredAt;
+
+        mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
+        mockPermissionService.validateInstructorAccess.mockResolvedValue();
+        mockEnrollmentsRepo.findManyByInstructorAndPhones.mockResolvedValue([]);
+        mockEnrollmentsRepo.create.mockResolvedValue({
+          ...mockEnrollments.active,
+          registeredAt: createData.registeredAt,
+        });
+        mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValueOnce(
+          null,
+        );
+        mockLectureEnrollmentsRepo.create.mockResolvedValue({
+          id: 'le-1',
+          memo: null,
+          lectureId,
+          enrollmentId: mockEnrollments.active.id,
+          registeredAt: new Date(),
+        });
+        mockLectureEnrollmentsRepo.findByLectureIdAndEnrollmentId.mockResolvedValueOnce(
+          {
+            id: 'le-1',
+            memo: null,
+            lectureId,
+            enrollmentId: mockEnrollments.active.id,
+            registeredAt: new Date(),
+            enrollment: {
+              ...mockEnrollments.active,
+              registeredAt: createData.registeredAt,
+            },
+          },
+        );
+
+        await enrollmentsService.createEnrollment(
+          lectureId,
+          {
+            ...createData,
+            instructorId,
+            status: EnrollmentStatus.ACTIVE,
+          },
+          UserType.INSTRUCTOR,
+          instructorId,
+        );
+
+        expect(mockEnrollmentsRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            registeredAt: createData.registeredAt,
           }),
           mockPrisma,
         );
@@ -1268,6 +1325,30 @@ describe('EnrollmentsService - @unit #critical', () => {
         );
       });
 
+      it('registeredAt이 주어지면 수강 정보 수정 시 해당 값으로 반영한다', async () => {
+        mockEnrollmentsRepo.findById.mockResolvedValue(
+          mockEnrollments.active as unknown as EnrollmentWithRelations,
+        );
+        const updatedEnrollment = {
+          ...mockEnrollments.active,
+          ...updateEnrollmentRequests.withRegisteredAt,
+        };
+        mockEnrollmentsRepo.update.mockResolvedValue(updatedEnrollment);
+
+        const result = await enrollmentsService.updateEnrollment(
+          enrollmentId,
+          updateEnrollmentRequests.withRegisteredAt,
+          UserType.INSTRUCTOR,
+          instructorId,
+        );
+
+        expect(result).toEqual(updatedEnrollment);
+        expect(mockEnrollmentsRepo.update).toHaveBeenCalledWith(
+          enrollmentId,
+          updateEnrollmentRequests.withRegisteredAt,
+        );
+      });
+
       it('조교가 담당 강사 소속 수강생의 정보 수정을 요청할 때, 수강 정보가 업데이트되고 결과가 반환된다', async () => {
         mockEnrollmentsRepo.findById.mockResolvedValue(
           mockEnrollments.active as unknown as EnrollmentWithRelations,
@@ -1436,6 +1517,7 @@ describe('EnrollmentsService - @unit #critical', () => {
             ...mockEnrollments.active,
             memo: 'secret memo',
             instructor: {
+              ...mockInstructor,
               user: { name: 'Instructor Name' },
             },
           },
@@ -1471,10 +1553,33 @@ describe('EnrollmentsService - @unit #critical', () => {
         const enrollmentId = mockEnrollments.active.id;
 
         mockEnrollmentsRepo.findById.mockResolvedValue(mockEnrollments.active);
-        const mockLectureEnrollments = [
+        const mockLectureEnrollments: LectureEnrollmentListItem[] = [
           {
             id: 'le-1',
-            lecture: { title: 'Lecture 1', deletedAt: null },
+            memo: null,
+            lectureId: mockLectures.basic.id,
+            enrollmentId,
+            registeredAt: new Date(),
+            lecture: {
+              id: mockLectures.basic.id,
+              instructorId: mockLectures.basic.instructorId,
+              subject: mockLectures.basic.subject,
+              schoolYear: mockLectures.basic.schoolYear,
+              title: 'Lecture 1',
+              description: mockLectures.basic.description,
+              status: mockLectures.basic.status,
+              createdAt: mockLectures.basic.createdAt,
+              updatedAt: mockLectures.basic.updatedAt,
+              startAt: mockLectures.basic.startAt,
+              endAt: mockLectures.basic.endAt,
+              deletedAt: null,
+              instructor: {
+                user: {
+                  name: 'Instructor Name',
+                },
+              },
+              lectureTimes: [],
+            },
           },
         ];
         mockLectureEnrollmentsRepo.findManyByEnrollmentId.mockResolvedValue(
@@ -1487,7 +1592,9 @@ describe('EnrollmentsService - @unit #critical', () => {
           studentId,
         );
 
-        expect(result.lectureEnrollments).toEqual(mockLectureEnrollments);
+        expect(result.lectureEnrollments).toEqual(
+          mockLectureEnrollments.map(({ memo: _memo, ...rest }) => rest),
+        );
         expect(
           mockLectureEnrollmentsRepo.findManyByEnrollmentId,
         ).toHaveBeenCalledWith(enrollmentId);

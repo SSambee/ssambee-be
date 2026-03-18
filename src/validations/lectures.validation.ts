@@ -57,6 +57,8 @@ export const lectureEnrollmentSchema = z.object({
   studentPhone: phoneSchema,
   /** 학부모 전화번호 */
   parentPhone: phoneSchema,
+  /** 등록일시 */
+  registeredAt: dateTimeSchema.optional(),
 });
 
 /** 강의 수강 정보 DTO 타입 */
