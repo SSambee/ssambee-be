@@ -14,7 +14,7 @@ if (process.env.NODE_ENV !== 'test') {
 
 const envSchema = z.object({
   ENVIRONMENT: z
-    .enum(['development', 'production', 'test'])
+    .enum(['development', 'staging', 'production', 'test'])
     .default('development'),
   PORT: z.coerce.number().min(1000).max(65535),
   DATABASE_URL: z.string().startsWith('postgresql://'),
@@ -97,5 +97,6 @@ const parseEnvironment = () => {
 export const config = parseEnvironment();
 
 export const isDevelopment = () => config.ENVIRONMENT === 'development';
+export const isStaging = () => config.ENVIRONMENT === 'staging';
 export const isProduction = () => config.ENVIRONMENT === 'production';
 export const isTest = () => config.ENVIRONMENT === 'test';
