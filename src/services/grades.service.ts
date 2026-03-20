@@ -493,6 +493,7 @@ export class GradesService {
       return {
         questionNumber: q.questionNumber,
         content: q.content,
+        source: q.source ?? null,
         category: q.category,
         isCorrect,
         wrongRate,
