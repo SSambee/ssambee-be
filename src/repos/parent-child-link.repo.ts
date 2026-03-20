@@ -67,10 +67,9 @@ export class ParentChildLinkRepository {
     });
   }
 
-  /** 학생 전화번호/이름/학부모 전화번호로 자녀 링크 조회 */
-  async findByPhoneNumberAndProfile(
+  /** 학생 전화번호/학부모 전화번호로 자녀 링크 조회 */
+  async findByPhoneNumberAndParentPhoneNumber(
     phoneNumber: string,
-    studentName: string,
     parentPhoneNumber: string,
     tx?: Prisma.TransactionClient,
   ) {
@@ -78,7 +77,6 @@ export class ParentChildLinkRepository {
     return await client.parentChildLink.findFirst({
       where: {
         phoneNumber,
-        name: studentName,
         parent: {
           phoneNumber: parentPhoneNumber,
         },

@@ -33,7 +33,7 @@ export const createMockStudentRepository = () =>
     'findByUserId',
     'findById',
     'findByPhoneNumber',
-    'findByPhoneNumberAndProfile',
+    'findByPhoneNumberAndParentPhoneNumber',
     'create',
   ]);
 
@@ -68,7 +68,7 @@ export const createMockParentChildLinkRepository = () =>
     'findById',
     'findByParentIdAndPhoneNumber',
     'findManyByPhoneNumber',
-    'findByPhoneNumberAndProfile',
+    'findByPhoneNumberAndParentPhoneNumber',
   ]);
 
 /** Mock LecturesRepository 생성 */
@@ -96,8 +96,8 @@ export const createMockEnrollmentsRepository = () =>
     'findMany',
     'update',
     'softDelete',
-    'updateAppStudentIdByPhoneNumber',
-    'updateAppParentLinkIdByStudentPhone',
+    'updateAppStudentIdByStudentPhoneAndParentPhone',
+    'updateAppParentLinkIdByStudentPhoneAndParentPhone',
     'findManyByInstructorAndPhones',
     'findByIdWithLectures',
   ]);

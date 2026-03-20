@@ -545,12 +545,11 @@ describe('AuthService - @unit #critical', () => {
         },
       });
       expect(
-        mockEnrollmentsRepo.updateAppStudentIdByPhoneNumber,
+        mockEnrollmentsRepo.updateAppStudentIdByStudentPhoneAndParentPhone,
       ).toHaveBeenCalledWith(
         signUpRequests.student.phoneNumber,
-        mockProfiles.student.id,
-        signUpRequests.student.name,
         signUpRequests.student.parentPhoneNumber,
+        mockProfiles.student.id,
         mockPrisma,
       );
       const updateUserRequest = (mockBetterAuth.handler as jest.Mock).mock
@@ -622,12 +621,11 @@ describe('AuthService - @unit #critical', () => {
         },
       });
       expect(
-        mockEnrollmentsRepo.updateAppStudentIdByPhoneNumber,
+        mockEnrollmentsRepo.updateAppStudentIdByStudentPhoneAndParentPhone,
       ).toHaveBeenCalledWith(
         signUpRequests.student.phoneNumber,
-        mockProfiles.student.id,
-        signUpRequests.student.name,
         signUpRequests.student.parentPhoneNumber,
+        mockProfiles.student.id,
         mockPrisma,
       );
       const handlerRequests = (mockBetterAuth.handler as jest.Mock).mock.calls
