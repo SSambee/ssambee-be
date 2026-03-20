@@ -62,9 +62,8 @@ export class ParentsService {
       );
 
       // 3. 기존 Enrollment 중 해당 자녀 번호로 된 것들을 찾아 자동 연결 (Backfill)
-      await this.enrollmentsRepository.updateAppParentLinkIdByStudentPhone(
+      await this.enrollmentsRepository.updateAppParentLinkIdByStudentPhoneAndParentPhone(
         data.phoneNumber,
-        data.name,
         parent.phoneNumber,
         newLink.id,
         tx,
@@ -206,15 +205,13 @@ export class ParentsService {
     return links.length > 0 ? links[0] : null;
   }
 
-  /** 학생 정보(학생 번호/이름/부모 번호)로 학부모 자녀 링크 조회 */
-  async findLinkByPhoneNumberAndProfile(
+  /** 학생 전화번호/학부모 전화번호로 학부모 자녀 링크 조회 */
+  async findLinkByPhoneNumberAndParentPhoneNumber(
     studentPhone: string,
-    studentName: string,
     parentPhoneNumber: string,
   ) {
-    return await this.parentChildLinkRepository.findByPhoneNumberAndProfile(
+    return await this.parentChildLinkRepository.findByPhoneNumberAndParentPhoneNumber(
       studentPhone,
-      studentName,
       parentPhoneNumber,
     );
   }

@@ -89,14 +89,12 @@ export class EnrollmentsService {
 
         if (!studentId && data.studentPhone) {
           const studentPhone = data.studentPhone as string;
-          const studentName = data.studentName as string | undefined;
           const parentPhone = data.parentPhone as string | undefined;
 
-          if (studentName && parentPhone) {
+          if (parentPhone) {
             const student =
-              await this.studentRepository.findByPhoneNumberAndProfile(
+              await this.studentRepository.findByPhoneNumberAndParentPhoneNumber(
                 studentPhone,
-                studentName,
                 parentPhone,
                 tx,
               );
@@ -114,14 +112,12 @@ export class EnrollmentsService {
 
         if (!parentLinkId && data.studentPhone) {
           const studentPhone = data.studentPhone as string;
-          const studentName = data.studentName as string;
           const parentPhone = data.parentPhone as string;
 
-          if (studentName && parentPhone) {
+          if (parentPhone) {
             const link =
-              await this.parentsService.findLinkByPhoneNumberAndProfile(
+              await this.parentsService.findLinkByPhoneNumberAndParentPhoneNumber(
                 studentPhone,
-                studentName,
                 parentPhone,
               );
             if (link) {
@@ -424,16 +420,13 @@ export class EnrollmentsService {
     ) {
       const studentPhone =
         (data.studentPhone as string | undefined) ?? enrollment.studentPhone;
-      const studentName =
-        (data.studentName as string | undefined) ?? enrollment.studentName;
       const parentPhone =
         (data.parentPhone as string | undefined) ?? enrollment.parentPhone;
 
-      if (studentPhone && studentName && parentPhone) {
+      if (studentPhone && parentPhone) {
         const student =
-          await this.studentRepository.findByPhoneNumberAndProfile(
+          await this.studentRepository.findByPhoneNumberAndParentPhoneNumber(
             studentPhone,
-            studentName,
             parentPhone,
           );
         if (student) {
@@ -446,16 +439,13 @@ export class EnrollmentsService {
         (data.studentPhone as string | undefined) ??
         enrollment.studentPhone ??
         undefined;
-      const studentName =
-        (data.studentName as string | undefined) ?? enrollment.studentName;
       const parentPhone =
         (data.parentPhone as string | undefined) ?? enrollment.parentPhone;
 
-      if (studentPhone && studentName && parentPhone) {
+      if (studentPhone && parentPhone) {
         const parent =
-          await this.parentsService.findLinkByPhoneNumberAndProfile(
+          await this.parentsService.findLinkByPhoneNumberAndParentPhoneNumber(
             studentPhone,
-            studentName,
             parentPhone,
           );
         if (parent) {

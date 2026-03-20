@@ -28,7 +28,7 @@ export const createMockParentsService = (): jest.Mocked<ParentsService> =>
     getChildEnrollments: jest.fn(),
     getChildEnrollmentDetail: jest.fn(),
     findLinkByPhoneNumber: jest.fn(),
-    findLinkByPhoneNumberAndProfile: jest.fn(),
+    findLinkByPhoneNumberAndParentPhoneNumber: jest.fn(),
     validateChildAccess: jest.fn(),
   }) as unknown as jest.Mocked<ParentsService>;
 

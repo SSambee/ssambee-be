@@ -26,9 +26,8 @@ export class StudentRepository {
     return client.appStudent.findUnique({ where: { phoneNumber } });
   }
 
-  async findByPhoneNumberAndProfile(
+  async findByPhoneNumberAndParentPhoneNumber(
     phoneNumber: string,
-    studentName: string,
     parentPhoneNumber: string,
     tx?: Prisma.TransactionClient,
   ) {
@@ -37,9 +36,6 @@ export class StudentRepository {
       where: {
         phoneNumber,
         parentPhoneNumber,
-        user: {
-          name: studentName,
-        },
       },
     });
   }

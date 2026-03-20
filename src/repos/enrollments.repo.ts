@@ -352,19 +352,17 @@ export class EnrollmentsRepository {
 
   /** --- 연동 --- */
 
-  /** 전화번호 기준 AppStudentId 업데이트 (회원가입 시 연동) */
-  async updateAppStudentIdByPhoneNumber(
+  /** 학생/학부모 전화번호 기준 AppStudentId 업데이트 (회원가입 시 연동) */
+  async updateAppStudentIdByStudentPhoneAndParentPhone(
     phoneNumber: string,
-    appStudentId: string,
-    studentName: string,
     parentPhoneNumber: string,
+    appStudentId: string,
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
     return await client.enrollment.updateMany({
       where: {
         studentPhone: phoneNumber,
-        studentName,
         parentPhone: parentPhoneNumber,
         appStudentId: null,
       },
@@ -374,10 +372,9 @@ export class EnrollmentsRepository {
     });
   }
 
-  /** 학생/학부모 프로필 기준 AppParentLinkId 업데이트 (자녀 등록 시 연동) */
-  async updateAppParentLinkIdByStudentPhone(
+  /** 학생/학부모 전화번호 기준 AppParentLinkId 업데이트 (자녀 등록 시 연동) */
+  async updateAppParentLinkIdByStudentPhoneAndParentPhone(
     studentPhone: string,
-    studentName: string,
     parentPhoneNumber: string,
     appParentLinkId: string,
     tx?: Prisma.TransactionClient,
@@ -386,7 +383,6 @@ export class EnrollmentsRepository {
     return await client.enrollment.updateMany({
       where: {
         studentPhone,
-        studentName,
         parentPhone: parentPhoneNumber,
         appParentLinkId: null, // 아직 연동되지 않은 건들이만
       },

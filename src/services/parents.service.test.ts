@@ -79,7 +79,7 @@ describe('ParentsService - @unit #critical', () => {
         mockParentChildLinkRepo.create.mockResolvedValue(
           mockParentLinks.active,
         );
-        mockEnrollmentsRepo.updateAppParentLinkIdByStudentPhone.mockResolvedValue(
+        mockEnrollmentsRepo.updateAppParentLinkIdByStudentPhoneAndParentPhone.mockResolvedValue(
           { count: 2 },
         );
 
@@ -110,10 +110,9 @@ describe('ParentsService - @unit #critical', () => {
           expect.anything(),
         );
         expect(
-          mockEnrollmentsRepo.updateAppParentLinkIdByStudentPhone,
+          mockEnrollmentsRepo.updateAppParentLinkIdByStudentPhoneAndParentPhone,
         ).toHaveBeenCalledWith(
           childData.phoneNumber,
-          childData.name,
           mockParents.basic.phoneNumber,
           mockParentLinks.active.id,
           expect.anything(),
