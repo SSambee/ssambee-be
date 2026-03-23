@@ -189,10 +189,10 @@ describe('LecturesService - @unit #critical', () => {
           lectureTimes: [],
         });
         mockEnrollmentsRepo.findManyByInstructorAndPhones.mockResolvedValue([]);
-        mockStudentRepo.findByPhoneNumberAndProfile.mockResolvedValue(
+        mockStudentRepo.findByPhoneNumberAndParentPhoneNumber.mockResolvedValue(
           mockStudents.basic,
         );
-        mockParentChildLinkRepo.findByPhoneNumberAndProfile.mockResolvedValue(
+        mockParentChildLinkRepo.findByPhoneNumberAndParentPhoneNumber.mockResolvedValue(
           mockParentLinks.active,
         );
         mockEnrollmentsRepo.createMany.mockResolvedValue([
@@ -212,18 +212,16 @@ describe('LecturesService - @unit #critical', () => {
         });
 
         expect(
-          mockStudentRepo.findByPhoneNumberAndProfile,
+          mockStudentRepo.findByPhoneNumberAndParentPhoneNumber,
         ).toHaveBeenCalledWith(
           enrollmentRequest.studentPhone,
-          enrollmentRequest.studentName,
           enrollmentRequest.parentPhone,
           mockPrisma,
         );
         expect(
-          mockParentChildLinkRepo.findByPhoneNumberAndProfile,
+          mockParentChildLinkRepo.findByPhoneNumberAndParentPhoneNumber,
         ).toHaveBeenCalledWith(
           enrollmentRequest.studentPhone,
-          enrollmentRequest.studentName,
           enrollmentRequest.parentPhone,
           mockPrisma,
         );
@@ -261,10 +259,10 @@ describe('LecturesService - @unit #critical', () => {
         mockEnrollmentsRepo.findManyByInstructorAndPhones.mockResolvedValue([
           existingEnrollment,
         ]);
-        mockStudentRepo.findByPhoneNumberAndProfile.mockResolvedValue(
+        mockStudentRepo.findByPhoneNumberAndParentPhoneNumber.mockResolvedValue(
           mockStudents.basic,
         );
-        mockParentChildLinkRepo.findByPhoneNumberAndProfile.mockResolvedValue(
+        mockParentChildLinkRepo.findByPhoneNumberAndParentPhoneNumber.mockResolvedValue(
           mockParentLinks.active,
         );
         mockEnrollmentsRepo.update.mockResolvedValue({

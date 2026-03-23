@@ -754,11 +754,10 @@ export class AuthService {
     );
 
     if (data.parentPhoneNumber) {
-      await this.enrollmentsRepo.updateAppStudentIdByPhoneNumber(
+      await this.enrollmentsRepo.updateAppStudentIdByStudentPhoneAndParentPhone(
         data.phoneNumber,
-        student.id,
-        data.name,
         data.parentPhoneNumber,
+        student.id,
         tx,
       );
     }

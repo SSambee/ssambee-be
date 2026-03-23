@@ -171,10 +171,9 @@ describe('EnrollmentsService - @unit #critical', () => {
           mockPrisma,
         );
         expect(
-          mockStudentRepo.findByPhoneNumberAndProfile,
+          mockStudentRepo.findByPhoneNumberAndParentPhoneNumber,
         ).toHaveBeenCalledWith(
           createEnrollmentRequests.basic.studentPhone,
-          createEnrollmentRequests.basic.studentName,
           createEnrollmentRequests.basic.parentPhone,
           mockPrisma,
         );
@@ -253,11 +252,11 @@ describe('EnrollmentsService - @unit #critical', () => {
         );
       });
 
-      it('수강생 등록 시 학생 전화번호·이름·부모 번호가 일치하면 앱 수강생을 자동 연결한다', async () => {
+      it('수강생 등록 시 학생 전화번호와 부모 번호가 일치하면 앱 수강생을 자동 연결한다', async () => {
         mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
         mockPermissionService.validateInstructorAccess.mockResolvedValue();
         mockEnrollmentsRepo.findManyByInstructorAndPhones.mockResolvedValue([]);
-        mockStudentRepo.findByPhoneNumberAndProfile.mockResolvedValue(
+        mockStudentRepo.findByPhoneNumberAndParentPhoneNumber.mockResolvedValue(
           mockStudents.basic,
         );
         mockEnrollmentsRepo.create.mockResolvedValue(mockEnrollments.active);
@@ -295,10 +294,9 @@ describe('EnrollmentsService - @unit #critical', () => {
         );
 
         expect(
-          mockStudentRepo.findByPhoneNumberAndProfile,
+          mockStudentRepo.findByPhoneNumberAndParentPhoneNumber,
         ).toHaveBeenCalledWith(
           createEnrollmentRequests.basic.studentPhone,
-          createEnrollmentRequests.basic.studentName,
           createEnrollmentRequests.basic.parentPhone,
           mockPrisma,
         );
@@ -377,7 +375,7 @@ describe('EnrollmentsService - @unit #critical', () => {
         mockEnrollmentsRepo.findManyByInstructorAndPhones.mockResolvedValue([
           existingEnrollment,
         ]);
-        mockStudentRepo.findByPhoneNumberAndProfile.mockResolvedValue(
+        mockStudentRepo.findByPhoneNumberAndParentPhoneNumber.mockResolvedValue(
           mockStudents.basic,
         );
         mockEnrollmentsRepo.update.mockResolvedValue({
@@ -420,10 +418,9 @@ describe('EnrollmentsService - @unit #critical', () => {
         );
 
         expect(
-          mockStudentRepo.findByPhoneNumberAndProfile,
+          mockStudentRepo.findByPhoneNumberAndParentPhoneNumber,
         ).toHaveBeenCalledWith(
           createEnrollmentRequests.basic.studentPhone,
-          createEnrollmentRequests.basic.studentName,
           createEnrollmentRequests.basic.parentPhone,
           mockPrisma,
         );
@@ -455,7 +452,7 @@ describe('EnrollmentsService - @unit #critical', () => {
         mockEnrollmentsRepo.findManyByInstructorAndPhones.mockResolvedValue([
           existingEnrollment,
         ]);
-        mockParentsService.findLinkByPhoneNumberAndProfile.mockResolvedValue(
+        mockParentsService.findLinkByPhoneNumberAndParentPhoneNumber.mockResolvedValue(
           mockParentLinks.active,
         );
         mockEnrollmentsRepo.update.mockResolvedValue({
@@ -498,10 +495,9 @@ describe('EnrollmentsService - @unit #critical', () => {
         );
 
         expect(
-          mockParentsService.findLinkByPhoneNumberAndProfile,
+          mockParentsService.findLinkByPhoneNumberAndParentPhoneNumber,
         ).toHaveBeenCalledWith(
           createEnrollmentRequests.basic.studentPhone,
-          createEnrollmentRequests.basic.studentName,
           createEnrollmentRequests.basic.parentPhone,
         );
         expect(mockEnrollmentsRepo.update).toHaveBeenCalledWith(
@@ -518,11 +514,11 @@ describe('EnrollmentsService - @unit #critical', () => {
         expect(mockEnrollmentsRepo.create).not.toHaveBeenCalled();
       });
 
-      it('수강생 등록 시 학생 전화번호가 학부모-자녀 링크와 일치할 때, ParentLink가 자동으로 연결된다', async () => {
+      it('수강생 등록 시 학생 전화번호와 부모 번호가 학부모-자녀 링크와 일치할 때, ParentLink가 자동으로 연결된다', async () => {
         mockLecturesRepo.findById.mockResolvedValue(mockLectures.basic);
         mockPermissionService.validateInstructorAccess.mockResolvedValue();
         mockEnrollmentsRepo.findManyByInstructorAndPhones.mockResolvedValue([]);
-        mockParentsService.findLinkByPhoneNumberAndProfile.mockResolvedValue(
+        mockParentsService.findLinkByPhoneNumberAndParentPhoneNumber.mockResolvedValue(
           mockParentLinks.active,
         );
         mockEnrollmentsRepo.create.mockResolvedValue(mockEnrollments.active);
@@ -564,10 +560,9 @@ describe('EnrollmentsService - @unit #critical', () => {
         );
 
         expect(
-          mockParentsService.findLinkByPhoneNumberAndProfile,
+          mockParentsService.findLinkByPhoneNumberAndParentPhoneNumber,
         ).toHaveBeenCalledWith(
           createEnrollmentRequests.basic.studentPhone,
-          createEnrollmentRequests.basic.studentName,
           createEnrollmentRequests.basic.parentPhone,
         );
         expect(mockEnrollmentsRepo.create).toHaveBeenCalledWith(
@@ -595,7 +590,7 @@ describe('EnrollmentsService - @unit #critical', () => {
         );
 
         expect(
-          mockParentsService.findLinkByPhoneNumberAndProfile,
+          mockParentsService.findLinkByPhoneNumberAndParentPhoneNumber,
         ).not.toHaveBeenCalled();
         expect(mockEnrollmentsRepo.create).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -1373,7 +1368,7 @@ describe('EnrollmentsService - @unit #critical', () => {
         ).toHaveBeenCalled();
       });
 
-      it('학생 정보가 모두 일치하면 앱 학생을 자동 연결한다', async () => {
+      it('학생 전화번호와 부모 번호가 일치하면 앱 학생을 자동 연결한다', async () => {
         const updateData = {
           ...updateEnrollmentRequests.full,
           studentPhone: '010-1111-1111',
@@ -1383,7 +1378,7 @@ describe('EnrollmentsService - @unit #critical', () => {
         mockEnrollmentsRepo.findById.mockResolvedValue(
           mockEnrollments.active as unknown as EnrollmentWithRelations,
         );
-        mockStudentRepo.findByPhoneNumberAndProfile.mockResolvedValue(
+        mockStudentRepo.findByPhoneNumberAndParentPhoneNumber.mockResolvedValue(
           mockStudents.basic,
         );
         const updatedEnrollment = {
@@ -1401,12 +1396,8 @@ describe('EnrollmentsService - @unit #critical', () => {
 
         expect(result).toEqual(updatedEnrollment);
         expect(
-          mockStudentRepo.findByPhoneNumberAndProfile,
-        ).toHaveBeenCalledWith(
-          updateData.studentPhone,
-          updateData.studentName,
-          updateData.parentPhone,
-        );
+          mockStudentRepo.findByPhoneNumberAndParentPhoneNumber,
+        ).toHaveBeenCalledWith(updateData.studentPhone, updateData.parentPhone);
         expect(mockEnrollmentsRepo.update).toHaveBeenCalledWith(
           enrollmentId,
           expect.objectContaining({
@@ -1420,7 +1411,7 @@ describe('EnrollmentsService - @unit #critical', () => {
         );
       });
 
-      it('수강생 수정 시 ParentLink도 학생 전화번호/이름/부모번호가 모두 일치하면 연결된다', async () => {
+      it('수강생 수정 시 ParentLink도 학생 전화번호와 부모 번호가 일치하면 연결된다', async () => {
         const updateData = {
           studentPhone: '010-1111-1111',
           parentPhone: '010-2222-2222',
@@ -1433,7 +1424,7 @@ describe('EnrollmentsService - @unit #critical', () => {
         } as EnrollmentWithRelations;
 
         mockEnrollmentsRepo.findById.mockResolvedValue(existingEnrollment);
-        mockParentsService.findLinkByPhoneNumberAndProfile.mockResolvedValue(
+        mockParentsService.findLinkByPhoneNumberAndParentPhoneNumber.mockResolvedValue(
           mockParentLinks.active,
         );
         const updatedEnrollment = {
@@ -1451,12 +1442,8 @@ describe('EnrollmentsService - @unit #critical', () => {
 
         expect(result).toEqual(updatedEnrollment);
         expect(
-          mockParentsService.findLinkByPhoneNumberAndProfile,
-        ).toHaveBeenCalledWith(
-          updateData.studentPhone,
-          existingEnrollment.studentName,
-          updateData.parentPhone,
-        );
+          mockParentsService.findLinkByPhoneNumberAndParentPhoneNumber,
+        ).toHaveBeenCalledWith(updateData.studentPhone, updateData.parentPhone);
         expect(mockEnrollmentsRepo.update).toHaveBeenCalledWith(
           enrollmentId,
           expect.objectContaining({

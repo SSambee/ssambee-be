@@ -767,6 +767,14 @@ describe('GradesService - @unit #critical', () => {
       expect(result.grade.score).toBe(90);
       expect(result.attendanceRate).toBe(90.0); // (10-1)/10 * 100
       expect(result.questions).toHaveLength(1);
+      expect(result.questions[0]).toEqual({
+        questionNumber: 1,
+        content: 'Q1',
+        source: 'EBS',
+        category: '유형1',
+        isCorrect: true,
+        wrongRate: 20,
+      });
 
       // New assertions
       expect(result.gradeReport.description).toBe('성적표 코멘트입니다.');
