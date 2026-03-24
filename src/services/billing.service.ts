@@ -10,7 +10,6 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
-  InternalServerErrorException,
   NotFoundException,
 } from '../err/http.exception.js';
 import type {
@@ -32,7 +31,6 @@ import {
   PaymentStatus,
   ReceiptType,
 } from '../constants/billing.constant.js';
-import { config } from '../config/env.config.js';
 import {
   calculateCreditExpiryAt,
   calculateMonthlyEntitlementEndAt,
@@ -59,36 +57,6 @@ export class BillingService {
     private readonly billingRepo: BillingRepository,
     private readonly prisma: PrismaClient,
   ) {}
-
-  private getBankAccountSnapshot() {
-    const bankName = (
-      config.BILLING_BANK_NAME ||
-      process.env.BILLING_BANK_NAME ||
-      ''
-    ).trim();
-    const bankAccountNumber = (
-      config.BILLING_BANK_ACCOUNT_NUMBER ||
-      process.env.BILLING_BANK_ACCOUNT_NUMBER ||
-      ''
-    ).trim();
-    const bankAccountHolder = (
-      config.BILLING_BANK_ACCOUNT_HOLDER ||
-      process.env.BILLING_BANK_ACCOUNT_HOLDER ||
-      ''
-    ).trim();
-
-    if (!bankName || !bankAccountNumber || !bankAccountHolder) {
-      throw new InternalServerErrorException(
-        '무통장 결제 계좌 정보가 설정되지 않았습니다.',
-      );
-    }
-
-    return {
-      bankName,
-      bankAccountNumber,
-      bankAccountHolder,
-    };
-  }
 
   private sanitizeProductData(
     data: CreateBillingProductDto | UpdateBillingProductDto,
@@ -575,7 +543,6 @@ export class BillingService {
     }
 
     this.assertBankTransferPurchasable(product);
-    const bankAccount = this.getBankAccountSnapshot();
 
     const payment = await this.prisma.$transaction(async (tx) => {
       const createdPayment = await this.billingRepo.createPayment(
@@ -586,9 +553,6 @@ export class BillingService {
           status: PaymentStatus.PENDING_DEPOSIT,
           depositorName: data.depositorName,
           totalAmount: product.price * data.quantity,
-          bankName: bankAccount.bankName,
-          bankAccountNumber: bankAccount.bankAccountNumber,
-          bankAccountHolder: bankAccount.bankAccountHolder,
         },
         tx,
       );

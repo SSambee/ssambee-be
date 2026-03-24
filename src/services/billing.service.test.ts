@@ -87,10 +87,6 @@ describe('BillingService', () => {
       receiptRequest: { type: 'CASH_RECEIPT' },
     };
 
-    process.env.BILLING_BANK_NAME = '국민은행';
-    process.env.BILLING_BANK_ACCOUNT_NUMBER = '1234567890';
-    process.env.BILLING_BANK_ACCOUNT_HOLDER = '도코코';
-
     (mockBillingRepo.findProductById as jest.Mock).mockResolvedValue(product);
     (mockBillingRepo.createPayment as jest.Mock).mockResolvedValue(payment);
     (mockBillingRepo.findPaymentById as jest.Mock).mockResolvedValue(
