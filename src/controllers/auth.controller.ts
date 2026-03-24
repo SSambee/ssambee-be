@@ -164,6 +164,23 @@ export class AuthController {
     }
   };
 
+  /** 관리자 로그인 */
+  adminSignIn = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email, password, rememberMe } = req.body;
+
+      const result = await this.authService.signInAdmin(
+        email,
+        password,
+        !!rememberMe,
+      );
+
+      this.handleAuthResponse(res, result, '관리자 로그인 성공', 200);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   /** 이메일 인증코드 발송/검증 */
   emailVerification = async (
     req: Request,
@@ -370,6 +387,21 @@ export class AuthController {
     } catch (error) {
       // 세션 조회에 실패한 모든 경우(세션 없음, DB 오류 등)에
       // 클라이언트의 쿠키를 정리해주는 것이 안전합니다.
+      this.clearSessionCookie(res);
+      next(error);
+    }
+  };
+
+  /** 관리자 세션 조회 */
+  getAdminSession = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const session = await this.authService.getAdminSession(req.headers);
+      if (!session) {
+        throw new UnauthorizedException('인증이 필요합니다.');
+      }
+
+      return successResponse(res, { data: session });
+    } catch (error) {
       this.clearSessionCookie(res);
       next(error);
     }

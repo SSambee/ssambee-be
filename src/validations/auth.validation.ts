@@ -35,6 +35,12 @@ export const signInSchema = z.object({
   rememberMe: z.boolean().optional(),
 });
 
+export const adminSignInSchema = z.object({
+  email: emailSchema,
+  password: passwordSchema,
+  rememberMe: z.boolean().optional(),
+});
+
 /**
  * 이메일 인증(OTP) 요청 스키마
  * - otp 없으면 인증코드 발송

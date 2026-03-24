@@ -16,6 +16,11 @@ import { v7 as uuidv7 } from 'uuid';
 import { createId } from '@paralleldrive/cuid2';
 import { hashPassword } from 'better-auth/crypto';
 import 'dotenv/config';
+import {
+  BillingMode,
+  BillingProductType,
+  PaymentMethodType,
+} from '../src/constants/billing.constant.js';
 
 const connectionString = process.env.DATABASE_URL;
 const pool = new pg.Pool({ connectionString });
@@ -29,6 +34,15 @@ async function main() {
   const hashedPassword = await hashPassword('qwer1234');
 
   // 0. Clean up existing data (Ordered by dependency)
+  await prisma.creditLedger.deleteMany();
+  await prisma.creditBucket.deleteMany();
+  await prisma.creditWallet.deleteMany();
+  await prisma.entitlement.deleteMany();
+  await prisma.paymentReceiptRequest.deleteMany();
+  await prisma.paymentStatusHistory.deleteMany();
+  await prisma.paymentItem.deleteMany();
+  await prisma.payment.deleteMany();
+  await prisma.billingProduct.deleteMany();
   await prisma.comment.deleteMany();
   await prisma.studentPost.deleteMany();
   await prisma.instructorPostTarget.deleteMany();
@@ -54,6 +68,45 @@ async function main() {
   await prisma.user.deleteMany();
 
   console.log('🧹 Database cleaned up.');
+
+  await prisma.billingProduct.createMany({
+    data: [
+      {
+        id: createId(),
+        code: 'PASS_SINGLE_1M',
+        name: '1개월 이용권',
+        description: '1개월 이용권 + 기본 포함 크레딧 1000',
+        productType: BillingProductType.PASS_SINGLE,
+        billingMode: BillingMode.ONE_TIME,
+        paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+        durationMonths: 1,
+        includedCreditAmount: 1000,
+        rechargeCreditAmount: 0,
+        price: 99000,
+        isActive: true,
+        sortOrder: 1,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: createId(),
+        code: 'CREDIT_PACK_3000',
+        name: '크레딧 충전권 3000',
+        description: '90일 만료 추가 충전 크레딧 3000',
+        productType: BillingProductType.CREDIT_PACK,
+        billingMode: BillingMode.ONE_TIME,
+        paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+        durationMonths: null,
+        includedCreditAmount: 0,
+        rechargeCreditAmount: 3000,
+        price: 33000,
+        isActive: true,
+        sortOrder: 2,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
+  });
 
   // 1. Identity Layer: Users & Profiles
   console.log('👤 Creating users and profiles...');

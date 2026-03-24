@@ -121,6 +121,13 @@ model Instructor {
   // [Assistant] 조교에 지시한 업무 요청
   assistantOrders AssistantOrder[]
 
+  // [Billing] 결제/이용권/크레딧
+  payments      Payment[]
+  entitlements  Entitlement[]
+  creditWallet  CreditWallet?
+  creditBuckets CreditBucket[]
+  creditLedgers CreditLedger[]
+
   @@map("instructors")
 }
 
@@ -889,6 +896,206 @@ model CommentAttachment {
 }
 
 // --------------------------------------------------------
+// 9. BILLING (결제/이용권/크레딧)
+// --------------------------------------------------------
+
+model BillingProduct {
+  id                   String   @id @default(cuid(2))
+  code                 String   @unique
+  name                 String
+  description          String?  @db.Text
+  productType          String   @map("product_type")
+  billingMode          String   @default("ONE_TIME") @map("billing_mode")
+  paymentMethodType    String   @map("payment_method_type")
+  durationMonths       Int?     @map("duration_months")
+  includedCreditAmount Int      @default(0) @map("included_credit_amount")
+  rechargeCreditAmount Int      @default(0) @map("recharge_credit_amount")
+  price                Int
+  isActive             Boolean  @default(true) @map("is_active")
+  sortOrder            Int      @default(0) @map("sort_order")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime? @updatedAt @map("updated_at")
+
+  paymentItems PaymentItem[]
+
+  @@index([productType, isActive])
+  @@map("billing_products")
+}
+
+model Payment {
+  id                String   @id @default(cuid(2))
+  instructorId      String   @map("instructor_id")
+  methodType        String   @map("method_type")
+  providerType      String   @default("MANUAL") @map("provider_type")
+  providerReference String?  @map("provider_reference")
+  status            String   @default("PENDING_DEPOSIT")
+  depositorName     String?  @map("depositor_name")
+  totalAmount       Int      @map("total_amount")
+  bankName          String   @map("bank_name")
+  bankAccountNumber String   @map("bank_account_number")
+  bankAccountHolder String   @map("bank_account_holder")
+  depositedAt       DateTime? @map("deposited_at")
+  approvedAt        DateTime? @map("approved_at")
+  rejectedAt        DateTime? @map("rejected_at")
+  canceledAt        DateTime? @map("canceled_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime? @updatedAt @map("updated_at")
+
+  instructor     Instructor              @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  items          PaymentItem[]
+  statusHistory  PaymentStatusHistory[]
+  receiptRequest PaymentReceiptRequest?
+
+  @@index([instructorId, createdAt])
+  @@index([status, createdAt])
+  @@map("payments")
+}
+
+model PaymentItem {
+  id                           String  @id @default(cuid(2))
+  paymentId                    String  @map("payment_id")
+  billingProductId             String  @map("billing_product_id")
+  productCodeSnapshot          String  @map("product_code_snapshot")
+  productNameSnapshot          String  @map("product_name_snapshot")
+  productTypeSnapshot          String  @map("product_type_snapshot")
+  quantity                     Int
+  unitPrice                    Int     @map("unit_price")
+  totalPrice                   Int     @map("total_price")
+  durationMonthsSnapshot       Int?    @map("duration_months_snapshot")
+  includedCreditAmountSnapshot Int     @default(0) @map("included_credit_amount_snapshot")
+  rechargeCreditAmountSnapshot Int     @default(0) @map("recharge_credit_amount_snapshot")
+
+  payment        Payment        @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  billingProduct BillingProduct @relation(fields: [billingProductId], references: [id])
+  entitlements   Entitlement[]
+  creditBuckets  CreditBucket[]
+
+  @@index([paymentId])
+  @@index([billingProductId])
+  @@map("payment_items")
+}
+
+model PaymentStatusHistory {
+  id          String   @id @default(cuid(2))
+  paymentId   String   @map("payment_id")
+  fromStatus  String?  @map("from_status")
+  toStatus    String   @map("to_status")
+  actorUserId String?  @map("actor_user_id")
+  actorRole   String?  @map("actor_role")
+  reason      String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId, createdAt])
+  @@map("payment_status_histories")
+}
+
+model PaymentReceiptRequest {
+  id                         String   @id @default(cuid(2))
+  paymentId                  String   @unique @map("payment_id")
+  type                       String
+  status                     String   @default("REQUESTED")
+  cashReceiptPhoneNumber     String?  @map("cash_receipt_phone_number")
+  businessRegistrationNumber String?  @map("business_registration_number")
+  businessName               String?  @map("business_name")
+  representativeName         String?  @map("representative_name")
+  taxInvoiceEmail            String?  @map("tax_invoice_email")
+  businessType               String?  @map("business_type")
+  businessCategory           String?  @map("business_category")
+  businessAddress            String?  @map("business_address")
+  requestedAt                DateTime @default(now()) @map("requested_at")
+  reviewedAt                 DateTime? @map("reviewed_at")
+  reviewMemo                 String?  @map("review_memo")
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([type, status])
+  @@map("payment_receipt_requests")
+}
+
+model Entitlement {
+  id                   String   @id @default(cuid(2))
+  instructorId         String   @map("instructor_id")
+  paymentItemId        String   @map("payment_item_id")
+  sequenceNo           Int      @map("sequence_no")
+  status               String   @default("QUEUED")
+  startsAt             DateTime @map("starts_at")
+  endsAt               DateTime @map("ends_at")
+  activatedAt          DateTime? @map("activated_at")
+  expiredAt            DateTime? @map("expired_at")
+  canceledAt           DateTime? @map("canceled_at")
+  includedCreditAmount Int      @default(1000) @map("included_credit_amount")
+
+  instructor   Instructor    @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  paymentItem   PaymentItem   @relation(fields: [paymentItemId], references: [id], onDelete: Cascade)
+  creditBuckets CreditBucket[]
+
+  @@unique([paymentItemId, sequenceNo])
+  @@index([instructorId, status, endsAt])
+  @@map("entitlements")
+}
+
+model CreditWallet {
+  id                String   @id @default(cuid(2))
+  instructorId      String   @unique @map("instructor_id")
+  totalAvailable    Int      @default(0) @map("total_available")
+  includedAvailable Int      @default(0) @map("included_available")
+  rechargeAvailable Int      @default(0) @map("recharge_available")
+  lastReconciledAt  DateTime? @map("last_reconciled_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime? @updatedAt @map("updated_at")
+
+  instructor Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  @@map("credit_wallets")
+}
+
+model CreditBucket {
+  id              String   @id @default(cuid(2))
+  instructorId    String   @map("instructor_id")
+  paymentItemId   String?  @map("payment_item_id")
+  entitlementId   String?  @map("entitlement_id")
+  sourceType      String   @map("source_type")
+  status          String   @default("ACTIVE")
+  originalAmount  Int      @map("original_amount")
+  remainingAmount Int      @map("remaining_amount")
+  grantedAt       DateTime @default(now()) @map("granted_at")
+  expiresAt       DateTime @map("expires_at")
+
+  instructor  Instructor   @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  paymentItem  PaymentItem? @relation(fields: [paymentItemId], references: [id], onDelete: SetNull)
+  entitlement  Entitlement? @relation(fields: [entitlementId], references: [id], onDelete: SetNull)
+  ledgers      CreditLedger[]
+
+  @@index([instructorId, status, expiresAt])
+  @@unique([paymentItemId, sourceType])
+  @@unique([entitlementId, sourceType])
+  @@map("credit_buckets")
+}
+
+model CreditLedger {
+  id                   String   @id @default(cuid(2))
+  instructorId         String   @map("instructor_id")
+  creditBucketId       String?  @map("credit_bucket_id")
+  type                 String
+  deltaAmount          Int      @map("delta_amount")
+  balanceAfterTotal    Int      @map("balance_after_total")
+  balanceAfterIncluded Int      @map("balance_after_included")
+  balanceAfterRecharge Int      @map("balance_after_recharge")
+  referenceType        String?  @map("reference_type")
+  referenceId          String?  @map("reference_id")
+  reason               String?
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  instructor   Instructor   @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  creditBucket CreditBucket? @relation(fields: [creditBucketId], references: [id], onDelete: SetNull)
+
+  @@index([instructorId, createdAt])
+  @@map("credit_ledgers")
+}
+
+// --------------------------------------------------------
 // 9. AUTHENTICATION (Better Auth 통합 인증 시스템)
 // --------------------------------------------------------
 
@@ -902,7 +1109,7 @@ model User {
   updatedAt     DateTime @map("updated_at")
 
   // Custom: Role-based user type for easier identification
-  userType String @map("user_type") // INSTRUCTOR, ASSISTANT, STUDENT, PARENT
+  userType String @map("user_type") // INSTRUCTOR, ASSISTANT, STUDENT, PARENT, ADMIN
 
   sessions Session[]
   accounts Account[]

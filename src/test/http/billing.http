@@ -1,0 +1,52 @@
+@baseUrl = http://localhost:3000
+@mgmtCookie = ssambee-auth.session_token=REPLACE_ME
+@adminCookie = ssambee-auth.session_token=REPLACE_ME
+@paymentId = REPLACE_PAYMENT_ID
+@receiptRequestId = REPLACE_RECEIPT_REQUEST_ID
+
+### 강사용 활성 상품 조회
+GET {{baseUrl}}/api/mgmt/v1/billing/products
+Cookie: {{mgmtCookie}}
+
+### 강사용 무통장 결제 생성
+POST {{baseUrl}}/api/mgmt/v1/billing/payments/bank-transfer
+Content-Type: application/json
+Cookie: {{mgmtCookie}}
+
+{
+  "productId": "REPLACE_PRODUCT_ID",
+  "quantity": 1,
+  "depositorName": "홍길동",
+  "receiptRequest": {
+    "type": "CASH_RECEIPT",
+    "phoneNumber": "010-1234-5678"
+  }
+}
+
+### 강사용 입금 완료 알림
+POST {{baseUrl}}/api/mgmt/v1/billing/payments/{{paymentId}}/deposit
+Content-Type: application/json
+Cookie: {{mgmtCookie}}
+
+{
+  "depositorName": "홍길동"
+}
+
+### 관리자 결제 승인
+POST {{baseUrl}}/api/admin/v1/billing/payments/{{paymentId}}/approve
+Content-Type: application/json
+Cookie: {{adminCookie}}
+
+{
+  "memo": "입금 확인 완료"
+}
+
+### 관리자 영수증 요청 처리
+PATCH {{baseUrl}}/api/admin/v1/billing/receipt-requests/{{receiptRequestId}}
+Content-Type: application/json
+Cookie: {{adminCookie}}
+
+{
+  "status": "COMPLETED",
+  "reviewMemo": "발행 완료"
+}

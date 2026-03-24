@@ -21,12 +21,25 @@ declare global {
         userType: UserType;
         name: string;
         image?: string | null;
+        role?: string | string[] | null;
       };
       profile?: ProfileBase | null;
       authSession?: AuthSession | { token: string } | null;
     }
   }
 }
+
+const hasAdminRole = (role?: string | string[] | null) => {
+  if (!role) {
+    return false;
+  }
+
+  if (Array.isArray(role)) {
+    return role.includes('admin');
+  }
+
+  return role === 'admin';
+};
 
 /**
  * 인증 미들웨어 Factory
@@ -43,6 +56,7 @@ export const createRequireAuth = (authService: AuthService) => {
     req.user = {
       ...result.user,
       userType: result.user.userType as UserType,
+      role: result.user.role as string | string[] | null | undefined,
     };
     req.authSession = result.session;
     req.profile = result.profile;
@@ -105,6 +119,7 @@ export const createOptionalAuth = (authService: AuthService) => {
         req.user = {
           ...result.user,
           userType: result.user.userType as UserType,
+          role: result.user.role as string | string[] | null | undefined,
         };
         req.authSession = result.session;
         req.profile = result.profile;
@@ -113,5 +128,19 @@ export const createOptionalAuth = (authService: AuthService) => {
     } catch (_error) {
       next();
     }
+  };
+};
+
+export const createRequireAdmin = () => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return next(new UnauthorizedException('인증이 필요합니다.'));
+    }
+
+    if (req.user.userType !== UserType.ADMIN || !hasAdminRole(req.user.role)) {
+      return next(new ForbiddenException('관리자 권한이 필요합니다.'));
+    }
+
+    next();
   };
 };

@@ -22,6 +22,18 @@ import { SignUpData, AuthResponse, AuthUser } from '../types/auth.types.js';
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import { config } from '../config/env.config.js';
 
+const hasAdminRole = (role?: string | string[] | null) => {
+  if (!role) {
+    return false;
+  }
+
+  if (Array.isArray(role)) {
+    return role.includes('admin');
+  }
+
+  return role === 'admin';
+};
+
 export class AuthService {
   constructor(
     private readonly instructorRepo: InstructorRepository,
@@ -595,8 +607,12 @@ export class AuthService {
       );
     }
 
+    if (requiredUserType === UserType.ADMIN && !hasAdminRole(user.role)) {
+      throw new ForbiddenException('관리자 권한이 없습니다.');
+    }
+
     const profile = await this.findProfileByUserId(user.userType, user.id);
-    if (!profile) {
+    if (requiredUserType !== UserType.ADMIN && !profile) {
       throw new UnauthorizedException(
         '회원가입이 완료되지 않았습니다. 이메일 인증 후 가입 절차를 완료해주세요.',
       );
@@ -608,6 +624,14 @@ export class AuthService {
       profile,
       setCookie, // 쿠키 헤더 반환
     };
+  }
+
+  async signInAdmin(
+    email: string,
+    password: string,
+    rememberMe: boolean = false,
+  ) {
+    return this.signIn(email, password, UserType.ADMIN, rememberMe);
   }
 
   /** 로그아웃 (핸들러에서 처리하거나 API 호출) */
@@ -668,6 +692,23 @@ export class AuthService {
       ...session,
       profile,
     };
+  }
+
+  async getAdminSession(headers: IncomingHttpHeaders) {
+    const session = await this.getSession(headers);
+
+    if (!session) {
+      return null;
+    }
+
+    if (
+      session.user.userType !== UserType.ADMIN ||
+      !hasAdminRole(session.user.role as string | string[] | null | undefined)
+    ) {
+      throw new ForbiddenException('관리자 권한이 필요합니다.');
+    }
+
+    return session;
   }
 
   /** 강사 프로필 생성 */
@@ -783,6 +824,8 @@ export class AuthService {
   /** ID로 프로필 조회 */
   private async findProfileByUserId(userType: UserType, userId: string) {
     switch (userType) {
+      case UserType.ADMIN:
+        return null;
       case UserType.INSTRUCTOR:
         return this.instructorRepo.findByUserId(userId);
       case UserType.ASSISTANT:
@@ -800,6 +843,8 @@ export class AuthService {
     phoneNumber: string,
   ) {
     switch (userType) {
+      case UserType.ADMIN:
+        return null;
       case UserType.INSTRUCTOR:
         return this.instructorRepo.findByPhoneNumber(phoneNumber);
       case UserType.ASSISTANT:

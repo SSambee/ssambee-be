@@ -18,9 +18,11 @@ import { AuthService } from '../services/auth.service.js';
 import { AuthController } from '../controllers/auth.controller.js';
 import {
   createRequireAuth,
+  createRequireAdmin,
   createOptionalAuth,
   createRoleMiddlewares,
 } from '../middlewares/auth.middleware.js';
+import { createRequireActiveInstructorEntitlement } from '../middlewares/billing-access.middleware.js';
 
 import { LecturesRepository } from '../repos/lectures.repo.js';
 import { LecturesService } from '../services/lectures.service.js';
@@ -110,6 +112,9 @@ import { AssignmentResultsController } from '../controllers/assignment-results.c
 import { ProfileRepository } from '../repos/profile.repo.js';
 import { ProfileService } from '../services/profile.service.js';
 import { ProfileController } from '../controllers/profile.controller.js';
+import { BillingRepository } from '../repos/billing.repo.js';
+import { BillingService } from '../services/billing.service.js';
+import { BillingController } from '../controllers/billing.controller.js';
 
 // 1. Instantiate Repositories
 const instructorRepo = new InstructorRepository(prisma);
@@ -140,11 +145,13 @@ const instructorPostsRepo = new InstructorPostsRepository(prisma);
 const studentPostsRepo = new StudentPostsRepository(prisma);
 const commentsRepo = new CommentsRepository(prisma);
 const profileRepo = new ProfileRepository(prisma);
+const billingRepo = new BillingRepository(prisma);
 
 // 2. Instantiate Services (Inject Repos)
 const fileStorageService = new FileStorageService();
 
 const profileService = new ProfileService(profileRepo, prisma);
+const billingService = new BillingService(billingRepo, prisma);
 
 const authService = new AuthService(
   instructorRepo,
@@ -393,10 +400,14 @@ const instructorPostsController = new InstructorPostsController(
 const studentPostsController = new StudentPostsController(studentPostsService);
 const commentsController = new CommentsController(commentsService);
 const dashboardController = new DashboardController(dashboardService);
+const billingController = new BillingController(billingService);
 
 // 4. Create Middlewares (Inject Services)
 const requireAuth = createRequireAuth(authService);
 const optionalAuth = createOptionalAuth(authService);
+const requireAdmin = createRequireAdmin();
+const requireActiveInstructorEntitlement =
+  createRequireActiveInstructorEntitlement(billingService);
 const {
   requireInstructor,
   requireInstructorOrAssistant,
@@ -434,6 +445,7 @@ export const container = {
   assistantOrderService,
   profileService,
   dashboardService,
+  billingService,
   // Controllers
   authController,
   lecturesController,
@@ -458,10 +470,13 @@ export const container = {
   assignmentsController,
   assignmentResultsController,
   dashboardController,
+  billingController,
   profileController: new ProfileController(profileService),
   // Middlewares
   requireAuth,
   optionalAuth,
+  requireAdmin,
+  requireActiveInstructorEntitlement,
   requireInstructor,
   requireInstructorOrAssistant,
   requireStudent,
