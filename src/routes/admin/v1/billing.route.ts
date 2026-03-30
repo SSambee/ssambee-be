@@ -5,9 +5,12 @@ import {
   approvePaymentSchema,
   createBillingProductSchema,
   paymentListQuerySchema,
+  paymentItemIdParamSchema,
   productIdParamSchema,
   receiptRequestIdParamSchema,
   rejectPaymentSchema,
+  revokeEntitlementsSchema,
+  revokeRechargeCreditsSchema,
   updateBillingProductSchema,
   updateReceiptRequestSchema,
 } from '../../../validations/billing.validation.js';
@@ -49,6 +52,18 @@ adminBillingRouter.post(
   validate(productIdParamSchema, 'params'),
   validate(rejectPaymentSchema),
   billingController.rejectPayment,
+);
+adminBillingRouter.post(
+  '/payment-items/:paymentItemId/revoke-entitlements',
+  validate(paymentItemIdParamSchema, 'params'),
+  validate(revokeEntitlementsSchema),
+  billingController.revokeEntitlements,
+);
+adminBillingRouter.post(
+  '/payment-items/:paymentItemId/revoke-recharge-credits',
+  validate(paymentItemIdParamSchema, 'params'),
+  validate(revokeRechargeCreditsSchema),
+  billingController.revokeRechargeCredits,
 );
 
 adminBillingRouter.patch(

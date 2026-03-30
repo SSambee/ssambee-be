@@ -246,6 +246,49 @@ export class BillingController {
     }
   };
 
+  revokeEntitlements = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const result = await this.billingService.revokeEntitlementsByPaymentItem(
+        req.params.paymentItemId,
+        req.body,
+        this.getActor(req),
+      );
+
+      return successResponse(res, {
+        data: result,
+        message: '이용권 회수 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  revokeRechargeCredits = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const result =
+        await this.billingService.revokeRechargeCreditsByPaymentItem(
+          req.params.paymentItemId,
+          req.body,
+          this.getActor(req),
+        );
+
+      return successResponse(res, {
+        data: result,
+        message: '충전 크레딧 회수 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   updateReceiptRequest = async (
     req: Request,
     res: Response,

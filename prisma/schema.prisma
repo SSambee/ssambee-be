@@ -941,6 +941,7 @@ model Payment {
   instructor     Instructor              @relation(fields: [instructorId], references: [id], onDelete: Cascade)
   items          PaymentItem[]
   statusHistory  PaymentStatusHistory[]
+  revocationHistories PaymentItemRevocationHistory[]
   receiptRequest PaymentReceiptRequest?
 
   @@index([instructorId, createdAt])
@@ -966,6 +967,7 @@ model PaymentItem {
   billingProduct BillingProduct @relation(fields: [billingProductId], references: [id])
   entitlements   Entitlement[]
   creditBuckets  CreditBucket[]
+  revocationHistories PaymentItemRevocationHistory[]
 
   @@index([paymentId])
   @@index([billingProductId])
@@ -1090,6 +1092,32 @@ model CreditLedger {
 
   @@index([instructorId, createdAt])
   @@map("credit_ledgers")
+}
+
+model PaymentItemRevocationHistory {
+  id          String   @id @default(cuid(2))
+  paymentId    String   @map("payment_id")
+  paymentItemId String   @map("payment_item_id")
+  targetType   String   @map("target_type")
+  targetId     String   @map("target_id")
+  actionType   String   @map("action_type")
+  fromStatus   String?  @map("from_status")
+  toStatus     String?  @map("to_status")
+  deltaAmount  Int      @default(0) @map("delta_amount")
+  actorUserId  String?  @map("actor_user_id")
+  actorRole    String?  @map("actor_role")
+  reason       String
+  batchId      String   @map("batch_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  payment     Payment     @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  paymentItem PaymentItem @relation(fields: [paymentItemId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId, createdAt])
+  @@index([paymentItemId, createdAt])
+  @@index([targetType, targetId, createdAt])
+  @@index([batchId, createdAt])
+  @@map("payment_item_revocation_histories")
 }
 
 // --------------------------------------------------------

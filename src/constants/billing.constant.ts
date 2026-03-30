@@ -96,6 +96,22 @@ export const CreditLedgerType = {
 export type CreditLedgerType =
   (typeof CreditLedgerType)[keyof typeof CreditLedgerType];
 
+export const RevocationTargetType = {
+  ENTITLEMENT: 'ENTITLEMENT',
+  CREDIT_BUCKET: 'CREDIT_BUCKET',
+} as const;
+
+export type RevocationTargetType =
+  (typeof RevocationTargetType)[keyof typeof RevocationTargetType];
+
+export const RevocationActionType = {
+  CANCEL: 'CANCEL',
+  CLAWBACK: 'CLAWBACK',
+} as const;
+
+export type RevocationActionType =
+  (typeof RevocationActionType)[keyof typeof RevocationActionType];
+
 export const IncludedCreditPolicy = {
   MONTHLY_AMOUNT: 1000,
   RECHARGE_EXPIRES_IN_DAYS: 90,
@@ -104,4 +120,5 @@ export const IncludedCreditPolicy = {
 export const BillingErrorCode = {
   PLAN_REQUIRED: 'PLAN_REQUIRED',
   INSUFFICIENT_CREDITS: 'INSUFFICIENT_CREDITS',
+  ACTIVE_REVOKE_CONFIRM_REQUIRED: 'ACTIVE_REVOKE_CONFIRM_REQUIRED',
 } as const;

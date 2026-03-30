@@ -153,6 +153,9 @@ export class BillingRepository {
             billingProduct: true,
             entitlements: true,
             creditBuckets: true,
+            revocationHistories: {
+              orderBy: { createdAt: 'desc' },
+            },
           },
         },
         receiptRequest: true,
@@ -177,7 +180,15 @@ export class BillingRepository {
       this.prisma.payment.findMany({
         where,
         include: {
-          items: true,
+          items: {
+            include: {
+              entitlements: true,
+              creditBuckets: true,
+              revocationHistories: {
+                orderBy: { createdAt: 'desc' },
+              },
+            },
+          },
           receiptRequest: true,
         },
         orderBy: { createdAt: 'desc' },
@@ -209,7 +220,16 @@ export class BillingRepository {
               },
             },
           },
-          items: true,
+          items: {
+            include: {
+              billingProduct: true,
+              entitlements: true,
+              creditBuckets: true,
+              revocationHistories: {
+                orderBy: { createdAt: 'desc' },
+              },
+            },
+          },
           receiptRequest: true,
         },
         orderBy: { createdAt: 'desc' },
@@ -233,9 +253,46 @@ export class BillingRepository {
         paymentItem: {
           include: {
             payment: true,
+            revocationHistories: {
+              orderBy: { createdAt: 'desc' },
+            },
           },
         },
         creditBuckets: true,
+      },
+    });
+  }
+
+  async findPaymentItemById(id: string, tx?: Prisma.TransactionClient) {
+    return this.getClient(tx).paymentItem.findUnique({
+      where: { id },
+      include: {
+        payment: {
+          include: {
+            instructor: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        billingProduct: true,
+        entitlements: {
+          orderBy: [{ startsAt: 'asc' }, { sequenceNo: 'asc' }],
+          include: {
+            creditBuckets: true,
+          },
+        },
+        creditBuckets: true,
+        revocationHistories: {
+          orderBy: { createdAt: 'desc' },
+        },
       },
     });
   }
@@ -505,5 +562,49 @@ export class BillingRepository {
     ]);
 
     return { ledgers, totalCount };
+  }
+
+  async listCreditBucketsByInstructor(
+    instructorId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return this.getClient(tx).creditBucket.findMany({
+      where: { instructorId },
+      include: {
+        paymentItem: {
+          include: {
+            payment: true,
+          },
+        },
+      },
+      orderBy: [{ expiresAt: 'asc' }, { grantedAt: 'asc' }, { id: 'asc' }],
+    });
+  }
+
+  async createPaymentItemRevocationHistory(
+    data: Prisma.PaymentItemRevocationHistoryUncheckedCreateInput,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return this.getClient(tx).paymentItemRevocationHistory.create({ data });
+  }
+
+  async listRevocationHistoriesByTargetIds(
+    targetType: string,
+    targetIds: string[],
+    tx?: Prisma.TransactionClient,
+  ) {
+    if (targetIds.length === 0) {
+      return [];
+    }
+
+    return this.getClient(tx).paymentItemRevocationHistory.findMany({
+      where: {
+        targetType,
+        targetId: {
+          in: targetIds,
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 }

@@ -2,6 +2,7 @@
 @mgmtCookie = ssambee-auth.session_token=REPLACE_ME
 @adminCookie = ssambee-auth.session_token=REPLACE_ME
 @paymentId = REPLACE_PAYMENT_ID
+@paymentItemId = REPLACE_PAYMENT_ITEM_ID
 @receiptRequestId = REPLACE_RECEIPT_REQUEST_ID
 
 ### 강사용 활성 상품 조회
@@ -39,6 +40,26 @@ Cookie: {{adminCookie}}
 
 {
   "memo": "입금 확인 완료"
+}
+
+### 관리자 이용권 회수
+POST {{baseUrl}}/api/admin/v1/billing/payment-items/{{paymentItemId}}/revoke-entitlements
+Content-Type: application/json
+Cookie: {{adminCookie}}
+
+{
+  "revokeCount": 1,
+  "reason": "환불 승인",
+  "allowActiveRevoke": false
+}
+
+### 관리자 충전 크레딧 회수
+POST {{baseUrl}}/api/admin/v1/billing/payment-items/{{paymentItemId}}/revoke-recharge-credits
+Content-Type: application/json
+Cookie: {{adminCookie}}
+
+{
+  "reason": "환불 승인"
 }
 
 ### 관리자 영수증 요청 처리

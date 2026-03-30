@@ -59,6 +59,10 @@ export const productIdParamSchema = z.object({
   id: cuidSchema,
 });
 
+export const paymentItemIdParamSchema = z.object({
+  paymentItemId: cuidSchema,
+});
+
 export const receiptRequestIdParamSchema = z.object({
   id: cuidSchema,
 });
@@ -131,6 +135,25 @@ export const approvePaymentSchema = z.object({
 export const rejectPaymentSchema = z.object({
   reason: z.string().min(1, '반려 사유는 필수입니다.'),
 });
+
+export const revokeEntitlementsSchema = z.object({
+  revokeCount: z
+    .number()
+    .int('회수 건수는 정수여야 합니다.')
+    .positive('회수 건수는 1 이상이어야 합니다.'),
+  reason: z.string().min(1, '회수 사유는 필수입니다.'),
+  allowActiveRevoke: z.boolean().optional(),
+});
+
+export type RevokeEntitlementsDto = z.infer<typeof revokeEntitlementsSchema>;
+
+export const revokeRechargeCreditsSchema = z.object({
+  reason: z.string().min(1, '회수 사유는 필수입니다.'),
+});
+
+export type RevokeRechargeCreditsDto = z.infer<
+  typeof revokeRechargeCreditsSchema
+>;
 
 export const updateReceiptRequestSchema = z.object({
   status: z.enum([ReceiptStatus.COMPLETED, ReceiptStatus.REJECTED]),
