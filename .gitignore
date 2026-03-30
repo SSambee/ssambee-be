@@ -14,6 +14,8 @@ env/*
 # production
 build
 dist
+docs
+/src/test/http
 
 # misc
 .vscode

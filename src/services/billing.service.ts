@@ -23,6 +23,7 @@ import type {
   RevokeEntitlementsDto,
   RevokeRechargeCreditsDto,
   UpdateBillingProductDto,
+  UpdatePaymentRefundStatusDto,
 } from '../validations/billing.validation.js';
 import {
   BillingErrorCode,
@@ -35,6 +36,7 @@ import {
   IncludedCreditPolicy,
   PaymentMethodType,
   PaymentProviderType,
+  PaymentRefundStatus,
   PaymentStatus,
   RevocationActionType,
   RevocationTargetType,
@@ -74,6 +76,12 @@ interface RevocationHistoryInput {
   actorRole?: string | null;
   reason: string;
   batchId: string;
+}
+
+interface PaymentItemEstimatedRefund {
+  estimatedRefundAmount: number;
+  refundBasis: string;
+  refundBreakdown: Record<string, unknown>;
 }
 
 type PaymentItemWithRelations = PaymentItem & {
@@ -384,13 +392,186 @@ export class BillingService {
     };
   }
 
+  private clampRatio(value: number) {
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
+
+    return Number(Math.min(1, Math.max(0, value)).toFixed(4));
+  }
+
+  private calculateRevokedEntitlementRefundRatio(
+    entitlement: Entitlement,
+    history: PaymentItemRevocationHistory,
+  ) {
+    if (history.fromStatus === EntitlementStatus.QUEUED) {
+      return 1;
+    }
+
+    if (history.fromStatus !== EntitlementStatus.ACTIVE) {
+      return 0;
+    }
+
+    const totalDuration =
+      entitlement.endsAt.getTime() - entitlement.startsAt.getTime();
+
+    if (totalDuration <= 0) {
+      return 0;
+    }
+
+    const remainingDuration =
+      entitlement.endsAt.getTime() - history.createdAt.getTime();
+
+    return this.clampRatio(remainingDuration / totalDuration);
+  }
+
+  private calculatePaymentItemEstimatedRefund(
+    item: PaymentItemWithRelations,
+  ): PaymentItemEstimatedRefund | null {
+    const revocationHistories = item.revocationHistories ?? [];
+
+    if (revocationHistories.length === 0) {
+      return null;
+    }
+
+    if (item.productTypeSnapshot === BillingProductType.PASS_SINGLE) {
+      const entitlements = item.entitlements ?? [];
+      const totalEntitlementCount = entitlements.length;
+
+      if (totalEntitlementCount === 0) {
+        return null;
+      }
+
+      const revokedEntitlements = revocationHistories
+        .filter(
+          (history) =>
+            history.targetType === RevocationTargetType.ENTITLEMENT &&
+            history.actionType === RevocationActionType.CANCEL &&
+            history.toStatus === EntitlementStatus.CANCELED,
+        )
+        .map((history) => {
+          const entitlement = entitlements.find(
+            (candidate) => candidate.id === history.targetId,
+          );
+
+          if (!entitlement) {
+            return null;
+          }
+
+          return {
+            entitlementId: entitlement.id,
+            revokedFromStatus: history.fromStatus,
+            refundRatio: this.calculateRevokedEntitlementRefundRatio(
+              entitlement,
+              history,
+            ),
+          };
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+
+      if (revokedEntitlements.length === 0) {
+        return null;
+      }
+
+      const revokedRefundWeight = Number(
+        revokedEntitlements
+          .reduce((sum, entry) => sum + entry.refundRatio, 0)
+          .toFixed(4),
+      );
+
+      return {
+        estimatedRefundAmount: Math.floor(
+          (item.totalPrice * revokedRefundWeight) / totalEntitlementCount,
+        ),
+        refundBasis: 'REVOKED_ENTITLEMENT_DURATION_RATIO',
+        refundBreakdown: {
+          totalEntitlementCount,
+          revokedRefundWeight,
+          revokedEntitlements,
+        },
+      };
+    }
+
+    if (item.productTypeSnapshot === BillingProductType.CREDIT_PACK) {
+      const rechargeBucket =
+        item.creditBuckets?.find(
+          (bucket) => bucket.sourceType === CreditSourceType.RECHARGE_PACK,
+        ) ?? null;
+      const revokedAmount = revocationHistories
+        .filter(
+          (history) =>
+            history.targetType === RevocationTargetType.CREDIT_BUCKET &&
+            history.actionType === RevocationActionType.CLAWBACK,
+        )
+        .reduce(
+          (sum, history) => sum + Math.abs(Math.min(history.deltaAmount, 0)),
+          0,
+        );
+
+      if (revokedAmount === 0) {
+        return null;
+      }
+
+      const originalAmount =
+        rechargeBucket?.originalAmount ??
+        item.rechargeCreditAmountSnapshot * item.quantity;
+      const remainingAmount = rechargeBucket?.remainingAmount ?? 0;
+
+      if (originalAmount <= 0) {
+        return null;
+      }
+
+      const revokedRatio = this.clampRatio(revokedAmount / originalAmount);
+      const usedAmount = Math.max(
+        0,
+        originalAmount - remainingAmount - revokedAmount,
+      );
+
+      return {
+        estimatedRefundAmount: Math.floor(
+          item.totalPrice * (revokedAmount / originalAmount),
+        ),
+        refundBasis: 'REVOKED_RECHARGE_RATIO',
+        refundBreakdown: {
+          originalAmount,
+          usedAmount,
+          revokedAmount,
+          remainingAmount,
+          revokedRatio,
+        },
+      };
+    }
+
+    return null;
+  }
+
+  private async markPaymentRefundPending(
+    paymentId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return this.billingRepo.updatePayment(
+      paymentId,
+      {
+        refundStatus: PaymentRefundStatus.PENDING,
+        refundCompletedAt: null,
+      },
+      tx,
+    );
+  }
+
   private formatPayment(
     payment: PaymentWithRelations,
-    options?: { includeAdminRevocationHistories?: boolean },
+    options?: {
+      includeAdminRevocationHistories?: boolean;
+      includeEstimatedRefund?: boolean;
+    },
   ) {
     const items = payment.items.map((item) => {
       const { revocationHistories, ...restItem } = item;
       const revocationSummary = this.buildPaymentItemRevocationSummary(item);
+      const estimatedRefund = options?.includeEstimatedRefund
+        ? this.calculatePaymentItemEstimatedRefund(item)
+        : null;
 
       return {
         ...restItem,
@@ -399,6 +580,7 @@ export class BillingService {
               revocationHistories: revocationHistories ?? [],
             }
           : {}),
+        ...(estimatedRefund ?? {}),
         revocationSummary,
       };
     });
@@ -412,6 +594,12 @@ export class BillingService {
       (sum, item) => sum + (item.revocationSummary.revokedRechargeAmount ?? 0),
       0,
     );
+    const hasEstimatedRefund = items.some(
+      (item) => typeof item.estimatedRefundAmount === 'number',
+    );
+    const estimatedRefundAmount = options?.includeEstimatedRefund
+      ? items.reduce((sum, item) => sum + (item.estimatedRefundAmount ?? 0), 0)
+      : null;
 
     return {
       ...payment,
@@ -419,6 +607,9 @@ export class BillingService {
       hasRevocation: revokedEntitlementCount > 0 || revokedRechargeAmount > 0,
       revokedEntitlementCount,
       revokedRechargeAmount,
+      ...(options?.includeEstimatedRefund && hasEstimatedRefund
+        ? { estimatedRefundAmount: estimatedRefundAmount ?? 0 }
+        : {}),
     };
   }
 
@@ -914,8 +1105,17 @@ export class BillingService {
       throw new NotFoundException('결제 내역을 찾을 수 없습니다.');
     }
 
-    return this.formatPayment(payment as PaymentWithRelations, {
+    await this.reconcileInstructorState(payment.instructorId);
+
+    const refreshedPayment = await this.billingRepo.findPaymentById(paymentId);
+
+    if (!refreshedPayment) {
+      throw new NotFoundException('결제 내역을 찾을 수 없습니다.');
+    }
+
+    return this.formatPayment(refreshedPayment as PaymentWithRelations, {
       includeAdminRevocationHistories: true,
+      includeEstimatedRefund: true,
     });
   }
 
@@ -1018,6 +1218,36 @@ export class BillingService {
         },
         tx,
       );
+    });
+
+    return this.getPayment(paymentId);
+  }
+
+  async updatePaymentRefundStatus(
+    paymentId: string,
+    data: UpdatePaymentRefundStatusDto,
+  ) {
+    const payment = await this.billingRepo.findPaymentById(paymentId);
+
+    if (!payment) {
+      throw new NotFoundException('결제 내역을 찾을 수 없습니다.');
+    }
+
+    const hasRevocation = payment.items.some(
+      (item) => (item.revocationHistories?.length ?? 0) > 0,
+    );
+
+    if (!hasRevocation) {
+      throw new BadRequestException(
+        '회수 이력이 있는 결제만 환불 상태를 변경할 수 있습니다.',
+      );
+    }
+
+    await this.billingRepo.updatePayment(paymentId, {
+      refundStatus: data.refundStatus,
+      refundMemo: data.refundMemo,
+      refundCompletedAt:
+        data.refundStatus === PaymentRefundStatus.COMPLETED ? new Date() : null,
     });
 
     return this.getPayment(paymentId);
@@ -1195,6 +1425,8 @@ export class BillingService {
         });
       }
 
+      await this.markPaymentRefundPending(paymentItem.paymentId, tx);
+
       const wallet = await this.refreshCreditWallet(
         paymentItem.payment.instructorId,
         tx,
@@ -1299,6 +1531,8 @@ export class BillingService {
         },
         tx,
       );
+
+      await this.markPaymentRefundPending(paymentItem.paymentId, tx);
 
       const wallet = await this.refreshCreditWallet(
         paymentItem.payment.instructorId,

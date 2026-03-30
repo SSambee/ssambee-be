@@ -246,6 +246,26 @@ export class BillingController {
     }
   };
 
+  updatePaymentRefundStatus = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const payment = await this.billingService.updatePaymentRefundStatus(
+        req.params.id,
+        req.body,
+      );
+
+      return successResponse(res, {
+        data: payment,
+        message: '환불 상태 변경 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   revokeEntitlements = async (
     req: Request,
     res: Response,

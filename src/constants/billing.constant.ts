@@ -43,6 +43,15 @@ export const PaymentStatus = {
 
 export type PaymentStatus = (typeof PaymentStatus)[keyof typeof PaymentStatus];
 
+export const PaymentRefundStatus = {
+  NONE: 'NONE',
+  PENDING: 'PENDING',
+  COMPLETED: 'COMPLETED',
+} as const;
+
+export type PaymentRefundStatus =
+  (typeof PaymentRefundStatus)[keyof typeof PaymentRefundStatus];
+
 export const ReceiptType = {
   CASH_RECEIPT: 'CASH_RECEIPT',
   BUSINESS_RECEIPT: 'BUSINESS_RECEIPT',

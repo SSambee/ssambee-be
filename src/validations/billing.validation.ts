@@ -3,6 +3,7 @@ import {
   BillingMode,
   BillingProductType,
   PaymentMethodType,
+  PaymentRefundStatus,
   PaymentStatus,
   ReceiptStatus,
   ReceiptType,
@@ -135,6 +136,18 @@ export const approvePaymentSchema = z.object({
 export const rejectPaymentSchema = z.object({
   reason: z.string().min(1, '반려 사유는 필수입니다.'),
 });
+
+export const updatePaymentRefundStatusSchema = z.object({
+  refundStatus: z.enum([
+    PaymentRefundStatus.PENDING,
+    PaymentRefundStatus.COMPLETED,
+  ]),
+  refundMemo: z.string().optional(),
+});
+
+export type UpdatePaymentRefundStatusDto = z.infer<
+  typeof updatePaymentRefundStatusSchema
+>;
 
 export const revokeEntitlementsSchema = z.object({
   revokeCount: z
