@@ -234,6 +234,69 @@ export class BillingController {
     }
   };
 
+  getAdminInstructorPayments = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const result = await this.billingService.listInstructorPaymentsForAdmin(
+        req.params.instructorId,
+        req.query as unknown as {
+          status?: string;
+          page: number;
+          limit: number;
+        },
+      );
+
+      return successResponse(res, {
+        data: result,
+        message: '관리자 강사 결제 내역 조회 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getAdminInstructorEntitlements = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const entitlements =
+        await this.billingService.listEntitlementsByInstructorForAdmin(
+          req.params.instructorId,
+        );
+
+      return successResponse(res, {
+        data: entitlements,
+        message: '관리자 강사 이용권 조회 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getAdminInstructorCredits = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const credits = await this.billingService.getCreditSummaryForAdmin(
+        req.params.instructorId,
+      );
+
+      return successResponse(res, {
+        data: credits,
+        message: '관리자 강사 크레딧 조회 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   approvePayment = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const payment = await this.billingService.approvePayment(

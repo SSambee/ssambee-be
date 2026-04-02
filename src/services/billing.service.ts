@@ -1207,6 +1207,15 @@ export class BillingService {
     };
   }
 
+  async listInstructorPaymentsForAdmin(
+    instructorId: string,
+    query: { status?: string; page: number; limit: number },
+  ) {
+    await this.assertInstructorExists(instructorId);
+
+    return this.listInstructorPayments(instructorId, query);
+  }
+
   async getInstructorPayment(paymentId: string, instructorId: string) {
     const payment = await this.assertInstructorPaymentOwner(
       paymentId,
@@ -1818,6 +1827,12 @@ export class BillingService {
     });
   }
 
+  async listEntitlementsByInstructorForAdmin(instructorId: string) {
+    await this.assertInstructorExists(instructorId);
+
+    return this.listEntitlementsByInstructor(instructorId);
+  }
+
   async getCreditSummary(instructorId: string) {
     const result = await this.reconcileInstructorState(instructorId);
     const activeBuckets =
@@ -1871,6 +1886,12 @@ export class BillingService {
       }),
       rechargePacks,
     };
+  }
+
+  async getCreditSummaryForAdmin(instructorId: string) {
+    await this.assertInstructorExists(instructorId);
+
+    return this.getCreditSummary(instructorId);
   }
 
   async getInstructorBillingSummary(
@@ -1970,6 +1991,16 @@ export class BillingService {
           ? BillingErrorCode.PLAN_REQUIRED
           : null,
     };
+  }
+
+  private async assertInstructorExists(instructorId: string) {
+    const instructor = await this.billingRepo.findInstructorById(instructorId);
+
+    if (!instructor) {
+      throw new NotFoundException('강사를 찾을 수 없습니다.');
+    }
+
+    return instructor;
   }
 
   async consumeCredits(

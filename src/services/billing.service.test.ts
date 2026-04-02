@@ -20,6 +20,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  NotFoundException,
 } from '../err/http.exception.js';
 
 describe('BillingService', () => {
@@ -1713,5 +1714,24 @@ describe('BillingService', () => {
       }),
       expect.anything(),
     );
+  });
+
+  it('관리자 강사별 결제/이용권/크레딧 조회는 대상 강사가 없으면 실패해야 한다', async () => {
+    (mockBillingRepo.findInstructorById as jest.Mock).mockResolvedValue(null);
+
+    await expect(
+      service.listInstructorPaymentsForAdmin('missing-instructor', {
+        page: 1,
+        limit: 20,
+      }),
+    ).rejects.toThrow(new NotFoundException('강사를 찾을 수 없습니다.'));
+
+    await expect(
+      service.listEntitlementsByInstructorForAdmin('missing-instructor'),
+    ).rejects.toThrow(new NotFoundException('강사를 찾을 수 없습니다.'));
+
+    await expect(
+      service.getCreditSummaryForAdmin('missing-instructor'),
+    ).rejects.toThrow(new NotFoundException('강사를 찾을 수 없습니다.'));
   });
 });

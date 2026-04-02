@@ -43,6 +43,22 @@ adminBillingRouter.post(
   validate(adminCreditGrantSchema),
   billingController.createAdminCreditGrant,
 );
+adminBillingRouter.get(
+  '/instructors/:instructorId/payments',
+  validate(instructorIdParamSchema, 'params'),
+  validate(paymentListQuerySchema, 'query'),
+  billingController.getAdminInstructorPayments,
+);
+adminBillingRouter.get(
+  '/instructors/:instructorId/entitlements',
+  validate(instructorIdParamSchema, 'params'),
+  billingController.getAdminInstructorEntitlements,
+);
+adminBillingRouter.get(
+  '/instructors/:instructorId/credits',
+  validate(instructorIdParamSchema, 'params'),
+  billingController.getAdminInstructorCredits,
+);
 
 adminBillingRouter.get(
   '/payments',

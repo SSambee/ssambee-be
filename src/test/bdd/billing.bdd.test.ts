@@ -14,6 +14,7 @@ import {
 } from '../../constants/billing.constant.js';
 import { UserType } from '../../constants/auth.constant.js';
 import { calculateCreditExpiryAt } from '../../utils/date.util.js';
+import { seedActiveInstructorEntitlement } from '../utils/billing-test.util.js';
 import type {
   BillingProduct,
   Instructor,
@@ -257,5 +258,60 @@ describe('결제 BDD 테스트 - @integration', () => {
     expect(refundRes.body.message).toBe(
       '관리자 지급 크레딧은 환불 상태를 변경할 수 없습니다.',
     );
+  });
+
+  it('관리자가 특정 강사의 결제, 이용권, 충전권 상태를 조회할 수 있어야 한다', async () => {
+    mockAdminSession();
+
+    const seeded = await seedActiveInstructorEntitlement(instructor.id);
+
+    const createRes = await request(app)
+      .post(`/api/admin/v1/billing/instructors/${instructor.id}/credit-grants`)
+      .send({
+        creditAmount: 700,
+        expiresInDays: 15,
+        reason: '운영 지급',
+      });
+
+    expect(createRes.status).toBe(201);
+
+    const paymentsRes = await request(app).get(
+      `/api/admin/v1/billing/instructors/${instructor.id}/payments`,
+    );
+
+    expect(paymentsRes.status).toBe(200);
+    expect(paymentsRes.body.message).toBe('관리자 강사 결제 내역 조회 성공');
+    expect(paymentsRes.body.data.totalCount).toBe(2);
+    expect(paymentsRes.body.data.payments).toHaveLength(2);
+    expect(
+      paymentsRes.body.data.payments.map(
+        (payment: { id: string }) => payment.id,
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        seeded.payment.id,
+        createRes.body.data.id as string,
+      ]),
+    );
+
+    const entitlementsRes = await request(app).get(
+      `/api/admin/v1/billing/instructors/${instructor.id}/entitlements`,
+    );
+
+    expect(entitlementsRes.status).toBe(200);
+    expect(entitlementsRes.body.message).toBe('관리자 강사 이용권 조회 성공');
+    expect(entitlementsRes.body.data).toHaveLength(1);
+    expect(entitlementsRes.body.data[0].id).toBe(seeded.entitlement.id);
+    expect(entitlementsRes.body.data[0].status).toBe('ACTIVE');
+
+    const creditsRes = await request(app).get(
+      `/api/admin/v1/billing/instructors/${instructor.id}/credits`,
+    );
+
+    expect(creditsRes.status).toBe(200);
+    expect(creditsRes.body.message).toBe('관리자 강사 크레딧 조회 성공');
+    expect(creditsRes.body.data.totalAvailable).toBe(2700);
+    expect(creditsRes.body.data.rechargePacks).toHaveLength(1);
+    expect(creditsRes.body.data.rechargePacks[0].remainingAmount).toBe(700);
   });
 });

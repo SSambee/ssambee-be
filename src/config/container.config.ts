@@ -115,6 +115,9 @@ import { ProfileController } from '../controllers/profile.controller.js';
 import { BillingRepository } from '../repos/billing.repo.js';
 import { BillingService } from '../services/billing.service.js';
 import { BillingController } from '../controllers/billing.controller.js';
+import { AdminUsersRepository } from '../repos/admin-users.repo.js';
+import { AdminUsersService } from '../services/admin-users.service.js';
+import { AdminUsersController } from '../controllers/admin-users.controller.js';
 
 // 1. Instantiate Repositories
 const instructorRepo = new InstructorRepository(prisma);
@@ -146,12 +149,14 @@ const studentPostsRepo = new StudentPostsRepository(prisma);
 const commentsRepo = new CommentsRepository(prisma);
 const profileRepo = new ProfileRepository(prisma);
 const billingRepo = new BillingRepository(prisma);
+const adminUsersRepo = new AdminUsersRepository(prisma);
 
 // 2. Instantiate Services (Inject Repos)
 const fileStorageService = new FileStorageService();
 
 const billingService = new BillingService(billingRepo, prisma);
 const profileService = new ProfileService(profileRepo, billingService);
+const adminUsersService = new AdminUsersService(adminUsersRepo);
 
 const authService = new AuthService(
   instructorRepo,
@@ -402,6 +407,7 @@ const studentPostsController = new StudentPostsController(studentPostsService);
 const commentsController = new CommentsController(commentsService);
 const dashboardController = new DashboardController(dashboardService);
 const billingController = new BillingController(billingService);
+const adminUsersController = new AdminUsersController(adminUsersService);
 
 // 4. Create Middlewares (Inject Services)
 const requireAuth = createRequireAuth(authService);
@@ -447,6 +453,7 @@ export const container = {
   profileService,
   dashboardService,
   billingService,
+  adminUsersService,
   // Controllers
   authController,
   lecturesController,
@@ -472,6 +479,7 @@ export const container = {
   assignmentResultsController,
   dashboardController,
   billingController,
+  adminUsersController,
   profileController: new ProfileController(profileService),
   // Middlewares
   requireAuth,
