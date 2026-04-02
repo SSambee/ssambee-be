@@ -126,6 +126,10 @@ export const IncludedCreditPolicy = {
   RECHARGE_EXPIRES_IN_DAYS: 90,
 } as const;
 
+export const BillingSystemProductCode = {
+  ADMIN_CREDIT_GRANT_ZERO: 'ADMIN_CREDIT_GRANT_ZERO',
+} as const;
+
 export const BillingErrorCode = {
   PLAN_REQUIRED: 'PLAN_REQUIRED',
   INSUFFICIENT_CREDITS: 'INSUFFICIENT_CREDITS',

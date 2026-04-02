@@ -19,6 +19,7 @@ import 'dotenv/config';
 import {
   BillingMode,
   BillingProductType,
+  BillingSystemProductCode,
   PaymentMethodType,
 } from '../src/constants/billing.constant.js';
 
@@ -102,6 +103,23 @@ async function main() {
         price: 33000,
         isActive: true,
         sortOrder: 2,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: createId(),
+        code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+        name: '관리자 지급 전용 충전권',
+        description: '관리자가 강사에게 직접 지급하는 0원 충전권',
+        productType: BillingProductType.CREDIT_PACK,
+        billingMode: BillingMode.ONE_TIME,
+        paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+        durationMonths: null,
+        includedCreditAmount: 0,
+        rechargeCreditAmount: 0,
+        price: 0,
+        isActive: false,
+        sortOrder: 9999,
         createdAt: now,
         updatedAt: now,
       },

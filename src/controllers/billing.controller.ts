@@ -84,6 +84,28 @@ export class BillingController {
     }
   };
 
+  createAdminCreditGrant = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const payment = await this.billingService.createAdminCreditGrant(
+        req.params.instructorId,
+        req.body,
+        this.getActor(req),
+      );
+
+      return successResponse(res, {
+        statusCode: 201,
+        data: payment,
+        message: '관리자 크레딧 지급 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   createBankTransferPayment = async (
     req: Request,
     res: Response,

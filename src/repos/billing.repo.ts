@@ -42,6 +42,12 @@ export class BillingRepository {
     });
   }
 
+  async findProductByCode(code: string, tx?: Prisma.TransactionClient) {
+    return this.getClient(tx).billingProduct.findUnique({
+      where: { code },
+    });
+  }
+
   async createProduct(
     data: Prisma.BillingProductUncheckedCreateInput,
     tx?: Prisma.TransactionClient,
@@ -309,6 +315,13 @@ export class BillingRepository {
         },
       },
       orderBy: [{ endsAt: 'desc' }, { sequenceNo: 'desc' }],
+    });
+  }
+
+  async findInstructorById(id: string, tx?: Prisma.TransactionClient) {
+    return this.getClient(tx).instructor.findUnique({
+      where: { id },
+      select: { id: true },
     });
   }
 

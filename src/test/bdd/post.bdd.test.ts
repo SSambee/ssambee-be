@@ -3,6 +3,7 @@ import { createTestApp } from '../utils/app.mock.js';
 import { container } from '../../config/container.config.js';
 import { UserType } from '../../constants/auth.constant.js';
 import { dbTestUtil } from '../utils/db-test.util.js';
+import { seedActiveInstructorEntitlement } from '../utils/billing-test.util.js';
 import { prisma } from '../../config/db.config.js';
 import { fakerKO as faker } from '@faker-js/faker';
 import type {
@@ -59,6 +60,7 @@ describe('게시글 및 댓글 BDD 테스트 - @integration', () => {
           phoneNumber: faker.phone.number(),
         },
       });
+      await seedActiveInstructorEntitlement(instructor.id);
 
       // 2. 학생 생성
       const studentUser = await prisma.user.create({
@@ -211,6 +213,7 @@ describe('게시글 및 댓글 BDD 테스트 - @integration', () => {
       instructor = await prisma.instructor.create({
         data: { userId: instructorUser.id, phoneNumber: faker.phone.number() },
       });
+      await seedActiveInstructorEntitlement(instructor.id);
       const studentUser = await prisma.user.create({
         data: {
           id: faker.string.uuid(),

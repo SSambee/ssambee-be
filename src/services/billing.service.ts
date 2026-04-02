@@ -18,6 +18,7 @@ import {
   NotFoundException,
 } from '../err/http.exception.js';
 import type {
+  CreateAdminCreditGrantDto,
   CreateBankTransferPaymentDto,
   CreateBillingProductDto,
   RevokeEntitlementsDto,
@@ -29,6 +30,7 @@ import {
   BillingErrorCode,
   BillingMode,
   BillingProductType,
+  BillingSystemProductCode,
   CreditBucketStatus,
   CreditLedgerType,
   CreditSourceType,
@@ -137,6 +139,15 @@ export class BillingService {
     private readonly billingRepo: BillingRepository,
     private readonly prisma: PrismaClient,
   ) {}
+
+  private isAdminCreditGrantItem(item: {
+    productCodeSnapshot?: string | null;
+  }) {
+    return (
+      item.productCodeSnapshot ===
+      BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO
+    );
+  }
 
   private sanitizeProductData(
     data: CreateBillingProductDto | UpdateBillingProductDto,
@@ -587,6 +598,13 @@ export class BillingService {
     );
   }
 
+  private getRechargeCreditExpiryDays(item: PaymentItem) {
+    return (
+      item.rechargeExpiresInDaysSnapshot ??
+      IncludedCreditPolicy.RECHARGE_EXPIRES_IN_DAYS
+    );
+  }
+
   private formatPayment(
     payment: PaymentWithRelations,
     options?: {
@@ -720,7 +738,7 @@ export class BillingService {
         grantedAt: payment.approvedAt ?? new Date(),
         expiresAt: calculateCreditExpiryAt(
           payment.approvedAt ?? new Date(),
-          IncludedCreditPolicy.RECHARGE_EXPIRES_IN_DAYS,
+          this.getRechargeCreditExpiryDays(item),
         ),
       },
       tx,
@@ -969,6 +987,78 @@ export class BillingService {
 
       throw error;
     }
+  }
+
+  async createAdminCreditGrant(
+    instructorId: string,
+    data: CreateAdminCreditGrantDto,
+    actor: Actor,
+  ) {
+    const [instructor, product] = await Promise.all([
+      this.billingRepo.findInstructorById(instructorId),
+      this.billingRepo.findProductByCode(
+        BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+      ),
+    ]);
+
+    if (!instructor) {
+      throw new NotFoundException('강사를 찾을 수 없습니다.');
+    }
+
+    if (!product) {
+      throw new NotFoundException('관리자 지급용 상품을 찾을 수 없습니다.');
+    }
+
+    const payment = await this.prisma.$transaction(async (tx) => {
+      const approvedAt = new Date();
+      const createdPayment = await this.billingRepo.createPayment(
+        {
+          instructorId,
+          methodType: PaymentMethodType.BANK_TRANSFER,
+          providerType: PaymentProviderType.MANUAL,
+          status: PaymentStatus.APPROVED,
+          totalAmount: 0,
+          approvedAt,
+        },
+        tx,
+      );
+
+      const createdItem = await this.billingRepo.createPaymentItem(
+        {
+          paymentId: createdPayment.id,
+          billingProductId: product.id,
+          productCodeSnapshot: product.code,
+          productNameSnapshot: product.name,
+          productTypeSnapshot: product.productType,
+          quantity: 1,
+          unitPrice: 0,
+          totalPrice: 0,
+          durationMonthsSnapshot: product.durationMonths,
+          includedCreditAmountSnapshot: 0,
+          rechargeCreditAmountSnapshot: data.creditAmount,
+          rechargeExpiresInDaysSnapshot: data.expiresInDays,
+        },
+        tx,
+      );
+
+      await this.billingRepo.createPaymentStatusHistory(
+        {
+          paymentId: createdPayment.id,
+          fromStatus: null,
+          toStatus: PaymentStatus.APPROVED,
+          actorUserId: actor.userId,
+          actorRole: actor.role,
+          reason: data.reason,
+        },
+        tx,
+      );
+
+      await this.grantRechargeCredits(createdPayment, createdItem, tx);
+
+      return createdPayment;
+    });
+
+    return this.getPayment(payment.id);
   }
 
   async createBankTransferPayment(
@@ -1259,6 +1349,12 @@ export class BillingService {
 
     if (!payment) {
       throw new NotFoundException('결제 내역을 찾을 수 없습니다.');
+    }
+
+    if (payment.items.some((item) => this.isAdminCreditGrantItem(item))) {
+      throw new BadRequestException(
+        '관리자 지급 크레딧은 환불 상태를 변경할 수 없습니다.',
+      );
     }
 
     const hasRevocation = payment.items.some(
@@ -1560,7 +1656,9 @@ export class BillingService {
         tx,
       );
 
-      await this.markPaymentRefundPending(paymentItem.paymentId, tx);
+      if (!this.isAdminCreditGrantItem(paymentItem)) {
+        await this.markPaymentRefundPending(paymentItem.paymentId, tx);
+      }
 
       const wallet = await this.refreshCreditWallet(
         paymentItem.payment.instructorId,

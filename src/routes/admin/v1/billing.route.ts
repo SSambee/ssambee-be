@@ -2,8 +2,10 @@ import { Router } from 'express';
 import { container } from '../../../config/container.config.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
 import {
+  adminCreditGrantSchema,
   approvePaymentSchema,
   createBillingProductSchema,
+  instructorIdParamSchema,
   paymentListQuerySchema,
   paymentItemIdParamSchema,
   productIdParamSchema,
@@ -34,6 +36,12 @@ adminBillingRouter.patch(
   validate(productIdParamSchema, 'params'),
   validate(updateBillingProductSchema),
   billingController.updateProduct,
+);
+adminBillingRouter.post(
+  '/instructors/:instructorId/credit-grants',
+  validate(instructorIdParamSchema, 'params'),
+  validate(adminCreditGrantSchema),
+  billingController.createAdminCreditGrant,
 );
 
 adminBillingRouter.get(

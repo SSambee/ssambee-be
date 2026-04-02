@@ -965,6 +965,7 @@ model PaymentItem {
   durationMonthsSnapshot       Int?    @map("duration_months_snapshot")
   includedCreditAmountSnapshot Int     @default(0) @map("included_credit_amount_snapshot")
   rechargeCreditAmountSnapshot Int     @default(0) @map("recharge_credit_amount_snapshot")
+  rechargeExpiresInDaysSnapshot Int?   @map("recharge_expires_in_days_snapshot")
 
   payment        Payment        @relation(fields: [paymentId], references: [id], onDelete: Cascade)
   billingProduct BillingProduct @relation(fields: [billingProductId], references: [id])

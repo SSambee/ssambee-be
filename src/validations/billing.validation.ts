@@ -60,6 +60,10 @@ export const productIdParamSchema = z.object({
   id: cuidSchema,
 });
 
+export const instructorIdParamSchema = z.object({
+  instructorId: cuidSchema,
+});
+
 export const paymentItemIdParamSchema = z.object({
   paymentItemId: cuidSchema,
 });
@@ -122,6 +126,20 @@ export const createBillingProductSchema = z.object({
 export type CreateBillingProductDto = z.infer<
   typeof createBillingProductSchema
 >;
+
+export const adminCreditGrantSchema = z.object({
+  creditAmount: z
+    .number()
+    .int('크레딧은 정수여야 합니다.')
+    .positive('크레딧은 1 이상이어야 합니다.'),
+  expiresInDays: z
+    .number()
+    .int('기간은 정수여야 합니다.')
+    .positive('기간은 1일 이상이어야 합니다.'),
+  reason: z.string().min(1, '지급 사유는 필수입니다.'),
+});
+
+export type CreateAdminCreditGrantDto = z.infer<typeof adminCreditGrantSchema>;
 
 export const updateBillingProductSchema = createBillingProductSchema.partial();
 
