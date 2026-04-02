@@ -150,8 +150,8 @@ const billingRepo = new BillingRepository(prisma);
 // 2. Instantiate Services (Inject Repos)
 const fileStorageService = new FileStorageService();
 
-const profileService = new ProfileService(profileRepo, prisma);
 const billingService = new BillingService(billingRepo, prisma);
+const profileService = new ProfileService(profileRepo, billingService);
 
 const authService = new AuthService(
   instructorRepo,
@@ -161,6 +161,7 @@ const authService = new AuthService(
   parentRepo,
   enrollmentsRepo,
   auth,
+  billingService,
   prisma,
 );
 

@@ -326,6 +326,7 @@ describe('AuthController - @unit #critical', () => {
         status: true,
         user: mockUsers.student,
         setCookie: 'session_token=verified-cookie',
+        redirectTo: null,
       });
 
       await authController.verifyEmailForSvc(
@@ -359,6 +360,7 @@ describe('AuthController - @unit #critical', () => {
         status: true,
         user: mockUsers.instructor,
         setCookie: 'session_token=verified-cookie',
+        redirectTo: null,
       });
 
       await authController.verifyEmail(
@@ -392,6 +394,7 @@ describe('AuthController - @unit #critical', () => {
         status: true,
         user: mockUsers.instructor,
         setCookie: 'session_token=verified-cookie',
+        redirectTo: null,
       });
 
       await authController.verifyEmailForMgmt(
@@ -420,6 +423,8 @@ describe('AuthController - @unit #critical', () => {
       mockAuthService.verifyEmailWithToken.mockResolvedValue({
         status: true,
         user: mockUsers.instructor,
+        setCookie: null,
+        redirectTo: null,
       });
 
       await authController.verifyEmailForSvc(
@@ -547,11 +552,22 @@ describe('AuthController - @unit #critical', () => {
     describe('AUTH-07: 세션 조회 API', () => {
       it('GET /session - 유효한 세션 시 사용자 정보 반환', async () => {
         mockReq.headers = { cookie: 'session_token=test-token' };
-        mockAuthService.getSession.mockResolvedValue({
-          user: mockUsers.instructor,
-          session: mockSession,
-          profile: mockProfiles.instructor,
-        });
+        mockAuthService.getSessionWithInstructorBillingSummary.mockResolvedValue(
+          {
+            user: mockUsers.instructor,
+            session: mockSession,
+            profile: {
+              ...mockProfiles.instructor,
+              activeEntitlement: {
+                id: 'entitlement-1',
+                status: 'ACTIVE',
+                startsAt: new Date('2026-03-24T00:00:00.000Z'),
+                endsAt: new Date('2026-04-23T14:59:59.999Z'),
+                includedCreditAmount: 1000,
+              },
+            },
+          },
+        );
 
         await authController.getSession(
           mockReq as Request,
@@ -559,16 +575,25 @@ describe('AuthController - @unit #critical', () => {
           mockNext,
         );
 
-        expect(mockAuthService.getSession).toHaveBeenCalledWith(
-          mockReq.headers,
-        );
+        expect(
+          mockAuthService.getSessionWithInstructorBillingSummary,
+        ).toHaveBeenCalledWith(mockReq.headers);
         expect(mockRes.json).toHaveBeenCalledWith(
           expect.objectContaining({
             status: 'success',
             data: expect.objectContaining({
               user: mockUsers.instructor,
               session: mockSession,
-              profile: mockProfiles.instructor,
+              profile: {
+                ...mockProfiles.instructor,
+                activeEntitlement: {
+                  id: 'entitlement-1',
+                  status: 'ACTIVE',
+                  startsAt: new Date('2026-03-24T00:00:00.000Z'),
+                  endsAt: new Date('2026-04-23T14:59:59.999Z'),
+                  includedCreditAmount: 1000,
+                },
+              },
             }),
           }),
         );
@@ -576,7 +601,9 @@ describe('AuthController - @unit #critical', () => {
 
       it('GET /session - 세션 없을 시 401 에러', async () => {
         mockReq.headers = {};
-        mockAuthService.getSession.mockResolvedValue(null);
+        mockAuthService.getSessionWithInstructorBillingSummary.mockResolvedValue(
+          null,
+        );
 
         await authController.getSession(
           mockReq as Request,

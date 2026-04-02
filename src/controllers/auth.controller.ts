@@ -378,7 +378,10 @@ export class AuthController {
   /** 세션 조회 */
   getSession = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const session = await this.authService.getSession(req.headers);
+      const session =
+        await this.authService.getSessionWithInstructorBillingSummary(
+          req.headers,
+        );
       if (!session) {
         throw new UnauthorizedException('인증이 필요합니다.');
       }

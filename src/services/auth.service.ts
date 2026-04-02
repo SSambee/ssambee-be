@@ -21,6 +21,7 @@ import { ParentRepository } from '../repos/parent.repo.js';
 import { SignUpData, AuthResponse, AuthUser } from '../types/auth.types.js';
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import { config } from '../config/env.config.js';
+import { BillingService } from './billing.service.js';
 
 const hasAdminRole = (role?: string | string[] | null) => {
   if (!role) {
@@ -43,6 +44,7 @@ export class AuthService {
     private readonly parentRepo: ParentRepository,
     private readonly enrollmentsRepo: EnrollmentsRepository,
     private readonly authClient: typeof auth,
+    private readonly billingService: BillingService,
     private readonly prisma: PrismaClient,
   ) {}
 
@@ -691,6 +693,34 @@ export class AuthService {
     return {
       ...session,
       profile,
+    };
+  }
+
+  async getSessionWithInstructorBillingSummary(headers: IncomingHttpHeaders) {
+    const session = await this.getSession(headers);
+
+    if (!session || session.user.userType !== UserType.INSTRUCTOR) {
+      return session;
+    }
+
+    const profile = session.profile as {
+      id: string;
+      [key: string]: unknown;
+    } | null;
+
+    if (!profile) {
+      return session;
+    }
+
+    const billingSummary =
+      await this.billingService.getInstructorBillingSummary(profile.id);
+
+    return {
+      ...session,
+      profile: {
+        ...profile,
+        activeEntitlement: billingSummary.activeEntitlement,
+      },
     };
   }
 

@@ -1121,6 +1121,90 @@ describe('BillingService', () => {
     expect(result.refundMemo).toBe('계좌이체 환불 완료');
   });
 
+  it('활성 이용권이 있으면 billing summary와 mgmt 접근 상태가 같은 정산 결과를 기준으로 반환되어야 한다', async () => {
+    const activeEntitlement = {
+      id: 'entitlement-1',
+      instructorId: 'instructor-1',
+      paymentItemId: 'item-1',
+      sequenceNo: 1,
+      status: EntitlementStatus.ACTIVE,
+      startsAt: new Date('2026-03-24T00:00:00.000Z'),
+      endsAt: new Date('2026-04-23T14:59:59.999Z'),
+      activatedAt: new Date('2026-03-24T00:00:00.000Z'),
+      expiredAt: null,
+      canceledAt: null,
+      includedCreditAmount: IncludedCreditPolicy.MONTHLY_AMOUNT,
+    };
+
+    jest.spyOn(service, 'reconcileInstructorState').mockResolvedValue({
+      wallet: {
+        totalAvailable: 700,
+        includedAvailable: 500,
+        rechargeAvailable: 200,
+      },
+      entitlements: [activeEntitlement],
+      activeEntitlement,
+    } as never);
+
+    const summary = await service.getInstructorBillingSummary('instructor-1');
+    const status = await service.getMgmtAccessStatus('instructor-1');
+
+    expect(summary).toEqual({
+      activeEntitlement: {
+        id: 'entitlement-1',
+        status: EntitlementStatus.ACTIVE,
+        startsAt: new Date('2026-03-24T00:00:00.000Z'),
+        endsAt: new Date('2026-04-23T14:59:59.999Z'),
+        includedCreditAmount: IncludedCreditPolicy.MONTHLY_AMOUNT,
+      },
+      creditSummary: {
+        totalAvailable: 700,
+      },
+    });
+    expect(status).toEqual({
+      canAccess: true,
+      reasonCode: null,
+      activeEntitlement,
+      wallet: {
+        totalAvailable: 700,
+        includedAvailable: 500,
+        rechargeAvailable: 200,
+      },
+    });
+  });
+
+  it('활성 이용권이 없으면 billing summary는 null이고 mgmt 접근 상태는 차단되어야 한다', async () => {
+    jest.spyOn(service, 'reconcileInstructorState').mockResolvedValue({
+      wallet: {
+        totalAvailable: 0,
+        includedAvailable: 0,
+        rechargeAvailable: 0,
+      },
+      entitlements: [],
+      activeEntitlement: null,
+    } as never);
+
+    const summary = await service.getInstructorBillingSummary('instructor-1');
+    const status = await service.getMgmtAccessStatus('instructor-1');
+
+    expect(summary).toEqual({
+      activeEntitlement: null,
+      creditSummary: {
+        totalAvailable: 0,
+      },
+    });
+    expect(status).toEqual({
+      canAccess: false,
+      reasonCode: BillingErrorCode.PLAN_REQUIRED,
+      activeEntitlement: null,
+      wallet: {
+        totalAvailable: 0,
+        includedAvailable: 0,
+        rechargeAvailable: 0,
+      },
+    });
+  });
+
   it('활성 이용권이 없으면 mgmt 접근을 차단해야 한다', async () => {
     jest.spyOn(service, 'reconcileInstructorState').mockResolvedValue({
       wallet: {

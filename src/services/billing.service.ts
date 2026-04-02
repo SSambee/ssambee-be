@@ -104,6 +104,34 @@ type PaymentWithRelations = Payment & {
   statusHistory?: PaymentStatusHistory[];
 };
 
+export interface InstructorActiveEntitlementSummary {
+  id: string;
+  status: string;
+  startsAt: Date;
+  endsAt: Date;
+  includedCreditAmount: number;
+}
+
+export interface InstructorCreditSummary {
+  totalAvailable: number;
+}
+
+export interface InstructorBillingSummary {
+  activeEntitlement: InstructorActiveEntitlementSummary | null;
+  creditSummary: InstructorCreditSummary;
+}
+
+interface InstructorBillingContext {
+  wallet: {
+    totalAvailable: number;
+    includedAvailable: number;
+    rechargeAvailable: number;
+  };
+  activeEntitlement: Entitlement | null;
+  canAccess: boolean;
+  reasonCode: (typeof BillingErrorCode)[keyof typeof BillingErrorCode] | null;
+}
+
 export class BillingService {
   constructor(
     private readonly billingRepo: BillingRepository,
@@ -1747,6 +1775,21 @@ export class BillingService {
     };
   }
 
+  async getInstructorBillingSummary(
+    instructorId: string,
+  ): Promise<InstructorBillingSummary> {
+    const context = await this.loadInstructorBillingContext(instructorId);
+
+    return {
+      activeEntitlement: this.toActiveEntitlementSummary(
+        context.activeEntitlement,
+      ),
+      creditSummary: {
+        totalAvailable: context.wallet.totalAvailable,
+      },
+    };
+  }
+
   async listCreditLedgers(
     instructorId: string,
     query: { page: number; limit: number },
@@ -1779,22 +1822,13 @@ export class BillingService {
   }
 
   async getMgmtAccessStatus(instructorId: string) {
-    const result = await this.reconcileInstructorState(instructorId);
-
-    if (!result.activeEntitlement) {
-      return {
-        canAccess: false,
-        reasonCode: BillingErrorCode.PLAN_REQUIRED,
-        activeEntitlement: null,
-        wallet: result.wallet,
-      };
-    }
+    const context = await this.loadInstructorBillingContext(instructorId);
 
     return {
-      canAccess: true,
-      reasonCode: null,
-      activeEntitlement: result.activeEntitlement,
-      wallet: result.wallet,
+      canAccess: context.canAccess,
+      reasonCode: context.reasonCode,
+      activeEntitlement: context.activeEntitlement,
+      wallet: context.wallet,
     };
   }
 
@@ -1806,6 +1840,38 @@ export class BillingService {
     }
 
     return status;
+  }
+
+  private toActiveEntitlementSummary(
+    activeEntitlement: Entitlement | null,
+  ): InstructorActiveEntitlementSummary | null {
+    if (!activeEntitlement) {
+      return null;
+    }
+
+    return {
+      id: activeEntitlement.id,
+      status: activeEntitlement.status,
+      startsAt: activeEntitlement.startsAt,
+      endsAt: activeEntitlement.endsAt,
+      includedCreditAmount: activeEntitlement.includedCreditAmount,
+    };
+  }
+
+  private async loadInstructorBillingContext(
+    instructorId: string,
+  ): Promise<InstructorBillingContext> {
+    const result = await this.reconcileInstructorState(instructorId);
+
+    return {
+      wallet: result.wallet,
+      activeEntitlement: result.activeEntitlement,
+      canAccess: result.activeEntitlement !== null,
+      reasonCode:
+        result.activeEntitlement === null
+          ? BillingErrorCode.PLAN_REQUIRED
+          : null,
+    };
   }
 
   async consumeCredits(

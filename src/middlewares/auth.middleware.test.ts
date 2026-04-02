@@ -91,6 +91,9 @@ describe('Auth Middleware - @unit #critical', () => {
         expect(mockReq.authSession).toEqual(mockSession);
         expect(mockReq.profile).toEqual(mockProfiles.instructor);
         expect(mockNext).toHaveBeenCalledWith();
+        expect(
+          mockAuthService.getSessionWithInstructorBillingSummary,
+        ).not.toHaveBeenCalled();
       });
     });
   });
@@ -394,6 +397,9 @@ describe('Auth Middleware - @unit #critical', () => {
         expect(mockReq.user).toBeDefined();
         expect(mockReq.user?.id).toBe(mockUsers.instructor.id);
         expect(mockNext).toHaveBeenCalledWith();
+        expect(
+          mockAuthService.getSessionWithInstructorBillingSummary,
+        ).not.toHaveBeenCalled();
       });
 
       it('세션이 없어도 에러 없이 next()를 호출한다', async () => {

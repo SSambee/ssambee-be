@@ -18,6 +18,7 @@ export const createMockAuthService = (): jest.Mocked<AuthService> =>
     resetPasswordWithOTP: jest.fn(),
     signOut: jest.fn(),
     getSession: jest.fn(),
+    getSessionWithInstructorBillingSummary: jest.fn(),
   }) as unknown as jest.Mocked<AuthService>;
 
 /** Mock ParentsService 생성 */
