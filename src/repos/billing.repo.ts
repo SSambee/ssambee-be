@@ -95,7 +95,26 @@ export class BillingRepository {
     id: string,
     data: Prisma.PaymentUncheckedUpdateInput,
     tx?: Prisma.TransactionClient,
+    expectedPreviousStatus?: string,
   ) {
+    if (expectedPreviousStatus) {
+      const result = await this.getClient(tx).payment.updateMany({
+        where: {
+          id,
+          status: expectedPreviousStatus,
+        },
+        data,
+      });
+
+      if (result.count === 0) {
+        return null;
+      }
+
+      return this.getClient(tx).payment.findUnique({
+        where: { id },
+      });
+    }
+
     return this.getClient(tx).payment.update({
       where: { id },
       data,

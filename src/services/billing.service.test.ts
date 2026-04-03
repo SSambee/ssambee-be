@@ -600,6 +600,130 @@ describe('BillingService', () => {
     expect(mockBillingRepo.upsertIncludedCreditBucket).not.toHaveBeenCalled();
   });
 
+  it('입금 알림은 guarded status update로만 상태를 변경해야 한다', async () => {
+    const payment = {
+      id: 'payment-deposit',
+      instructorId: 'instructor-1',
+      status: PaymentStatus.PENDING_DEPOSIT,
+      depositorName: '기존 입금자',
+      items: [],
+    };
+
+    jest.spyOn(service, 'getInstructorPayment').mockResolvedValue({
+      id: 'payment-deposit',
+      status: PaymentStatus.PENDING_APPROVAL,
+    } as never);
+    (mockBillingRepo.findPaymentById as jest.Mock).mockResolvedValue(payment);
+
+    await service.markPaymentDeposited(
+      'payment-deposit',
+      'instructor-1',
+      {
+        depositorName: '홍길동',
+      },
+      {
+        userId: 'user-1',
+        role: 'INSTRUCTOR',
+      },
+    );
+
+    expect(mockBillingRepo.updatePayment).toHaveBeenCalledWith(
+      'payment-deposit',
+      expect.objectContaining({
+        status: PaymentStatus.PENDING_APPROVAL,
+        depositorName: '홍길동',
+        depositedAt: expect.any(Date),
+      }),
+      expect.anything(),
+      PaymentStatus.PENDING_DEPOSIT,
+    );
+    expect(mockBillingRepo.findPaymentById).toHaveBeenCalledTimes(1);
+  });
+
+  it('guarded payment update가 실패하면 approvePayment는 부수효과 없이 ConflictException을 던져야 한다', async () => {
+    const payment = {
+      id: 'payment-conflict',
+      instructorId: 'instructor-1',
+      status: PaymentStatus.PENDING_APPROVAL,
+      approvedAt: null,
+      items: [
+        {
+          id: 'item-conflict',
+          quantity: 1,
+          durationMonthsSnapshot: 1,
+          includedCreditAmountSnapshot: IncludedCreditPolicy.MONTHLY_AMOUNT,
+          rechargeCreditAmountSnapshot: 0,
+          productTypeSnapshot: BillingProductType.PASS_SINGLE,
+        },
+      ],
+    };
+
+    (mockBillingRepo.findPaymentById as jest.Mock).mockResolvedValue(payment);
+    (mockBillingRepo.updatePayment as jest.Mock).mockResolvedValueOnce(null);
+
+    await expect(
+      service.approvePayment('payment-conflict', {
+        userId: 'admin-1',
+        role: 'admin',
+      }),
+    ).rejects.toThrow(ConflictException);
+
+    expect(mockBillingRepo.createPaymentStatusHistory).not.toHaveBeenCalled();
+    expect(mockBillingRepo.createEntitlement).not.toHaveBeenCalled();
+    expect(mockBillingRepo.updatePayment).toHaveBeenCalledWith(
+      'payment-conflict',
+      expect.objectContaining({
+        status: PaymentStatus.APPROVED,
+        approvedAt: expect.any(Date),
+      }),
+      expect.anything(),
+      PaymentStatus.PENDING_APPROVAL,
+    );
+  });
+
+  it('rejectPayment도 guarded status update로만 상태를 변경해야 한다', async () => {
+    const payment = {
+      id: 'payment-reject',
+      instructorId: 'instructor-1',
+      status: PaymentStatus.PENDING_APPROVAL,
+      items: [],
+    };
+
+    jest.spyOn(service, 'getPayment').mockResolvedValue({
+      id: 'payment-reject',
+      status: PaymentStatus.REJECTED,
+    } as never);
+    (mockBillingRepo.findPaymentById as jest.Mock).mockResolvedValue(payment);
+
+    await service.rejectPayment(
+      'payment-reject',
+      {
+        userId: 'admin-1',
+        role: 'admin',
+      },
+      '서류 불충분',
+    );
+
+    expect(mockBillingRepo.updatePayment).toHaveBeenCalledWith(
+      'payment-reject',
+      expect.objectContaining({
+        status: PaymentStatus.REJECTED,
+        rejectedAt: expect.any(Date),
+      }),
+      expect.anything(),
+      PaymentStatus.PENDING_APPROVAL,
+    );
+    expect(mockBillingRepo.createPaymentStatusHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentId: 'payment-reject',
+        fromStatus: PaymentStatus.PENDING_APPROVAL,
+        toStatus: PaymentStatus.REJECTED,
+        reason: '서류 불충분',
+      }),
+      expect.anything(),
+    );
+  });
+
   it('최신 queued entitlement부터 회수해야 한다', async () => {
     const queuedOld = {
       id: 'entitlement-old',

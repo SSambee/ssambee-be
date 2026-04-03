@@ -108,6 +108,8 @@ type PaymentWithRelations = Payment & {
 
 const SERIALIZABLE_TRANSACTION_RETRY_LIMIT = 3;
 const SERIALIZABLE_CONFLICT_ERROR_CODE = 'P2034';
+const PAYMENT_STATUS_TRANSITION_CONFLICT_MESSAGE =
+  '결제 상태가 변경되어 요청을 완료할 수 없습니다. 새로고침 후 다시 시도해주세요.';
 
 export interface InstructorActiveEntitlementSummary {
   id: string;
@@ -173,6 +175,26 @@ export class BillingService {
     }
 
     throw new Error('Serializable transaction retry loop exited unexpectedly.');
+  }
+
+  private async updatePaymentWithStatusGuard(
+    paymentId: string,
+    data: Prisma.PaymentUncheckedUpdateInput,
+    expectedPreviousStatus: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const updatedPayment = await this.billingRepo.updatePayment(
+      paymentId,
+      data,
+      tx,
+      expectedPreviousStatus,
+    );
+
+    if (updatedPayment === null) {
+      throw new ConflictException(PAYMENT_STATUS_TRANSITION_CONFLICT_MESSAGE);
+    }
+
+    return updatedPayment;
   }
 
   private isAdminCreditGrantItem(item: {
@@ -1170,8 +1192,6 @@ export class BillingService {
     data: { depositorName?: string; depositedAt?: string },
     actor: Actor,
   ) {
-    await this.assertInstructorPaymentOwner(paymentId, instructorId);
-
     await this.prisma.$transaction(async (tx) => {
       const payment = await this.assertInstructorPaymentOwner(
         paymentId,
@@ -1185,7 +1205,7 @@ export class BillingService {
         );
       }
 
-      await this.billingRepo.updatePayment(
+      await this.updatePaymentWithStatusGuard(
         paymentId,
         {
           status: PaymentStatus.PENDING_APPROVAL,
@@ -1194,6 +1214,7 @@ export class BillingService {
             ? new Date(data.depositedAt)
             : new Date(),
         },
+        payment.status,
         tx,
       );
 
@@ -1297,12 +1318,13 @@ export class BillingService {
 
       const approvedAt = new Date();
 
-      await this.billingRepo.updatePayment(
+      await this.updatePaymentWithStatusGuard(
         paymentId,
         {
           status: PaymentStatus.APPROVED,
           approvedAt,
         },
+        payment.status,
         tx,
       );
 
@@ -1360,12 +1382,13 @@ export class BillingService {
         );
       }
 
-      await this.billingRepo.updatePayment(
+      await this.updatePaymentWithStatusGuard(
         paymentId,
         {
           status: PaymentStatus.REJECTED,
           rejectedAt: new Date(),
         },
+        payment.status,
         tx,
       );
 

@@ -10,10 +10,18 @@ describe('BillingRepository', () => {
   const entitlementFindMany = jest.fn();
   const creditBucketFindMany = jest.fn();
   const creditBucketUpsert = jest.fn();
+  const paymentUpdate = jest.fn();
+  const paymentUpdateMany = jest.fn();
+  const paymentFindUnique = jest.fn();
   const prisma = {
     entitlement: {
       findFirst: entitlementFindFirst,
       findMany: entitlementFindMany,
+    },
+    payment: {
+      update: paymentUpdate,
+      updateMany: paymentUpdateMany,
+      findUnique: paymentFindUnique,
     },
     creditBucket: {
       findMany: creditBucketFindMany,
@@ -171,5 +179,36 @@ describe('BillingRepository', () => {
         status: CreditBucketStatus.ACTIVE,
       },
     });
+  });
+
+  it('updatePayment는 expectedPreviousStatus가 있으면 상태가 일치할 때만 갱신해야 한다', async () => {
+    paymentUpdateMany.mockResolvedValue({ count: 1 });
+    paymentFindUnique.mockResolvedValue({
+      id: 'payment-1',
+      status: 'APPROVED',
+    });
+
+    await repo.updatePayment(
+      'payment-1',
+      {
+        status: 'APPROVED',
+      } as never,
+      undefined,
+      'PENDING_APPROVAL',
+    );
+
+    expect(paymentUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'payment-1',
+        status: 'PENDING_APPROVAL',
+      },
+      data: {
+        status: 'APPROVED',
+      },
+    });
+    expect(paymentFindUnique).toHaveBeenCalledWith({
+      where: { id: 'payment-1' },
+    });
+    expect(paymentUpdate).not.toHaveBeenCalled();
   });
 });
