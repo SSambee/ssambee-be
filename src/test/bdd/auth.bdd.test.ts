@@ -262,6 +262,7 @@ describe('인증 BDD 테스트 - @integration', () => {
 
   describe('시나리오: 관리자 최초 활성화 플로우', () => {
     const adminEmail = 'primary-admin@example.com';
+    const adminEmailUpper = 'PRIMARY-ADMIN@EXAMPLE.COM';
     const adminUserId = 'primary-admin-user-id';
 
     it('pending admin이 OTP 인증 후 비밀번호를 설정하고 로그인할 수 있어야 한다', async () => {
@@ -353,13 +354,13 @@ describe('인증 BDD 테스트 - @integration', () => {
 
       const requestOtpRes = await request(app)
         .post('/api/admin/v1/auth/activate/request-otp')
-        .send({ email: adminEmail });
+        .send({ email: adminEmailUpper });
 
       expect(requestOtpRes.status).toBe(200);
 
       const verifyOtpRes = await request(app)
         .post('/api/admin/v1/auth/activate/verify-otp')
-        .send({ email: adminEmail, otp: '123456' });
+        .send({ email: adminEmailUpper, otp: '123456' });
 
       expect(verifyOtpRes.status).toBe(200);
       expect(verifyOtpRes.body.data.activationRequired).toBe(true);

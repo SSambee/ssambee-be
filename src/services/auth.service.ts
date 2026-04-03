@@ -60,6 +60,28 @@ export class AuthService {
     return (Object.values(UserType) as string[]).includes(value);
   }
 
+  private normalizeEmail(email: string) {
+    return email.trim().toLowerCase();
+  }
+
+  private getSetCookieHeaders(headers: Headers) {
+    const headersWithGetSetCookie = headers as Headers & {
+      getSetCookie?: () => string[];
+    };
+
+    if (typeof headersWithGetSetCookie.getSetCookie === 'function') {
+      const cookies = headersWithGetSetCookie.getSetCookie().filter(Boolean);
+      if (cookies.length === 0) {
+        return null;
+      }
+
+      return cookies.length === 1 ? cookies[0] : cookies;
+    }
+
+    const setCookie = headers.get('set-cookie');
+    return setCookie || null;
+  }
+
   private async getAdminOrThrow(userId: string) {
     const admin = await this.adminRepo.findByUserId(userId);
 
@@ -172,7 +194,7 @@ export class AuthService {
     }
 
     const data = (await response.json()) as T;
-    const setCookie = response.headers.get('set-cookie');
+    const setCookie = this.getSetCookieHeaders(response.headers);
 
     return { data, setCookie };
   }
@@ -326,7 +348,7 @@ export class AuthService {
     }
 
     const result = await response.json();
-    const setCookie = response.headers.get('set-cookie');
+    const setCookie = this.getSetCookieHeaders(response.headers);
     const { user, session, token } = result as AuthResponse;
     const finalSession = session || (token ? { token } : null);
 
@@ -349,7 +371,7 @@ export class AuthService {
 
     const response = await this.authClient.handler(request);
 
-    const setCookie = response.headers.get('set-cookie');
+    const setCookie = this.getSetCookieHeaders(response.headers);
     const redirectTo = response.headers.get('location');
 
     if (response.status >= 300 && response.status < 400) {
@@ -382,8 +404,10 @@ export class AuthService {
   }
 
   async requestAdminActivationOtp(email: string) {
+    const normalizedEmail = this.normalizeEmail(email);
+
     const user = await this.prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
       select: { id: true, userType: true },
     });
 
@@ -394,15 +418,25 @@ export class AuthService {
     const admin = await this.adminRepo.findByUserId(user.id);
 
     if (admin?.status === AdminProfileStatus.PENDING_ACTIVATION) {
-      await this.requestEmailVerification(email);
+      try {
+        await this.requestEmailVerification(normalizedEmail);
+      } catch (error) {
+        console.error('[AuthService] admin activation OTP dispatch failed', {
+          email: normalizedEmail,
+          userId: user.id,
+          error,
+        });
+      }
     }
 
     return { status: true };
   }
 
   async verifyAdminActivationOtp(email: string, otp: string) {
+    const normalizedEmail = this.normalizeEmail(email);
+
     const user = await this.prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
       select: { id: true, userType: true },
     });
 
@@ -420,7 +454,7 @@ export class AuthService {
       );
     }
 
-    const result = await this.verifyEmailVerification(email, otp);
+    const result = await this.verifyEmailVerification(normalizedEmail, otp);
 
     if (result.user.userType !== UserType.ADMIN || result.user.id !== user.id) {
       throw new BadRequestException(
@@ -742,7 +776,7 @@ export class AuthService {
     }
 
     const result = await response.json();
-    const setCookie = response.headers.get('set-cookie');
+    const setCookie = this.getSetCookieHeaders(response.headers);
 
     const { user, session, token } = result as AuthResponse;
     const finalSession = session || (token ? { token } : null);

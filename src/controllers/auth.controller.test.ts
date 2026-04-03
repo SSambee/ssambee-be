@@ -320,6 +320,29 @@ describe('AuthController - @unit #critical', () => {
       );
     });
 
+    it('POST /email-verification - 다중 쿠키도 그대로 전달한다', async () => {
+      mockReq.body = { email: mockUsers.student.email, otp: '123456' };
+      mockAuthService.verifyEmailVerification.mockResolvedValue({
+        user: mockUsers.student,
+        session: { token: 'otp-token' },
+        setCookie: [
+          'ssambee-auth.session_token=otp-cookie; Path=/; HttpOnly',
+          'ssambee-auth.session_data=otp-data; Path=/; HttpOnly',
+        ],
+      });
+
+      await authController.emailVerification(
+        mockReq as Request,
+        mockRes as Response,
+        mockNext,
+      );
+
+      expect(mockRes.setHeader).toHaveBeenCalledWith('Set-Cookie', [
+        'ssambee-auth.session_token=otp-cookie; Path=/; HttpOnly',
+        'ssambee-auth.session_data=otp-data; Path=/; HttpOnly',
+      ]);
+    });
+
     it('GET /svc/auth/verify-email - svc 사용자 링크를 검증한다', async () => {
       mockReq.query = { token: 'token-for-student' };
       mockAuthService.verifyEmailWithToken.mockResolvedValue({
@@ -779,6 +802,32 @@ describe('AuthController - @unit #critical', () => {
       );
     });
 
+    it('POST /activate/verify-otp - 다중 쿠키도 그대로 전달한다', async () => {
+      mockReq.body = {
+        email: mockUsers.admin.email,
+        otp: '123456',
+      };
+      mockAuthService.verifyAdminActivationOtp.mockResolvedValue({
+        user: mockUsers.admin,
+        session: { token: 'otp-token' },
+        setCookie: [
+          'ssambee-auth.session_token=otp-cookie; Path=/; HttpOnly',
+          'ssambee-auth.session_data=otp-data; Path=/; HttpOnly',
+        ],
+      });
+
+      await authController.adminVerifyActivationOtp(
+        mockReq as Request,
+        mockRes as Response,
+        mockNext,
+      );
+
+      expect(mockRes.setHeader).toHaveBeenCalledWith('Set-Cookie', [
+        'ssambee-auth.session_token=otp-cookie; Path=/; HttpOnly',
+        'ssambee-auth.session_data=otp-data; Path=/; HttpOnly',
+      ]);
+    });
+
     it('POST /activate/complete - 성공 시 활성화된 관리자 정보를 반환한다', async () => {
       mockReq.body = { password: 'Password123!' };
       mockAuthService.completeAdminActivation.mockResolvedValue({
@@ -834,6 +883,34 @@ describe('AuthController - @unit #critical', () => {
         'Set-Cookie',
         'session_token=test-cookie',
       );
+    });
+
+    it('다중 Set-Cookie가 오면 그대로 응답 헤더에 설정한다', async () => {
+      mockReq.body = {
+        ...signInRequests.instructor,
+        userType: UserType.INSTRUCTOR,
+      };
+
+      mockAuthService.signIn.mockResolvedValue({
+        user: mockUsers.instructor,
+        session: { token: 'session-token' },
+        profile: mockProfiles.instructor,
+        setCookie: [
+          'ssambee-auth.session_token=test-cookie; Path=/; HttpOnly',
+          'ssambee-auth.session_data=test-data; Path=/; HttpOnly',
+        ],
+      });
+
+      await authController.signIn(
+        mockReq as Request,
+        mockRes as Response,
+        mockNext,
+      );
+
+      expect(mockRes.setHeader).toHaveBeenCalledWith('Set-Cookie', [
+        'ssambee-auth.session_token=test-cookie; Path=/; HttpOnly',
+        'ssambee-auth.session_data=test-data; Path=/; HttpOnly',
+      ]);
     });
 
     it('result.token이 있으면 쿠키에 설정한다 (session이 없는 경우)', async () => {

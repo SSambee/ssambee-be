@@ -1,5 +1,6 @@
 import nodemailer, { type Transporter } from 'nodemailer';
 import { config } from '../config/env.config.js';
+import { getAdminPortalBaseUrl } from './origin.util.js';
 
 let transporter: Transporter | null = null;
 
@@ -58,12 +59,10 @@ const sendAuthMail = async ({
 };
 
 const getAdminPortalUrl = () => {
-  const adminFrontUrl =
-    config.ADMIN_FRONT_URL ||
-    config.FRONT_URL.split(',')
-      .map((value) => value.trim())
-      .find(Boolean) ||
-    '';
+  const adminFrontUrl = getAdminPortalBaseUrl({
+    frontUrl: config.FRONT_URL,
+    adminFrontUrl: config.ADMIN_FRONT_URL,
+  });
 
   try {
     return new URL('/admin', adminFrontUrl).toString();

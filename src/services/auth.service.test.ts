@@ -635,6 +635,36 @@ describe('AuthService - @unit #critical', () => {
       expect(result.setCookie).toBe('session_token=test-cookie');
     });
 
+    it('인증코드 검증 성공 시 다중 Set-Cookie를 모두 반환한다', async () => {
+      const mockResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          user: mockUsers.student,
+          token: 'otp-token',
+        }),
+        headers: {
+          getSetCookie: jest
+            .fn()
+            .mockReturnValue([
+              'ssambee-auth.session_token=test-cookie; Path=/; HttpOnly',
+              'ssambee-auth.session_data=test-data; Path=/; HttpOnly',
+            ]),
+          get: jest.fn().mockReturnValue(null),
+        },
+      };
+      mockBetterAuth.handler.mockResolvedValue(mockResponse);
+
+      const result = await authService.verifyEmailVerification(
+        mockUsers.student.email,
+        '123456',
+      );
+
+      expect(result.setCookie).toEqual([
+        'ssambee-auth.session_token=test-cookie; Path=/; HttpOnly',
+        'ssambee-auth.session_data=test-data; Path=/; HttpOnly',
+      ]);
+    });
+
     it('관리자 활성화용 OTP 요청은 pending admin에게만 발송한다', async () => {
       (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
         id: mockUsers.admin.id,
@@ -666,6 +696,79 @@ describe('AuthService - @unit #critical', () => {
       expect(request.url).toContain(
         '/api/auth/email-otp/send-verification-otp',
       );
+    });
+
+    it('관리자 활성화용 OTP 요청은 이메일을 정규화해 조회 및 발송한다', async () => {
+      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: mockUsers.admin.id,
+        userType: UserType.ADMIN,
+      });
+      mockAdminRepo.findByUserId.mockResolvedValue({
+        id: 'admin-profile-id',
+        userId: mockUsers.admin.id,
+        status: AdminProfileStatus.PENDING_ACTIVATION,
+        isPrimaryAdmin: true,
+        invitedByUserId: null,
+        invitedAt: new Date(),
+        activatedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      const requestEmailVerificationSpy = jest
+        .spyOn(authService, 'requestEmailVerification')
+        .mockResolvedValue({ status: true });
+
+      await authService.requestAdminActivationOtp(' ADMIN@EXAMPLE.COM ');
+
+      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+        where: { email: 'admin@example.com' },
+        select: { id: true, userType: true },
+      });
+      expect(requestEmailVerificationSpy).toHaveBeenCalledWith(
+        'admin@example.com',
+      );
+    });
+
+    it('관리자 활성화용 OTP 요청은 내부 발송 실패를 외부로 노출하지 않는다', async () => {
+      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: mockUsers.admin.id,
+        userType: UserType.ADMIN,
+      });
+      mockAdminRepo.findByUserId.mockResolvedValue({
+        id: 'admin-profile-id',
+        userId: mockUsers.admin.id,
+        status: AdminProfileStatus.PENDING_ACTIVATION,
+        isPrimaryAdmin: true,
+        invitedByUserId: null,
+        invitedAt: new Date(),
+        activatedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      jest
+        .spyOn(authService, 'requestEmailVerification')
+        .mockRejectedValue(new Error('smtp failed'));
+      const consoleErrorSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+
+      try {
+        const result = await authService.requestAdminActivationOtp(
+          mockUsers.admin.email,
+        );
+
+        expect(result).toEqual({ status: true });
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          '[AuthService] admin activation OTP dispatch failed',
+          expect.objectContaining({
+            email: mockUsers.admin.email,
+            userId: mockUsers.admin.id,
+            error: expect.any(Error),
+          }),
+        );
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
     });
 
     it('관리자 활성화용 OTP 검증은 pending admin 세션만 허용한다', async () => {
@@ -700,6 +803,45 @@ describe('AuthService - @unit #critical', () => {
         session: { token: 'otp-token' },
         setCookie: 'session_token=otp-cookie',
       });
+    });
+
+    it('관리자 활성화용 OTP 검증은 이메일을 정규화한다', async () => {
+      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: mockUsers.admin.id,
+        userType: UserType.ADMIN,
+      });
+      mockAdminRepo.findByUserId.mockResolvedValue({
+        id: 'admin-profile-id',
+        userId: mockUsers.admin.id,
+        status: AdminProfileStatus.PENDING_ACTIVATION,
+        isPrimaryAdmin: true,
+        invitedByUserId: null,
+        invitedAt: new Date(),
+        activatedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      const verifyEmailVerificationSpy = jest
+        .spyOn(authService, 'verifyEmailVerification')
+        .mockResolvedValue({
+          user: mockUsers.admin,
+          session: { token: 'otp-token' },
+          setCookie: 'session_token=otp-cookie',
+        });
+
+      await authService.verifyAdminActivationOtp(
+        ' ADMIN@EXAMPLE.COM ',
+        '123456',
+      );
+
+      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+        where: { email: 'admin@example.com' },
+        select: { id: true, userType: true },
+      });
+      expect(verifyEmailVerificationSpy).toHaveBeenCalledWith(
+        'admin@example.com',
+        '123456',
+      );
     });
 
     it('관리자 활성화 완료 시 비밀번호 설정과 상태 전환이 함께 일어난다', async () => {
@@ -1006,6 +1148,38 @@ describe('AuthService - @unit #critical', () => {
       );
 
       expect(result.setCookie).toBe('session_token=new-cookie');
+    });
+
+    it('내 비밀번호 변경 성공 시 다중 Set-Cookie를 함께 반환한다', async () => {
+      const mockResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          token: null,
+          user: mockUsers.student,
+        }),
+        headers: {
+          getSetCookie: jest
+            .fn()
+            .mockReturnValue([
+              'ssambee-auth.session_token=new-cookie; Path=/; HttpOnly',
+              'ssambee-auth.session_data=new-data; Path=/; HttpOnly',
+            ]),
+          get: jest.fn().mockReturnValue(null),
+        },
+      };
+      mockBetterAuth.handler.mockResolvedValue(mockResponse);
+
+      const result = await authService.changeMyPassword(
+        { cookie: 'session_token=test' },
+        'password123!',
+        'newPassword123!',
+        true,
+      );
+
+      expect(result.setCookie).toEqual([
+        'ssambee-auth.session_token=new-cookie; Path=/; HttpOnly',
+        'ssambee-auth.session_data=new-data; Path=/; HttpOnly',
+      ]);
     });
 
     it('비밀번호 찾기 요청 시 forget-password OTP 엔드포인트를 호출한다', async () => {

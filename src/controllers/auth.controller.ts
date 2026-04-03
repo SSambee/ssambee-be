@@ -52,6 +52,15 @@ const crossDomainCookie = getCrossDomainCookie();
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  private applySetCookieHeader = (
+    res: Response,
+    setCookie?: string | string[] | null,
+  ) => {
+    if (setCookie) {
+      res.setHeader('Set-Cookie', setCookie);
+    }
+  };
+
   private handleAuthResponse = (
     res: Response,
     result: AuthResponse,
@@ -59,9 +68,7 @@ export class AuthController {
     statusCode: number = 200,
   ) => {
     // Better Auth Handler로부터 받은 쿠키가 있으면 설정
-    if (result.setCookie) {
-      res.setHeader('Set-Cookie', result.setCookie);
-    }
+    this.applySetCookieHeader(res, result.setCookie);
 
     return successResponse(res, {
       statusCode,
@@ -211,9 +218,7 @@ export class AuthController {
         email,
         otp,
       );
-      if (result.setCookie) {
-        res.setHeader('Set-Cookie', result.setCookie);
-      }
+      this.applySetCookieHeader(res, result.setCookie);
 
       return successResponse(res, {
         message: '이메일 인증이 완료되었습니다.',
