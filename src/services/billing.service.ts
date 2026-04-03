@@ -106,6 +106,9 @@ type PaymentWithRelations = Payment & {
   statusHistory?: PaymentStatusHistory[];
 };
 
+const SERIALIZABLE_TRANSACTION_RETRY_LIMIT = 3;
+const SERIALIZABLE_CONFLICT_ERROR_CODE = 'P2034';
+
 export interface InstructorActiveEntitlementSummary {
   id: string;
   status: string;
@@ -139,6 +142,38 @@ export class BillingService {
     private readonly billingRepo: BillingRepository,
     private readonly prisma: PrismaClient,
   ) {}
+
+  private isSerializableConflictError(error: unknown) {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === SERIALIZABLE_CONFLICT_ERROR_CODE
+    );
+  }
+
+  private async runSerializableTransactionWithRetry<T>(
+    operation: (tx: Prisma.TransactionClient) => Promise<T>,
+  ) {
+    let attempt = 0;
+
+    while (attempt < SERIALIZABLE_TRANSACTION_RETRY_LIMIT) {
+      try {
+        return await this.prisma.$transaction(operation, {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        });
+      } catch (error) {
+        attempt += 1;
+
+        if (
+          !this.isSerializableConflictError(error) ||
+          attempt >= SERIALIZABLE_TRANSACTION_RETRY_LIMIT
+        ) {
+          throw error;
+        }
+      }
+    }
+
+    throw new Error('Serializable transaction retry loop exited unexpectedly.');
+  }
 
   private isAdminCreditGrantItem(item: {
     productCodeSnapshot?: string | null;
@@ -2022,7 +2057,7 @@ export class BillingService {
 
     await this.reconcileInstructorState(instructorId);
 
-    return this.prisma.$transaction(async (tx) => {
+    return this.runSerializableTransactionWithRetry(async (tx) => {
       const activeBuckets = await this.billingRepo.listActiveCreditBuckets(
         instructorId,
         tx,

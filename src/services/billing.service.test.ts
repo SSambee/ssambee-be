@@ -1,6 +1,6 @@
 import { BillingService } from './billing.service.js';
 import { BillingRepository } from '../repos/billing.repo.js';
-import { PrismaClient } from '../generated/prisma/client.js';
+import { Prisma, PrismaClient } from '../generated/prisma/client.js';
 import {
   BillingErrorCode,
   BillingProductType,
@@ -1715,6 +1715,97 @@ describe('BillingService', () => {
         status: CreditBucketStatus.ACTIVE,
       }),
       expect.anything(),
+    );
+    expect(mockPrisma.$transaction).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      }),
+    );
+  });
+
+  it('serializable 충돌(P2034)이 발생하면 consumeCredits 트랜잭션을 재시도해야 한다', async () => {
+    const bucket = {
+      id: 'bucket-1',
+      instructorId: 'instructor-1',
+      paymentItemId: 'item-1',
+      entitlementId: null,
+      sourceType: CreditSourceType.RECHARGE_PACK,
+      status: CreditBucketStatus.ACTIVE,
+      originalAmount: 500,
+      remainingAmount: 500,
+      grantedAt: new Date('2026-03-21T00:00:00.000Z'),
+      expiresAt: new Date('2026-04-10T14:59:59.999Z'),
+    };
+    const serializableError = new Prisma.PrismaClientKnownRequestError(
+      'Transaction failed due to a write conflict',
+      {
+        code: 'P2034',
+        clientVersion: '7.2.0',
+      },
+    );
+
+    jest.spyOn(service, 'reconcileInstructorState').mockResolvedValue({
+      wallet: {
+        totalAvailable: 500,
+        includedAvailable: 0,
+        rechargeAvailable: 500,
+      },
+      entitlements: [],
+      activeEntitlement: null,
+    } as never);
+
+    (mockBillingRepo.listActiveCreditBuckets as jest.Mock)
+      .mockResolvedValueOnce([bucket])
+      .mockResolvedValueOnce([
+        {
+          ...bucket,
+          remainingAmount: 300,
+        },
+      ])
+      .mockResolvedValue([
+        {
+          ...bucket,
+          remainingAmount: 300,
+        },
+      ]);
+
+    (mockPrisma.$transaction as jest.Mock)
+      .mockRejectedValueOnce(serializableError)
+      .mockImplementation(async (input: unknown) => {
+        if (typeof input === 'function') {
+          return input({} as never);
+        }
+
+        return Promise.all(input as Promise<unknown>[]);
+      });
+
+    const result = await service.consumeCredits('instructor-1', 200, {
+      type: 'KAKAO_MESSAGE',
+    });
+
+    expect(result).toEqual({
+      consumedAmount: 200,
+      wallet: {
+        totalAvailable: 300,
+        includedAvailable: 0,
+        rechargeAvailable: 300,
+      },
+    });
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(2);
+    expect(mockPrisma.$transaction).toHaveBeenNthCalledWith(
+      1,
+      expect.any(Function),
+      expect.objectContaining({
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      }),
+    );
+    expect(mockPrisma.$transaction).toHaveBeenNthCalledWith(
+      2,
+      expect.any(Function),
+      expect.objectContaining({
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      }),
     );
   });
 
