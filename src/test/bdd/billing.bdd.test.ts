@@ -143,6 +143,67 @@ describe('결제 BDD 테스트 - @integration', () => {
     await dbTestUtil.disconnect();
   });
 
+  it('비로그인 사용자도 공개 결제 상품 목록을 안전한 필드만 조회할 수 있어야 한다', async () => {
+    await prisma.billingProduct.create({
+      data: {
+        code: 'PUBLIC_PASS_SINGLE_1M',
+        name: '공개 1개월 이용권',
+        description: '비로그인 사용자에게 노출되는 이용권',
+        productType: BillingProductType.PASS_SINGLE,
+        billingMode: BillingMode.ONE_TIME,
+        paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+        durationMonths: 1,
+        includedCreditAmount: 1000,
+        rechargeCreditAmount: 0,
+        price: 99000,
+        isActive: true,
+        sortOrder: 1,
+      },
+    });
+
+    await prisma.billingProduct.create({
+      data: {
+        code: 'HIDDEN_TOSS_SUBSCRIPTION',
+        name: '비공개 구독 상품',
+        description: '공개 API에 노출되면 안 되는 상품',
+        productType: BillingProductType.PASS_SUBSCRIPTION,
+        billingMode: BillingMode.RECURRING,
+        paymentMethodType: PaymentMethodType.TOSS_LINK,
+        durationMonths: 1,
+        includedCreditAmount: 1000,
+        rechargeCreditAmount: 0,
+        price: 109000,
+        isActive: true,
+        sortOrder: 2,
+      },
+    });
+
+    const response = await request(app).get('/api/public/v1/billing/products');
+
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('success');
+    expect(response.body.message).toBe('공개 결제 상품 조회 성공');
+    expect(response.body.data).toEqual([
+      {
+        name: '공개 1개월 이용권',
+        description: '비로그인 사용자에게 노출되는 이용권',
+        productType: BillingProductType.PASS_SINGLE,
+        billingMode: BillingMode.ONE_TIME,
+        durationMonths: 1,
+        includedCreditAmount: 1000,
+        rechargeCreditAmount: 0,
+        price: 99000,
+      },
+    ]);
+    expect(response.body.data[0]).not.toHaveProperty('id');
+    expect(response.body.data[0]).not.toHaveProperty('code');
+    expect(response.body.data[0]).not.toHaveProperty('paymentMethodType');
+    expect(response.body.data[0]).not.toHaveProperty('isActive');
+    expect(response.body.data[0]).not.toHaveProperty('sortOrder');
+    expect(response.body.data[0]).not.toHaveProperty('createdAt');
+    expect(response.body.data[0]).not.toHaveProperty('updatedAt');
+  });
+
   it('관리자가 0원 충전권을 지급하면 실제 API 응답과 강사 조회 결과에 반영되어야 한다', async () => {
     mockAdminSession();
 

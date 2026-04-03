@@ -37,6 +37,44 @@ export class BillingController {
     }
   };
 
+  getPublicProducts = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const products = await this.billingService.listActiveProducts();
+      const publicProducts = products.map(
+        ({
+          name,
+          description,
+          productType,
+          billingMode,
+          durationMonths,
+          includedCreditAmount,
+          rechargeCreditAmount,
+          price,
+        }) => ({
+          name,
+          description,
+          productType,
+          billingMode,
+          durationMonths,
+          includedCreditAmount,
+          rechargeCreditAmount,
+          price,
+        }),
+      );
+
+      return successResponse(res, {
+        data: publicProducts,
+        message: '공개 결제 상품 조회 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   getAdminProducts = async (
     req: Request,
     res: Response,
