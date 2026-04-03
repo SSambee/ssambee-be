@@ -2,6 +2,7 @@ import { PrismaClient } from '../generated/prisma/client.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import {
   CreditBucketStatus,
+  CreditSourceType,
   EntitlementStatus,
 } from '../constants/billing.constant.js';
 
@@ -459,15 +460,22 @@ export class BillingRepository {
       throw new Error('entitlementId is required for included credit bucket');
     }
 
+    const sourceType = CreditSourceType.ENTITLEMENT_INCLUDED;
+    const payload = {
+      ...data,
+      sourceType,
+    };
+
     return this.getClient(tx).creditBucket.upsert({
       where: {
         entitlementId_sourceType: {
           entitlementId: data.entitlementId,
-          sourceType: data.sourceType,
+          sourceType,
         },
       },
-      create: data,
+      create: payload,
       update: {
+        sourceType,
         originalAmount: data.originalAmount,
         remainingAmount: data.remainingAmount,
         expiresAt: data.expiresAt,
@@ -498,15 +506,22 @@ export class BillingRepository {
       throw new Error('paymentItemId is required for recharge credit bucket');
     }
 
+    const sourceType = CreditSourceType.RECHARGE_PACK;
+    const payload = {
+      ...data,
+      sourceType,
+    };
+
     return this.getClient(tx).creditBucket.upsert({
       where: {
         paymentItemId_sourceType: {
           paymentItemId: data.paymentItemId,
-          sourceType: data.sourceType,
+          sourceType,
         },
       },
-      create: data,
+      create: payload,
       update: {
+        sourceType,
         originalAmount: data.originalAmount,
         remainingAmount: data.remainingAmount,
         expiresAt: data.expiresAt,

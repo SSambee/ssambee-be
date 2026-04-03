@@ -1,6 +1,7 @@
 import { BillingRepository } from './billing.repo.js';
 import {
   CreditBucketStatus,
+  CreditSourceType,
   EntitlementStatus,
 } from '../constants/billing.constant.js';
 
@@ -8,6 +9,7 @@ describe('BillingRepository', () => {
   const entitlementFindFirst = jest.fn();
   const entitlementFindMany = jest.fn();
   const creditBucketFindMany = jest.fn();
+  const creditBucketUpsert = jest.fn();
   const prisma = {
     entitlement: {
       findFirst: entitlementFindFirst,
@@ -15,6 +17,7 @@ describe('BillingRepository', () => {
     },
     creditBucket: {
       findMany: creditBucketFindMany,
+      upsert: creditBucketUpsert,
     },
   } as never;
 
@@ -95,6 +98,78 @@ describe('BillingRepository', () => {
         },
       },
       orderBy: { expiresAt: 'asc' },
+    });
+  });
+
+  it('upsertIncludedCreditBucket는 전달된 sourceType과 무관하게 포함 크레딧 sourceType을 강제해야 한다', async () => {
+    const data = {
+      instructorId: 'instructor-1',
+      paymentItemId: 'payment-item-1',
+      entitlementId: 'entitlement-1',
+      sourceType: CreditSourceType.RECHARGE_PACK,
+      status: CreditBucketStatus.ACTIVE,
+      originalAmount: 1000,
+      remainingAmount: 1000,
+      grantedAt: new Date('2026-03-24T00:00:00.000Z'),
+      expiresAt: new Date('2026-04-23T14:59:59.999Z'),
+    };
+
+    await repo.upsertIncludedCreditBucket(data as never);
+
+    expect(creditBucketUpsert).toHaveBeenCalledWith({
+      where: {
+        entitlementId_sourceType: {
+          entitlementId: 'entitlement-1',
+          sourceType: CreditSourceType.ENTITLEMENT_INCLUDED,
+        },
+      },
+      create: {
+        ...data,
+        sourceType: CreditSourceType.ENTITLEMENT_INCLUDED,
+      },
+      update: {
+        sourceType: CreditSourceType.ENTITLEMENT_INCLUDED,
+        originalAmount: 1000,
+        remainingAmount: 1000,
+        expiresAt: new Date('2026-04-23T14:59:59.999Z'),
+        status: CreditBucketStatus.ACTIVE,
+      },
+    });
+  });
+
+  it('upsertRechargeCreditBucket는 전달된 sourceType과 무관하게 충전권 sourceType을 강제해야 한다', async () => {
+    const data = {
+      instructorId: 'instructor-1',
+      paymentItemId: 'payment-item-1',
+      entitlementId: null,
+      sourceType: CreditSourceType.ENTITLEMENT_INCLUDED,
+      status: CreditBucketStatus.ACTIVE,
+      originalAmount: 3000,
+      remainingAmount: 3000,
+      grantedAt: new Date('2026-03-24T00:00:00.000Z'),
+      expiresAt: new Date('2026-06-22T14:59:59.999Z'),
+    };
+
+    await repo.upsertRechargeCreditBucket(data as never);
+
+    expect(creditBucketUpsert).toHaveBeenCalledWith({
+      where: {
+        paymentItemId_sourceType: {
+          paymentItemId: 'payment-item-1',
+          sourceType: CreditSourceType.RECHARGE_PACK,
+        },
+      },
+      create: {
+        ...data,
+        sourceType: CreditSourceType.RECHARGE_PACK,
+      },
+      update: {
+        sourceType: CreditSourceType.RECHARGE_PACK,
+        originalAmount: 3000,
+        remainingAmount: 3000,
+        expiresAt: new Date('2026-06-22T14:59:59.999Z'),
+        status: CreditBucketStatus.ACTIVE,
+      },
     });
   });
 });
