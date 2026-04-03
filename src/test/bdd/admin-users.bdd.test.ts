@@ -4,7 +4,8 @@ import { createTestApp } from '../utils/app.mock.js';
 import { container } from '../../config/container.config.js';
 import { dbTestUtil } from '../utils/db-test.util.js';
 import { prisma } from '../../config/db.config.js';
-import { UserType } from '../../constants/auth.constant.js';
+import { AdminProfileStatus, UserType } from '../../constants/auth.constant.js';
+import * as mailUtil from '../../utils/mail.util.js';
 import type { User } from '../../generated/prisma/client.js';
 
 describe('관리자 사용자 관리 BDD 테스트 - @integration', () => {
@@ -50,6 +51,16 @@ describe('관리자 사용자 관리 BDD 테스트 - @integration', () => {
         emailVerified: true,
         createdAt: new Date('2026-04-01T00:00:00.000Z'),
         updatedAt: new Date('2026-04-01T00:00:00.000Z'),
+      },
+    });
+
+    await prisma.admin.create({
+      data: {
+        userId: adminUser.id,
+        status: AdminProfileStatus.ACTIVE,
+        isPrimaryAdmin: true,
+        invitedAt: new Date('2026-04-01T00:00:00.000Z'),
+        activatedAt: new Date('2026-04-01T00:00:00.000Z'),
       },
     });
 
@@ -198,5 +209,40 @@ describe('관리자 사용자 관리 BDD 테스트 - @integration', () => {
     expect(statsRes.body.data.active30dCount).toBe(1);
     expect(statsRes.body.data.inactive30dCount).toBe(2);
     expect(statsRes.body.data.activeSessionCount).toBe(1);
+  });
+
+  it('최초 관리자가 추가 관리자 초대를 생성할 수 있어야 한다', async () => {
+    mockAdminSession();
+    jest
+      .spyOn(mailUtil, 'sendAdminInvitationMail')
+      .mockResolvedValue(undefined);
+
+    const inviteRes = await request(app)
+      .post('/api/admin/v1/admins/invitations')
+      .send({
+        email: 'invited-admin@example.com',
+        name: '추가 관리자',
+      });
+
+    expect(inviteRes.status).toBe(201);
+    expect(inviteRes.body.message).toBe('관리자 초대 메일을 전송했습니다.');
+    expect(inviteRes.body.data.email).toBe('invited-admin@example.com');
+    expect(inviteRes.body.data.resent).toBe(false);
+
+    const invitedUser = await prisma.user.findUnique({
+      where: { email: 'invited-admin@example.com' },
+    });
+    expect(invitedUser).not.toBeNull();
+
+    const invitedAdmin = await prisma.admin.findUnique({
+      where: { userId: invitedUser!.id },
+    });
+    expect(invitedAdmin).toEqual(
+      expect.objectContaining({
+        status: AdminProfileStatus.PENDING_ACTIVATION,
+        isPrimaryAdmin: false,
+        invitedByUserId: adminUser.id,
+      }),
+    );
   });
 });

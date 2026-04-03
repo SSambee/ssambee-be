@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import {
   createRequireAuth,
+  createRequireAdmin,
   createOptionalAuth,
   requireUserType,
 } from './auth.middleware.js';
@@ -95,6 +96,41 @@ describe('Auth Middleware - @unit #critical', () => {
           mockAuthService.getSessionWithInstructorBillingSummary,
         ).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('[RBAC-I01-A] requireAdmin 미들웨어', () => {
+    it('활성화된 관리자면 next()를 호출한다', async () => {
+      mockReq.user = {
+        ...mockUsers.admin,
+        userType: UserType.ADMIN,
+        role: 'admin',
+      };
+      mockAuthService.ensureAdminAccess.mockResolvedValue({
+        id: 'admin-row-id',
+        userId: mockUsers.admin.id,
+        status: 'ACTIVE',
+        isPrimaryAdmin: true,
+      } as never);
+
+      const requireAdmin = createRequireAdmin(mockAuthService);
+
+      await requireAdmin(mockReq as Request, mockRes as Response, mockNext);
+
+      expect(mockAuthService.ensureAdminAccess).toHaveBeenCalledWith(
+        mockUsers.admin.id,
+      );
+      expect(mockNext).toHaveBeenCalledWith();
+    });
+
+    it('관리자가 아니면 ForbiddenException을 전달한다', async () => {
+      mockReq.user = asInstructor();
+      const requireAdmin = createRequireAdmin(mockAuthService);
+
+      await requireAdmin(mockReq as Request, mockRes as Response, mockNext);
+
+      expect(mockNext).toHaveBeenCalledWith(expect.any(ForbiddenException));
+      expect(mockAuthService.ensureAdminAccess).not.toHaveBeenCalled();
     });
   });
 

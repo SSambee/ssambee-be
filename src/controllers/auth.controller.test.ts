@@ -690,6 +690,122 @@ describe('AuthController - @unit #critical', () => {
     });
   });
 
+  describe('[인증] 관리자 활성화', () => {
+    it('POST /admin/signin - 성공 시 200과 세션 쿠키를 반환한다', async () => {
+      mockReq.body = signInRequests.admin;
+
+      mockAuthService.signInAdmin.mockResolvedValue({
+        user: mockUsers.admin,
+        session: mockSession,
+        profile: null,
+        setCookie: 'session_token=admin-cookie',
+      });
+
+      await authController.adminSignIn(
+        mockReq as Request,
+        mockRes as Response,
+        mockNext,
+      );
+
+      expect(mockAuthService.signInAdmin).toHaveBeenCalledWith(
+        mockReq.body.email,
+        mockReq.body.password,
+        false,
+      );
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Set-Cookie',
+        'session_token=admin-cookie',
+      );
+    });
+
+    it('POST /activate/request-otp - 성공 시 안내 메시지를 반환한다', async () => {
+      mockReq.body = { email: mockUsers.admin.email };
+      mockAuthService.requestAdminActivationOtp.mockResolvedValue({
+        status: true,
+      });
+
+      await authController.adminRequestActivationOtp(
+        mockReq as Request,
+        mockRes as Response,
+        mockNext,
+      );
+
+      expect(mockAuthService.requestAdminActivationOtp).toHaveBeenCalledWith(
+        mockUsers.admin.email,
+      );
+      expect(mockRes.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'success',
+          message: '인증코드가 전송되었습니다. 이메일을 확인해주세요.',
+        }),
+      );
+    });
+
+    it('POST /activate/verify-otp - 인증 성공 시 activationRequired와 쿠키를 반환한다', async () => {
+      mockReq.body = {
+        email: mockUsers.admin.email,
+        otp: '123456',
+      };
+      mockAuthService.verifyAdminActivationOtp.mockResolvedValue({
+        user: mockUsers.admin,
+        session: { token: 'otp-token' },
+        setCookie: 'session_token=otp-cookie',
+      });
+
+      await authController.adminVerifyActivationOtp(
+        mockReq as Request,
+        mockRes as Response,
+        mockNext,
+      );
+
+      expect(mockAuthService.verifyAdminActivationOtp).toHaveBeenCalledWith(
+        mockUsers.admin.email,
+        '123456',
+      );
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Set-Cookie',
+        'session_token=otp-cookie',
+      );
+      expect(mockRes.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'success',
+          message: '이메일 인증이 완료되었습니다.',
+          data: {
+            activationRequired: true,
+            user: mockUsers.admin,
+          },
+        }),
+      );
+    });
+
+    it('POST /activate/complete - 성공 시 활성화된 관리자 정보를 반환한다', async () => {
+      mockReq.body = { password: 'Password123!' };
+      mockAuthService.completeAdminActivation.mockResolvedValue({
+        user: mockUsers.admin,
+        session: mockSession,
+        profile: null,
+        setCookie: 'session_token=active-admin-cookie',
+      });
+
+      await authController.adminCompleteActivation(
+        mockReq as Request,
+        mockRes as Response,
+        mockNext,
+      );
+
+      expect(mockAuthService.completeAdminActivation).toHaveBeenCalledWith(
+        mockReq.headers,
+        'Password123!',
+      );
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Set-Cookie',
+        'session_token=active-admin-cookie',
+      );
+    });
+  });
+
   // ============================================
   // 쿠키 설정 테스트
   // ============================================

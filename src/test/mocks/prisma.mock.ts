@@ -8,9 +8,17 @@ export const mockTransaction = jest.fn();
 /** Mock Prisma Client 생성 */
 export const createMockPrisma = () => ({
   user: {
+    count: jest.fn(),
+    create: jest.fn(),
     findUnique: mockUserFindUnique,
     update: jest.fn(),
     delete: mockUserDelete,
+  },
+  admin: {
+    findUnique: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    count: jest.fn(),
   },
   account: {
     findFirst: jest.fn(),

@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { createTestApp } from '../utils/app.mock.js';
 import {
+  AdminProfileStatus,
   UserType,
   SIGNUP_PENDING_USER_TYPE,
 } from '../../constants/auth.constant.js';
@@ -256,6 +257,151 @@ describe('인증 BDD 테스트 - @integration', () => {
       expect(res.status).toBe(200);
       expect(res.body.data.user.id).toBe(userId);
       expect(res.body.data.profile.id).toBe(instructor.id);
+    });
+  });
+
+  describe('시나리오: 관리자 최초 활성화 플로우', () => {
+    const adminEmail = 'primary-admin@example.com';
+    const adminUserId = 'primary-admin-user-id';
+
+    it('pending admin이 OTP 인증 후 비밀번호를 설정하고 로그인할 수 있어야 한다', async () => {
+      await prisma.user.create({
+        data: {
+          id: adminUserId,
+          email: adminEmail,
+          name: 'Primary Admin',
+          userType: UserType.ADMIN,
+          role: 'admin',
+          emailVerified: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+
+      await prisma.admin.create({
+        data: {
+          userId: adminUserId,
+          status: AdminProfileStatus.PENDING_ACTIVATION,
+          isPrimaryAdmin: true,
+          invitedAt: new Date(),
+        },
+      });
+
+      (auth.handler as unknown as jest.Mock).mockImplementation((request) => {
+        if (request.url.includes('/email-otp/send-verification-otp')) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ status: true }), { status: 200 }),
+          );
+        }
+
+        if (request.url.includes('/sign-in/email-otp')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                user: {
+                  id: adminUserId,
+                  email: adminEmail,
+                  name: 'Primary Admin',
+                  userType: UserType.ADMIN,
+                  role: 'admin',
+                },
+                session: {
+                  id: 'admin-otp-session',
+                  token: 'admin-otp-token',
+                  expiresAt: new Date(Date.now() + 3600000),
+                },
+              }),
+              {
+                status: 200,
+                headers: {
+                  'set-cookie':
+                    'ssambee-auth.session_token=admin-otp-cookie; Path=/; HttpOnly',
+                },
+              },
+            ),
+          );
+        }
+
+        if (request.url.includes('/sign-in/email')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                user: {
+                  id: adminUserId,
+                  email: adminEmail,
+                  name: 'Primary Admin',
+                  userType: UserType.ADMIN,
+                  role: 'admin',
+                },
+                session: { id: 'admin-session', token: 'admin-token' },
+              }),
+              {
+                status: 200,
+                headers: {
+                  'set-cookie':
+                    'ssambee-auth.session_token=admin-login-cookie; Path=/; HttpOnly',
+                },
+              },
+            ),
+          );
+        }
+
+        return Promise.resolve(
+          new Response(JSON.stringify({ status: true }), { status: 200 }),
+        );
+      });
+
+      const requestOtpRes = await request(app)
+        .post('/api/admin/v1/auth/activate/request-otp')
+        .send({ email: adminEmail });
+
+      expect(requestOtpRes.status).toBe(200);
+
+      const verifyOtpRes = await request(app)
+        .post('/api/admin/v1/auth/activate/verify-otp')
+        .send({ email: adminEmail, otp: '123456' });
+
+      expect(verifyOtpRes.status).toBe(200);
+      expect(verifyOtpRes.body.data.activationRequired).toBe(true);
+
+      (auth.api.getSession as unknown as jest.Mock).mockResolvedValue({
+        user: {
+          id: adminUserId,
+          email: adminEmail,
+          name: 'Primary Admin',
+          userType: UserType.ADMIN,
+          role: 'admin',
+        },
+        session: { id: 'admin-otp-session', token: 'admin-otp-token' },
+      });
+      (auth.api as typeof auth.api & { setPassword: jest.Mock }).setPassword =
+        jest.fn().mockResolvedValue({ status: true });
+
+      const completeRes = await request(app)
+        .post('/api/admin/v1/auth/activate/complete')
+        .set(
+          'Cookie',
+          (verifyOtpRes.header['set-cookie'] as unknown as string[]) || [],
+        )
+        .send({ password: 'Password123!' });
+
+      expect(completeRes.status).toBe(200);
+
+      const savedAdmin = await prisma.admin.findUnique({
+        where: { userId: adminUserId },
+      });
+      expect(savedAdmin?.status).toBe(AdminProfileStatus.ACTIVE);
+      expect(savedAdmin?.activatedAt).not.toBeNull();
+
+      const loginRes = await request(app)
+        .post('/api/admin/v1/auth/signin')
+        .send({
+          email: adminEmail,
+          password: 'Password123!',
+        });
+
+      expect(loginRes.status).toBe(200);
+      expect(loginRes.body.data.user.id).toBe(adminUserId);
     });
   });
 });

@@ -12,7 +12,7 @@ import {
   PaymentRefundStatus,
   PaymentStatus,
 } from '../../constants/billing.constant.js';
-import { UserType } from '../../constants/auth.constant.js';
+import { AdminProfileStatus, UserType } from '../../constants/auth.constant.js';
 import { calculateCreditExpiryAt } from '../../utils/date.util.js';
 import { seedActiveInstructorEntitlement } from '../utils/billing-test.util.js';
 import type {
@@ -88,6 +88,16 @@ describe('결제 BDD 테스트 - @integration', () => {
         emailVerified: true,
         createdAt: new Date(),
         updatedAt: new Date(),
+      },
+    });
+
+    await prisma.admin.create({
+      data: {
+        userId: adminUser.id,
+        status: AdminProfileStatus.ACTIVE,
+        isPrimaryAdmin: true,
+        invitedAt: new Date(),
+        activatedAt: new Date(),
       },
     });
 

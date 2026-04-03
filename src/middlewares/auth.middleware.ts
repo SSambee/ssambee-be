@@ -131,16 +131,25 @@ export const createOptionalAuth = (authService: AuthService) => {
   };
 };
 
-export const createRequireAdmin = () => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      return next(new UnauthorizedException('인증이 필요합니다.'));
-    }
+export const createRequireAdmin = (authService: AuthService) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        return next(new UnauthorizedException('인증이 필요합니다.'));
+      }
 
-    if (req.user.userType !== UserType.ADMIN || !hasAdminRole(req.user.role)) {
-      return next(new ForbiddenException('관리자 권한이 필요합니다.'));
-    }
+      if (
+        req.user.userType !== UserType.ADMIN ||
+        !hasAdminRole(req.user.role)
+      ) {
+        return next(new ForbiddenException('관리자 권한이 필요합니다.'));
+      }
 
-    next();
+      await authService.ensureAdminAccess(req.user.id);
+
+      next();
+    } catch (error) {
+      next(error);
+    }
   };
 };

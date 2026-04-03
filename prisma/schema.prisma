@@ -179,6 +179,27 @@ model AssistantCode {
   @@map("assistant_codes")
 }
 
+model Admin {
+  id String @id @default(uuid(7))
+
+  userId String @unique @map("user_id")
+  status String @default("PENDING_ACTIVATION")
+
+  isPrimaryAdmin Boolean  @default(false) @map("is_primary_admin")
+  invitedByUserId String? @map("invited_by_user_id")
+  invitedAt DateTime?     @map("invited_at")
+  activatedAt DateTime?   @map("activated_at")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([invitedByUserId])
+  @@map("admins")
+}
+
 // --------------------------------------------------------
 // 3. ACADEMIC STRUCTURE (강의 및 수강생)
 // --------------------------------------------------------
@@ -1148,6 +1169,7 @@ model User {
   parentProfile     AppParent?
   instructorProfile Instructor?
   assistantProfile  Assistant?
+  adminProfile      Admin?
 
   role       String?
   banned     Boolean?  @default(false)

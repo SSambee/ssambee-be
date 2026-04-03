@@ -181,6 +181,76 @@ export class AuthController {
     }
   };
 
+  adminRequestActivationOtp = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { email } = req.body;
+
+      await this.authService.requestAdminActivationOtp(email);
+
+      return successResponse(res, {
+        message: '인증코드가 전송되었습니다. 이메일을 확인해주세요.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  adminVerifyActivationOtp = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { email, otp } = req.body;
+
+      const result = await this.authService.verifyAdminActivationOtp(
+        email,
+        otp,
+      );
+      if (result.setCookie) {
+        res.setHeader('Set-Cookie', result.setCookie);
+      }
+
+      return successResponse(res, {
+        message: '이메일 인증이 완료되었습니다.',
+        data: {
+          activationRequired: true,
+          user: result.user,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  adminCompleteActivation = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { password } = req.body;
+
+      const result = await this.authService.completeAdminActivation(
+        req.headers,
+        password,
+      );
+
+      this.handleAuthResponse(
+        res,
+        result,
+        '관리자 계정이 활성화되었습니다.',
+        200,
+      );
+    } catch (error) {
+      next(error);
+    }
+  };
+
   /** 이메일 인증코드 발송/검증 */
   emailVerification = async (
     req: Request,

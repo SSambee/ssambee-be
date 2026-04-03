@@ -9,6 +9,7 @@ import {
   UnauthorizedException,
 } from '../err/http.exception.js';
 import {
+  AdminProfileStatus,
   SIGNUP_PENDING_USER_TYPE,
   UserType,
 } from '../constants/auth.constant.js';
@@ -22,6 +23,7 @@ import { SignUpData, AuthResponse, AuthUser } from '../types/auth.types.js';
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import { config } from '../config/env.config.js';
 import { BillingService } from './billing.service.js';
+import { AdminRepository } from '../repos/admin.repo.js';
 
 const hasAdminRole = (role?: string | string[] | null) => {
   if (!role) {
@@ -42,6 +44,7 @@ export class AuthService {
     private readonly assistantCodeRepo: AssistantCodeRepository,
     private readonly studentRepo: StudentRepository,
     private readonly parentRepo: ParentRepository,
+    private readonly adminRepo: AdminRepository,
     private readonly enrollmentsRepo: EnrollmentsRepository,
     private readonly authClient: typeof auth,
     private readonly billingService: BillingService,
@@ -55,6 +58,26 @@ export class AuthService {
 
   private isSupportedUserType(value: string): value is UserType {
     return (Object.values(UserType) as string[]).includes(value);
+  }
+
+  private async getAdminOrThrow(userId: string) {
+    const admin = await this.adminRepo.findByUserId(userId);
+
+    if (!admin) {
+      throw new ForbiddenException('관리자 계정 구성이 올바르지 않습니다.');
+    }
+
+    return admin;
+  }
+
+  private async ensureActiveAdminOrThrow(userId: string) {
+    const admin = await this.getAdminOrThrow(userId);
+
+    if (admin.status !== AdminProfileStatus.ACTIVE) {
+      throw new ForbiddenException('관리자 최초 활성화가 필요합니다.');
+    }
+
+    return admin;
   }
 
   private async getAuthErrorMessage(response: Response, fallback: string) {
@@ -358,6 +381,119 @@ export class AuthService {
     };
   }
 
+  async requestAdminActivationOtp(email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, userType: true },
+    });
+
+    if (!user || user.userType !== UserType.ADMIN) {
+      return { status: true };
+    }
+
+    const admin = await this.adminRepo.findByUserId(user.id);
+
+    if (admin?.status === AdminProfileStatus.PENDING_ACTIVATION) {
+      await this.requestEmailVerification(email);
+    }
+
+    return { status: true };
+  }
+
+  async verifyAdminActivationOtp(email: string, otp: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, userType: true },
+    });
+
+    if (!user || user.userType !== UserType.ADMIN) {
+      throw new BadRequestException(
+        '인증코드가 올바르지 않거나 만료되었습니다.',
+      );
+    }
+
+    const admin = await this.adminRepo.findByUserId(user.id);
+
+    if (!admin || admin.status !== AdminProfileStatus.PENDING_ACTIVATION) {
+      throw new BadRequestException(
+        '인증코드가 올바르지 않거나 만료되었습니다.',
+      );
+    }
+
+    const result = await this.verifyEmailVerification(email, otp);
+
+    if (result.user.userType !== UserType.ADMIN || result.user.id !== user.id) {
+      throw new BadRequestException(
+        '인증코드가 올바르지 않거나 만료되었습니다.',
+      );
+    }
+
+    return result;
+  }
+
+  async completeAdminActivation(
+    headers: IncomingHttpHeaders,
+    password: string,
+  ) {
+    const authSession = await this.authClient.api.getSession({
+      headers: fromNodeHeaders(headers),
+      query: {
+        disableCookieCache: true,
+      },
+    });
+
+    if (!authSession) {
+      throw new UnauthorizedException('인증이 필요합니다.');
+    }
+
+    if (authSession.user.userType !== UserType.ADMIN) {
+      throw new ForbiddenException('관리자 계정만 활성화할 수 있습니다.');
+    }
+
+    const admin = await this.getAdminOrThrow(authSession.user.id);
+
+    if (admin.status !== AdminProfileStatus.PENDING_ACTIVATION) {
+      throw new ForbiddenException('이미 활성화된 관리자 계정입니다.');
+    }
+
+    await this.ensureCredentialPassword(authSession.user.id, headers, password);
+
+    const now = new Date();
+    const updatedUser = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: authSession.user.id },
+        data: {
+          emailVerified: true,
+          role: 'admin',
+        },
+      });
+
+      await tx.admin.update({
+        where: { userId: authSession.user.id },
+        data: {
+          status: AdminProfileStatus.ACTIVE,
+          activatedAt: now,
+        },
+      });
+
+      return user;
+    });
+
+    return {
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        userType: updatedUser.userType,
+        emailVerified: updatedUser.emailVerified,
+        image: updatedUser.image,
+        role: updatedUser.role,
+      },
+      session: authSession.session,
+      profile: null,
+    };
+  }
+
   /** 내 이메일 변경 */
   async changeMyEmail(headers: IncomingHttpHeaders, newEmail: string) {
     const { data } = await this.callAuthHandler<{ status: boolean }>({
@@ -576,6 +712,14 @@ export class AuthService {
       throw new ForbiddenException('유저 역할이 잘못되었습니다.');
     }
 
+    if (existingUser?.userType === UserType.ADMIN) {
+      const admin = await this.getAdminOrThrow(existingUser.id);
+
+      if (admin.status !== AdminProfileStatus.ACTIVE) {
+        throw new ForbiddenException('관리자 최초 활성화가 필요합니다.');
+      }
+    }
+
     // 2. auth.handler를 사용하여 로그인 및 쿠키 캡처
     const signInReq = new Request(`${this.baseURL}/api/auth/sign-in/email`, {
       method: 'POST',
@@ -611,6 +755,10 @@ export class AuthService {
 
     if (requiredUserType === UserType.ADMIN && !hasAdminRole(user.role)) {
       throw new ForbiddenException('관리자 권한이 없습니다.');
+    }
+
+    if (requiredUserType === UserType.ADMIN) {
+      await this.ensureActiveAdminOrThrow(user.id);
     }
 
     const profile = await this.findProfileByUserId(user.userType, user.id);
@@ -738,7 +886,16 @@ export class AuthService {
       throw new ForbiddenException('관리자 권한이 필요합니다.');
     }
 
-    return session;
+    const admin = await this.ensureActiveAdminOrThrow(session.user.id);
+
+    return {
+      ...session,
+      canInviteAdmins: admin.isPrimaryAdmin,
+    };
+  }
+
+  async ensureAdminAccess(userId: string) {
+    return this.ensureActiveAdminOrThrow(userId);
   }
 
   /** 강사 프로필 생성 */

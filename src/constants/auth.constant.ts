@@ -11,6 +11,14 @@ export const SIGNUP_PENDING_USER_TYPE = 'SIGNUP_PENDING' as const;
 
 export type UserType = (typeof UserType)[keyof typeof UserType];
 
+export const AdminProfileStatus = {
+  PENDING_ACTIVATION: 'PENDING_ACTIVATION',
+  ACTIVE: 'ACTIVE',
+} as const;
+
+export type AdminProfileStatus =
+  (typeof AdminProfileStatus)[keyof typeof AdminProfileStatus];
+
 // 각 userType에 해당하는 Prisma 모델 매핑
 export const UserTypeToModel = {
   INSTRUCTOR: 'instructor',

@@ -1,5 +1,6 @@
 import { AuthService } from './auth.service.js';
 import {
+  AdminProfileStatus,
   SIGNUP_PENDING_USER_TYPE,
   UserType,
 } from '../constants/auth.constant.js';
@@ -13,6 +14,7 @@ import {
   createMockStudentRepository,
   createMockAssistantRepository,
   createMockParentRepository,
+  createMockAdminRepository,
   createMockAssistantCodeRepository,
   createMockEnrollmentsRepository,
   createMockBetterAuth,
@@ -37,6 +39,7 @@ describe('AuthService - @unit #critical', () => {
   >;
   let mockStudentRepo: ReturnType<typeof createMockStudentRepository>;
   let mockParentRepo: ReturnType<typeof createMockParentRepository>;
+  let mockAdminRepo: ReturnType<typeof createMockAdminRepository>;
   let mockEnrollmentsRepo: ReturnType<typeof createMockEnrollmentsRepository>;
   let mockBetterAuth: ReturnType<typeof createMockBetterAuth>;
   let mockBillingService: jest.Mocked<
@@ -57,6 +60,7 @@ describe('AuthService - @unit #critical', () => {
     mockAssistantCodeRepo = createMockAssistantCodeRepository();
     mockStudentRepo = createMockStudentRepository();
     mockParentRepo = createMockParentRepository();
+    mockAdminRepo = createMockAdminRepository();
     mockEnrollmentsRepo = createMockEnrollmentsRepository();
     mockBetterAuth = createMockBetterAuth();
     mockBillingService = {
@@ -82,6 +86,7 @@ describe('AuthService - @unit #critical', () => {
       mockAssistantCodeRepo,
       mockStudentRepo,
       mockParentRepo,
+      mockAdminRepo,
       mockEnrollmentsRepo,
       mockBetterAuth as unknown as typeof auth,
       mockBillingService as unknown as BillingService,
@@ -119,6 +124,7 @@ describe('AuthService - @unit #critical', () => {
         mockInstructorRepo.findByUserId.mockResolvedValue(
           mockProfiles.instructor,
         );
+        mockAdminRepo.findByUserId.mockResolvedValue(null);
 
         // 실행
         const result = await authService.signIn(
@@ -186,6 +192,44 @@ describe('AuthService - @unit #critical', () => {
 
         expect(mockBetterAuth.handler).not.toHaveBeenCalled();
       });
+
+      it('활성화되지 않은 관리자 계정은 로그인할 수 없다', async () => {
+        (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+          id: mockUsers.admin.id,
+          email: mockUsers.admin.email,
+          userType: UserType.ADMIN,
+        });
+        mockAdminRepo.findByUserId.mockResolvedValue({
+          id: 'admin-profile-id',
+          userId: mockUsers.admin.id,
+          status: AdminProfileStatus.PENDING_ACTIVATION,
+          isPrimaryAdmin: true,
+          invitedByUserId: null,
+          invitedAt: new Date(),
+          activatedAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        await expect(
+          authService.signIn(
+            mockUsers.admin.email,
+            'password123',
+            UserType.ADMIN,
+            false,
+          ),
+        ).rejects.toThrow(ForbiddenException);
+
+        await expect(
+          authService.signIn(
+            mockUsers.admin.email,
+            'password123',
+            UserType.ADMIN,
+            false,
+          ),
+        ).rejects.toThrow('관리자 최초 활성화가 필요합니다.');
+        expect(mockBetterAuth.handler).not.toHaveBeenCalled();
+      });
     });
   });
 
@@ -203,6 +247,7 @@ describe('AuthService - @unit #critical', () => {
         mockInstructorRepo.findByUserId.mockResolvedValue(
           mockProfiles.instructor,
         );
+        mockAdminRepo.findByUserId.mockResolvedValue(null);
 
         // 실행
         const result = await authService.getSession(headers);
@@ -258,6 +303,7 @@ describe('AuthService - @unit #critical', () => {
       mockInstructorRepo.findByUserId.mockResolvedValue(
         mockProfiles.instructor,
       );
+      mockAdminRepo.findByUserId.mockResolvedValue(null);
       mockBillingService.getInstructorBillingSummary.mockResolvedValue({
         activeEntitlement: {
           id: 'entitlement-1',
@@ -298,6 +344,7 @@ describe('AuthService - @unit #critical', () => {
       mockInstructorRepo.findByUserId.mockResolvedValue(
         mockProfiles.instructor,
       );
+      mockAdminRepo.findByUserId.mockResolvedValue(null);
       mockBillingService.getInstructorBillingSummary.mockResolvedValue({
         activeEntitlement: null,
         creditSummary: {
@@ -321,6 +368,7 @@ describe('AuthService - @unit #critical', () => {
         session: mockSession,
       });
       mockAssistantRepo.findByUserId.mockResolvedValue(mockProfiles.assistant);
+      mockAdminRepo.findByUserId.mockResolvedValue(null);
 
       const result = await authService.getSessionWithInstructorBillingSummary(
         {},
@@ -330,6 +378,39 @@ describe('AuthService - @unit #critical', () => {
       expect(
         mockBillingService.getInstructorBillingSummary,
       ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('[인증] getAdminSession', () => {
+    it('primary admin 세션 조회 시 canInviteAdmins=true를 포함해야 한다', async () => {
+      jest.spyOn(authService, 'getSession').mockResolvedValue({
+        user: mockUsers.admin,
+        session: mockSession,
+        profile: null,
+      });
+      mockAdminRepo.findByUserId.mockResolvedValue({
+        id: 'admin-profile-id',
+        userId: mockUsers.admin.id,
+        status: AdminProfileStatus.ACTIVE,
+        isPrimaryAdmin: true,
+        invitedByUserId: null,
+        invitedAt: new Date(),
+        activatedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const result = await authService.getAdminSession({
+        cookie: 'session_token=test-token',
+      });
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          user: mockUsers.admin,
+          profile: null,
+          canInviteAdmins: true,
+        }),
+      );
     });
   });
 
@@ -363,6 +444,7 @@ describe('AuthService - @unit #critical', () => {
         mockInstructorRepo.findByUserId.mockResolvedValue(
           mockProfiles.instructor,
         );
+        mockAdminRepo.findByUserId.mockResolvedValue(null);
 
         // 실행
         const result = await authService.getSession({});
@@ -388,6 +470,7 @@ describe('AuthService - @unit #critical', () => {
         mockAssistantRepo.findByUserId.mockResolvedValue(
           mockProfiles.assistant,
         );
+        mockAdminRepo.findByUserId.mockResolvedValue(null);
 
         // 실행
         const result = await authService.getSession({});
@@ -408,6 +491,7 @@ describe('AuthService - @unit #critical', () => {
           session: mockSession,
         });
         mockStudentRepo.findByUserId.mockResolvedValue(mockProfiles.student);
+        mockAdminRepo.findByUserId.mockResolvedValue(null);
 
         // 실행
         const result = await authService.getSession({});
@@ -426,6 +510,7 @@ describe('AuthService - @unit #critical', () => {
           session: mockSession,
         });
         mockParentRepo.findByUserId.mockResolvedValue(mockProfiles.parent);
+        mockAdminRepo.findByUserId.mockResolvedValue(null);
 
         // 실행
         const result = await authService.getSession({});
@@ -548,6 +633,118 @@ describe('AuthService - @unit #critical', () => {
       expect(result.user).toEqual(mockUsers.student);
       expect(result.session).toEqual({ token: 'otp-token' });
       expect(result.setCookie).toBe('session_token=test-cookie');
+    });
+
+    it('관리자 활성화용 OTP 요청은 pending admin에게만 발송한다', async () => {
+      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: mockUsers.admin.id,
+        userType: UserType.ADMIN,
+      });
+      mockAdminRepo.findByUserId.mockResolvedValue({
+        id: 'admin-profile-id',
+        userId: mockUsers.admin.id,
+        status: AdminProfileStatus.PENDING_ACTIVATION,
+        isPrimaryAdmin: true,
+        invitedByUserId: null,
+        invitedAt: new Date(),
+        activatedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      mockBetterAuth.handler.mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ success: true }),
+        headers: { get: jest.fn().mockReturnValue(null) },
+      });
+
+      const result = await authService.requestAdminActivationOtp(
+        mockUsers.admin.email,
+      );
+
+      expect(result).toEqual({ status: true });
+      const request = (mockBetterAuth.handler as jest.Mock).mock.calls[0][0];
+      expect(request.url).toContain(
+        '/api/auth/email-otp/send-verification-otp',
+      );
+    });
+
+    it('관리자 활성화용 OTP 검증은 pending admin 세션만 허용한다', async () => {
+      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: mockUsers.admin.id,
+        userType: UserType.ADMIN,
+      });
+      mockAdminRepo.findByUserId.mockResolvedValue({
+        id: 'admin-profile-id',
+        userId: mockUsers.admin.id,
+        status: AdminProfileStatus.PENDING_ACTIVATION,
+        isPrimaryAdmin: true,
+        invitedByUserId: null,
+        invitedAt: new Date(),
+        activatedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      jest.spyOn(authService, 'verifyEmailVerification').mockResolvedValue({
+        user: mockUsers.admin,
+        session: { token: 'otp-token' },
+        setCookie: 'session_token=otp-cookie',
+      });
+
+      const result = await authService.verifyAdminActivationOtp(
+        mockUsers.admin.email,
+        '123456',
+      );
+
+      expect(result).toEqual({
+        user: mockUsers.admin,
+        session: { token: 'otp-token' },
+        setCookie: 'session_token=otp-cookie',
+      });
+    });
+
+    it('관리자 활성화 완료 시 비밀번호 설정과 상태 전환이 함께 일어난다', async () => {
+      mockBetterAuth.api.getSession.mockResolvedValue({
+        user: mockUsers.admin,
+        session: mockSession,
+      });
+      mockAdminRepo.findByUserId.mockResolvedValue({
+        id: 'admin-profile-id',
+        userId: mockUsers.admin.id,
+        status: AdminProfileStatus.PENDING_ACTIVATION,
+        isPrimaryAdmin: true,
+        invitedByUserId: null,
+        invitedAt: new Date(),
+        activatedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      mockBetterAuth.api.setPassword.mockResolvedValue({ status: true });
+      (mockPrisma.user.update as jest.Mock).mockResolvedValue({
+        ...mockUsers.admin,
+        emailVerified: true,
+        role: 'admin',
+      });
+      (mockPrisma.admin.update as jest.Mock).mockResolvedValue({
+        id: 'admin-profile-id',
+      });
+
+      const result = await authService.completeAdminActivation(
+        { cookie: 'session_token=otp-admin' },
+        'Password123!',
+      );
+
+      expect(mockBetterAuth.api.setPassword).toHaveBeenCalledWith({
+        headers: expect.anything(),
+        body: { newPassword: 'Password123!' },
+      });
+      expect(mockPrisma.admin.update).toHaveBeenCalledWith({
+        where: { userId: mockUsers.admin.id },
+        data: expect.objectContaining({
+          status: AdminProfileStatus.ACTIVE,
+          activatedAt: expect.any(Date),
+        }),
+      });
+      expect(result.user.emailVerified).toBe(true);
     });
 
     it('이메일 인증 링크 검증 시 verify-email 엔드포인트를 호출한다', async () => {

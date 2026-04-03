@@ -57,6 +57,21 @@ const sendAuthMail = async ({
   });
 };
 
+const getAdminPortalUrl = () => {
+  const adminFrontUrl =
+    config.ADMIN_FRONT_URL ||
+    config.FRONT_URL.split(',')
+      .map((value) => value.trim())
+      .find(Boolean) ||
+    '';
+
+  try {
+    return new URL('/admin', adminFrontUrl).toString();
+  } catch (_error) {
+    return adminFrontUrl;
+  }
+};
+
 export const sendEmailOtp = async ({
   email,
   otp,
@@ -102,6 +117,27 @@ export const sendVerificationLinkMail = async ({
     html: `<div>
       <p>아래 버튼을 눌러 이메일 인증을 완료해주세요.</p>
       <a href="${url}" target="_blank" rel="noreferrer noopener">이메일 인증하기</a>
+    </div>`,
+  });
+};
+
+export const sendAdminInvitationMail = async ({
+  email,
+  invitedByName,
+}: {
+  email: string;
+  invitedByName: string;
+}) => {
+  const adminPortalUrl = getAdminPortalUrl();
+
+  await sendAuthMail({
+    to: email,
+    subject: '[SSAMBEE] 관리자 초대 안내',
+    text: `${invitedByName}님이 관리자 계정으로 초대했습니다. 관리자 페이지에 접속해 이메일 OTP 인증 후 비밀번호를 설정해주세요: ${adminPortalUrl}`,
+    html: `<div>
+      <p>${invitedByName}님이 관리자 계정으로 초대했습니다.</p>
+      <p>아래 링크로 이동해 이메일 OTP 인증을 완료하고 비밀번호를 설정해주세요.</p>
+      <a href="${adminPortalUrl}" target="_blank" rel="noreferrer noopener">관리자 페이지로 이동</a>
     </div>`,
   });
 };
