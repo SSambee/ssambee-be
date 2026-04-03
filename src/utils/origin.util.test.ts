@@ -38,6 +38,15 @@ describe('origin.util', () => {
         }),
       ).toBe('https://admin.example.com');
     });
+
+    it('유효한 origin이 없으면 null을 반환해야 한다', () => {
+      expect(
+        getAdminPortalBaseUrl({
+          frontUrl: '',
+          adminFrontUrl: 'invalid-url',
+        }),
+      ).toBeNull();
+    });
   });
 
   describe('getDevelopmentTrustedOrigins', () => {

@@ -3,6 +3,8 @@ import { config } from '../config/env.config.js';
 import { getAdminPortalBaseUrl } from './origin.util.js';
 
 let transporter: Transporter | null = null;
+const ADMIN_PORTAL_UNAVAILABLE_NOTICE =
+  '현재 관리자 페이지 접속 링크가 설정되지 않았습니다. 운영팀에 문의해주세요.';
 
 const hasRequiredMailConfig = () => {
   return !!(
@@ -58,16 +60,20 @@ const sendAuthMail = async ({
   });
 };
 
-const getAdminPortalUrl = () => {
+const getAdminPortalUrl = (): string | null => {
   const adminFrontUrl = getAdminPortalBaseUrl({
     frontUrl: config.FRONT_URL,
     adminFrontUrl: config.ADMIN_FRONT_URL,
   });
 
+  if (!adminFrontUrl) {
+    return null;
+  }
+
   try {
     return new URL('/admin', adminFrontUrl).toString();
   } catch (_error) {
-    return adminFrontUrl;
+    return null;
   }
 };
 
@@ -128,15 +134,30 @@ export const sendAdminInvitationMail = async ({
   invitedByName: string;
 }) => {
   const adminPortalUrl = getAdminPortalUrl();
+  const hasAdminPortalUrl = Boolean(adminPortalUrl);
+
+  if (!hasAdminPortalUrl) {
+    console.warn(
+      '[sendAdminInvitationMail] Admin portal URL is not configured. Set FRONT_URL or ADMIN_FRONT_URL to include the portal link in invitation emails.',
+    );
+  }
 
   await sendAuthMail({
     to: email,
     subject: '[SSAMBEE] 관리자 초대 안내',
-    text: `${invitedByName}님이 관리자 계정으로 초대했습니다. 관리자 페이지에 접속해 이메일 OTP 인증 후 비밀번호를 설정해주세요: ${adminPortalUrl}`,
-    html: `<div>
+    text: hasAdminPortalUrl
+      ? `${invitedByName}님이 관리자 계정으로 초대했습니다. 관리자 페이지에 접속해 이메일 OTP 인증 후 비밀번호를 설정해주세요: ${adminPortalUrl}`
+      : `${invitedByName}님이 관리자 계정으로 초대했습니다. 관리자 페이지에 접속해 이메일 OTP 인증 후 비밀번호를 설정해주세요. ${ADMIN_PORTAL_UNAVAILABLE_NOTICE}`,
+    html: hasAdminPortalUrl
+      ? `<div>
       <p>${invitedByName}님이 관리자 계정으로 초대했습니다.</p>
       <p>아래 링크로 이동해 이메일 OTP 인증을 완료하고 비밀번호를 설정해주세요.</p>
       <a href="${adminPortalUrl}" target="_blank" rel="noreferrer noopener">관리자 페이지로 이동</a>
+    </div>`
+      : `<div>
+      <p>${invitedByName}님이 관리자 계정으로 초대했습니다.</p>
+      <p>관리자 페이지에 접속해 이메일 OTP 인증을 완료하고 비밀번호를 설정해주세요.</p>
+      <p>${ADMIN_PORTAL_UNAVAILABLE_NOTICE}</p>
     </div>`,
   });
 };

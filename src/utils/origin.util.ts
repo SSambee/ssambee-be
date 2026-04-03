@@ -43,8 +43,8 @@ export const getAdminPortalBaseUrl = ({
 }: {
   frontUrl?: string;
   adminFrontUrl?: string;
-}): string => {
-  return parseOriginList(adminFrontUrl, frontUrl)[0] || '';
+}): string | null => {
+  return parseOriginList(adminFrontUrl, frontUrl)[0] ?? null;
 };
 
 export const getDevelopmentTrustedOrigins = (request: Request): string[] => {
