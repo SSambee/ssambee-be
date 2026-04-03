@@ -758,14 +758,18 @@ describe('AuthService - @unit #critical', () => {
         );
 
         expect(result).toEqual({ status: true });
+        const loggedPayload = (consoleErrorSpy as jest.Mock).mock.calls[0][1];
+
         expect(consoleErrorSpy).toHaveBeenCalledWith(
           '[AuthService] admin activation OTP dispatch failed',
           expect.objectContaining({
-            email: mockUsers.admin.email,
+            emailToken: expect.any(String),
             userId: mockUsers.admin.id,
             error: expect.any(Error),
           }),
         );
+        expect(loggedPayload.emailToken).not.toBe(mockUsers.admin.email);
+        expect(loggedPayload).not.toHaveProperty('email');
       } finally {
         consoleErrorSpy.mockRestore();
       }

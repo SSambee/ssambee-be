@@ -1,4 +1,5 @@
 import type { IncomingHttpHeaders } from 'http';
+import { createHash } from 'node:crypto';
 import { fromNodeHeaders } from 'better-auth/node';
 import { PrismaClient } from '../generated/prisma/client.js';
 import type { Prisma } from '../generated/prisma/client.js';
@@ -62,6 +63,13 @@ export class AuthService {
 
   private normalizeEmail(email: string) {
     return email.trim().toLowerCase();
+  }
+
+  private getEmailLogToken(normalizedEmail: string) {
+    return createHash('sha256')
+      .update(normalizedEmail)
+      .digest('hex')
+      .slice(0, 12);
   }
 
   private getSetCookieHeaders(headers: Headers) {
@@ -422,7 +430,7 @@ export class AuthService {
         await this.requestEmailVerification(normalizedEmail);
       } catch (error) {
         console.error('[AuthService] admin activation OTP dispatch failed', {
-          email: normalizedEmail,
+          emailToken: this.getEmailLogToken(normalizedEmail),
           userId: user.id,
           error,
         });
