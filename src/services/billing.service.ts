@@ -1717,15 +1717,24 @@ export class BillingService {
       while (guard < 120) {
         guard += 1;
 
-        const activeEntitlement = await this.billingRepo.findActiveEntitlement(
-          instructorId,
-          tx,
-        );
+        const expiringEntitlement = (
+          await this.billingRepo.listEntitlementsToExpire(
+            now,
+            { instructorId },
+            tx,
+          )
+        )[0];
 
-        if (activeEntitlement && activeEntitlement.endsAt < now) {
-          await this.expireEntitlement(activeEntitlement, now, tx);
+        if (expiringEntitlement) {
+          await this.expireEntitlement(expiringEntitlement, now, tx);
           continue;
         }
+
+        const activeEntitlement = await this.billingRepo.findActiveEntitlement(
+          instructorId,
+          now,
+          tx,
+        );
 
         if (!activeEntitlement) {
           const readyQueued = await this.billingRepo.findReadyQueuedEntitlement(
@@ -1745,15 +1754,14 @@ export class BillingService {
         break;
       }
 
-      const activeBuckets = await this.billingRepo.listActiveCreditBuckets(
-        instructorId,
+      const expiringBuckets = await this.billingRepo.listCreditBucketsToExpire(
+        now,
+        { instructorId },
         tx,
       );
 
-      for (const bucket of activeBuckets) {
-        if (bucket.expiresAt < now) {
-          await this.expireCreditBucket(bucket, now, tx);
-        }
+      for (const bucket of expiringBuckets) {
+        await this.expireCreditBucket(bucket, now, tx);
       }
 
       const wallet = await this.refreshCreditWallet(instructorId, tx);

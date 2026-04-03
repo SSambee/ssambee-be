@@ -50,11 +50,13 @@ describe('BillingService', () => {
       createCreditLedger: jest.fn(),
       listEntitlementsByInstructor: jest.fn(),
       findActiveEntitlement: jest.fn(),
+      listEntitlementsToExpire: jest.fn().mockResolvedValue([]),
       findReadyQueuedEntitlement: jest.fn(),
       updateEntitlement: jest.fn(),
       findRechargeCreditBucketByPaymentItemId: jest.fn(),
       upsertRechargeCreditBucket: jest.fn(),
       updateCreditBucket: jest.fn(),
+      listCreditBucketsToExpire: jest.fn().mockResolvedValue([]),
       findPaymentItemById: jest.fn(),
       createPaymentItemRevocationHistory: jest.fn(),
       listRevocationHistoriesByTargetIds: jest.fn(),
@@ -1714,6 +1716,135 @@ describe('BillingService', () => {
       }),
       expect.anything(),
     );
+  });
+
+  it('경계 시각에 만료된 활성 row는 스캔으로 정리하고 다음 queued 이용권을 활성화해야 한다', async () => {
+    const now = new Date('2026-03-24T00:00:00.000Z');
+    const expiredEntitlement = {
+      id: 'entitlement-expired',
+      instructorId: 'instructor-1',
+      paymentItemId: 'item-expired',
+      sequenceNo: 1,
+      status: EntitlementStatus.ACTIVE,
+      startsAt: new Date('2026-02-24T00:00:00.000Z'),
+      endsAt: now,
+      activatedAt: new Date('2026-02-24T00:00:00.000Z'),
+      expiredAt: null,
+      canceledAt: null,
+      includedCreditAmount: IncludedCreditPolicy.MONTHLY_AMOUNT,
+    };
+    const queuedEntitlement = {
+      id: 'entitlement-queued',
+      instructorId: 'instructor-1',
+      paymentItemId: 'item-queued',
+      sequenceNo: 2,
+      status: EntitlementStatus.QUEUED,
+      startsAt: now,
+      endsAt: new Date('2026-04-23T14:59:59.999Z'),
+      activatedAt: null,
+      expiredAt: null,
+      canceledAt: null,
+      includedCreditAmount: IncludedCreditPolicy.MONTHLY_AMOUNT,
+    };
+    const activatedEntitlement = {
+      ...queuedEntitlement,
+      status: EntitlementStatus.ACTIVE,
+      activatedAt: now,
+    };
+    const expiringBucket = {
+      id: 'bucket-expired',
+      instructorId: 'instructor-1',
+      paymentItemId: 'item-expired',
+      entitlementId: 'entitlement-expired',
+      sourceType: CreditSourceType.ENTITLEMENT_INCLUDED,
+      status: CreditBucketStatus.ACTIVE,
+      originalAmount: 300,
+      remainingAmount: 100,
+      grantedAt: new Date('2026-02-24T00:00:00.000Z'),
+      expiresAt: now,
+    };
+    const wallet = {
+      id: 'wallet-1',
+      instructorId: 'instructor-1',
+      totalAvailable: 0,
+      includedAvailable: 0,
+      rechargeAvailable: 0,
+      lastReconciledAt: now,
+    };
+
+    (mockBillingRepo.listEntitlementsToExpire as jest.Mock)
+      .mockResolvedValueOnce([expiredEntitlement])
+      .mockResolvedValueOnce([]);
+    (mockBillingRepo.findActiveEntitlement as jest.Mock)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(activatedEntitlement);
+    (mockBillingRepo.findReadyQueuedEntitlement as jest.Mock).mockResolvedValue(
+      queuedEntitlement,
+    );
+    (mockBillingRepo.listCreditBucketsToExpire as jest.Mock).mockResolvedValue([
+      expiringBucket,
+    ]);
+    (mockBillingRepo.listActiveCreditBuckets as jest.Mock).mockResolvedValue(
+      [],
+    );
+    (mockBillingRepo.upsertCreditWallet as jest.Mock).mockResolvedValue(wallet);
+    (
+      mockBillingRepo.listEntitlementsByInstructor as jest.Mock
+    ).mockResolvedValue([
+      {
+        ...expiredEntitlement,
+        status: EntitlementStatus.EXPIRED,
+        expiredAt: now,
+      },
+      activatedEntitlement,
+    ]);
+
+    const expireEntitlementSpy = jest
+      .spyOn(service as never, 'expireEntitlement' as never)
+      .mockResolvedValue({
+        ...expiredEntitlement,
+        status: EntitlementStatus.EXPIRED,
+        expiredAt: now,
+      } as never);
+    const activateEntitlementSpy = jest
+      .spyOn(service as never, 'activateEntitlement' as never)
+      .mockResolvedValue(activatedEntitlement as never);
+    const expireCreditBucketSpy = jest
+      .spyOn(service as never, 'expireCreditBucket' as never)
+      .mockResolvedValue({
+        ...expiringBucket,
+        status: CreditBucketStatus.EXPIRED,
+        remainingAmount: 0,
+      } as never);
+
+    const result = await service.reconcileInstructorState('instructor-1', now);
+
+    expect(mockBillingRepo.listEntitlementsToExpire).toHaveBeenCalledWith(
+      now,
+      { instructorId: 'instructor-1' },
+      expect.anything(),
+    );
+    expect(mockBillingRepo.findActiveEntitlement).toHaveBeenCalledWith(
+      'instructor-1',
+      now,
+      expect.anything(),
+    );
+    expect(expireEntitlementSpy).toHaveBeenCalledWith(
+      expiredEntitlement,
+      now,
+      expect.anything(),
+    );
+    expect(activateEntitlementSpy).toHaveBeenCalledWith(
+      queuedEntitlement,
+      now,
+      expect.anything(),
+    );
+    expect(expireCreditBucketSpy).toHaveBeenCalledWith(
+      expiringBucket,
+      now,
+      expect.anything(),
+    );
+    expect(result.activeEntitlement).toEqual(activatedEntitlement);
   });
 
   it('관리자 강사별 결제/이용권/크레딧 조회는 대상 강사가 없으면 실패해야 한다', async () => {

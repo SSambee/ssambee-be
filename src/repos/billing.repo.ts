@@ -23,6 +23,23 @@ export class BillingRepository {
     return tx ?? this.prisma;
   }
 
+  private resolveNowAndTx(
+    nowOrTx?: Date | Prisma.TransactionClient,
+    tx?: Prisma.TransactionClient,
+  ) {
+    if (nowOrTx instanceof Date) {
+      return {
+        now: nowOrTx,
+        tx,
+      };
+    }
+
+    return {
+      now: new Date(),
+      tx: nowOrTx,
+    };
+  }
+
   async listActiveProducts() {
     return this.prisma.billingProduct.findMany({
       where: { isActive: true },
@@ -327,12 +344,18 @@ export class BillingRepository {
 
   async findActiveEntitlement(
     instructorId: string,
+    nowOrTx?: Date | Prisma.TransactionClient,
     tx?: Prisma.TransactionClient,
   ) {
-    return this.getClient(tx).entitlement.findFirst({
+    const resolved = this.resolveNowAndTx(nowOrTx, tx);
+
+    return this.getClient(resolved.tx).entitlement.findFirst({
       where: {
         instructorId,
         status: EntitlementStatus.ACTIVE,
+        endsAt: {
+          gt: resolved.now,
+        },
       },
       orderBy: { startsAt: 'asc' },
     });
@@ -367,12 +390,19 @@ export class BillingRepository {
     });
   }
 
-  async listEntitlementsToExpire(now: Date, tx?: Prisma.TransactionClient) {
+  async listEntitlementsToExpire(
+    now: Date,
+    options?: { instructorId?: string },
+    tx?: Prisma.TransactionClient,
+  ) {
     return this.getClient(tx).entitlement.findMany({
       where: {
+        ...(options?.instructorId
+          ? { instructorId: options.instructorId }
+          : {}),
         status: EntitlementStatus.ACTIVE,
         endsAt: {
-          lt: now,
+          lte: now,
         },
       },
       orderBy: { endsAt: 'asc' },
@@ -501,26 +531,39 @@ export class BillingRepository {
 
   async listActiveCreditBuckets(
     instructorId: string,
+    nowOrTx?: Date | Prisma.TransactionClient,
     tx?: Prisma.TransactionClient,
   ) {
-    return this.getClient(tx).creditBucket.findMany({
+    const resolved = this.resolveNowAndTx(nowOrTx, tx);
+
+    return this.getClient(resolved.tx).creditBucket.findMany({
       where: {
         instructorId,
         status: CreditBucketStatus.ACTIVE,
         remainingAmount: {
           gt: 0,
         },
+        expiresAt: {
+          gt: resolved.now,
+        },
       },
       orderBy: [{ expiresAt: 'asc' }, { grantedAt: 'asc' }, { id: 'asc' }],
     });
   }
 
-  async listCreditBucketsToExpire(now: Date, tx?: Prisma.TransactionClient) {
+  async listCreditBucketsToExpire(
+    now: Date,
+    options?: { instructorId?: string },
+    tx?: Prisma.TransactionClient,
+  ) {
     return this.getClient(tx).creditBucket.findMany({
       where: {
+        ...(options?.instructorId
+          ? { instructorId: options.instructorId }
+          : {}),
         status: CreditBucketStatus.ACTIVE,
         expiresAt: {
-          lt: now,
+          lte: now,
         },
       },
       orderBy: { expiresAt: 'asc' },
