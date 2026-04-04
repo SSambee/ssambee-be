@@ -32,6 +32,7 @@ describe('BillingService', () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-03-24T00:00:00.000Z'));
 
     mockBillingRepo = {
+      listActiveProducts: jest.fn(),
       findProductById: jest.fn(),
       findProductByCode: jest.fn(),
       findInstructorById: jest.fn(),
@@ -82,6 +83,39 @@ describe('BillingService', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it('노출 정책에 포함된 무통장 상품만 활성 상품 목록에 포함해야 한다', async () => {
+    (mockBillingRepo.listActiveProducts as jest.Mock).mockResolvedValue([
+      {
+        id: 'product-pass-single',
+        productType: BillingProductType.PASS_SINGLE,
+        paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+      },
+      {
+        id: 'product-credit-pack',
+        productType: BillingProductType.CREDIT_PACK,
+        paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+      },
+      {
+        id: 'product-pass-subscription',
+        productType: BillingProductType.PASS_SUBSCRIPTION,
+        paymentMethodType: PaymentMethodType.TOSS_BILLING,
+      },
+      {
+        id: 'product-toss-link',
+        productType: BillingProductType.PASS_SINGLE,
+        paymentMethodType: PaymentMethodType.TOSS_LINK,
+      },
+    ]);
+
+    const result = await service.listActiveProducts();
+
+    expect(mockBillingRepo.listActiveProducts).toHaveBeenCalled();
+    expect(result).toEqual([
+      expect.objectContaining({ id: 'product-pass-single' }),
+      expect.objectContaining({ id: 'product-credit-pack' }),
+    ]);
   });
 
   it('무통장 결제 생성 시 payment/item/history/receipt를 함께 저장해야 한다', async () => {

@@ -165,6 +165,24 @@ describe('결제 BDD 테스트 - @integration', () => {
 
     await prisma.billingProduct.create({
       data: {
+        code: 'PUBLIC_CREDIT_PACK_3000',
+        name: '공개 크레딧 충전권 3000',
+        description: '비로그인 사용자에게 노출되는 충전권',
+        highlights: ['추가 충전 크레딧 3000', '구매 후 90일 내 사용'],
+        productType: BillingProductType.CREDIT_PACK,
+        billingMode: BillingMode.ONE_TIME,
+        paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+        durationMonths: null,
+        includedCreditAmount: 0,
+        rechargeCreditAmount: 3000,
+        price: 33000,
+        isActive: true,
+        sortOrder: 2,
+      },
+    });
+
+    await prisma.billingProduct.create({
+      data: {
         code: 'HIDDEN_TOSS_SUBSCRIPTION',
         name: '비공개 구독 상품',
         description: '공개 API에 노출되면 안 되는 상품',
@@ -186,26 +204,139 @@ describe('결제 BDD 테스트 - @integration', () => {
     expect(response.status).toBe(200);
     expect(response.body.status).toBe('success');
     expect(response.body.message).toBe('공개 결제 상품 조회 성공');
-    expect(response.body.data).toEqual([
-      {
-        name: '공개 1개월 이용권',
-        description: '비로그인 사용자에게 노출되는 이용권',
+    expect(response.body.data).toEqual({
+      passSingleProducts: [
+        {
+          name: '공개 1개월 이용권',
+          description: '비로그인 사용자에게 노출되는 이용권',
+          highlights: ['1개월 이용권', '기본 포함 크레딧 1000'],
+          productType: BillingProductType.PASS_SINGLE,
+          billingMode: BillingMode.ONE_TIME,
+          durationMonths: 1,
+          includedCreditAmount: 1000,
+          rechargeCreditAmount: 0,
+          price: 99000,
+        },
+      ],
+      creditPackProducts: [
+        {
+          name: '공개 크레딧 충전권 3000',
+          description: '비로그인 사용자에게 노출되는 충전권',
+          highlights: ['추가 충전 크레딧 3000', '구매 후 90일 내 사용'],
+          productType: BillingProductType.CREDIT_PACK,
+          billingMode: BillingMode.ONE_TIME,
+          durationMonths: null,
+          includedCreditAmount: 0,
+          rechargeCreditAmount: 3000,
+          price: 33000,
+        },
+      ],
+    });
+    expect(response.body.data.passSingleProducts[0]).not.toHaveProperty('id');
+    expect(response.body.data.passSingleProducts[0]).not.toHaveProperty('code');
+    expect(response.body.data.passSingleProducts[0]).not.toHaveProperty(
+      'paymentMethodType',
+    );
+    expect(response.body.data.passSingleProducts[0]).not.toHaveProperty(
+      'isActive',
+    );
+    expect(response.body.data.passSingleProducts[0]).not.toHaveProperty(
+      'sortOrder',
+    );
+    expect(response.body.data.passSingleProducts[0]).not.toHaveProperty(
+      'createdAt',
+    );
+    expect(response.body.data.passSingleProducts[0]).not.toHaveProperty(
+      'updatedAt',
+    );
+  });
+
+  it('강사는 결제 상품 목록을 productType 기준으로 그룹핑된 형태로 조회할 수 있어야 한다', async () => {
+    mockInstructorSession();
+
+    const passSingleProduct = await prisma.billingProduct.create({
+      data: {
+        code: 'MGMT_PASS_SINGLE_1M',
+        name: '강사용 1개월 이용권',
+        description: '강사 결제 페이지에 노출되는 이용권',
         highlights: ['1개월 이용권', '기본 포함 크레딧 1000'],
         productType: BillingProductType.PASS_SINGLE,
         billingMode: BillingMode.ONE_TIME,
+        paymentMethodType: PaymentMethodType.BANK_TRANSFER,
         durationMonths: 1,
         includedCreditAmount: 1000,
         rechargeCreditAmount: 0,
         price: 99000,
+        isActive: true,
+        sortOrder: 1,
       },
-    ]);
-    expect(response.body.data[0]).not.toHaveProperty('id');
-    expect(response.body.data[0]).not.toHaveProperty('code');
-    expect(response.body.data[0]).not.toHaveProperty('paymentMethodType');
-    expect(response.body.data[0]).not.toHaveProperty('isActive');
-    expect(response.body.data[0]).not.toHaveProperty('sortOrder');
-    expect(response.body.data[0]).not.toHaveProperty('createdAt');
-    expect(response.body.data[0]).not.toHaveProperty('updatedAt');
+    });
+
+    const creditPackProduct = await prisma.billingProduct.create({
+      data: {
+        code: 'MGMT_CREDIT_PACK_3000',
+        name: '강사용 크레딧 충전권 3000',
+        description: '강사 결제 페이지에 노출되는 충전권',
+        highlights: ['추가 충전 크레딧 3000', '구매 후 90일 내 사용'],
+        productType: BillingProductType.CREDIT_PACK,
+        billingMode: BillingMode.ONE_TIME,
+        paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+        durationMonths: null,
+        includedCreditAmount: 0,
+        rechargeCreditAmount: 3000,
+        price: 33000,
+        isActive: true,
+        sortOrder: 2,
+      },
+    });
+
+    await prisma.billingProduct.create({
+      data: {
+        code: 'MGMT_HIDDEN_SUBSCRIPTION',
+        name: '강사용 비공개 구독 상품',
+        description: '현재 구매할 수 없어 노출되면 안 되는 상품',
+        highlights: ['비공개', '정기결제'],
+        productType: BillingProductType.PASS_SUBSCRIPTION,
+        billingMode: BillingMode.RECURRING,
+        paymentMethodType: PaymentMethodType.TOSS_LINK,
+        durationMonths: 1,
+        includedCreditAmount: 1000,
+        rechargeCreditAmount: 0,
+        price: 109000,
+        isActive: true,
+        sortOrder: 3,
+      },
+    });
+
+    const response = await request(app).get('/api/mgmt/v1/billing/products');
+
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('success');
+    expect(response.body.message).toBe('결제 상품 조회 성공');
+    expect(response.body.data.passSingleProducts).toHaveLength(1);
+    expect(response.body.data.creditPackProducts).toHaveLength(1);
+    expect(response.body.data.passSingleProducts[0]).toMatchObject({
+      id: passSingleProduct.id,
+      code: 'MGMT_PASS_SINGLE_1M',
+      productType: BillingProductType.PASS_SINGLE,
+      paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+      isActive: true,
+      sortOrder: 1,
+    });
+    expect(response.body.data.creditPackProducts[0]).toMatchObject({
+      id: creditPackProduct.id,
+      code: 'MGMT_CREDIT_PACK_3000',
+      productType: BillingProductType.CREDIT_PACK,
+      paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+      isActive: true,
+      sortOrder: 2,
+    });
+    expect(response.body.data.passSingleProducts[0].createdAt).toBe(
+      passSingleProduct.createdAt.toISOString(),
+    );
+    expect(response.body.data.creditPackProducts[0].createdAt).toBe(
+      creditPackProduct.createdAt.toISOString(),
+    );
   });
 
   it('관리자가 0원 충전권을 지급하면 실제 API 응답과 강사 조회 결과에 반영되어야 한다', async () => {

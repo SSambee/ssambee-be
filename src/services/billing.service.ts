@@ -36,6 +36,7 @@ import {
   CreditSourceType,
   EntitlementStatus,
   IncludedCreditPolicy,
+  isExposedBillingProductType,
   PaymentMethodType,
   PaymentProviderType,
   PaymentRefundStatus,
@@ -988,14 +989,7 @@ export class BillingService {
     return products.filter(
       (product) =>
         product.paymentMethodType === PaymentMethodType.BANK_TRANSFER &&
-        [
-          BillingProductType.PASS_SINGLE,
-          BillingProductType.CREDIT_PACK,
-        ].includes(
-          product.productType as
-            | typeof BillingProductType.PASS_SINGLE
-            | typeof BillingProductType.CREDIT_PACK,
-        ),
+        isExposedBillingProductType(product.productType),
     );
   }
 
