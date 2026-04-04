@@ -393,6 +393,9 @@ export class BillingRepository {
         startsAt: {
           lte: now,
         },
+        endsAt: {
+          gt: now,
+        },
       },
       orderBy: [{ startsAt: 'asc' }, { sequenceNo: 'asc' }],
     });
@@ -404,6 +407,9 @@ export class BillingRepository {
         status: EntitlementStatus.QUEUED,
         startsAt: {
           lte: now,
+        },
+        endsAt: {
+          gt: now,
         },
       },
       orderBy: [{ startsAt: 'asc' }, { sequenceNo: 'asc' }],

@@ -53,6 +53,45 @@ describe('BillingRepository', () => {
     });
   });
 
+  it('findReadyQueuedEntitlement는 시작되었고 아직 종료되지 않은 queued entitlement만 조회해야 한다', async () => {
+    const now = new Date('2026-03-24T00:00:00.000Z');
+
+    await repo.findReadyQueuedEntitlement('instructor-1', now);
+
+    expect(entitlementFindFirst).toHaveBeenCalledWith({
+      where: {
+        instructorId: 'instructor-1',
+        status: EntitlementStatus.QUEUED,
+        startsAt: {
+          lte: now,
+        },
+        endsAt: {
+          gt: now,
+        },
+      },
+      orderBy: [{ startsAt: 'asc' }, { sequenceNo: 'asc' }],
+    });
+  });
+
+  it('listReadyQueuedEntitlements는 시작되었고 아직 종료되지 않은 queued entitlement만 조회해야 한다', async () => {
+    const now = new Date('2026-03-24T00:00:00.000Z');
+
+    await repo.listReadyQueuedEntitlements(now);
+
+    expect(entitlementFindMany).toHaveBeenCalledWith({
+      where: {
+        status: EntitlementStatus.QUEUED,
+        startsAt: {
+          lte: now,
+        },
+        endsAt: {
+          gt: now,
+        },
+      },
+      orderBy: [{ startsAt: 'asc' }, { sequenceNo: 'asc' }],
+    });
+  });
+
   it('listEntitlementsToExpire는 경계 시각과 같은 endsAt도 만료 대상으로 포함해야 한다', async () => {
     const now = new Date('2026-03-24T00:00:00.000Z');
 
