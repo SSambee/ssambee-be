@@ -889,12 +889,13 @@ export class AuthService {
   async getSessionWithInstructorBillingSummary(headers: IncomingHttpHeaders) {
     const session = await this.getSession(headers);
 
-    if (!session || session.user.userType !== UserType.INSTRUCTOR) {
+    if (!session) {
       return session;
     }
 
     const profile = session.profile as {
       id: string;
+      instructorId?: string;
       [key: string]: unknown;
     } | null;
 
@@ -902,8 +903,21 @@ export class AuthService {
       return session;
     }
 
+    const billingTargetInstructorId =
+      session.user.userType === UserType.INSTRUCTOR
+        ? profile.id
+        : session.user.userType === UserType.ASSISTANT
+          ? profile.instructorId
+          : null;
+
+    if (!billingTargetInstructorId) {
+      return session;
+    }
+
     const billingSummary =
-      await this.billingService.getInstructorBillingSummary(profile.id);
+      await this.billingService.getInstructorBillingSummary(
+        billingTargetInstructorId,
+      );
 
     return {
       ...session,
