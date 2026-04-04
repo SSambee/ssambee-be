@@ -2,6 +2,7 @@ import request from 'supertest';
 import { createTestApp } from '../utils/app.mock.js';
 import { container } from '../../config/container.config.js';
 import { UserType } from '../../constants/auth.constant.js';
+import { seedActiveInstructorEntitlement } from '../utils/billing-test.util.js';
 import { dbTestUtil } from '../utils/db-test.util.js';
 import { prisma } from '../../config/db.config.js';
 import { fakerKO as faker } from '@faker-js/faker';
@@ -40,6 +41,7 @@ describe('수강 신청 BDD 테스트 - @integration', () => {
       instructor = await prisma.instructor.create({
         data: { userId: user.id, phoneNumber: faker.phone.number() },
       });
+      await seedActiveInstructorEntitlement(instructor.id);
 
       lecture = await prisma.lecture.create({
         data: {
@@ -152,6 +154,7 @@ describe('수강 신청 BDD 테스트 - @integration', () => {
       instructor = await prisma.instructor.create({
         data: { userId: user.id, phoneNumber: '010' },
       });
+      await seedActiveInstructorEntitlement(instructor.id);
       lecture = await prisma.lecture.create({
         data: {
           instructorId: instructor.id,
@@ -225,6 +228,7 @@ describe('수강 신청 BDD 테스트 - @integration', () => {
       instructor = await prisma.instructor.create({
         data: { userId: user.id, phoneNumber: '010' },
       });
+      await seedActiveInstructorEntitlement(instructor.id);
       lecture = await prisma.lecture.create({
         data: { instructorId: instructor.id, title: 'L', status: 'REGISTERED' },
       });

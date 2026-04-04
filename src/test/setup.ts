@@ -28,6 +28,7 @@ jest.mock('better-auth', () => ({
     handler: jest.fn(),
     api: {
       getSession: jest.fn(),
+      setPassword: jest.fn(),
       signOut: jest.fn(),
       deleteUser: jest.fn(),
       removeUser: jest.fn(),

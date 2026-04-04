@@ -15,6 +15,8 @@
     "dev": "tsx watch src/app.ts",
     "build": "tsc",
     "start": "node dist/app.js",
+    "bootstrap:admin": "tsx src/scripts/bootstrap-admin.ts",
+    "billing:reconcile": "tsx src/scripts/reconcile-billing.ts",
     "test": "jest --passWithNoTests -t '^(?!.*@integration)'",
     "test:watch": "jest --watch",
     "test:unit": "jest -t '@unit' --testPathIgnorePatterns='/src/test/bdd/' '/src/test/integration/'",

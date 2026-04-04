@@ -9,15 +9,22 @@ export const createMockAuthService = (): jest.Mocked<AuthService> =>
   ({
     completeSignUpWithVerifiedEmail: jest.fn(),
     signIn: jest.fn(),
+    signInAdmin: jest.fn(),
     requestEmailVerification: jest.fn(),
     verifyEmailVerification: jest.fn(),
     verifyEmailWithToken: jest.fn(),
+    requestAdminActivationOtp: jest.fn(),
+    verifyAdminActivationOtp: jest.fn(),
+    completeAdminActivation: jest.fn(),
     changeMyEmail: jest.fn(),
     changeMyPassword: jest.fn(),
     findPassword: jest.fn(),
     resetPasswordWithOTP: jest.fn(),
     signOut: jest.fn(),
     getSession: jest.fn(),
+    getSessionWithInstructorBillingSummary: jest.fn(),
+    getAdminSession: jest.fn(),
+    ensureAdminAccess: jest.fn(),
   }) as unknown as jest.Mocked<AuthService>;
 
 /** Mock ParentsService 생성 */

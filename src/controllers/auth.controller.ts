@@ -52,6 +52,15 @@ const crossDomainCookie = getCrossDomainCookie();
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  private applySetCookieHeader = (
+    res: Response,
+    setCookie?: string | string[] | null,
+  ) => {
+    if (setCookie) {
+      res.setHeader('Set-Cookie', setCookie);
+    }
+  };
+
   private handleAuthResponse = (
     res: Response,
     result: AuthResponse,
@@ -59,9 +68,7 @@ export class AuthController {
     statusCode: number = 200,
   ) => {
     // Better Auth Handler로부터 받은 쿠키가 있으면 설정
-    if (result.setCookie) {
-      res.setHeader('Set-Cookie', result.setCookie);
-    }
+    this.applySetCookieHeader(res, result.setCookie);
 
     return successResponse(res, {
       statusCode,
@@ -159,6 +166,91 @@ export class AuthController {
       );
 
       this.handleAuthResponse(res, result, '로그인 성공', 200);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /** 관리자 로그인 */
+  adminSignIn = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email, password, rememberMe } = req.body;
+
+      const result = await this.authService.signInAdmin(
+        email,
+        password,
+        !!rememberMe,
+      );
+
+      this.handleAuthResponse(res, result, '관리자 로그인 성공', 200);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  adminRequestActivationOtp = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { email } = req.body;
+
+      await this.authService.requestAdminActivationOtp(email);
+
+      return successResponse(res, {
+        message: '인증코드가 전송되었습니다. 이메일을 확인해주세요.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  adminVerifyActivationOtp = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { email, otp } = req.body;
+
+      const result = await this.authService.verifyAdminActivationOtp(
+        email,
+        otp,
+      );
+      this.applySetCookieHeader(res, result.setCookie);
+
+      return successResponse(res, {
+        message: '이메일 인증이 완료되었습니다.',
+        data: {
+          activationRequired: true,
+          user: result.user,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  adminCompleteActivation = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { password } = req.body;
+
+      const result = await this.authService.completeAdminActivation(
+        req.headers,
+        password,
+      );
+
+      this.handleAuthResponse(
+        res,
+        result,
+        '관리자 계정이 활성화되었습니다.',
+        200,
+      );
     } catch (error) {
       next(error);
     }
@@ -361,7 +453,10 @@ export class AuthController {
   /** 세션 조회 */
   getSession = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const session = await this.authService.getSession(req.headers);
+      const session =
+        await this.authService.getSessionWithInstructorBillingSummary(
+          req.headers,
+        );
       if (!session) {
         throw new UnauthorizedException('인증이 필요합니다.');
       }
@@ -370,6 +465,21 @@ export class AuthController {
     } catch (error) {
       // 세션 조회에 실패한 모든 경우(세션 없음, DB 오류 등)에
       // 클라이언트의 쿠키를 정리해주는 것이 안전합니다.
+      this.clearSessionCookie(res);
+      next(error);
+    }
+  };
+
+  /** 관리자 세션 조회 */
+  getAdminSession = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const session = await this.authService.getAdminSession(req.headers);
+      if (!session) {
+        throw new UnauthorizedException('인증이 필요합니다.');
+      }
+
+      return successResponse(res, { data: session });
+    } catch (error) {
       this.clearSessionCookie(res);
       next(error);
     }

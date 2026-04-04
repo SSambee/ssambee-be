@@ -4,6 +4,7 @@ import { successResponse } from '../utils/response.util.js';
 import { getAuthUser, getProfileIdOrThrow } from '../utils/user.util.js';
 import { UserType } from '../constants/auth.constant.js';
 import { transformDateFieldsToKst } from '../utils/date.util.js';
+import type { InstructorBillingSummary } from '../services/billing.service.js';
 
 export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
@@ -21,9 +22,21 @@ export class ProfileController {
         profileId,
         userType,
       );
+      const transformedProfile = transformDateFieldsToKst(profile, [
+        'createdAt',
+      ]) as typeof profile & {
+        activeEntitlement?: InstructorBillingSummary['activeEntitlement'];
+      };
+
+      if (userType === UserType.INSTRUCTOR && profile.activeEntitlement) {
+        transformedProfile.activeEntitlement = transformDateFieldsToKst(
+          profile.activeEntitlement,
+          ['startsAt', 'endsAt'],
+        ) as InstructorBillingSummary['activeEntitlement'];
+      }
 
       return successResponse(res, {
-        data: transformDateFieldsToKst(profile, ['createdAt']),
+        data: transformedProfile,
         message: '내 프로필 조회 성공',
       });
     } catch (error) {

@@ -1,6 +1,14 @@
 import { toZonedTime, format, fromZonedTime } from 'date-fns-tz';
 export { toZonedTime, format, fromZonedTime };
-import { parseISO, isValid, startOfDay } from 'date-fns';
+import {
+  addDays,
+  addMilliseconds,
+  addMonths,
+  isValid,
+  parseISO,
+  startOfDay,
+  subMilliseconds,
+} from 'date-fns';
 
 /** 한국 표준시(KST) 타임존 정의 */
 export const KST_TIMEZONE = 'Asia/Seoul';
@@ -72,6 +80,39 @@ export function startOfDayKst(date: Date): Date {
   const kstDate = toZonedTime(date, KST_TIMEZONE);
   const kstStart = startOfDay(kstDate);
   return fromZonedTime(kstStart, KST_TIMEZONE);
+}
+
+/**
+ * KST 기준 시작일의 다음 달 동일 일자 직전 시각(23:59:59.999 KST)에 해당하는 UTC Date를 반환합니다.
+ */
+export function calculateMonthlyEntitlementEndAt(
+  startAt: Date,
+  months: number = 1,
+): Date {
+  const zonedStart = toZonedTime(startAt, KST_TIMEZONE);
+  const zonedDayStart = startOfDay(zonedStart);
+  const nextMonthDayStart = addMonths(zonedDayStart, months);
+  const zonedEnd = subMilliseconds(nextMonthDayStart, 1);
+
+  return fromZonedTime(zonedEnd, KST_TIMEZONE);
+}
+
+/**
+ * 이전 이용권 종료 직후 다음 이용권 시작 시각을 반환합니다.
+ */
+export function getNextEntitlementStartAt(previousEndsAt: Date): Date {
+  return addMilliseconds(previousEndsAt, 1);
+}
+
+/**
+ * KST 기준 N일 만료일의 종료 시각(23:59:59.999 KST)에 해당하는 UTC Date를 반환합니다.
+ */
+export function calculateCreditExpiryAt(baseAt: Date, days: number): Date {
+  const zonedStart = toZonedTime(baseAt, KST_TIMEZONE);
+  const zonedDayStart = startOfDay(zonedStart);
+  const zonedEnd = subMilliseconds(addDays(zonedDayStart, days), 1);
+
+  return fromZonedTime(zonedEnd, KST_TIMEZONE);
 }
 
 /**

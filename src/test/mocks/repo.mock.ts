@@ -2,6 +2,7 @@ import type { InstructorRepository } from '../../repos/instructor.repo.js';
 import type { StudentRepository } from '../../repos/student.repo.js';
 import type { AssistantRepository } from '../../repos/assistant.repo.js';
 import type { ParentRepository } from '../../repos/parent.repo.js';
+import type { AdminRepository } from '../../repos/admin.repo.js';
 import type { AssistantCodeRepository } from '../../repos/assistant-code.repo.js';
 import type { LecturesRepository } from '../../repos/lectures.repo.js';
 import type { EnrollmentsRepository } from '../../repos/enrollments.repo.js';
@@ -55,6 +56,10 @@ export const createMockParentRepository = () =>
     'findByPhoneNumber',
     'create',
   ]);
+
+/** Mock AdminRepository 생성 */
+export const createMockAdminRepository = () =>
+  createAutoMock<AdminRepository>(['findByUserId', 'create', 'updateByUserId']);
 
 /** Mock AssistantCodeRepository 생성 */
 export const createMockAssistantCodeRepository = () =>

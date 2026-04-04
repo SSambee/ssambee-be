@@ -1,4 +1,5 @@
 import express from 'express';
+import { adminV1Router } from './admin/v1/index.js';
 import { mgmtV1Router } from './mgmt/v1/index.js';
 import { svcV1Router } from './svc/v1/index.js';
 import { publicV1Router } from './public/v1/index.js';
@@ -17,6 +18,9 @@ router.get('/', (req, res) => {
 
 /** 강사/조교용 API (Management) */
 router.use('/api/mgmt/v1', mgmtV1Router);
+
+/** 운영자용 API (Admin) */
+router.use('/api/admin/v1', adminV1Router);
 
 /** 학생/학부모용 API (Service) */
 router.use('/api/svc/v1', svcV1Router);

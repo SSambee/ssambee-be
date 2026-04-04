@@ -1,4 +1,3 @@
-import { PrismaClient } from '../generated/prisma/client.js';
 import { ProfileRepository } from '../repos/profile.repo.js';
 import { UpdateMyProfileDto } from '../validations/profile.validation.js';
 import { UserType } from '../constants/auth.constant.js';
@@ -8,11 +7,12 @@ import {
   NotFoundException,
 } from '../err/http.exception.js';
 import { Prisma } from '../generated/prisma/client.js';
+import { BillingService } from './billing.service.js';
 
 export class ProfileService {
   constructor(
     private readonly profileRepo: ProfileRepository,
-    private readonly prisma: PrismaClient,
+    private readonly billingService: BillingService,
   ) {}
 
   /**
@@ -27,6 +27,9 @@ export class ProfileService {
         throw new NotFoundException('프로필을 찾을 수 없습니다.');
       }
 
+      const billingSummary =
+        await this.billingService.getInstructorBillingSummary(profileId);
+
       // 응답 형식 변환
       return {
         id: profile.id,
@@ -37,6 +40,8 @@ export class ProfileService {
         academy: profile.academy,
         userType: profile.user.userType,
         createdAt: profile.createdAt,
+        activeEntitlement: billingSummary.activeEntitlement,
+        creditSummary: billingSummary.creditSummary,
         lectures: profile.lectures.map((lecture) => ({
           id: lecture.id,
           title: lecture.title,

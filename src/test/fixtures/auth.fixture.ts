@@ -53,6 +53,11 @@ export const signUpRequests = {
 
 /** 로그인 요청 데이터 */
 export const signInRequests = {
+  admin: {
+    email: mockUsers.admin.email,
+    password: 'password123!',
+    rememberMe: false,
+  },
   instructor: {
     email: mockUsers.instructor.email,
     password: 'password123!',
