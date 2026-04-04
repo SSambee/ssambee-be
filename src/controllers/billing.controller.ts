@@ -44,27 +44,17 @@ export class BillingController {
   ) => {
     try {
       const products = await this.billingService.listActiveProducts();
-      const publicProducts = products.map(
-        ({
-          name,
-          description,
-          productType,
-          billingMode,
-          durationMonths,
-          includedCreditAmount,
-          rechargeCreditAmount,
-          price,
-        }) => ({
-          name,
-          description,
-          productType,
-          billingMode,
-          durationMonths,
-          includedCreditAmount,
-          rechargeCreditAmount,
-          price,
-        }),
-      );
+      const publicProducts = products.map((product) => ({
+        name: product.name,
+        description: product.description,
+        highlights: (product as { highlights?: string[] }).highlights ?? [],
+        productType: product.productType,
+        billingMode: product.billingMode,
+        durationMonths: product.durationMonths,
+        includedCreditAmount: product.includedCreditAmount,
+        rechargeCreditAmount: product.rechargeCreditAmount,
+        price: product.price,
+      }));
 
       return successResponse(res, {
         data: publicProducts,

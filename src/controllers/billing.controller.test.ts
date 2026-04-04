@@ -38,6 +38,7 @@ describe('BillingController - @unit', () => {
         code: 'PASS_SINGLE_1M',
         name: '1개월 이용권',
         description: '1개월 이용권 + 기본 포함 크레딧 1000',
+        highlights: ['1개월 이용권', '기본 포함 크레딧 1000'],
         productType: BillingProductType.PASS_SINGLE,
         billingMode: BillingMode.ONE_TIME,
         paymentMethodType: PaymentMethodType.BANK_TRANSFER,
@@ -65,6 +66,7 @@ describe('BillingController - @unit', () => {
         {
           name: '1개월 이용권',
           description: '1개월 이용권 + 기본 포함 크레딧 1000',
+          highlights: ['1개월 이용권', '기본 포함 크레딧 1000'],
           productType: BillingProductType.PASS_SINGLE,
           billingMode: BillingMode.ONE_TIME,
           durationMonths: 1,

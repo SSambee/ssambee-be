@@ -925,6 +925,7 @@ model BillingProduct {
   code                 String   @unique
   name                 String
   description          String?  @db.Text
+  highlights           String[] @default([])
   productType          String   @map("product_type")
   billingMode          String   @default("ONE_TIME") @map("billing_mode")
   paymentMethodType    String   @map("payment_method_type")
