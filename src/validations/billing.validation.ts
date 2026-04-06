@@ -196,14 +196,6 @@ export const revokeEntitlementsSchema = z.object({
 
 export type RevokeEntitlementsDto = z.infer<typeof revokeEntitlementsSchema>;
 
-export const revokeRechargeCreditsSchema = z.object({
-  reason: z.string().min(1, '회수 사유는 필수입니다.'),
-});
-
-export type RevokeRechargeCreditsDto = z.infer<
-  typeof revokeRechargeCreditsSchema
->;
-
 export const updateReceiptRequestSchema = z.object({
   status: z.enum([ReceiptStatus.COMPLETED, ReceiptStatus.REJECTED]),
   reviewMemo: z.string().optional(),

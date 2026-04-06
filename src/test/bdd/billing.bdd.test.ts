@@ -416,7 +416,7 @@ describe('결제 BDD 테스트 - @integration', () => {
     expect(creditsRes.body.data.totalAvailable).toBe(1500);
   });
 
-  it('관리자 지급 충전권은 API로 회수되지만 환불 상태 변경은 막아야 한다', async () => {
+  it('관리자 지급 충전권도 환불 상태 변경으로만 정리할 수 있어야 한다', async () => {
     mockAdminSession();
 
     const createRes = await request(app)
@@ -430,40 +430,50 @@ describe('결제 BDD 테스트 - @integration', () => {
     expect(createRes.status).toBe(201);
 
     const paymentId = createRes.body.data.id as string;
-    const paymentItemId = createRes.body.data.items[0].id as string;
-
-    const revokeRes = await request(app)
-      .post(
-        `/api/admin/v1/billing/payment-items/${paymentItemId}/revoke-recharge-credits`,
-      )
+    const refundPendingRes = await request(app)
+      .patch(`/api/admin/v1/billing/payments/${paymentId}/refund-status`)
       .send({
-        reason: '오지급 회수',
+        refundStatus: PaymentRefundStatus.PENDING,
+        refundMemo: '오지급 회수',
       });
 
-    expect(revokeRes.status).toBe(200);
-    expect(revokeRes.body.status).toBe('success');
-    expect(revokeRes.body.message).toBe('충전 크레딧 회수 성공');
-    expect(revokeRes.body.data.revokedRechargeAmount).toBe(900);
-    expect(revokeRes.body.data.paymentId).toBe(paymentId);
-    expect(revokeRes.body.data.payment.id).toBe(paymentId);
-    expect(revokeRes.body.data.payment.refundStatus).toBe(
-      PaymentRefundStatus.NONE,
+    expect(refundPendingRes.status).toBe(200);
+    expect(refundPendingRes.body.status).toBe('success');
+    expect(refundPendingRes.body.message).toBe('환불 상태 변경 성공');
+    expect(refundPendingRes.body.data.id).toBe(paymentId);
+    expect(refundPendingRes.body.data.refundStatus).toBe(
+      PaymentRefundStatus.PENDING,
     );
-    expect(revokeRes.body.data.payment.hasRevocation).toBe(true);
-    expect(revokeRes.body.data.payment.revokedRechargeAmount).toBe(900);
+    expect(refundPendingRes.body.data.hasRevocation).toBe(true);
+    expect(refundPendingRes.body.data.revokedRechargeAmount).toBe(900);
 
-    const refundRes = await request(app)
+    mockInstructorSession();
+
+    const creditsRes = await request(app).get('/api/mgmt/v1/billing/credits');
+
+    expect(creditsRes.status).toBe(200);
+    expect(creditsRes.body.data.totalAvailable).toBe(0);
+
+    mockAdminSession();
+
+    const refundCompletedRes = await request(app)
       .patch(`/api/admin/v1/billing/payments/${paymentId}/refund-status`)
       .send({
         refundStatus: PaymentRefundStatus.COMPLETED,
-        refundMemo: '처리 불가',
+        refundMemo: '환불 완료',
       });
 
-    expect(refundRes.status).toBe(400);
-    expect(refundRes.body.success).toBe(false);
-    expect(refundRes.body.message).toBe(
-      '관리자 지급 크레딧은 환불 상태를 변경할 수 없습니다.',
+    expect(refundCompletedRes.status).toBe(200);
+    expect(refundCompletedRes.body.status).toBe('success');
+    expect(refundCompletedRes.body.message).toBe('환불 상태 변경 성공');
+    expect(refundCompletedRes.body.data.id).toBe(paymentId);
+    expect(refundCompletedRes.body.data.refundStatus).toBe(
+      PaymentRefundStatus.COMPLETED,
     );
+    expect(refundCompletedRes.body.data.refundMemo).toBe('환불 완료');
+    expect(refundCompletedRes.body.data.hasRevocation).toBe(true);
+    expect(refundCompletedRes.body.data.revokedRechargeAmount).toBe(900);
+    expect(refundCompletedRes.body.data.estimatedRefundAmount).toBe(0);
   });
 
   it('관리자가 특정 강사의 결제, 이용권, 충전권 상태를 조회할 수 있어야 한다', async () => {

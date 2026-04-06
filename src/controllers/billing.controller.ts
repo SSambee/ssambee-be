@@ -396,6 +396,7 @@ export class BillingController {
       const payment = await this.billingService.updatePaymentRefundStatus(
         req.params.id,
         req.body,
+        this.getActor(req),
       );
 
       return successResponse(res, {
@@ -422,28 +423,6 @@ export class BillingController {
       return successResponse(res, {
         data: result,
         message: '이용권 회수 성공',
-      });
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  revokeRechargeCredits = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) => {
-    try {
-      const result =
-        await this.billingService.revokeRechargeCreditsByPaymentItem(
-          req.params.paymentItemId,
-          req.body,
-          this.getActor(req),
-        );
-
-      return successResponse(res, {
-        data: result,
-        message: '충전 크레딧 회수 성공',
       });
     } catch (error) {
       next(error);

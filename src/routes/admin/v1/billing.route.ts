@@ -12,7 +12,6 @@ import {
   receiptRequestIdParamSchema,
   rejectPaymentSchema,
   revokeEntitlementsSchema,
-  revokeRechargeCreditsSchema,
   updatePaymentRefundStatusSchema,
   updateBillingProductSchema,
   updateReceiptRequestSchema,
@@ -89,12 +88,6 @@ adminBillingRouter.post(
   validate(paymentItemIdParamSchema, 'params'),
   validate(revokeEntitlementsSchema),
   billingController.revokeEntitlements,
-);
-adminBillingRouter.post(
-  '/payment-items/:paymentItemId/revoke-recharge-credits',
-  validate(paymentItemIdParamSchema, 'params'),
-  validate(revokeRechargeCreditsSchema),
-  billingController.revokeRechargeCredits,
 );
 
 adminBillingRouter.patch(
