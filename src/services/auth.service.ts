@@ -914,8 +914,8 @@ export class AuthService {
       return session;
     }
 
-    const billingSummary =
-      await this.billingService.getInstructorBillingSummary(
+    const activeEntitlement =
+      await this.billingService.getSessionActiveEntitlement(
         billingTargetInstructorId,
       );
 
@@ -923,7 +923,7 @@ export class AuthService {
       ...session,
       profile: {
         ...profile,
-        activeEntitlement: billingSummary.activeEntitlement,
+        activeEntitlement,
       },
     };
   }

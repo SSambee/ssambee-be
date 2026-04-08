@@ -638,6 +638,42 @@ describe('AuthController - @unit #critical', () => {
           expect.any(UnauthorizedException),
         );
       });
+
+      it('GET /session - pending entitlement marker도 그대로 반환', async () => {
+        mockReq.headers = { cookie: 'session_token=test-token' };
+        mockAuthService.getSessionWithInstructorBillingSummary.mockResolvedValue(
+          {
+            user: mockUsers.instructor,
+            session: mockSession,
+            profile: {
+              ...mockProfiles.instructor,
+              activeEntitlement: {
+                status: 'PENDING_DEPOSIT',
+              },
+            },
+          },
+        );
+
+        await authController.getSession(
+          mockReq as Request,
+          mockRes as Response,
+          mockNext,
+        );
+
+        expect(mockRes.json).toHaveBeenCalledWith(
+          expect.objectContaining({
+            status: 'success',
+            data: expect.objectContaining({
+              profile: {
+                ...mockProfiles.instructor,
+                activeEntitlement: {
+                  status: 'PENDING_DEPOSIT',
+                },
+              },
+            }),
+          }),
+        );
+      });
     });
   });
 

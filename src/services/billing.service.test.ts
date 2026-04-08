@@ -51,6 +51,7 @@ describe('BillingService', () => {
       createCreditLedger: jest.fn(),
       listEntitlementsByInstructor: jest.fn(),
       findActiveEntitlement: jest.fn(),
+      hasPendingPassSinglePayment: jest.fn().mockResolvedValue(false),
       listEntitlementsToExpire: jest.fn().mockResolvedValue([]),
       findReadyQueuedEntitlement: jest.fn(),
       updateEntitlement: jest.fn(),
@@ -1764,6 +1765,83 @@ describe('BillingService', () => {
         rechargeAvailable: 0,
       },
     });
+  });
+
+  it('세션 전용 activeEntitlement는 활성 이용권이 있으면 기존 객체를 그대로 반환해야 한다', async () => {
+    const activeEntitlement = {
+      id: 'entitlement-1',
+      instructorId: 'instructor-1',
+      paymentItemId: 'item-1',
+      sequenceNo: 1,
+      status: EntitlementStatus.ACTIVE,
+      startsAt: new Date('2026-03-24T00:00:00.000Z'),
+      endsAt: new Date('2026-04-23T14:59:59.999Z'),
+      activatedAt: new Date('2026-03-24T00:00:00.000Z'),
+      expiredAt: null,
+      canceledAt: null,
+      includedCreditAmount: IncludedCreditPolicy.MONTHLY_AMOUNT,
+    };
+
+    jest.spyOn(service, 'reconcileInstructorState').mockResolvedValue({
+      wallet: {
+        totalAvailable: 700,
+        includedAvailable: 500,
+        rechargeAvailable: 200,
+      },
+      entitlements: [activeEntitlement],
+      activeEntitlement,
+    } as never);
+
+    const result = await service.getSessionActiveEntitlement('instructor-1');
+
+    expect(result).toEqual({
+      id: 'entitlement-1',
+      status: EntitlementStatus.ACTIVE,
+      startsAt: new Date('2026-03-24T00:00:00.000Z'),
+      endsAt: new Date('2026-04-23T14:59:59.999Z'),
+      includedCreditAmount: IncludedCreditPolicy.MONTHLY_AMOUNT,
+    });
+    expect(mockBillingRepo.hasPendingPassSinglePayment).not.toHaveBeenCalled();
+  });
+
+  it('세션 전용 activeEntitlement는 활성 이용권이 없고 pending PASS_SINGLE이 있으면 marker를 반환해야 한다', async () => {
+    jest.spyOn(service, 'reconcileInstructorState').mockResolvedValue({
+      wallet: {
+        totalAvailable: 0,
+        includedAvailable: 0,
+        rechargeAvailable: 0,
+      },
+      entitlements: [],
+      activeEntitlement: null,
+    } as never);
+    (
+      mockBillingRepo.hasPendingPassSinglePayment as jest.Mock
+    ).mockResolvedValue(true);
+
+    const result = await service.getSessionActiveEntitlement('instructor-1');
+
+    expect(result).toEqual({
+      status: PaymentStatus.PENDING_DEPOSIT,
+    });
+  });
+
+  it('세션 전용 activeEntitlement는 활성 이용권이 없고 pending PASS_SINGLE이 없으면 null이어야 한다', async () => {
+    jest.spyOn(service, 'reconcileInstructorState').mockResolvedValue({
+      wallet: {
+        totalAvailable: 0,
+        includedAvailable: 0,
+        rechargeAvailable: 0,
+      },
+      entitlements: [],
+      activeEntitlement: null,
+    } as never);
+    (
+      mockBillingRepo.hasPendingPassSinglePayment as jest.Mock
+    ).mockResolvedValue(false);
+
+    const result = await service.getSessionActiveEntitlement('instructor-1');
+
+    expect(result).toBeNull();
   });
 
   it('활성 이용권이 없으면 mgmt 접근을 차단해야 한다', async () => {

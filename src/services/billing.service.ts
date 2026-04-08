@@ -119,6 +119,14 @@ export interface InstructorActiveEntitlementSummary {
   includedCreditAmount: number;
 }
 
+export interface PendingDepositEntitlementMarker {
+  status: typeof PaymentStatus.PENDING_DEPOSIT;
+}
+
+export type SessionActiveEntitlementSummary =
+  | InstructorActiveEntitlementSummary
+  | PendingDepositEntitlementMarker;
+
 export interface InstructorCreditSummary {
   totalAvailable: number;
 }
@@ -1892,6 +1900,25 @@ export class BillingService {
         totalAvailable: context.wallet.totalAvailable,
       },
     };
+  }
+
+  async getSessionActiveEntitlement(
+    instructorId: string,
+  ): Promise<SessionActiveEntitlementSummary | null> {
+    const context = await this.loadInstructorBillingContext(instructorId);
+
+    if (context.activeEntitlement) {
+      return this.toActiveEntitlementSummary(context.activeEntitlement);
+    }
+
+    const hasPendingPassSinglePayment =
+      await this.billingRepo.hasPendingPassSinglePayment(instructorId);
+
+    return hasPendingPassSinglePayment
+      ? {
+          status: PaymentStatus.PENDING_DEPOSIT,
+        }
+      : null;
   }
 
   async listCreditLedgers(

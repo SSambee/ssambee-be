@@ -43,7 +43,10 @@ describe('AuthService - @unit #critical', () => {
   let mockEnrollmentsRepo: ReturnType<typeof createMockEnrollmentsRepository>;
   let mockBetterAuth: ReturnType<typeof createMockBetterAuth>;
   let mockBillingService: jest.Mocked<
-    Pick<BillingService, 'getInstructorBillingSummary'>
+    Pick<
+      BillingService,
+      'getInstructorBillingSummary' | 'getSessionActiveEntitlement'
+    >
   >;
   let mockPrisma: PrismaClient;
 
@@ -65,6 +68,7 @@ describe('AuthService - @unit #critical', () => {
     mockBetterAuth = createMockBetterAuth();
     mockBillingService = {
       getInstructorBillingSummary: jest.fn(),
+      getSessionActiveEntitlement: jest.fn(),
     };
     mockBillingService.getInstructorBillingSummary.mockResolvedValue({
       activeEntitlement: null,
@@ -72,6 +76,7 @@ describe('AuthService - @unit #critical', () => {
         totalAvailable: 0,
       },
     });
+    mockBillingService.getSessionActiveEntitlement.mockResolvedValue(null);
     mockPrisma = createMockPrisma() as unknown as PrismaClient;
     (mockPrisma.$transaction as jest.Mock).mockImplementation(
       async (callback) => {
@@ -257,7 +262,7 @@ describe('AuthService - @unit #critical', () => {
         expect(result?.user).toEqual(mockUsers.instructor);
         expect(result?.profile).toEqual(mockProfiles.instructor);
         expect(
-          mockBillingService.getInstructorBillingSummary,
+          mockBillingService.getSessionActiveEntitlement,
         ).not.toHaveBeenCalled();
       });
 
@@ -288,7 +293,7 @@ describe('AuthService - @unit #critical', () => {
 
         expect(result?.profile).toEqual(mockProfiles.instructor);
         expect(
-          mockBillingService.getInstructorBillingSummary,
+          mockBillingService.getSessionActiveEntitlement,
         ).not.toHaveBeenCalled();
       });
     });
@@ -304,17 +309,12 @@ describe('AuthService - @unit #critical', () => {
         mockProfiles.instructor,
       );
       mockAdminRepo.findByUserId.mockResolvedValue(null);
-      mockBillingService.getInstructorBillingSummary.mockResolvedValue({
-        activeEntitlement: {
-          id: 'entitlement-1',
-          status: 'ACTIVE',
-          startsAt: new Date('2026-03-24T00:00:00.000Z'),
-          endsAt: new Date('2026-04-23T14:59:59.999Z'),
-          includedCreditAmount: 1000,
-        },
-        creditSummary: {
-          totalAvailable: 1000,
-        },
+      mockBillingService.getSessionActiveEntitlement.mockResolvedValue({
+        id: 'entitlement-1',
+        status: 'ACTIVE',
+        startsAt: new Date('2026-03-24T00:00:00.000Z'),
+        endsAt: new Date('2026-04-23T14:59:59.999Z'),
+        includedCreditAmount: 1000,
       });
 
       const result = await authService.getSessionWithInstructorBillingSummary({
@@ -332,7 +332,7 @@ describe('AuthService - @unit #critical', () => {
         },
       });
       expect(
-        mockBillingService.getInstructorBillingSummary,
+        mockBillingService.getSessionActiveEntitlement,
       ).toHaveBeenCalledWith(mockProfiles.instructor.id);
     });
 
@@ -345,12 +345,7 @@ describe('AuthService - @unit #critical', () => {
         mockProfiles.instructor,
       );
       mockAdminRepo.findByUserId.mockResolvedValue(null);
-      mockBillingService.getInstructorBillingSummary.mockResolvedValue({
-        activeEntitlement: null,
-        creditSummary: {
-          totalAvailable: 0,
-        },
-      });
+      mockBillingService.getSessionActiveEntitlement.mockResolvedValue(null);
 
       const result = await authService.getSessionWithInstructorBillingSummary({
         cookie: 'session_token=test-token',
@@ -362,6 +357,31 @@ describe('AuthService - @unit #critical', () => {
       });
     });
 
+    it('강사 세션 조회 시 활성 이용권이 없고 pending 이용권 결제가 있으면 marker를 추가해야 한다', async () => {
+      mockBetterAuth.api.getSession.mockResolvedValue({
+        user: mockUsers.instructor,
+        session: mockSession,
+      });
+      mockInstructorRepo.findByUserId.mockResolvedValue(
+        mockProfiles.instructor,
+      );
+      mockAdminRepo.findByUserId.mockResolvedValue(null);
+      mockBillingService.getSessionActiveEntitlement.mockResolvedValue({
+        status: 'PENDING_DEPOSIT',
+      });
+
+      const result = await authService.getSessionWithInstructorBillingSummary({
+        cookie: 'session_token=test-token',
+      });
+
+      expect(result?.profile).toEqual({
+        ...mockProfiles.instructor,
+        activeEntitlement: {
+          status: 'PENDING_DEPOSIT',
+        },
+      });
+    });
+
     it('조교 세션 조회 시 담당 강사의 활성 이용권 요약을 profile에 추가해야 한다', async () => {
       mockBetterAuth.api.getSession.mockResolvedValue({
         user: mockUsers.assistant,
@@ -369,17 +389,12 @@ describe('AuthService - @unit #critical', () => {
       });
       mockAssistantRepo.findByUserId.mockResolvedValue(mockProfiles.assistant);
       mockAdminRepo.findByUserId.mockResolvedValue(null);
-      mockBillingService.getInstructorBillingSummary.mockResolvedValue({
-        activeEntitlement: {
-          id: 'entitlement-2',
-          status: 'ACTIVE',
-          startsAt: new Date('2026-03-25T00:00:00.000Z'),
-          endsAt: new Date('2026-04-24T14:59:59.999Z'),
-          includedCreditAmount: 1200,
-        },
-        creditSummary: {
-          totalAvailable: 1200,
-        },
+      mockBillingService.getSessionActiveEntitlement.mockResolvedValue({
+        id: 'entitlement-2',
+        status: 'ACTIVE',
+        startsAt: new Date('2026-03-25T00:00:00.000Z'),
+        endsAt: new Date('2026-04-24T14:59:59.999Z'),
+        includedCreditAmount: 1200,
       });
 
       const result = await authService.getSessionWithInstructorBillingSummary(
@@ -397,7 +412,7 @@ describe('AuthService - @unit #critical', () => {
         },
       });
       expect(
-        mockBillingService.getInstructorBillingSummary,
+        mockBillingService.getSessionActiveEntitlement,
       ).toHaveBeenCalledWith(mockProfiles.assistant.instructorId);
     });
 
@@ -415,7 +430,7 @@ describe('AuthService - @unit #critical', () => {
 
       expect(result?.profile).toEqual(mockProfiles.student);
       expect(
-        mockBillingService.getInstructorBillingSummary,
+        mockBillingService.getSessionActiveEntitlement,
       ).not.toHaveBeenCalled();
     });
   });

@@ -1,9 +1,11 @@
 import { PrismaClient } from '../generated/prisma/client.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import {
+  BillingProductType,
   CreditBucketStatus,
   CreditSourceType,
   EntitlementStatus,
+  PaymentStatus,
 } from '../constants/billing.constant.js';
 
 interface PaymentListParams {
@@ -242,6 +244,26 @@ export class BillingRepository {
     ]);
 
     return { payments, totalCount };
+  }
+
+  async hasPendingPassSinglePayment(
+    instructorId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const payment = await this.getClient(tx).payment.findFirst({
+      where: {
+        instructorId,
+        status: PaymentStatus.PENDING_DEPOSIT,
+        items: {
+          some: {
+            productTypeSnapshot: BillingProductType.PASS_SINGLE,
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    return payment !== null;
   }
 
   async listPayments({ status, page, limit }: PaymentListParams) {
