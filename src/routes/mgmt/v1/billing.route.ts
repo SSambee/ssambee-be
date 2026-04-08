@@ -4,7 +4,6 @@ import { validate } from '../../../middlewares/validate.middleware.js';
 import {
   createBankTransferPaymentSchema,
   creditHistoryQuerySchema,
-  markDepositSchema,
   paymentIdParamSchema,
   paymentListQuerySchema,
 } from '../../../validations/billing.validation.js';
@@ -34,13 +33,6 @@ mgmtBillingRouter.post(
   '/payments/bank-transfer',
   validate(createBankTransferPaymentSchema),
   billingController.createBankTransferPayment,
-);
-
-mgmtBillingRouter.post(
-  '/payments/:paymentId/deposit',
-  validate(paymentIdParamSchema, 'params'),
-  validate(markDepositSchema),
-  billingController.markPaymentDeposited,
 );
 
 mgmtBillingRouter.get(

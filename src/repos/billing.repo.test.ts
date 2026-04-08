@@ -233,13 +233,13 @@ describe('BillingRepository', () => {
         status: 'APPROVED',
       } as never,
       undefined,
-      'PENDING_APPROVAL',
+      'PENDING_DEPOSIT',
     );
 
     expect(paymentUpdateMany).toHaveBeenCalledWith({
       where: {
         id: 'payment-1',
-        status: 'PENDING_APPROVAL',
+        status: 'PENDING_DEPOSIT',
       },
       data: {
         status: 'APPROVED',

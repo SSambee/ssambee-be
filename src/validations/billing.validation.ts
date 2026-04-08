@@ -77,19 +77,10 @@ export const receiptRequestIdParamSchema = z.object({
   id: cuidSchema,
 });
 
-export const markDepositSchema = bankTransferCommonFieldsSchema
-  .partial()
-  .extend({
-    depositedAt: z.string().datetime().optional(),
-  });
-
-export type MarkDepositDto = z.infer<typeof markDepositSchema>;
-
 export const paymentListQuerySchema = z.object({
   status: z
     .enum([
       PaymentStatus.PENDING_DEPOSIT,
-      PaymentStatus.PENDING_APPROVAL,
       PaymentStatus.APPROVED,
       PaymentStatus.REJECTED,
       PaymentStatus.CANCELED,

@@ -352,7 +352,7 @@ describe('BillingService', () => {
     const payment = {
       id: 'payment-1',
       instructorId: 'instructor-1',
-      status: PaymentStatus.PENDING_APPROVAL,
+      status: PaymentStatus.PENDING_DEPOSIT,
       approvedAt: null,
       items: [
         {
@@ -465,7 +465,7 @@ describe('BillingService', () => {
     const payment = {
       id: 'payment-credit-approve',
       instructorId: 'instructor-1',
-      status: PaymentStatus.PENDING_APPROVAL,
+      status: PaymentStatus.PENDING_DEPOSIT,
       approvedAt: null,
       items: [
         {
@@ -551,7 +551,7 @@ describe('BillingService', () => {
     const payment = {
       id: 'payment-2',
       instructorId: 'instructor-1',
-      status: PaymentStatus.PENDING_APPROVAL,
+      status: PaymentStatus.PENDING_DEPOSIT,
       approvedAt: null,
       items: [
         {
@@ -642,93 +642,11 @@ describe('BillingService', () => {
     expect(mockBillingRepo.upsertIncludedCreditBucket).not.toHaveBeenCalled();
   });
 
-  it('입금 알림은 guarded status update로만 상태를 변경해야 한다', async () => {
-    const payment = {
-      id: 'payment-deposit',
-      instructorId: 'instructor-1',
-      status: PaymentStatus.PENDING_DEPOSIT,
-      depositorName: '기존 입금자',
-      depositorBankName: '기존은행',
-      items: [],
-    };
-
-    jest.spyOn(service, 'getInstructorPayment').mockResolvedValue({
-      id: 'payment-deposit',
-      status: PaymentStatus.PENDING_APPROVAL,
-    } as never);
-    (mockBillingRepo.findPaymentById as jest.Mock).mockResolvedValue(payment);
-
-    await service.markPaymentDeposited(
-      'payment-deposit',
-      'instructor-1',
-      {
-        depositorName: '홍길동',
-        depositorBankName: '신한은행',
-      },
-      {
-        userId: 'user-1',
-        role: 'INSTRUCTOR',
-      },
-    );
-
-    expect(mockBillingRepo.updatePayment).toHaveBeenCalledWith(
-      'payment-deposit',
-      expect.objectContaining({
-        status: PaymentStatus.PENDING_APPROVAL,
-        depositorName: '홍길동',
-        depositorBankName: '신한은행',
-        depositedAt: expect.any(Date),
-      }),
-      expect.anything(),
-      PaymentStatus.PENDING_DEPOSIT,
-    );
-    expect(mockBillingRepo.findPaymentById).toHaveBeenCalledTimes(1);
-  });
-
-  it('입금 알림에서 은행명을 보내지 않으면 기존 은행명을 유지해야 한다', async () => {
-    const payment = {
-      id: 'payment-deposit',
-      instructorId: 'instructor-1',
-      status: PaymentStatus.PENDING_DEPOSIT,
-      depositorName: '기존 입금자',
-      depositorBankName: '기존은행',
-      items: [],
-    };
-
-    jest.spyOn(service, 'getInstructorPayment').mockResolvedValue({
-      id: 'payment-deposit',
-      status: PaymentStatus.PENDING_APPROVAL,
-    } as never);
-    (mockBillingRepo.findPaymentById as jest.Mock).mockResolvedValue(payment);
-
-    await service.markPaymentDeposited(
-      'payment-deposit',
-      'instructor-1',
-      {
-        depositorName: '홍길동',
-      },
-      {
-        userId: 'user-1',
-        role: 'INSTRUCTOR',
-      },
-    );
-
-    expect(mockBillingRepo.updatePayment).toHaveBeenCalledWith(
-      'payment-deposit',
-      expect.objectContaining({
-        depositorName: '홍길동',
-        depositorBankName: '기존은행',
-      }),
-      expect.anything(),
-      PaymentStatus.PENDING_DEPOSIT,
-    );
-  });
-
   it('guarded payment update가 실패하면 approvePayment는 부수효과 없이 ConflictException을 던져야 한다', async () => {
     const payment = {
       id: 'payment-conflict',
       instructorId: 'instructor-1',
-      status: PaymentStatus.PENDING_APPROVAL,
+      status: PaymentStatus.PENDING_DEPOSIT,
       approvedAt: null,
       items: [
         {
@@ -758,10 +676,11 @@ describe('BillingService', () => {
       'payment-conflict',
       expect.objectContaining({
         status: PaymentStatus.APPROVED,
+        depositedAt: expect.any(Date),
         approvedAt: expect.any(Date),
       }),
       expect.anything(),
-      PaymentStatus.PENDING_APPROVAL,
+      PaymentStatus.PENDING_DEPOSIT,
     );
   });
 
@@ -769,7 +688,7 @@ describe('BillingService', () => {
     const payment = {
       id: 'payment-reject',
       instructorId: 'instructor-1',
-      status: PaymentStatus.PENDING_APPROVAL,
+      status: PaymentStatus.PENDING_DEPOSIT,
       items: [],
     };
 
@@ -795,12 +714,12 @@ describe('BillingService', () => {
         rejectedAt: expect.any(Date),
       }),
       expect.anything(),
-      PaymentStatus.PENDING_APPROVAL,
+      PaymentStatus.PENDING_DEPOSIT,
     );
     expect(mockBillingRepo.createPaymentStatusHistory).toHaveBeenCalledWith(
       expect.objectContaining({
         paymentId: 'payment-reject',
-        fromStatus: PaymentStatus.PENDING_APPROVAL,
+        fromStatus: PaymentStatus.PENDING_DEPOSIT,
         toStatus: PaymentStatus.REJECTED,
         reason: '서류 불충분',
       }),

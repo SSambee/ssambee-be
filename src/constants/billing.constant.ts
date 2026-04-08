@@ -56,7 +56,6 @@ export type PaymentProviderType =
 
 export const PaymentStatus = {
   PENDING_DEPOSIT: 'PENDING_DEPOSIT',
-  PENDING_APPROVAL: 'PENDING_APPROVAL',
   APPROVED: 'APPROVED',
   REJECTED: 'REJECTED',
   CANCELED: 'CANCELED',

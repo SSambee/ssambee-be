@@ -6,7 +6,7 @@ import {
 import {
   createBankTransferPaymentSchema,
   createBillingProductSchema,
-  markDepositSchema,
+  paymentListQuerySchema,
   updateBillingProductSchema,
 } from './billing.validation.js';
 
@@ -66,17 +66,12 @@ describe('billing.validation', () => {
       expect(result.success).toBe(false);
     });
 
-    it('입금 알림에서는 입금은행만 단독 수정할 수 있어야 한다', () => {
-      const result = markDepositSchema.safeParse({
-        depositorBankName: '국민은행',
+    it('제거된 PENDING_APPROVAL 상태는 목록 필터에서 허용하지 않아야 한다', () => {
+      const result = paymentListQuerySchema.safeParse({
+        status: 'PENDING_APPROVAL',
       });
 
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data).toEqual({
-          depositorBankName: '국민은행',
-        });
-      }
+      expect(result.success).toBe(false);
     });
   });
 });

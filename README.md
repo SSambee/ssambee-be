@@ -179,6 +179,16 @@ flowchart LR
 
 ---
 
+## 💳 결제 플로우
+
+- 무통장 결제 생성은 강사/조교 운영 API의 `POST /api/mgmt/v1/billing/payments/bank-transfer` 에서 처리합니다.
+- 결제 생성 직후 상태는 `PENDING_DEPOSIT` 입니다.
+- 관리자 검수는 `POST /api/admin/v1/billing/payments/:id/approve` 또는 `POST /api/admin/v1/billing/payments/:id/reject` 로 바로 처리합니다.
+- 별도의 입금 알림 엔드포인트 `POST /api/mgmt/v1/billing/payments/:paymentId/deposit` 는 더 이상 사용하지 않습니다.
+- 현재 무통장 결제의 주요 상태 전이는 `PENDING_DEPOSIT -> APPROVED` 또는 `PENDING_DEPOSIT -> REJECTED` 입니다.
+
+---
+
 ## 🔐 인증 및 인가 처리 플로우
 
 <details>

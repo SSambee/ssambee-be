@@ -347,7 +347,7 @@ async function main() {
       instructorId: instructor.id,
       methodType: PaymentMethodType.BANK_TRANSFER,
       providerType: PaymentProviderType.MANUAL,
-      status: PaymentStatus.PENDING_APPROVAL,
+      status: PaymentStatus.PENDING_DEPOSIT,
       depositorName: '주식회사 도코코',
       depositorBankName: '국민은행',
       totalAmount: 99000,
@@ -383,14 +383,6 @@ async function main() {
         actorUserId: instructorUser.id,
         actorRole: instructorUser.role,
         createdAt: paymentCreatedAt,
-      },
-      {
-        paymentId: samplePaymentId,
-        fromStatus: PaymentStatus.PENDING_DEPOSIT,
-        toStatus: PaymentStatus.PENDING_APPROVAL,
-        actorUserId: instructorUser.id,
-        actorRole: instructorUser.role,
-        createdAt: paymentDepositedAt,
       },
     ],
   });

@@ -21,7 +21,6 @@ import type {
   CreateAdminCreditGrantDto,
   CreateBankTransferPaymentDto,
   CreateBillingProductDto,
-  MarkDepositDto,
   RevokeEntitlementsDto,
   UpdateBillingProductDto,
   UpdatePaymentRefundStatusDto,
@@ -1252,55 +1251,6 @@ export class BillingService {
     return this.getInstructorPayment(payment.id, instructorId);
   }
 
-  async markPaymentDeposited(
-    paymentId: string,
-    instructorId: string,
-    data: MarkDepositDto,
-    actor: Actor,
-  ) {
-    await this.prisma.$transaction(async (tx) => {
-      const payment = await this.assertInstructorPaymentOwner(
-        paymentId,
-        instructorId,
-        tx,
-      );
-
-      if (payment.status !== PaymentStatus.PENDING_DEPOSIT) {
-        throw new BadRequestException(
-          '입금 대기 상태에서만 입금 알림이 가능합니다.',
-        );
-      }
-
-      await this.updatePaymentWithStatusGuard(
-        paymentId,
-        {
-          status: PaymentStatus.PENDING_APPROVAL,
-          depositorName: data.depositorName ?? payment.depositorName,
-          depositorBankName:
-            data.depositorBankName ?? payment.depositorBankName,
-          depositedAt: data.depositedAt
-            ? new Date(data.depositedAt)
-            : new Date(),
-        },
-        payment.status,
-        tx,
-      );
-
-      await this.billingRepo.createPaymentStatusHistory(
-        {
-          paymentId,
-          fromStatus: payment.status,
-          toStatus: PaymentStatus.PENDING_APPROVAL,
-          actorUserId: actor.userId,
-          actorRole: actor.role,
-        },
-        tx,
-      );
-    });
-
-    return this.getInstructorPayment(paymentId, instructorId);
-  }
-
   async listInstructorPayments(
     instructorId: string,
     query: { status?: string; page: number; limit: number },
@@ -1378,9 +1328,9 @@ export class BillingService {
         throw new NotFoundException('결제 내역을 찾을 수 없습니다.');
       }
 
-      if (payment.status !== PaymentStatus.PENDING_APPROVAL) {
+      if (payment.status !== PaymentStatus.PENDING_DEPOSIT) {
         throw new BadRequestException(
-          '승인 대기 상태에서만 결제 승인이 가능합니다.',
+          '입금 대기 상태에서만 결제 승인이 가능합니다.',
         );
       }
 
@@ -1390,6 +1340,7 @@ export class BillingService {
         paymentId,
         {
           status: PaymentStatus.APPROVED,
+          depositedAt: payment.depositedAt ?? approvedAt,
           approvedAt,
         },
         payment.status,
@@ -1444,9 +1395,9 @@ export class BillingService {
         throw new NotFoundException('결제 내역을 찾을 수 없습니다.');
       }
 
-      if (payment.status !== PaymentStatus.PENDING_APPROVAL) {
+      if (payment.status !== PaymentStatus.PENDING_DEPOSIT) {
         throw new BadRequestException(
-          '승인 대기 상태에서만 결제 반려가 가능합니다.',
+          '입금 대기 상태에서만 결제 반려가 가능합니다.',
         );
       }
 
