@@ -1,4 +1,10 @@
 import { NextFunction, Request, Response } from 'express';
+import {
+  EXPOSED_BILLING_PRODUCT_GROUP_KEY,
+  EXPOSED_BILLING_PRODUCT_TYPES,
+  type ExposedBillingProductGroupKey,
+  isExposedBillingProductType,
+} from '../constants/billing.constant.js';
 import { BillingService } from '../services/billing.service.js';
 import { successResponse } from '../utils/response.util.js';
 import {
@@ -9,6 +15,28 @@ import {
 
 export class BillingController {
   constructor(private readonly billingService: BillingService) {}
+
+  private groupProductsByType<T extends { productType: string }>(
+    products: T[],
+  ) {
+    const groupedProducts = {} as Record<ExposedBillingProductGroupKey, T[]>;
+
+    for (const productType of EXPOSED_BILLING_PRODUCT_TYPES) {
+      groupedProducts[EXPOSED_BILLING_PRODUCT_GROUP_KEY[productType]] = [];
+    }
+
+    for (const product of products) {
+      if (!isExposedBillingProductType(product.productType)) {
+        continue;
+      }
+
+      groupedProducts[
+        EXPOSED_BILLING_PRODUCT_GROUP_KEY[product.productType]
+      ].push(product);
+    }
+
+    return groupedProducts;
+  }
 
   private getActor(req: Request) {
     const user = getAuthUser(req);
@@ -29,7 +57,7 @@ export class BillingController {
       const products = await this.billingService.listActiveProducts();
 
       return successResponse(res, {
-        data: products,
+        data: this.groupProductsByType(products),
         message: '결제 상품 조회 성공',
       });
     } catch (error) {
@@ -44,30 +72,20 @@ export class BillingController {
   ) => {
     try {
       const products = await this.billingService.listActiveProducts();
-      const publicProducts = products.map(
-        ({
-          name,
-          description,
-          productType,
-          billingMode,
-          durationMonths,
-          includedCreditAmount,
-          rechargeCreditAmount,
-          price,
-        }) => ({
-          name,
-          description,
-          productType,
-          billingMode,
-          durationMonths,
-          includedCreditAmount,
-          rechargeCreditAmount,
-          price,
-        }),
-      );
+      const publicProducts = products.map((product) => ({
+        name: product.name,
+        description: product.description,
+        highlights: (product as { highlights?: string[] }).highlights ?? [],
+        productType: product.productType,
+        billingMode: product.billingMode,
+        durationMonths: product.durationMonths,
+        includedCreditAmount: product.includedCreditAmount,
+        rechargeCreditAmount: product.rechargeCreditAmount,
+        price: product.price,
+      }));
 
       return successResponse(res, {
-        data: publicProducts,
+        data: this.groupProductsByType(publicProducts),
         message: '공개 결제 상품 조회 성공',
       });
     } catch (error) {
@@ -378,6 +396,7 @@ export class BillingController {
       const payment = await this.billingService.updatePaymentRefundStatus(
         req.params.id,
         req.body,
+        this.getActor(req),
       );
 
       return successResponse(res, {
@@ -404,28 +423,6 @@ export class BillingController {
       return successResponse(res, {
         data: result,
         message: '이용권 회수 성공',
-      });
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  revokeRechargeCredits = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) => {
-    try {
-      const result =
-        await this.billingService.revokeRechargeCreditsByPaymentItem(
-          req.params.paymentItemId,
-          req.body,
-          this.getActor(req),
-        );
-
-      return successResponse(res, {
-        data: result,
-        message: '충전 크레딧 회수 성공',
       });
     } catch (error) {
       next(error);

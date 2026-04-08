@@ -362,19 +362,58 @@ describe('AuthService - @unit #critical', () => {
       });
     });
 
-    it('비강사 세션 조회 시 billing summary를 조회하지 않아야 한다', async () => {
+    it('조교 세션 조회 시 담당 강사의 활성 이용권 요약을 profile에 추가해야 한다', async () => {
       mockBetterAuth.api.getSession.mockResolvedValue({
         user: mockUsers.assistant,
         session: mockSession,
       });
       mockAssistantRepo.findByUserId.mockResolvedValue(mockProfiles.assistant);
       mockAdminRepo.findByUserId.mockResolvedValue(null);
+      mockBillingService.getInstructorBillingSummary.mockResolvedValue({
+        activeEntitlement: {
+          id: 'entitlement-2',
+          status: 'ACTIVE',
+          startsAt: new Date('2026-03-25T00:00:00.000Z'),
+          endsAt: new Date('2026-04-24T14:59:59.999Z'),
+          includedCreditAmount: 1200,
+        },
+        creditSummary: {
+          totalAvailable: 1200,
+        },
+      });
 
       const result = await authService.getSessionWithInstructorBillingSummary(
         {},
       );
 
-      expect(result?.profile).toEqual(mockProfiles.assistant);
+      expect(result?.profile).toEqual({
+        ...mockProfiles.assistant,
+        activeEntitlement: {
+          id: 'entitlement-2',
+          status: 'ACTIVE',
+          startsAt: new Date('2026-03-25T00:00:00.000Z'),
+          endsAt: new Date('2026-04-24T14:59:59.999Z'),
+          includedCreditAmount: 1200,
+        },
+      });
+      expect(
+        mockBillingService.getInstructorBillingSummary,
+      ).toHaveBeenCalledWith(mockProfiles.assistant.instructorId);
+    });
+
+    it('학생 세션 조회 시 billing summary를 조회하지 않아야 한다', async () => {
+      mockBetterAuth.api.getSession.mockResolvedValue({
+        user: mockUsers.student,
+        session: mockSession,
+      });
+      mockStudentRepo.findByUserId.mockResolvedValue(mockProfiles.student);
+      mockAdminRepo.findByUserId.mockResolvedValue(null);
+
+      const result = await authService.getSessionWithInstructorBillingSummary(
+        {},
+      );
+
+      expect(result?.profile).toEqual(mockProfiles.student);
       expect(
         mockBillingService.getInstructorBillingSummary,
       ).not.toHaveBeenCalled();

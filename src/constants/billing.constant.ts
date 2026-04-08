@@ -7,6 +7,29 @@ export const BillingProductType = {
 export type BillingProductType =
   (typeof BillingProductType)[keyof typeof BillingProductType];
 
+export const EXPOSED_BILLING_PRODUCT_TYPES = [
+  BillingProductType.PASS_SINGLE,
+  BillingProductType.CREDIT_PACK,
+] as const;
+
+export type ExposedBillingProductType =
+  (typeof EXPOSED_BILLING_PRODUCT_TYPES)[number];
+
+export const EXPOSED_BILLING_PRODUCT_GROUP_KEY = {
+  [BillingProductType.PASS_SINGLE]: 'passSingleProducts',
+  [BillingProductType.CREDIT_PACK]: 'creditPackProducts',
+} as const satisfies Record<ExposedBillingProductType, string>;
+
+export type ExposedBillingProductGroupKey =
+  (typeof EXPOSED_BILLING_PRODUCT_GROUP_KEY)[ExposedBillingProductType];
+
+export const isExposedBillingProductType = (
+  productType: string,
+): productType is ExposedBillingProductType =>
+  EXPOSED_BILLING_PRODUCT_TYPES.includes(
+    productType as ExposedBillingProductType,
+  );
+
 export const BillingMode = {
   ONE_TIME: 'ONE_TIME',
   RECURRING: 'RECURRING',

@@ -37,16 +37,21 @@ export const receiptRequestSchema = z.union([
   businessReceiptSchema,
 ]);
 
-export const createBankTransferPaymentSchema = z.object({
-  productId: cuidSchema,
-  quantity: z
-    .number()
-    .int('수량은 정수여야 합니다.')
-    .positive('수량은 1 이상이어야 합니다.')
-    .default(1),
+const bankTransferCommonFieldsSchema = z.object({
   depositorName: z.string().min(1, '입금자명은 필수입니다.'),
-  receiptRequest: receiptRequestSchema.optional(),
+  depositorBankName: z.string().min(1, '입금은행은 필수입니다.'),
 });
+
+export const createBankTransferPaymentSchema =
+  bankTransferCommonFieldsSchema.extend({
+    productId: cuidSchema,
+    quantity: z
+      .number()
+      .int('수량은 정수여야 합니다.')
+      .positive('수량은 1 이상이어야 합니다.')
+      .default(1),
+    receiptRequest: receiptRequestSchema.optional(),
+  });
 
 export type CreateBankTransferPaymentDto = z.infer<
   typeof createBankTransferPaymentSchema
@@ -72,10 +77,13 @@ export const receiptRequestIdParamSchema = z.object({
   id: cuidSchema,
 });
 
-export const markDepositSchema = z.object({
-  depositorName: z.string().min(1).optional(),
-  depositedAt: z.string().datetime().optional(),
-});
+export const markDepositSchema = bankTransferCommonFieldsSchema
+  .partial()
+  .extend({
+    depositedAt: z.string().datetime().optional(),
+  });
+
+export type MarkDepositDto = z.infer<typeof markDepositSchema>;
 
 export const paymentListQuerySchema = z.object({
   status: z
@@ -98,27 +106,45 @@ export const creditHistoryQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(20),
 });
 
-export const createBillingProductSchema = z.object({
+const billingProductHighlightsSchema = z.array(
+  z.string().trim().min(1, '상품 하이라이트는 빈 문자열일 수 없습니다.'),
+);
+
+const billingProductTypeSchema = z.enum([
+  BillingProductType.PASS_SINGLE,
+  BillingProductType.PASS_SUBSCRIPTION,
+  BillingProductType.CREDIT_PACK,
+]);
+
+const billingModeSchema = z.enum([BillingMode.ONE_TIME, BillingMode.RECURRING]);
+
+const paymentMethodTypeSchema = z.enum([
+  PaymentMethodType.BANK_TRANSFER,
+  PaymentMethodType.TOSS_LINK,
+  PaymentMethodType.TOSS_BILLING,
+]);
+
+const billingProductBaseSchema = z.object({
   code: z.string().min(1, '상품 코드는 필수입니다.'),
   name: z.string().min(1, '상품명은 필수입니다.'),
   description: z.string().optional(),
-  productType: z.enum([
-    BillingProductType.PASS_SINGLE,
-    BillingProductType.PASS_SUBSCRIPTION,
-    BillingProductType.CREDIT_PACK,
-  ]),
-  billingMode: z
-    .enum([BillingMode.ONE_TIME, BillingMode.RECURRING])
-    .default(BillingMode.ONE_TIME),
-  paymentMethodType: z.enum([
-    PaymentMethodType.BANK_TRANSFER,
-    PaymentMethodType.TOSS_LINK,
-    PaymentMethodType.TOSS_BILLING,
-  ]),
+  highlights: billingProductHighlightsSchema,
+  productType: billingProductTypeSchema,
+  billingMode: billingModeSchema,
+  paymentMethodType: paymentMethodTypeSchema,
   durationMonths: z.number().int().positive().optional(),
+  includedCreditAmount: z.number().int().min(0),
+  rechargeCreditAmount: z.number().int().min(0),
+  price: z.number().int().min(0),
+  isActive: z.boolean(),
+  sortOrder: z.number().int(),
+});
+
+export const createBillingProductSchema = billingProductBaseSchema.extend({
+  highlights: billingProductHighlightsSchema.default([]),
+  billingMode: billingModeSchema.default(BillingMode.ONE_TIME),
   includedCreditAmount: z.number().int().min(0).default(0),
   rechargeCreditAmount: z.number().int().min(0).default(0),
-  price: z.number().int().min(0),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().default(0),
 });
@@ -141,7 +167,7 @@ export const adminCreditGrantSchema = z.object({
 
 export type CreateAdminCreditGrantDto = z.infer<typeof adminCreditGrantSchema>;
 
-export const updateBillingProductSchema = createBillingProductSchema.partial();
+export const updateBillingProductSchema = billingProductBaseSchema.partial();
 
 export type UpdateBillingProductDto = z.infer<
   typeof updateBillingProductSchema
@@ -177,14 +203,6 @@ export const revokeEntitlementsSchema = z.object({
 });
 
 export type RevokeEntitlementsDto = z.infer<typeof revokeEntitlementsSchema>;
-
-export const revokeRechargeCreditsSchema = z.object({
-  reason: z.string().min(1, '회수 사유는 필수입니다.'),
-});
-
-export type RevokeRechargeCreditsDto = z.infer<
-  typeof revokeRechargeCreditsSchema
->;
 
 export const updateReceiptRequestSchema = z.object({
   status: z.enum([ReceiptStatus.COMPLETED, ReceiptStatus.REJECTED]),

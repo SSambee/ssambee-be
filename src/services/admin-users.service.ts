@@ -3,15 +3,18 @@ import type {
   AdminUsersRepository,
   AdminUserListRow,
 } from '../repos/admin-users.repo.js';
-import type { GetAdminUsersQueryDto } from '../validations/admin-users.validation.js';
+import type {
+  GetAdminUsersQueryDto,
+  GetAdminUserStatsQueryDto,
+} from '../validations/admin-users.validation.js';
 
 export class AdminUsersService {
   constructor(private readonly adminUsersRepo: AdminUsersRepository) {}
 
-  async listInstructorUsers(query: GetAdminUsersQueryDto) {
+  async listUsers(query: GetAdminUsersQueryDto) {
     const now = new Date();
     const activeSince = subDays(now, 30);
-    const result = await this.adminUsersRepo.listInstructorUsers(query, {
+    const result = await this.adminUsersRepo.listUsers(query, {
       now,
       activeSince,
     });
@@ -24,11 +27,11 @@ export class AdminUsersService {
     };
   }
 
-  async getInstructorUserStats() {
+  async getUserStats(query: GetAdminUserStatsQueryDto) {
     const now = new Date();
     const activeSince = subDays(now, 30);
 
-    return this.adminUsersRepo.getInstructorUserStats({
+    return this.adminUsersRepo.getUserStats(query, {
       now,
       activeSince,
     });

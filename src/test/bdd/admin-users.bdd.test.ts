@@ -103,7 +103,7 @@ describe('관리자 사용자 관리 BDD 테스트 - @integration', () => {
       },
     });
 
-    await prisma.instructor.create({
+    const activeInstructor = await prisma.instructor.create({
       data: {
         userId: activeUser.id,
         phoneNumber: '010-1111-1111',
@@ -127,6 +127,72 @@ describe('관리자 사용자 관리 BDD 테스트 - @integration', () => {
         phoneNumber: '010-3333-3333',
         academy: '미접속 학원',
         subject: '과학',
+      },
+    });
+
+    const assistantUser = await prisma.user.create({
+      data: {
+        id: faker.string.uuid(),
+        email: 'active-assistant@example.com',
+        name: '활성 조교',
+        userType: UserType.ASSISTANT,
+        role: 'assistant',
+        emailVerified: true,
+        createdAt: new Date('2026-03-10T00:00:00.000Z'),
+        updatedAt: new Date('2026-03-10T00:00:00.000Z'),
+      },
+    });
+
+    const studentUser = await prisma.user.create({
+      data: {
+        id: faker.string.uuid(),
+        email: 'student@example.com',
+        name: '학생 사용자',
+        userType: UserType.STUDENT,
+        role: 'student',
+        emailVerified: true,
+        createdAt: new Date('2026-03-20T00:00:00.000Z'),
+        updatedAt: new Date('2026-03-20T00:00:00.000Z'),
+      },
+    });
+
+    const parentUser = await prisma.user.create({
+      data: {
+        id: faker.string.uuid(),
+        email: 'parent@example.com',
+        name: '학부모 사용자',
+        userType: UserType.PARENT,
+        role: 'parent',
+        emailVerified: true,
+        createdAt: new Date('2026-03-15T00:00:00.000Z'),
+        updatedAt: new Date('2026-03-15T00:00:00.000Z'),
+      },
+    });
+
+    await prisma.assistant.create({
+      data: {
+        userId: assistantUser.id,
+        instructorId: activeInstructor.id,
+        name: '활성 조교',
+        phoneNumber: '010-4444-4444',
+        signStatus: 'SIGNED',
+      },
+    });
+
+    await prisma.appStudent.create({
+      data: {
+        userId: studentUser.id,
+        phoneNumber: '010-5555-5555',
+        parentPhoneNumber: '010-6666-6666',
+        school: '테스트 고등학교',
+        schoolYear: '2',
+      },
+    });
+
+    await prisma.appParent.create({
+      data: {
+        userId: parentUser.id,
+        phoneNumber: '010-6666-6666',
       },
     });
 
@@ -155,6 +221,19 @@ describe('관리자 사용자 관리 BDD 테스트 - @integration', () => {
         userAgent: 'jest',
       },
     });
+
+    await prisma.session.create({
+      data: {
+        id: faker.string.uuid(),
+        token: faker.string.alphanumeric(20),
+        userId: assistantUser.id,
+        createdAt: new Date('2026-03-15T00:00:00.000Z'),
+        updatedAt: new Date('2026-03-15T00:00:00.000Z'),
+        expiresAt: new Date('2026-04-12T00:00:00.000Z'),
+        ipAddress: '127.0.0.1',
+        userAgent: 'jest',
+      },
+    });
   });
 
   afterEach(() => {
@@ -165,26 +244,32 @@ describe('관리자 사용자 관리 BDD 테스트 - @integration', () => {
     await dbTestUtil.disconnect();
   });
 
-  it('관리자가 강사 사용자 목록과 통계를 조회할 수 있어야 한다', async () => {
+  it('관리자가 비어드민 전체 사용자 목록과 통계를 조회할 수 있어야 한다', async () => {
     mockAdminSession();
 
     const usersRes = await request(app).get('/api/admin/v1/users');
 
     expect(usersRes.status).toBe(200);
     expect(usersRes.body.message).toBe('관리자 사용자 목록 조회 성공');
-    expect(usersRes.body.data.totalCount).toBe(3);
-    expect(usersRes.body.data.users).toHaveLength(3);
+    expect(usersRes.body.data.totalCount).toBe(6);
+    expect(usersRes.body.data.users).toHaveLength(6);
     expect(usersRes.body.data.users[0].name).toBe('활성 강사');
     expect(usersRes.body.data.users[0].hasActiveSession).toBe(true);
     expect(usersRes.body.data.users[0].activityStatus).toBe('active_30d');
+    expect(usersRes.body.data.users[0].userType).toBe(UserType.INSTRUCTOR);
+    expect(
+      usersRes.body.data.users.every(
+        (user: { userType: string }) => user.userType !== UserType.ADMIN,
+      ),
+    ).toBe(true);
 
     const inactiveUsersRes = await request(app).get(
       '/api/admin/v1/users?activityStatus=inactive_30d&sessionStatus=inactive',
     );
 
     expect(inactiveUsersRes.status).toBe(200);
-    expect(inactiveUsersRes.body.data.totalCount).toBe(2);
-    expect(inactiveUsersRes.body.data.users).toHaveLength(2);
+    expect(inactiveUsersRes.body.data.totalCount).toBe(4);
+    expect(inactiveUsersRes.body.data.users).toHaveLength(4);
     expect(
       inactiveUsersRes.body.data.users.every(
         (user: { activityStatus: string; hasActiveSession: boolean }) =>
@@ -201,14 +286,39 @@ describe('관리자 사용자 관리 BDD 테스트 - @integration', () => {
     expect(keywordRes.body.data.totalCount).toBe(1);
     expect(keywordRes.body.data.users[0].name).toBe('활성 강사');
 
+    const assistantOnlyRes = await request(app).get(
+      `/api/admin/v1/users?userType=${UserType.ASSISTANT}`,
+    );
+
+    expect(assistantOnlyRes.status).toBe(200);
+    expect(assistantOnlyRes.body.data.totalCount).toBe(1);
+    expect(assistantOnlyRes.body.data.users).toHaveLength(1);
+    expect(assistantOnlyRes.body.data.users[0]).toEqual(
+      expect.objectContaining({
+        name: '활성 조교',
+        userType: UserType.ASSISTANT,
+        phoneNumber: '010-4444-4444',
+      }),
+    );
+
     const statsRes = await request(app).get('/api/admin/v1/users/stats');
 
     expect(statsRes.status).toBe(200);
     expect(statsRes.body.message).toBe('관리자 사용자 통계 조회 성공');
-    expect(statsRes.body.data.totalCount).toBe(3);
-    expect(statsRes.body.data.active30dCount).toBe(1);
-    expect(statsRes.body.data.inactive30dCount).toBe(2);
-    expect(statsRes.body.data.activeSessionCount).toBe(1);
+    expect(statsRes.body.data.totalCount).toBe(6);
+    expect(statsRes.body.data.active30dCount).toBe(2);
+    expect(statsRes.body.data.inactive30dCount).toBe(4);
+    expect(statsRes.body.data.activeSessionCount).toBe(2);
+
+    const assistantStatsRes = await request(app).get(
+      `/api/admin/v1/users/stats?userType=${UserType.ASSISTANT}`,
+    );
+
+    expect(assistantStatsRes.status).toBe(200);
+    expect(assistantStatsRes.body.data.totalCount).toBe(1);
+    expect(assistantStatsRes.body.data.active30dCount).toBe(1);
+    expect(assistantStatsRes.body.data.inactive30dCount).toBe(0);
+    expect(assistantStatsRes.body.data.activeSessionCount).toBe(1);
   });
 
   it('최초 관리자가 추가 관리자 초대를 생성할 수 있어야 한다', async () => {

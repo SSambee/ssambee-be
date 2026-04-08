@@ -21,8 +21,8 @@ import type {
   CreateAdminCreditGrantDto,
   CreateBankTransferPaymentDto,
   CreateBillingProductDto,
+  MarkDepositDto,
   RevokeEntitlementsDto,
-  RevokeRechargeCreditsDto,
   UpdateBillingProductDto,
   UpdatePaymentRefundStatusDto,
 } from '../validations/billing.validation.js';
@@ -36,6 +36,7 @@ import {
   CreditSourceType,
   EntitlementStatus,
   IncludedCreditPolicy,
+  isExposedBillingProductType,
   PaymentMethodType,
   PaymentProviderType,
   PaymentRefundStatus,
@@ -195,15 +196,6 @@ export class BillingService {
     }
 
     return updatedPayment;
-  }
-
-  private isAdminCreditGrantItem(item: {
-    productCodeSnapshot?: string | null;
-  }) {
-    return (
-      item.productCodeSnapshot ===
-      BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO
-    );
   }
 
   private sanitizeProductData(
@@ -655,6 +647,86 @@ export class BillingService {
     );
   }
 
+  private resolveRefundReason(refundMemo?: string) {
+    const trimmedMemo = refundMemo?.trim();
+
+    return trimmedMemo && trimmedMemo.length > 0 ? trimmedMemo : '환불 처리';
+  }
+
+  private async revokeRechargeCreditsForRefund(
+    payment: PaymentWithRelations,
+    actor: Actor,
+    reason: string,
+    tx: Prisma.TransactionClient,
+  ) {
+    const batchId = randomUUID();
+    let revokedAny = false;
+
+    for (const item of payment.items) {
+      if (item.productTypeSnapshot !== BillingProductType.CREDIT_PACK) {
+        continue;
+      }
+
+      const rechargeBucket =
+        await this.billingRepo.findRechargeCreditBucketByPaymentItemId(
+          item.id,
+          tx,
+        );
+
+      if (
+        !rechargeBucket ||
+        rechargeBucket.status !== CreditBucketStatus.ACTIVE ||
+        rechargeBucket.remainingAmount <= 0
+      ) {
+        continue;
+      }
+
+      const revokedAmount = rechargeBucket.remainingAmount;
+      const canceledBucket = await this.billingRepo.updateCreditBucket(
+        rechargeBucket.id,
+        {
+          status: CreditBucketStatus.CANCELED,
+          remainingAmount: 0,
+        },
+        tx,
+      );
+      const history = await this.appendRevocationHistory(
+        {
+          paymentId: payment.id,
+          paymentItemId: item.id,
+          targetType: RevocationTargetType.CREDIT_BUCKET,
+          targetId: rechargeBucket.id,
+          actionType: RevocationActionType.CLAWBACK,
+          fromStatus: rechargeBucket.status,
+          toStatus: CreditBucketStatus.CANCELED,
+          deltaAmount: -revokedAmount,
+          actorUserId: actor.userId,
+          actorRole: actor.role,
+          reason,
+          batchId,
+        },
+        tx,
+      );
+
+      await this.appendCreditLedger(
+        {
+          instructorId: payment.instructorId,
+          creditBucketId: canceledBucket.id,
+          type: CreditLedgerType.ADJUST,
+          deltaAmount: -revokedAmount,
+          referenceType: 'PAYMENT_ITEM_REVOCATION',
+          referenceId: history.id,
+          reason,
+        },
+        tx,
+      );
+
+      revokedAny = true;
+    }
+
+    return revokedAny;
+  }
+
   private getRechargeCreditExpiryDays(item: PaymentItem) {
     return (
       item.rechargeExpiresInDaysSnapshot ??
@@ -988,14 +1060,7 @@ export class BillingService {
     return products.filter(
       (product) =>
         product.paymentMethodType === PaymentMethodType.BANK_TRANSFER &&
-        [
-          BillingProductType.PASS_SINGLE,
-          BillingProductType.CREDIT_PACK,
-        ].includes(
-          product.productType as
-            | typeof BillingProductType.PASS_SINGLE
-            | typeof BillingProductType.CREDIT_PACK,
-        ),
+        isExposedBillingProductType(product.productType),
     );
   }
 
@@ -1139,6 +1204,7 @@ export class BillingService {
           providerType: PaymentProviderType.MANUAL,
           status: PaymentStatus.PENDING_DEPOSIT,
           depositorName: data.depositorName,
+          depositorBankName: data.depositorBankName,
           totalAmount: product.price * data.quantity,
         },
         tx,
@@ -1189,7 +1255,7 @@ export class BillingService {
   async markPaymentDeposited(
     paymentId: string,
     instructorId: string,
-    data: { depositorName?: string; depositedAt?: string },
+    data: MarkDepositDto,
     actor: Actor,
   ) {
     await this.prisma.$transaction(async (tx) => {
@@ -1210,6 +1276,8 @@ export class BillingService {
         {
           status: PaymentStatus.PENDING_APPROVAL,
           depositorName: data.depositorName ?? payment.depositorName,
+          depositorBankName:
+            data.depositorBankName ?? payment.depositorBankName,
           depositedAt: data.depositedAt
             ? new Date(data.depositedAt)
             : new Date(),
@@ -1411,34 +1479,43 @@ export class BillingService {
   async updatePaymentRefundStatus(
     paymentId: string,
     data: UpdatePaymentRefundStatusDto,
+    actor: Actor = {},
   ) {
-    const payment = await this.billingRepo.findPaymentById(paymentId);
+    await this.prisma.$transaction(async (tx) => {
+      const payment = await this.billingRepo.findPaymentById(paymentId, tx);
 
-    if (!payment) {
-      throw new NotFoundException('결제 내역을 찾을 수 없습니다.');
-    }
+      if (!payment) {
+        throw new NotFoundException('결제 내역을 찾을 수 없습니다.');
+      }
 
-    if (payment.items.some((item) => this.isAdminCreditGrantItem(item))) {
-      throw new BadRequestException(
-        '관리자 지급 크레딧은 환불 상태를 변경할 수 없습니다.',
+      const hasRevocation = payment.items.some(
+        (item) => (item.revocationHistories?.length ?? 0) > 0,
       );
-    }
-
-    const hasRevocation = payment.items.some(
-      (item) => (item.revocationHistories?.length ?? 0) > 0,
-    );
-
-    if (!hasRevocation) {
-      throw new BadRequestException(
-        '회수 이력이 있는 결제만 환불 상태를 변경할 수 있습니다.',
+      const revokedRechargeCredits = await this.revokeRechargeCreditsForRefund(
+        payment as PaymentWithRelations,
+        actor,
+        this.resolveRefundReason(data.refundMemo),
+        tx,
       );
-    }
 
-    await this.billingRepo.updatePayment(paymentId, {
-      refundStatus: data.refundStatus,
-      refundMemo: data.refundMemo,
-      refundCompletedAt:
-        data.refundStatus === PaymentRefundStatus.COMPLETED ? new Date() : null,
+      if (!hasRevocation && !revokedRechargeCredits) {
+        throw new BadRequestException(
+          '회수 이력이 있는 결제만 환불 상태를 변경할 수 있습니다.',
+        );
+      }
+
+      await this.billingRepo.updatePayment(
+        paymentId,
+        {
+          refundStatus: data.refundStatus,
+          refundMemo: data.refundMemo,
+          refundCompletedAt:
+            data.refundStatus === PaymentRefundStatus.COMPLETED
+              ? new Date()
+              : null,
+        },
+        tx,
+      );
     });
 
     return this.getPayment(paymentId);
@@ -1629,115 +1706,6 @@ export class BillingService {
         batchId,
         revokedEntitlements,
         revokedCreditBuckets,
-        wallet,
-      };
-    });
-
-    return {
-      ...result,
-      accessStatus: await this.getMgmtAccessStatus(
-        initialItem.payment.instructorId,
-      ),
-      payment: await this.getPayment(initialItem.paymentId),
-    };
-  }
-
-  async revokeRechargeCreditsByPaymentItem(
-    paymentItemId: string,
-    data: RevokeRechargeCreditsDto,
-    actor: Actor,
-  ) {
-    const initialItem = await this.assertRevocablePaymentItem(paymentItemId);
-
-    if (initialItem.productTypeSnapshot !== BillingProductType.CREDIT_PACK) {
-      throw new BadRequestException('충전권 상품만 회수할 수 있습니다.');
-    }
-
-    await this.reconcileInstructorState(initialItem.payment.instructorId);
-
-    const result = await this.prisma.$transaction(async (tx) => {
-      const paymentItem = await this.assertRevocablePaymentItem(
-        paymentItemId,
-        tx,
-      );
-
-      if (paymentItem.productTypeSnapshot !== BillingProductType.CREDIT_PACK) {
-        throw new BadRequestException('충전권 상품만 회수할 수 있습니다.');
-      }
-
-      const rechargeBucket =
-        await this.billingRepo.findRechargeCreditBucketByPaymentItemId(
-          paymentItem.id,
-          tx,
-        );
-
-      if (!rechargeBucket) {
-        throw new BadRequestException('회수할 수 있는 충전 크레딧이 없습니다.');
-      }
-
-      if (
-        rechargeBucket.status !== CreditBucketStatus.ACTIVE ||
-        rechargeBucket.remainingAmount <= 0
-      ) {
-        throw new BadRequestException('회수할 수 있는 충전 크레딧이 없습니다.');
-      }
-
-      const batchId = randomUUID();
-      const revokedAmount = rechargeBucket.remainingAmount;
-      const canceledBucket = await this.billingRepo.updateCreditBucket(
-        rechargeBucket.id,
-        {
-          status: CreditBucketStatus.CANCELED,
-          remainingAmount: 0,
-        },
-        tx,
-      );
-      const history = await this.appendRevocationHistory(
-        {
-          paymentId: paymentItem.paymentId,
-          paymentItemId: paymentItem.id,
-          targetType: RevocationTargetType.CREDIT_BUCKET,
-          targetId: rechargeBucket.id,
-          actionType: RevocationActionType.CLAWBACK,
-          fromStatus: rechargeBucket.status,
-          toStatus: CreditBucketStatus.CANCELED,
-          deltaAmount: -revokedAmount,
-          actorUserId: actor.userId,
-          actorRole: actor.role,
-          reason: data.reason,
-          batchId,
-        },
-        tx,
-      );
-
-      await this.appendCreditLedger(
-        {
-          instructorId: paymentItem.payment.instructorId,
-          creditBucketId: canceledBucket.id,
-          type: CreditLedgerType.ADJUST,
-          deltaAmount: -revokedAmount,
-          referenceType: 'PAYMENT_ITEM_REVOCATION',
-          referenceId: history.id,
-          reason: data.reason,
-        },
-        tx,
-      );
-
-      if (!this.isAdminCreditGrantItem(paymentItem)) {
-        await this.markPaymentRefundPending(paymentItem.paymentId, tx);
-      }
-
-      const wallet = await this.refreshCreditWallet(
-        paymentItem.payment.instructorId,
-        tx,
-      );
-
-      return {
-        paymentId: paymentItem.paymentId,
-        paymentItemId: paymentItem.id,
-        batchId,
-        revokedRechargeAmount: revokedAmount,
-        revokedCreditBucket: canceledBucket,
         wallet,
       };
     });

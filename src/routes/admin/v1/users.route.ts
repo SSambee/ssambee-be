@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { container } from '../../../config/container.config.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
-import { getAdminUsersQuerySchema } from '../../../validations/admin-users.validation.js';
+import {
+  getAdminUsersQuerySchema,
+  getAdminUserStatsQuerySchema,
+} from '../../../validations/admin-users.validation.js';
 
 export const adminUsersRouter = Router();
 
@@ -15,4 +18,8 @@ adminUsersRouter.get(
   validate(getAdminUsersQuerySchema, 'query'),
   adminUsersController.getUsers,
 );
-adminUsersRouter.get('/stats', adminUsersController.getUserStats);
+adminUsersRouter.get(
+  '/stats',
+  validate(getAdminUserStatsQuerySchema, 'query'),
+  adminUsersController.getUserStats,
+);
