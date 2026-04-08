@@ -37,16 +37,21 @@ export const receiptRequestSchema = z.union([
   businessReceiptSchema,
 ]);
 
-export const createBankTransferPaymentSchema = z.object({
-  productId: cuidSchema,
-  quantity: z
-    .number()
-    .int('수량은 정수여야 합니다.')
-    .positive('수량은 1 이상이어야 합니다.')
-    .default(1),
+const bankTransferCommonFieldsSchema = z.object({
   depositorName: z.string().min(1, '입금자명은 필수입니다.'),
-  receiptRequest: receiptRequestSchema.optional(),
+  depositorBankName: z.string().min(1, '입금은행은 필수입니다.'),
 });
+
+export const createBankTransferPaymentSchema =
+  bankTransferCommonFieldsSchema.extend({
+    productId: cuidSchema,
+    quantity: z
+      .number()
+      .int('수량은 정수여야 합니다.')
+      .positive('수량은 1 이상이어야 합니다.')
+      .default(1),
+    receiptRequest: receiptRequestSchema.optional(),
+  });
 
 export type CreateBankTransferPaymentDto = z.infer<
   typeof createBankTransferPaymentSchema
@@ -72,10 +77,13 @@ export const receiptRequestIdParamSchema = z.object({
   id: cuidSchema,
 });
 
-export const markDepositSchema = z.object({
-  depositorName: z.string().min(1).optional(),
-  depositedAt: z.string().datetime().optional(),
-});
+export const markDepositSchema = bankTransferCommonFieldsSchema
+  .partial()
+  .extend({
+    depositedAt: z.string().datetime().optional(),
+  });
+
+export type MarkDepositDto = z.infer<typeof markDepositSchema>;
 
 export const paymentListQuerySchema = z.object({
   status: z

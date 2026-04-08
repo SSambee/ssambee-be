@@ -21,6 +21,7 @@ import type {
   CreateAdminCreditGrantDto,
   CreateBankTransferPaymentDto,
   CreateBillingProductDto,
+  MarkDepositDto,
   RevokeEntitlementsDto,
   UpdateBillingProductDto,
   UpdatePaymentRefundStatusDto,
@@ -1203,6 +1204,7 @@ export class BillingService {
           providerType: PaymentProviderType.MANUAL,
           status: PaymentStatus.PENDING_DEPOSIT,
           depositorName: data.depositorName,
+          depositorBankName: data.depositorBankName,
           totalAmount: product.price * data.quantity,
         },
         tx,
@@ -1253,7 +1255,7 @@ export class BillingService {
   async markPaymentDeposited(
     paymentId: string,
     instructorId: string,
-    data: { depositorName?: string; depositedAt?: string },
+    data: MarkDepositDto,
     actor: Actor,
   ) {
     await this.prisma.$transaction(async (tx) => {
@@ -1274,6 +1276,8 @@ export class BillingService {
         {
           status: PaymentStatus.PENDING_APPROVAL,
           depositorName: data.depositorName ?? payment.depositorName,
+          depositorBankName:
+            data.depositorBankName ?? payment.depositorBankName,
           depositedAt: data.depositedAt
             ? new Date(data.depositedAt)
             : new Date(),

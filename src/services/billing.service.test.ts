@@ -137,6 +137,7 @@ describe('BillingService', () => {
     const paymentDetail = {
       id: 'payment-1',
       instructorId: 'instructor-1',
+      depositorBankName: '국민은행',
       items: [],
       receiptRequest: { type: 'CASH_RECEIPT' },
     };
@@ -153,6 +154,7 @@ describe('BillingService', () => {
         productId: 'product-1',
         quantity: 1,
         depositorName: '홍길동',
+        depositorBankName: '국민은행',
         receiptRequest: {
           type: 'CASH_RECEIPT',
           phoneNumber: '010-1234-5678',
@@ -164,7 +166,13 @@ describe('BillingService', () => {
       },
     );
 
-    expect(mockBillingRepo.createPayment).toHaveBeenCalled();
+    expect(mockBillingRepo.createPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        depositorName: '홍길동',
+        depositorBankName: '국민은행',
+      }),
+      expect.anything(),
+    );
     expect(mockBillingRepo.createPaymentItem).toHaveBeenCalled();
     expect(mockBillingRepo.createPaymentStatusHistory).toHaveBeenCalled();
     expect(mockBillingRepo.createReceiptRequest).toHaveBeenCalledWith(
@@ -640,6 +648,50 @@ describe('BillingService', () => {
       instructorId: 'instructor-1',
       status: PaymentStatus.PENDING_DEPOSIT,
       depositorName: '기존 입금자',
+      depositorBankName: '기존은행',
+      items: [],
+    };
+
+    jest.spyOn(service, 'getInstructorPayment').mockResolvedValue({
+      id: 'payment-deposit',
+      status: PaymentStatus.PENDING_APPROVAL,
+    } as never);
+    (mockBillingRepo.findPaymentById as jest.Mock).mockResolvedValue(payment);
+
+    await service.markPaymentDeposited(
+      'payment-deposit',
+      'instructor-1',
+      {
+        depositorName: '홍길동',
+        depositorBankName: '신한은행',
+      },
+      {
+        userId: 'user-1',
+        role: 'INSTRUCTOR',
+      },
+    );
+
+    expect(mockBillingRepo.updatePayment).toHaveBeenCalledWith(
+      'payment-deposit',
+      expect.objectContaining({
+        status: PaymentStatus.PENDING_APPROVAL,
+        depositorName: '홍길동',
+        depositorBankName: '신한은행',
+        depositedAt: expect.any(Date),
+      }),
+      expect.anything(),
+      PaymentStatus.PENDING_DEPOSIT,
+    );
+    expect(mockBillingRepo.findPaymentById).toHaveBeenCalledTimes(1);
+  });
+
+  it('입금 알림에서 은행명을 보내지 않으면 기존 은행명을 유지해야 한다', async () => {
+    const payment = {
+      id: 'payment-deposit',
+      instructorId: 'instructor-1',
+      status: PaymentStatus.PENDING_DEPOSIT,
+      depositorName: '기존 입금자',
+      depositorBankName: '기존은행',
       items: [],
     };
 
@@ -664,14 +716,12 @@ describe('BillingService', () => {
     expect(mockBillingRepo.updatePayment).toHaveBeenCalledWith(
       'payment-deposit',
       expect.objectContaining({
-        status: PaymentStatus.PENDING_APPROVAL,
         depositorName: '홍길동',
-        depositedAt: expect.any(Date),
+        depositorBankName: '기존은행',
       }),
       expect.anything(),
       PaymentStatus.PENDING_DEPOSIT,
     );
-    expect(mockBillingRepo.findPaymentById).toHaveBeenCalledTimes(1);
   });
 
   it('guarded payment update가 실패하면 approvePayment는 부수효과 없이 ConflictException을 던져야 한다', async () => {

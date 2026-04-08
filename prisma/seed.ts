@@ -349,6 +349,7 @@ async function main() {
       providerType: PaymentProviderType.MANUAL,
       status: PaymentStatus.PENDING_APPROVAL,
       depositorName: '주식회사 도코코',
+      depositorBankName: '국민은행',
       totalAmount: 99000,
       depositedAt: paymentDepositedAt,
       createdAt: paymentCreatedAt,
