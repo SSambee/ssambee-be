@@ -49,6 +49,11 @@ import {
   calculateMonthlyEntitlementEndAt,
   getNextEntitlementStartAt,
 } from '../utils/date.util.js';
+import {
+  sendBankTransferApprovedMail,
+  sendBankTransferDepositRequestMail,
+  sendBankTransferRejectedMail,
+} from '../utils/mail.util.js';
 
 interface Actor {
   userId?: string;
@@ -84,6 +89,23 @@ interface PaymentItemEstimatedRefund {
   estimatedRefundAmount: number;
   refundBasis: string;
   refundBreakdown: Record<string, unknown>;
+}
+
+interface PaymentNotificationTarget {
+  id: string;
+  methodType: string;
+  totalAmount: number;
+  depositorName?: string | null;
+  depositorBankName?: string | null;
+  instructor?: {
+    user?: {
+      email: string;
+    };
+  };
+  items: Array<{
+    productNameSnapshot: string;
+    quantity: number;
+  }>;
 }
 
 type PaymentItemWithRelations = PaymentItem & {
@@ -1061,6 +1083,119 @@ export class BillingService {
     return paymentItem;
   }
 
+  private getPaymentNotificationRecipient(
+    payment: PaymentNotificationTarget,
+  ): string | null {
+    const email = payment.instructor?.user?.email?.trim();
+
+    return email && email.length > 0 ? email : null;
+  }
+
+  private getPaymentProductName(payment: PaymentNotificationTarget) {
+    const item = payment.items[0];
+
+    if (!item) {
+      return '결제 상품';
+    }
+
+    return item.quantity > 1
+      ? `${item.productNameSnapshot} 외 ${item.quantity - 1}건`
+      : item.productNameSnapshot;
+  }
+
+  private logPaymentMailSkipped(
+    payment: PaymentNotificationTarget,
+    event: 'deposit_request' | 'approved' | 'rejected',
+  ) {
+    console.warn('[BillingService] payment mail skipped: recipient missing', {
+      paymentId: payment.id,
+      event,
+    });
+  }
+
+  private async runPaymentMailSideEffect(
+    paymentId: string,
+    event: 'deposit_request' | 'approved' | 'rejected',
+    operation: () => Promise<void>,
+  ) {
+    try {
+      await operation();
+    } catch (error) {
+      console.error('[BillingService] payment mail dispatch failed', {
+        paymentId,
+        event,
+        error,
+      });
+    }
+  }
+
+  private async notifyBankTransferDepositRequest(
+    payment: PaymentNotificationTarget,
+  ) {
+    const recipient = this.getPaymentNotificationRecipient(payment);
+
+    if (!recipient) {
+      this.logPaymentMailSkipped(payment, 'deposit_request');
+      return;
+    }
+
+    await this.runPaymentMailSideEffect(payment.id, 'deposit_request', () =>
+      sendBankTransferDepositRequestMail({
+        email: recipient,
+        productName: this.getPaymentProductName(payment),
+        totalAmount: payment.totalAmount,
+        depositorName: payment.depositorName ?? '미입력',
+        depositorBankName: payment.depositorBankName ?? '미입력',
+      }),
+    );
+  }
+
+  private async notifyBankTransferApproved(payment: PaymentNotificationTarget) {
+    if (payment.methodType !== PaymentMethodType.BANK_TRANSFER) {
+      return;
+    }
+
+    const recipient = this.getPaymentNotificationRecipient(payment);
+
+    if (!recipient) {
+      this.logPaymentMailSkipped(payment, 'approved');
+      return;
+    }
+
+    await this.runPaymentMailSideEffect(payment.id, 'approved', () =>
+      sendBankTransferApprovedMail({
+        email: recipient,
+        productName: this.getPaymentProductName(payment),
+        totalAmount: payment.totalAmount,
+      }),
+    );
+  }
+
+  private async notifyBankTransferRejected(
+    payment: PaymentNotificationTarget,
+    reason: string,
+  ) {
+    if (payment.methodType !== PaymentMethodType.BANK_TRANSFER) {
+      return;
+    }
+
+    const recipient = this.getPaymentNotificationRecipient(payment);
+
+    if (!recipient) {
+      this.logPaymentMailSkipped(payment, 'rejected');
+      return;
+    }
+
+    await this.runPaymentMailSideEffect(payment.id, 'rejected', () =>
+      sendBankTransferRejectedMail({
+        email: recipient,
+        productName: this.getPaymentProductName(payment),
+        totalAmount: payment.totalAmount,
+        reason,
+      }),
+    );
+  }
+
   async listActiveProducts() {
     const products = await this.billingRepo.listActiveProducts();
 
@@ -1256,7 +1391,16 @@ export class BillingService {
       return createdPayment;
     });
 
-    return this.getInstructorPayment(payment.id, instructorId);
+    const paymentDetail = await this.getInstructorPayment(
+      payment.id,
+      instructorId,
+    );
+
+    await this.notifyBankTransferDepositRequest(
+      paymentDetail as PaymentNotificationTarget,
+    );
+
+    return paymentDetail;
   }
 
   async listInstructorPayments(
@@ -1392,7 +1536,13 @@ export class BillingService {
       await this.refreshCreditWallet(payment.instructorId, tx);
     });
 
-    return this.getPayment(paymentId);
+    const paymentDetail = await this.getPayment(paymentId);
+
+    await this.notifyBankTransferApproved(
+      paymentDetail as PaymentNotificationTarget,
+    );
+
+    return paymentDetail;
   }
 
   async rejectPayment(paymentId: string, actor: Actor, reason: string) {
@@ -1432,7 +1582,14 @@ export class BillingService {
       );
     });
 
-    return this.getPayment(paymentId);
+    const paymentDetail = await this.getPayment(paymentId);
+
+    await this.notifyBankTransferRejected(
+      paymentDetail as PaymentNotificationTarget,
+      reason,
+    );
+
+    return paymentDetail;
   }
 
   async updatePaymentRefundStatus(

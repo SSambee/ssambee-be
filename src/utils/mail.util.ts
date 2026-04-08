@@ -1,10 +1,12 @@
 import nodemailer, { type Transporter } from 'nodemailer';
 import { config } from '../config/env.config.js';
-import { getAdminPortalBaseUrl } from './origin.util.js';
+import { getAdminPortalBaseUrl, parseOriginList } from './origin.util.js';
 
 let transporter: Transporter | null = null;
 const ADMIN_PORTAL_UNAVAILABLE_NOTICE =
   '현재 관리자 페이지 접속 링크가 설정되지 않았습니다. 운영팀에 문의해주세요.';
+const APP_HOME_UNAVAILABLE_NOTICE =
+  '현재 서비스 접속 링크가 설정되지 않았습니다. 운영팀에 문의해주세요.';
 
 const hasRequiredMailConfig = () => {
   return !!(
@@ -76,6 +78,31 @@ const getAdminPortalUrl = (): string | null => {
     return null;
   }
 };
+
+const getFrontHomeUrl = (): string | null => {
+  const frontUrl = parseOriginList(config.FRONT_URL)[0];
+
+  if (!frontUrl) {
+    return null;
+  }
+
+  try {
+    return new URL('/', frontUrl).toString();
+  } catch (_error) {
+    return null;
+  }
+};
+
+const formatCurrency = (amount: number) =>
+  `${amount.toLocaleString('ko-KR')}원`;
+
+const escapeHtml = (value: string) =>
+  value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
 
 export const sendEmailOtp = async ({
   email,
@@ -158,6 +185,132 @@ export const sendAdminInvitationMail = async ({
       <p>${invitedByName}님이 관리자 계정으로 초대했습니다.</p>
       <p>관리자 페이지에 접속해 이메일 OTP 인증을 완료하고 비밀번호를 설정해주세요.</p>
       <p>${ADMIN_PORTAL_UNAVAILABLE_NOTICE}</p>
+    </div>`,
+  });
+};
+
+export const sendBankTransferDepositRequestMail = async ({
+  email,
+  productName,
+  totalAmount,
+  depositorName,
+  depositorBankName,
+}: {
+  email: string;
+  productName: string;
+  totalAmount: number;
+  depositorName: string;
+  depositorBankName: string;
+}) => {
+  const appHomeUrl = getFrontHomeUrl();
+  const hasAppHomeUrl = Boolean(appHomeUrl);
+
+  await sendAuthMail({
+    to: email,
+    subject: '[SSAMBEE] 무통장 입금 요청 안내',
+    text: `무통장 결제 요청이 접수되었습니다.
+상품: ${productName}
+결제 금액: ${formatCurrency(totalAmount)}
+입금자명: ${depositorName}
+입금은행: ${depositorBankName}
+
+아래 계좌로 입금해주세요.
+은행: ${config.BANK_TRANSFER_ACCOUNT_BANK}
+계좌번호: ${config.BANK_TRANSFER_ACCOUNT_NUMBER}
+예금주: ${config.BANK_TRANSFER_ACCOUNT_HOLDER}
+
+입금 확인 후 승인 완료 메일로 이용 가능 여부를 안내드립니다.
+${hasAppHomeUrl ? `서비스 바로가기: ${appHomeUrl}` : APP_HOME_UNAVAILABLE_NOTICE}`,
+    html: `<div>
+      <p>무통장 결제 요청이 접수되었습니다.</p>
+      <p>상품: ${escapeHtml(productName)}</p>
+      <p>결제 금액: ${escapeHtml(formatCurrency(totalAmount))}</p>
+      <p>입금자명: ${escapeHtml(depositorName)}</p>
+      <p>입금은행: ${escapeHtml(depositorBankName)}</p>
+      <p>아래 계좌로 입금해주세요.</p>
+      <p>은행: ${escapeHtml(config.BANK_TRANSFER_ACCOUNT_BANK)}</p>
+      <p>계좌번호: ${escapeHtml(config.BANK_TRANSFER_ACCOUNT_NUMBER)}</p>
+      <p>예금주: ${escapeHtml(config.BANK_TRANSFER_ACCOUNT_HOLDER)}</p>
+      <p>입금 확인 후 승인 완료 메일로 이용 가능 여부를 안내드립니다.</p>
+      ${
+        hasAppHomeUrl
+          ? `<a href="${appHomeUrl}" target="_blank" rel="noreferrer noopener">서비스 바로가기</a>`
+          : `<p>${APP_HOME_UNAVAILABLE_NOTICE}</p>`
+      }
+    </div>`,
+  });
+};
+
+export const sendBankTransferApprovedMail = async ({
+  email,
+  productName,
+  totalAmount,
+}: {
+  email: string;
+  productName: string;
+  totalAmount: number;
+}) => {
+  const appHomeUrl = getFrontHomeUrl();
+  const hasAppHomeUrl = Boolean(appHomeUrl);
+
+  await sendAuthMail({
+    to: email,
+    subject: '[SSAMBEE] 무통장 결제 승인 완료',
+    text: `무통장 결제가 승인되었습니다.
+상품: ${productName}
+결제 금액: ${formatCurrency(totalAmount)}
+
+이제 서비스 이용이 가능합니다.
+${hasAppHomeUrl ? `서비스 바로가기: ${appHomeUrl}` : APP_HOME_UNAVAILABLE_NOTICE}`,
+    html: `<div>
+      <p>무통장 결제가 승인되었습니다.</p>
+      <p>상품: ${escapeHtml(productName)}</p>
+      <p>결제 금액: ${escapeHtml(formatCurrency(totalAmount))}</p>
+      <p>이제 서비스 이용이 가능합니다.</p>
+      ${
+        hasAppHomeUrl
+          ? `<a href="${appHomeUrl}" target="_blank" rel="noreferrer noopener">서비스 바로가기</a>`
+          : `<p>${APP_HOME_UNAVAILABLE_NOTICE}</p>`
+      }
+    </div>`,
+  });
+};
+
+export const sendBankTransferRejectedMail = async ({
+  email,
+  productName,
+  totalAmount,
+  reason,
+}: {
+  email: string;
+  productName: string;
+  totalAmount: number;
+  reason: string;
+}) => {
+  const appHomeUrl = getFrontHomeUrl();
+  const hasAppHomeUrl = Boolean(appHomeUrl);
+
+  await sendAuthMail({
+    to: email,
+    subject: '[SSAMBEE] 무통장 결제 반려 안내',
+    text: `무통장 결제가 반려되었습니다.
+상품: ${productName}
+결제 금액: ${formatCurrency(totalAmount)}
+반려 사유: ${reason}
+
+결제 정보를 확인한 뒤 다시 결제를 요청해주세요.
+${hasAppHomeUrl ? `서비스 바로가기: ${appHomeUrl}` : APP_HOME_UNAVAILABLE_NOTICE}`,
+    html: `<div>
+      <p>무통장 결제가 반려되었습니다.</p>
+      <p>상품: ${escapeHtml(productName)}</p>
+      <p>결제 금액: ${escapeHtml(formatCurrency(totalAmount))}</p>
+      <p>반려 사유: ${escapeHtml(reason)}</p>
+      <p>결제 정보를 확인한 뒤 다시 결제를 요청해주세요.</p>
+      ${
+        hasAppHomeUrl
+          ? `<a href="${appHomeUrl}" target="_blank" rel="noreferrer noopener">서비스 바로가기</a>`
+          : `<p>${APP_HOME_UNAVAILABLE_NOTICE}</p>`
+      }
     </div>`,
   });
 };

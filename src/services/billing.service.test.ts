@@ -1,3 +1,9 @@
+jest.mock('../utils/mail.util.js', () => ({
+  sendBankTransferDepositRequestMail: jest.fn(),
+  sendBankTransferApprovedMail: jest.fn(),
+  sendBankTransferRejectedMail: jest.fn(),
+}));
+
 import { BillingService } from './billing.service.js';
 import { BillingRepository } from '../repos/billing.repo.js';
 import { Prisma, PrismaClient } from '../generated/prisma/client.js';
@@ -22,6 +28,11 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '../err/http.exception.js';
+import {
+  sendBankTransferApprovedMail,
+  sendBankTransferDepositRequestMail,
+  sendBankTransferRejectedMail,
+} from '../utils/mail.util.js';
 
 describe('BillingService', () => {
   let service: BillingService;
@@ -29,7 +40,13 @@ describe('BillingService', () => {
   let mockPrisma: Partial<PrismaClient>;
 
   beforeEach(() => {
+    jest.clearAllMocks();
     jest.useFakeTimers().setSystemTime(new Date('2026-03-24T00:00:00.000Z'));
+    (sendBankTransferDepositRequestMail as jest.Mock).mockResolvedValue(
+      undefined,
+    );
+    (sendBankTransferApprovedMail as jest.Mock).mockResolvedValue(undefined);
+    (sendBankTransferRejectedMail as jest.Mock).mockResolvedValue(undefined);
 
     mockBillingRepo = {
       listActiveProducts: jest.fn(),
@@ -83,6 +100,7 @@ describe('BillingService', () => {
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.useRealTimers();
   });
 
@@ -138,7 +156,15 @@ describe('BillingService', () => {
     const paymentDetail = {
       id: 'payment-1',
       instructorId: 'instructor-1',
+      methodType: PaymentMethodType.BANK_TRANSFER,
+      totalAmount: 99000,
+      depositorName: '홍길동',
       depositorBankName: '국민은행',
+      instructor: {
+        user: {
+          email: 'inst@test.com',
+        },
+      },
       items: [],
       receiptRequest: { type: 'CASH_RECEIPT' },
     };
@@ -184,12 +210,89 @@ describe('BillingService', () => {
       }),
       expect.anything(),
     );
+    expect(sendBankTransferDepositRequestMail).toHaveBeenCalledWith({
+      email: 'inst@test.com',
+      productName: '결제 상품',
+      totalAmount: 99000,
+      depositorName: '홍길동',
+      depositorBankName: '국민은행',
+    });
     expect(result).toEqual(
       expect.objectContaining({
         ...paymentDetail,
         hasRevocation: false,
         revokedEntitlementCount: 0,
         revokedRechargeAmount: 0,
+      }),
+    );
+  });
+
+  it('무통장 결제 생성 후 메일 발송이 실패해도 결제 생성 결과는 반환해야 한다', async () => {
+    const product = {
+      id: 'product-1',
+      code: 'PASS_SINGLE_1M',
+      name: '1개월 이용권',
+      productType: BillingProductType.PASS_SINGLE,
+      paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+      durationMonths: 1,
+      includedCreditAmount: IncludedCreditPolicy.MONTHLY_AMOUNT,
+      rechargeCreditAmount: 0,
+      price: 99000,
+      isActive: true,
+    };
+    const payment = {
+      id: 'payment-1',
+    };
+    const paymentDetail = {
+      id: 'payment-1',
+      instructorId: 'instructor-1',
+      methodType: PaymentMethodType.BANK_TRANSFER,
+      totalAmount: 99000,
+      depositorName: '홍길동',
+      depositorBankName: '국민은행',
+      instructor: {
+        user: {
+          email: 'inst@test.com',
+        },
+      },
+      items: [],
+      receiptRequest: null,
+    };
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+    (mockBillingRepo.findProductById as jest.Mock).mockResolvedValue(product);
+    (mockBillingRepo.createPayment as jest.Mock).mockResolvedValue(payment);
+    (mockBillingRepo.findPaymentById as jest.Mock)
+      .mockResolvedValueOnce(paymentDetail)
+      .mockResolvedValueOnce(paymentDetail);
+    (sendBankTransferDepositRequestMail as jest.Mock).mockRejectedValue(
+      new Error('smtp failed'),
+    );
+
+    const result = await service.createBankTransferPayment(
+      'instructor-1',
+      {
+        productId: 'product-1',
+        quantity: 1,
+        depositorName: '홍길동',
+        depositorBankName: '국민은행',
+      },
+      {
+        userId: 'user-1',
+        role: 'INSTRUCTOR',
+      },
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: 'payment-1',
+      }),
+    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[BillingService] payment mail dispatch failed',
+      expect.objectContaining({
+        paymentId: 'payment-1',
+        event: 'deposit_request',
       }),
     );
   });
@@ -548,6 +651,92 @@ describe('BillingService', () => {
     );
   });
 
+  it('무통장 승인 후 승인 완료 메일을 발송해야 한다', async () => {
+    const payment = {
+      id: 'payment-approve-mail',
+      instructorId: 'instructor-1',
+      status: PaymentStatus.PENDING_DEPOSIT,
+      approvedAt: null,
+      items: [],
+    };
+    const finalPayment = {
+      ...payment,
+      methodType: PaymentMethodType.BANK_TRANSFER,
+      totalAmount: 99000,
+      status: PaymentStatus.APPROVED,
+      instructor: {
+        user: {
+          email: 'inst@test.com',
+        },
+      },
+      items: [
+        {
+          id: 'item-approve-mail',
+          quantity: 1,
+          productNameSnapshot: '1개월 이용권',
+          durationMonthsSnapshot: 1,
+          includedCreditAmountSnapshot: IncludedCreditPolicy.MONTHLY_AMOUNT,
+          rechargeCreditAmountSnapshot: 0,
+          productTypeSnapshot: BillingProductType.PASS_SINGLE,
+          entitlements: [],
+          creditBuckets: [],
+          revocationHistories: [],
+        },
+      ],
+    };
+
+    (mockBillingRepo.findPaymentById as jest.Mock)
+      .mockResolvedValueOnce(payment)
+      .mockResolvedValueOnce(finalPayment)
+      .mockResolvedValueOnce(finalPayment);
+    (mockBillingRepo.findLatestEntitlement as jest.Mock).mockResolvedValue(
+      null,
+    );
+    (mockBillingRepo.createEntitlement as jest.Mock).mockResolvedValue({
+      id: 'entitlement-approve-mail',
+      instructorId: 'instructor-1',
+      paymentItemId: 'item-approve-mail',
+      sequenceNo: 1,
+      status: EntitlementStatus.ACTIVE,
+      startsAt: new Date('2026-03-24T00:00:00.000Z'),
+      endsAt: new Date('2026-04-23T14:59:59.999Z'),
+      activatedAt: new Date('2026-03-24T00:00:00.000Z'),
+      expiredAt: null,
+      canceledAt: null,
+      includedCreditAmount: IncludedCreditPolicy.MONTHLY_AMOUNT,
+    });
+    (
+      mockBillingRepo.findIncludedCreditBucketByEntitlementId as jest.Mock
+    ).mockResolvedValue(null);
+    (mockBillingRepo.upsertIncludedCreditBucket as jest.Mock).mockResolvedValue(
+      {
+        id: 'bucket-approve-mail',
+      },
+    );
+    (mockBillingRepo.listActiveCreditBuckets as jest.Mock).mockResolvedValue(
+      [],
+    );
+    (
+      mockBillingRepo.listEntitlementsByInstructor as jest.Mock
+    ).mockResolvedValue([]);
+    (mockBillingRepo.findActiveEntitlement as jest.Mock).mockResolvedValue(
+      null,
+    );
+    const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    await service.approvePayment('payment-approve-mail', {
+      userId: 'admin-1',
+      role: 'admin',
+    });
+
+    expect(sendBankTransferApprovedMail).toHaveBeenCalledWith({
+      email: 'inst@test.com',
+      productName: '1개월 이용권',
+      totalAmount: 99000,
+    });
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
+  });
+
   it('기존 이용권이 있으면 새 이용권은 QUEUED로 적재해야 한다', async () => {
     const payment = {
       id: 'payment-2',
@@ -725,6 +914,110 @@ describe('BillingService', () => {
         reason: '서류 불충분',
       }),
       expect.anything(),
+    );
+  });
+
+  it('무통장 반려 후 반려 메일을 발송해야 한다', async () => {
+    const payment = {
+      id: 'payment-reject-mail',
+      instructorId: 'instructor-1',
+      status: PaymentStatus.PENDING_DEPOSIT,
+      items: [],
+    };
+    const finalPayment = {
+      ...payment,
+      methodType: PaymentMethodType.BANK_TRANSFER,
+      totalAmount: 55000,
+      status: PaymentStatus.REJECTED,
+      instructor: {
+        user: {
+          email: 'inst@test.com',
+        },
+      },
+      items: [
+        {
+          id: 'item-reject-mail',
+          quantity: 1,
+          productNameSnapshot: '충전권',
+          durationMonthsSnapshot: null,
+          includedCreditAmountSnapshot: 0,
+          rechargeCreditAmountSnapshot: 3000,
+          productTypeSnapshot: BillingProductType.CREDIT_PACK,
+          entitlements: [],
+          creditBuckets: [],
+          revocationHistories: [],
+        },
+      ],
+    };
+
+    jest.spyOn(service, 'getPayment').mockResolvedValue(finalPayment as never);
+    (mockBillingRepo.findPaymentById as jest.Mock).mockResolvedValue(payment);
+
+    await service.rejectPayment(
+      'payment-reject-mail',
+      {
+        userId: 'admin-1',
+        role: 'admin',
+      },
+      '입금자명이 일치하지 않습니다.',
+    );
+
+    expect(sendBankTransferRejectedMail).toHaveBeenCalledWith({
+      email: 'inst@test.com',
+      productName: '충전권',
+      totalAmount: 55000,
+      reason: '입금자명이 일치하지 않습니다.',
+    });
+  });
+
+  it('수신 이메일이 없으면 승인 메일을 스킵해야 한다', async () => {
+    const payment = {
+      id: 'payment-no-email',
+      instructorId: 'instructor-1',
+      status: PaymentStatus.PENDING_DEPOSIT,
+      approvedAt: null,
+      items: [],
+    };
+    const finalPayment = {
+      ...payment,
+      methodType: PaymentMethodType.BANK_TRANSFER,
+      totalAmount: 99000,
+      status: PaymentStatus.APPROVED,
+      instructor: {
+        user: {
+          email: '   ',
+        },
+      },
+      items: [],
+    };
+    const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    (mockBillingRepo.findPaymentById as jest.Mock)
+      .mockResolvedValueOnce(payment)
+      .mockResolvedValueOnce(finalPayment)
+      .mockResolvedValueOnce(finalPayment);
+    (mockBillingRepo.listActiveCreditBuckets as jest.Mock).mockResolvedValue(
+      [],
+    );
+    (
+      mockBillingRepo.listEntitlementsByInstructor as jest.Mock
+    ).mockResolvedValue([]);
+    (mockBillingRepo.findActiveEntitlement as jest.Mock).mockResolvedValue(
+      null,
+    );
+
+    await service.approvePayment('payment-no-email', {
+      userId: 'admin-1',
+      role: 'admin',
+    });
+
+    expect(sendBankTransferApprovedMail).not.toHaveBeenCalled();
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[BillingService] payment mail skipped: recipient missing',
+      expect.objectContaining({
+        paymentId: 'payment-no-email',
+        event: 'approved',
+      }),
     );
   });
 
