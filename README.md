@@ -186,6 +186,10 @@ flowchart LR
 - 관리자 검수는 `POST /api/admin/v1/billing/payments/:id/approve` 또는 `POST /api/admin/v1/billing/payments/:id/reject` 로 바로 처리합니다.
 - 별도의 입금 알림 엔드포인트 `POST /api/mgmt/v1/billing/payments/:paymentId/deposit` 는 더 이상 사용하지 않습니다.
 - 현재 무통장 결제의 주요 상태 전이는 `PENDING_DEPOSIT -> APPROVED` 또는 `PENDING_DEPOSIT -> REJECTED` 입니다.
+- 무통장 결제 관련 메일은 결제 생성/승인/반려 처리 뒤 비동기 부수효과로 발송되며, API 응답은 SMTP 완료를 기다리지 않습니다.
+- 입금 요청 메일은 `BANK_TRANSFER_ACCOUNT_BANK`, `BANK_TRANSFER_ACCOUNT_NUMBER`, `BANK_TRANSFER_ACCOUNT_HOLDER` 가 모두 설정된 경우에만 발송됩니다.
+- 위 3개 계좌 환경변수는 앱 부팅 필수값은 아니며, 누락 시 서버는 계속 기동되고 입금 요청 메일만 경고 로그와 함께 스킵됩니다.
+- 승인/반려 메일은 계좌 정보와 무관하게 SMTP 설정이 유효하면 계속 발송됩니다.
 
 ---
 
@@ -271,6 +275,7 @@ $ pnpm test
 - **배포 아키텍쳐:** `docker-compose.yml` 기준으로 Nginx와 Blue/Green 무중단 배포를 지원합니다.
   - 컨테이너 종료(`SIGTERM`/`SIGINT`) 수신 시 라우팅을 중단하고 수신된 기존 요청 처리를 마친 뒤 DB 연결을 종료합니다.
 - **인프라 선택적 연동:** `.env` 값을 기준으로 Sentry(에러 추적), Redis, AWS 연동은 제공된 환경변수가 있을 시에만 동작하도록 설계되었습니다.
+- **무통장 메일 설정:** `BANK_TRANSFER_ACCOUNT_*` 값은 입금 요청 메일 전용 설정입니다. 운영에서 입금 요청 메일을 사용하려면 배포 환경에 3개 값을 모두 등록해야 합니다.
 
 ---
 
