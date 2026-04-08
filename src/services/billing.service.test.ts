@@ -270,8 +270,15 @@ describe('BillingService', () => {
     (mockBillingRepo.findPaymentById as jest.Mock)
       .mockResolvedValueOnce(paymentDetail)
       .mockResolvedValueOnce(paymentDetail);
+    const smtpError = Object.assign(
+      new Error('smtp failed for inst@test.com'),
+      {
+        code: 'EENVELOPE',
+        status: 550,
+      },
+    );
     (sendBankTransferDepositRequestMail as jest.Mock).mockRejectedValue(
-      new Error('smtp failed'),
+      smtpError,
     );
 
     const result = await service.createBankTransferPayment(
@@ -295,11 +302,58 @@ describe('BillingService', () => {
     );
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       '[BillingService] payment mail dispatch failed',
-      expect.objectContaining({
+      {
         paymentId: 'payment-1',
-        event: 'deposit_request',
-      }),
+        eventType: 'deposit_request',
+        errorName: 'Error',
+        errorMessage: 'smtp failed for [REDACTED_EMAIL]',
+        errorCode: 'EENVELOPE',
+        errorStatus: 550,
+      },
     );
+  });
+
+  it('비동기 메일 디스패치 실패 로그는 원본 error 없이 안전한 필드만 남겨야 한다', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+    const smtpError = Object.assign(
+      new Error('smtp failed for inst@test.com'),
+      {
+        code: 'ETIMEDOUT',
+        statusCode: 504,
+      },
+    );
+    const serviceWithDispatch = service as unknown as {
+      dispatchPaymentMail: (
+        paymentId: string,
+        event: 'approved',
+        operation: Promise<void>,
+      ) => void;
+    };
+
+    serviceWithDispatch.dispatchPaymentMail(
+      'payment-async-error',
+      'approved',
+      Promise.reject(smtpError),
+    );
+    await flushMicrotasks();
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[BillingService] payment mail dispatch failed',
+      {
+        paymentId: 'payment-async-error',
+        eventType: 'approved',
+        errorName: 'Error',
+        errorMessage: 'smtp failed for [REDACTED_EMAIL]',
+        errorCode: 'ETIMEDOUT',
+        errorStatus: 504,
+      },
+    );
+    const [, payload] = consoleErrorSpy.mock.calls.at(-1) as [
+      string,
+      Record<string, unknown>,
+    ];
+    expect(payload).not.toHaveProperty('error');
+    expect(payload).not.toHaveProperty('event');
   });
 
   it('무통장 결제 생성은 입금 요청 메일 완료를 기다리지 않아야 한다', async () => {

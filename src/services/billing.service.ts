@@ -93,6 +93,8 @@ interface PaymentItemEstimatedRefund {
 
 type PaymentMailEvent = 'deposit_request' | 'approved' | 'rejected';
 
+const REDACTED_EMAIL = '[REDACTED_EMAIL]';
+
 interface PaymentNotificationTarget {
   id: string;
   methodType: string;
@@ -1123,11 +1125,7 @@ export class BillingService {
     try {
       await operation();
     } catch (error) {
-      console.error('[BillingService] payment mail dispatch failed', {
-        paymentId,
-        event,
-        error,
-      });
+      this.logPaymentMailDispatchFailure(paymentId, event, error);
     }
   }
 
@@ -1137,12 +1135,64 @@ export class BillingService {
     operation: Promise<void>,
   ) {
     void operation.catch((error) => {
-      console.error('[BillingService] payment mail dispatch failed', {
-        paymentId,
-        event,
-        error,
-      });
+      this.logPaymentMailDispatchFailure(paymentId, event, error);
     });
+  }
+
+  private logPaymentMailDispatchFailure(
+    paymentId: string,
+    event: PaymentMailEvent,
+    error: unknown,
+  ) {
+    console.error('[BillingService] payment mail dispatch failed', {
+      paymentId,
+      eventType: event,
+      ...this.getSafePaymentMailErrorDetails(error),
+    });
+  }
+
+  private getSafePaymentMailErrorDetails(error: unknown) {
+    const details: Record<string, string | number> = {};
+    const errorRecord =
+      error && typeof error === 'object'
+        ? (error as Record<string, unknown>)
+        : null;
+
+    if (error instanceof Error) {
+      details.errorName = error.name;
+      details.errorMessage = this.redactEmailAddresses(error.message);
+    } else if (typeof error === 'string') {
+      details.errorMessage = this.redactEmailAddresses(error);
+    } else {
+      details.errorMessage = 'Unknown error';
+    }
+
+    const errorCode = errorRecord?.code;
+    if (typeof errorCode === 'string' || typeof errorCode === 'number') {
+      details.errorCode = errorCode;
+    }
+
+    const errorStatus = errorRecord?.status;
+    if (typeof errorStatus === 'string' || typeof errorStatus === 'number') {
+      details.errorStatus = errorStatus;
+    }
+
+    const statusCode = errorRecord?.statusCode;
+    if (
+      (typeof statusCode === 'string' || typeof statusCode === 'number') &&
+      details.errorStatus === undefined
+    ) {
+      details.errorStatus = statusCode;
+    }
+
+    return details;
+  }
+
+  private redactEmailAddresses(value: string) {
+    return value.replace(
+      /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
+      REDACTED_EMAIL,
+    );
   }
 
   private async notifyBankTransferDepositRequest(
