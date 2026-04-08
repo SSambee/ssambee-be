@@ -91,6 +91,8 @@ interface PaymentItemEstimatedRefund {
   refundBreakdown: Record<string, unknown>;
 }
 
+type PaymentMailEvent = 'deposit_request' | 'approved' | 'rejected';
+
 interface PaymentNotificationTarget {
   id: string;
   methodType: string;
@@ -1105,7 +1107,7 @@ export class BillingService {
 
   private logPaymentMailSkipped(
     payment: PaymentNotificationTarget,
-    event: 'deposit_request' | 'approved' | 'rejected',
+    event: PaymentMailEvent,
   ) {
     console.warn('[BillingService] payment mail skipped: recipient missing', {
       paymentId: payment.id,
@@ -1115,7 +1117,7 @@ export class BillingService {
 
   private async runPaymentMailSideEffect(
     paymentId: string,
-    event: 'deposit_request' | 'approved' | 'rejected',
+    event: PaymentMailEvent,
     operation: () => Promise<void>,
   ) {
     try {
@@ -1127,6 +1129,20 @@ export class BillingService {
         error,
       });
     }
+  }
+
+  private dispatchPaymentMail(
+    paymentId: string,
+    event: PaymentMailEvent,
+    operation: Promise<void>,
+  ) {
+    void operation.catch((error) => {
+      console.error('[BillingService] payment mail dispatch failed', {
+        paymentId,
+        event,
+        error,
+      });
+    });
   }
 
   private async notifyBankTransferDepositRequest(
@@ -1396,8 +1412,12 @@ export class BillingService {
       instructorId,
     );
 
-    await this.notifyBankTransferDepositRequest(
-      paymentDetail as PaymentNotificationTarget,
+    this.dispatchPaymentMail(
+      paymentDetail.id,
+      'deposit_request',
+      this.notifyBankTransferDepositRequest(
+        paymentDetail as PaymentNotificationTarget,
+      ),
     );
 
     return paymentDetail;
@@ -1538,8 +1558,12 @@ export class BillingService {
 
     const paymentDetail = await this.getPayment(paymentId);
 
-    await this.notifyBankTransferApproved(
-      paymentDetail as PaymentNotificationTarget,
+    this.dispatchPaymentMail(
+      paymentDetail.id,
+      'approved',
+      this.notifyBankTransferApproved(
+        paymentDetail as PaymentNotificationTarget,
+      ),
     );
 
     return paymentDetail;
@@ -1584,9 +1608,13 @@ export class BillingService {
 
     const paymentDetail = await this.getPayment(paymentId);
 
-    await this.notifyBankTransferRejected(
-      paymentDetail as PaymentNotificationTarget,
-      reason,
+    this.dispatchPaymentMail(
+      paymentDetail.id,
+      'rejected',
+      this.notifyBankTransferRejected(
+        paymentDetail as PaymentNotificationTarget,
+        reason,
+      ),
     );
 
     return paymentDetail;

@@ -61,6 +61,25 @@ describe('mail.util', () => {
     jest.restoreAllMocks();
   });
 
+  it('계좌 정보가 없으면 입금 요청 메일을 스킵하고 경고를 남겨야 한다', async () => {
+    const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    config.BANK_TRANSFER_ACCOUNT_NUMBER = '';
+
+    await sendBankTransferDepositRequestMail({
+      email: 'instructor@example.com',
+      productName: '3개월 이용권',
+      totalAmount: 297000,
+      depositorName: '홍길동',
+      depositorBankName: '신한은행',
+    });
+
+    expect(mockedNodemailer.__mockSendMail).not.toHaveBeenCalled();
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Bank transfer account config is incomplete'),
+    );
+  });
+
   it('관리자 포털 URL이 있으면 초대 메일에 절대 링크를 포함해야 한다', async () => {
     await sendAdminInvitationMail({
       email: 'admin@example.com',
@@ -185,5 +204,25 @@ describe('mail.util', () => {
         html: expect.not.stringContaining('<a href='),
       }),
     );
+  });
+
+  it('계좌 정보가 없어도 승인 및 반려 메일은 발송해야 한다', async () => {
+    config.BANK_TRANSFER_ACCOUNT_BANK = '';
+    config.BANK_TRANSFER_ACCOUNT_NUMBER = '';
+    config.BANK_TRANSFER_ACCOUNT_HOLDER = '';
+
+    await sendBankTransferApprovedMail({
+      email: 'instructor@example.com',
+      productName: '1개월 이용권',
+      totalAmount: 99000,
+    });
+    await sendBankTransferRejectedMail({
+      email: 'instructor@example.com',
+      productName: '충전권',
+      totalAmount: 55000,
+      reason: '입금자명이 일치하지 않습니다.',
+    });
+
+    expect(mockedNodemailer.__mockSendMail).toHaveBeenCalledTimes(2);
   });
 });

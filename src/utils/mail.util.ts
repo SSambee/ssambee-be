@@ -7,6 +7,8 @@ const ADMIN_PORTAL_UNAVAILABLE_NOTICE =
   '현재 관리자 페이지 접속 링크가 설정되지 않았습니다. 운영팀에 문의해주세요.';
 const APP_HOME_UNAVAILABLE_NOTICE =
   '현재 서비스 접속 링크가 설정되지 않았습니다. 운영팀에 문의해주세요.';
+const BANK_TRANSFER_ACCOUNT_CONFIG_WARNING =
+  '[sendBankTransferDepositRequestMail] Bank transfer account config is incomplete. Set BANK_TRANSFER_ACCOUNT_BANK, BANK_TRANSFER_ACCOUNT_NUMBER, and BANK_TRANSFER_ACCOUNT_HOLDER to send deposit request emails.';
 
 const hasRequiredMailConfig = () => {
   return !!(
@@ -91,6 +93,14 @@ const getFrontHomeUrl = (): string | null => {
   } catch (_error) {
     return null;
   }
+};
+
+const hasCompleteBankTransferAccountConfig = () => {
+  return [
+    config.BANK_TRANSFER_ACCOUNT_BANK,
+    config.BANK_TRANSFER_ACCOUNT_NUMBER,
+    config.BANK_TRANSFER_ACCOUNT_HOLDER,
+  ].every((value) => value.trim().length > 0);
 };
 
 const formatCurrency = (amount: number) =>
@@ -202,6 +212,11 @@ export const sendBankTransferDepositRequestMail = async ({
   depositorName: string;
   depositorBankName: string;
 }) => {
+  if (!hasCompleteBankTransferAccountConfig()) {
+    console.warn(BANK_TRANSFER_ACCOUNT_CONFIG_WARNING);
+    return;
+  }
+
   const appHomeUrl = getFrontHomeUrl();
   const hasAppHomeUrl = Boolean(appHomeUrl);
 
