@@ -185,29 +185,6 @@ export class BillingController {
     }
   };
 
-  markPaymentDeposited = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) => {
-    try {
-      const instructorId = getProfileIdOrThrow(req);
-      const payment = await this.billingService.markPaymentDeposited(
-        req.params.paymentId,
-        instructorId,
-        req.body,
-        this.getActor(req),
-      );
-
-      return successResponse(res, {
-        data: payment,
-        message: '입금 완료 알림 성공',
-      });
-    } catch (error) {
-      next(error);
-    }
-  };
-
   getInstructorPayments = async (
     req: Request,
     res: Response,

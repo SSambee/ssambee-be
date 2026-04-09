@@ -21,7 +21,6 @@ import type {
   CreateAdminCreditGrantDto,
   CreateBankTransferPaymentDto,
   CreateBillingProductDto,
-  MarkDepositDto,
   RevokeEntitlementsDto,
   UpdateBillingProductDto,
   UpdatePaymentRefundStatusDto,
@@ -50,6 +49,11 @@ import {
   calculateMonthlyEntitlementEndAt,
   getNextEntitlementStartAt,
 } from '../utils/date.util.js';
+import {
+  sendBankTransferApprovedMail,
+  sendBankTransferDepositRequestMail,
+  sendBankTransferRejectedMail,
+} from '../utils/mail.util.js';
 
 interface Actor {
   userId?: string;
@@ -87,6 +91,27 @@ interface PaymentItemEstimatedRefund {
   refundBreakdown: Record<string, unknown>;
 }
 
+type PaymentMailEvent = 'deposit_request' | 'approved' | 'rejected';
+
+const REDACTED_EMAIL = '[REDACTED_EMAIL]';
+
+interface PaymentNotificationTarget {
+  id: string;
+  methodType: string;
+  totalAmount: number;
+  depositorName?: string | null;
+  depositorBankName?: string | null;
+  instructor?: {
+    user?: {
+      email: string;
+    };
+  };
+  items: Array<{
+    productNameSnapshot: string;
+    quantity: number;
+  }>;
+}
+
 type PaymentItemWithRelations = PaymentItem & {
   billingProduct?: BillingProduct;
   entitlements?: Entitlement[];
@@ -119,6 +144,14 @@ export interface InstructorActiveEntitlementSummary {
   endsAt: Date;
   includedCreditAmount: number;
 }
+
+export interface PendingDepositEntitlementMarker {
+  status: typeof PaymentStatus.PENDING_DEPOSIT;
+}
+
+export type SessionActiveEntitlementSummary =
+  | InstructorActiveEntitlementSummary
+  | PendingDepositEntitlementMarker;
 
 export interface InstructorCreditSummary {
   totalAvailable: number;
@@ -1054,6 +1087,181 @@ export class BillingService {
     return paymentItem;
   }
 
+  private getPaymentNotificationRecipient(
+    payment: PaymentNotificationTarget,
+  ): string | null {
+    const email = payment.instructor?.user?.email?.trim();
+
+    return email && email.length > 0 ? email : null;
+  }
+
+  private getPaymentProductName(payment: PaymentNotificationTarget) {
+    const item = payment.items[0];
+
+    if (!item) {
+      return '결제 상품';
+    }
+
+    return item.quantity > 1
+      ? `${item.productNameSnapshot} 외 ${item.quantity - 1}건`
+      : item.productNameSnapshot;
+  }
+
+  private logPaymentMailSkipped(
+    payment: PaymentNotificationTarget,
+    event: PaymentMailEvent,
+  ) {
+    console.warn('[BillingService] payment mail skipped: recipient missing', {
+      paymentId: payment.id,
+      event,
+    });
+  }
+
+  private async runPaymentMailSideEffect(
+    paymentId: string,
+    event: PaymentMailEvent,
+    operation: () => Promise<void>,
+  ) {
+    try {
+      await operation();
+    } catch (error) {
+      this.logPaymentMailDispatchFailure(paymentId, event, error);
+    }
+  }
+
+  private dispatchPaymentMail(
+    paymentId: string,
+    event: PaymentMailEvent,
+    operation: Promise<void>,
+  ) {
+    void operation.catch((error) => {
+      this.logPaymentMailDispatchFailure(paymentId, event, error);
+    });
+  }
+
+  private logPaymentMailDispatchFailure(
+    paymentId: string,
+    event: PaymentMailEvent,
+    error: unknown,
+  ) {
+    console.error('[BillingService] payment mail dispatch failed', {
+      paymentId,
+      eventType: event,
+      ...this.getSafePaymentMailErrorDetails(error),
+    });
+  }
+
+  private getSafePaymentMailErrorDetails(error: unknown) {
+    const details: Record<string, string | number> = {};
+    const errorRecord =
+      error && typeof error === 'object'
+        ? (error as Record<string, unknown>)
+        : null;
+
+    if (error instanceof Error) {
+      details.errorName = error.name;
+      details.errorMessage = this.redactEmailAddresses(error.message);
+    } else if (typeof error === 'string') {
+      details.errorMessage = this.redactEmailAddresses(error);
+    } else {
+      details.errorMessage = 'Unknown error';
+    }
+
+    const errorCode = errorRecord?.code;
+    if (typeof errorCode === 'string' || typeof errorCode === 'number') {
+      details.errorCode = errorCode;
+    }
+
+    const errorStatus = errorRecord?.status;
+    if (typeof errorStatus === 'string' || typeof errorStatus === 'number') {
+      details.errorStatus = errorStatus;
+    }
+
+    const statusCode = errorRecord?.statusCode;
+    if (
+      (typeof statusCode === 'string' || typeof statusCode === 'number') &&
+      details.errorStatus === undefined
+    ) {
+      details.errorStatus = statusCode;
+    }
+
+    return details;
+  }
+
+  private redactEmailAddresses(value: string) {
+    return value.replace(
+      /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
+      REDACTED_EMAIL,
+    );
+  }
+
+  private async notifyBankTransferDepositRequest(
+    payment: PaymentNotificationTarget,
+  ) {
+    const recipient = this.getPaymentNotificationRecipient(payment);
+
+    if (!recipient) {
+      this.logPaymentMailSkipped(payment, 'deposit_request');
+      return;
+    }
+
+    await this.runPaymentMailSideEffect(payment.id, 'deposit_request', () =>
+      sendBankTransferDepositRequestMail({
+        email: recipient,
+        productName: this.getPaymentProductName(payment),
+        totalAmount: payment.totalAmount,
+        depositorName: payment.depositorName ?? '미입력',
+        depositorBankName: payment.depositorBankName ?? '미입력',
+      }),
+    );
+  }
+
+  private async notifyBankTransferApproved(payment: PaymentNotificationTarget) {
+    if (payment.methodType !== PaymentMethodType.BANK_TRANSFER) {
+      return;
+    }
+
+    const recipient = this.getPaymentNotificationRecipient(payment);
+
+    if (!recipient) {
+      this.logPaymentMailSkipped(payment, 'approved');
+      return;
+    }
+
+    await this.runPaymentMailSideEffect(payment.id, 'approved', () =>
+      sendBankTransferApprovedMail({
+        email: recipient,
+        productName: this.getPaymentProductName(payment),
+        totalAmount: payment.totalAmount,
+      }),
+    );
+  }
+
+  private async notifyBankTransferRejected(
+    payment: PaymentNotificationTarget,
+    reason: string,
+  ) {
+    if (payment.methodType !== PaymentMethodType.BANK_TRANSFER) {
+      return;
+    }
+
+    const recipient = this.getPaymentNotificationRecipient(payment);
+
+    if (!recipient) {
+      this.logPaymentMailSkipped(payment, 'rejected');
+      return;
+    }
+
+    await this.runPaymentMailSideEffect(payment.id, 'rejected', () =>
+      sendBankTransferRejectedMail({
+        email: recipient,
+        productName: this.getPaymentProductName(payment),
+        totalAmount: payment.totalAmount,
+        reason,
+      }),
+    );
+  }
+
   async listActiveProducts() {
     const products = await this.billingRepo.listActiveProducts();
 
@@ -1249,56 +1457,20 @@ export class BillingService {
       return createdPayment;
     });
 
-    return this.getInstructorPayment(payment.id, instructorId);
-  }
+    const paymentDetail = await this.getInstructorPayment(
+      payment.id,
+      instructorId,
+    );
 
-  async markPaymentDeposited(
-    paymentId: string,
-    instructorId: string,
-    data: MarkDepositDto,
-    actor: Actor,
-  ) {
-    await this.prisma.$transaction(async (tx) => {
-      const payment = await this.assertInstructorPaymentOwner(
-        paymentId,
-        instructorId,
-        tx,
-      );
+    this.dispatchPaymentMail(
+      paymentDetail.id,
+      'deposit_request',
+      this.notifyBankTransferDepositRequest(
+        paymentDetail as PaymentNotificationTarget,
+      ),
+    );
 
-      if (payment.status !== PaymentStatus.PENDING_DEPOSIT) {
-        throw new BadRequestException(
-          '입금 대기 상태에서만 입금 알림이 가능합니다.',
-        );
-      }
-
-      await this.updatePaymentWithStatusGuard(
-        paymentId,
-        {
-          status: PaymentStatus.PENDING_APPROVAL,
-          depositorName: data.depositorName ?? payment.depositorName,
-          depositorBankName:
-            data.depositorBankName ?? payment.depositorBankName,
-          depositedAt: data.depositedAt
-            ? new Date(data.depositedAt)
-            : new Date(),
-        },
-        payment.status,
-        tx,
-      );
-
-      await this.billingRepo.createPaymentStatusHistory(
-        {
-          paymentId,
-          fromStatus: payment.status,
-          toStatus: PaymentStatus.PENDING_APPROVAL,
-          actorUserId: actor.userId,
-          actorRole: actor.role,
-        },
-        tx,
-      );
-    });
-
-    return this.getInstructorPayment(paymentId, instructorId);
+    return paymentDetail;
   }
 
   async listInstructorPayments(
@@ -1378,9 +1550,9 @@ export class BillingService {
         throw new NotFoundException('결제 내역을 찾을 수 없습니다.');
       }
 
-      if (payment.status !== PaymentStatus.PENDING_APPROVAL) {
+      if (payment.status !== PaymentStatus.PENDING_DEPOSIT) {
         throw new BadRequestException(
-          '승인 대기 상태에서만 결제 승인이 가능합니다.',
+          '입금 대기 상태에서만 결제 승인이 가능합니다.',
         );
       }
 
@@ -1390,6 +1562,7 @@ export class BillingService {
         paymentId,
         {
           status: PaymentStatus.APPROVED,
+          depositedAt: payment.depositedAt ?? approvedAt,
           approvedAt,
         },
         payment.status,
@@ -1433,7 +1606,17 @@ export class BillingService {
       await this.refreshCreditWallet(payment.instructorId, tx);
     });
 
-    return this.getPayment(paymentId);
+    const paymentDetail = await this.getPayment(paymentId);
+
+    this.dispatchPaymentMail(
+      paymentDetail.id,
+      'approved',
+      this.notifyBankTransferApproved(
+        paymentDetail as PaymentNotificationTarget,
+      ),
+    );
+
+    return paymentDetail;
   }
 
   async rejectPayment(paymentId: string, actor: Actor, reason: string) {
@@ -1444,9 +1627,9 @@ export class BillingService {
         throw new NotFoundException('결제 내역을 찾을 수 없습니다.');
       }
 
-      if (payment.status !== PaymentStatus.PENDING_APPROVAL) {
+      if (payment.status !== PaymentStatus.PENDING_DEPOSIT) {
         throw new BadRequestException(
-          '승인 대기 상태에서만 결제 반려가 가능합니다.',
+          '입금 대기 상태에서만 결제 반려가 가능합니다.',
         );
       }
 
@@ -1473,7 +1656,18 @@ export class BillingService {
       );
     });
 
-    return this.getPayment(paymentId);
+    const paymentDetail = await this.getPayment(paymentId);
+
+    this.dispatchPaymentMail(
+      paymentDetail.id,
+      'rejected',
+      this.notifyBankTransferRejected(
+        paymentDetail as PaymentNotificationTarget,
+        reason,
+      ),
+    );
+
+    return paymentDetail;
   }
 
   async updatePaymentRefundStatus(
@@ -1941,6 +2135,25 @@ export class BillingService {
         totalAvailable: context.wallet.totalAvailable,
       },
     };
+  }
+
+  async getSessionActiveEntitlement(
+    instructorId: string,
+  ): Promise<SessionActiveEntitlementSummary | null> {
+    const context = await this.loadInstructorBillingContext(instructorId);
+
+    if (context.activeEntitlement) {
+      return this.toActiveEntitlementSummary(context.activeEntitlement);
+    }
+
+    const hasPendingPassSinglePayment =
+      await this.billingRepo.hasPendingPassSinglePayment(instructorId);
+
+    return hasPendingPassSinglePayment
+      ? {
+          status: PaymentStatus.PENDING_DEPOSIT,
+        }
+      : null;
   }
 
   async listCreditLedgers(
