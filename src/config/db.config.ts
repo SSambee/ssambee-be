@@ -1,7 +1,7 @@
 import { PrismaClient } from '../generated/prisma/client.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaPg } from '@prisma/adapter-pg'; // Assuming this is the correct import path
-import { config, isDevelopment, isStaging } from './env.config.js';
+import { config, isDevelopment, isProduction } from './env.config.js';
 import fs from 'fs';
 
 const getPrismaLogLevel = () => {
@@ -12,12 +12,12 @@ const getPrismaLogLevel = () => {
   return ['query', 'info', 'warn', 'error'] as Prisma.LogLevel[];
 };
 
-const sslConfig = isStaging()
-  ? undefined
-  : {
+const sslConfig = isProduction()
+  ? {
       rejectUnauthorized: true,
       ca: fs.readFileSync('/certs/global-bundle.pem').toString(),
-    };
+    }
+  : undefined;
 
 const adapter = new PrismaPg({
   connectionString: config.DATABASE_URL,

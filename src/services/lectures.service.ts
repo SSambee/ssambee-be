@@ -128,9 +128,8 @@ export class LecturesService {
           enrollmentReq: LectureEnrollmentRequest,
         ) => {
           const student =
-            await this.studentRepository.findByPhoneNumberAndProfile(
+            await this.studentRepository.findByPhoneNumberAndParentPhoneNumber(
               enrollmentReq.studentPhone,
-              enrollmentReq.studentName,
               enrollmentReq.parentPhone,
               tx,
             );
@@ -141,9 +140,8 @@ export class LecturesService {
           enrollmentReq: LectureEnrollmentRequest,
         ) => {
           const link =
-            await this.parentChildLinkRepository.findByPhoneNumberAndProfile(
+            await this.parentChildLinkRepository.findByPhoneNumberAndParentPhoneNumber(
               enrollmentReq.studentPhone,
-              enrollmentReq.studentName,
               enrollmentReq.parentPhone,
               tx,
             );

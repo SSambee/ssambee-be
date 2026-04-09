@@ -1,7 +1,11 @@
 import pg from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client.js';
-import { UserType, AssistantStatus } from '../src/constants/auth.constant.js';
+import {
+  UserType,
+  AssistantStatus,
+  AdminProfileStatus,
+} from '../src/constants/auth.constant.js';
 import { EnrollmentStatus } from '../src/constants/enrollments.constant.js';
 import { LectureStatus } from '../src/constants/lectures.constant.js';
 import { QuestionType } from '../src/constants/exams.constant.js';
@@ -16,6 +20,15 @@ import { v7 as uuidv7 } from 'uuid';
 import { createId } from '@paralleldrive/cuid2';
 import { hashPassword } from 'better-auth/crypto';
 import 'dotenv/config';
+import {
+  BillingMode,
+  BillingProductType,
+  BillingSystemProductCode,
+  PaymentMethodType,
+  PaymentProviderType,
+  PaymentStatus,
+  ReceiptType,
+} from '../src/constants/billing.constant.js';
 
 const connectionString = process.env.DATABASE_URL;
 const pool = new pg.Pool({ connectionString });
@@ -27,8 +40,21 @@ async function main() {
 
   const now = new Date();
   const hashedPassword = await hashPassword('qwer1234');
+  const hashedAdminPassword = await hashPassword('qwer1234@');
+  const passSingleProductId = createId();
+  const creditPackProductId = createId();
+  const adminCreditGrantProductId = createId();
 
   // 0. Clean up existing data (Ordered by dependency)
+  await prisma.creditLedger.deleteMany();
+  await prisma.creditBucket.deleteMany();
+  await prisma.creditWallet.deleteMany();
+  await prisma.entitlement.deleteMany();
+  await prisma.paymentReceiptRequest.deleteMany();
+  await prisma.paymentStatusHistory.deleteMany();
+  await prisma.paymentItem.deleteMany();
+  await prisma.payment.deleteMany();
+  await prisma.billingProduct.deleteMany();
   await prisma.comment.deleteMany();
   await prisma.studentPost.deleteMany();
   await prisma.instructorPostTarget.deleteMany();
@@ -55,12 +81,110 @@ async function main() {
 
   console.log('🧹 Database cleaned up.');
 
+  await prisma.billingProduct.createMany({
+    data: [
+      {
+        id: passSingleProductId,
+        code: 'PASS_SINGLE_1M',
+        name: '1개월 이용권',
+        description: '1개월 이용권 + 기본 포함 크레딧 1000',
+        highlights: ['1개월 이용권', '기본 포함 크레딧 1000'],
+        productType: BillingProductType.PASS_SINGLE,
+        billingMode: BillingMode.ONE_TIME,
+        paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+        durationMonths: 1,
+        includedCreditAmount: 1000,
+        rechargeCreditAmount: 0,
+        price: 99000,
+        isActive: true,
+        sortOrder: 1,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: creditPackProductId,
+        code: 'CREDIT_PACK_3000',
+        name: '크레딧 충전권 3000',
+        description: '90일 만료 추가 충전 크레딧 3000',
+        highlights: ['추가 충전 크레딧 3000', '구매 후 90일 내 사용'],
+        productType: BillingProductType.CREDIT_PACK,
+        billingMode: BillingMode.ONE_TIME,
+        paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+        durationMonths: null,
+        includedCreditAmount: 0,
+        rechargeCreditAmount: 3000,
+        price: 33000,
+        isActive: true,
+        sortOrder: 2,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: adminCreditGrantProductId,
+        code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+        name: '관리자 지급 전용 충전권',
+        description: '관리자가 강사에게 직접 지급하는 0원 충전권',
+        highlights: ['관리자 전용', '0원 충전권'],
+        productType: BillingProductType.CREDIT_PACK,
+        billingMode: BillingMode.ONE_TIME,
+        paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+        durationMonths: null,
+        includedCreditAmount: 0,
+        rechargeCreditAmount: 0,
+        price: 0,
+        isActive: false,
+        sortOrder: 9999,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
+  });
+
   // 1. Identity Layer: Users & Profiles
   console.log('👤 Creating users and profiles...');
 
   // --- Apidog Fixed Users ---
 
-  // 1-1. Instructor (나카무라 유키토)
+  // 1-1. Primary Admin
+  const adminUser = await prisma.user.create({
+    data: {
+      id: uuidv7(),
+      email: 'zxcvzxcv1515@gmail.com',
+      name: '최초 관리자',
+      userType: UserType.ADMIN,
+      role: 'admin',
+      emailVerified: true,
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+
+  await prisma.account.create({
+    data: {
+      id: uuidv7(),
+      userId: adminUser.id,
+      accountId: adminUser.email,
+      providerId: 'credential',
+      password: hashedAdminPassword,
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+
+  await prisma.admin.create({
+    data: {
+      id: uuidv7(),
+      userId: adminUser.id,
+      status: AdminProfileStatus.ACTIVE,
+      isPrimaryAdmin: true,
+      invitedAt: now,
+      activatedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+
+  // 1-2. Instructor (나카무라 유키토)
   const instructorUser = await prisma.user.create({
     data: {
       id: uuidv7(),
@@ -98,7 +222,7 @@ async function main() {
     },
   });
 
-  // 1-2. Assistant (후지모토)
+  // 1-3. Assistant (후지모토)
   const assistantUser = await prisma.user.create({
     data: {
       id: uuidv7(),
@@ -137,7 +261,7 @@ async function main() {
     },
   });
 
-  // 1-3. Student (정길동)
+  // 1-4. Student (정길동)
   const studentUser = await prisma.user.create({
     data: {
       id: uuidv7(),
@@ -174,7 +298,7 @@ async function main() {
     },
   });
 
-  // 1-4. Parent (정국영)
+  // 1-5. Parent (정국영)
   const parentUser = await prisma.user.create({
     data: {
       id: uuidv7(),
@@ -206,6 +330,75 @@ async function main() {
       phoneNumber: '010-223-5432',
       createdAt: now,
       updatedAt: now,
+    },
+  });
+
+  // 1-6. Billing Sample (사업자 영수증 요청 포함 결제 내역)
+  console.log('💳 Creating billing sample data...');
+
+  const paymentCreatedAt = new Date('2026-03-18T01:30:00.000Z');
+  const paymentDepositedAt = new Date('2026-03-18T06:10:00.000Z');
+  const samplePaymentId = createId();
+  const samplePaymentItemId = createId();
+
+  await prisma.payment.create({
+    data: {
+      id: samplePaymentId,
+      instructorId: instructor.id,
+      methodType: PaymentMethodType.BANK_TRANSFER,
+      providerType: PaymentProviderType.MANUAL,
+      status: PaymentStatus.PENDING_DEPOSIT,
+      depositorName: '주식회사 도코코',
+      depositorBankName: '국민은행',
+      totalAmount: 99000,
+      depositedAt: paymentDepositedAt,
+      createdAt: paymentCreatedAt,
+      updatedAt: paymentDepositedAt,
+    },
+  });
+
+  await prisma.paymentItem.create({
+    data: {
+      id: samplePaymentItemId,
+      paymentId: samplePaymentId,
+      billingProductId: passSingleProductId,
+      productCodeSnapshot: 'PASS_SINGLE_1M',
+      productNameSnapshot: '1개월 이용권',
+      productTypeSnapshot: BillingProductType.PASS_SINGLE,
+      quantity: 1,
+      unitPrice: 99000,
+      totalPrice: 99000,
+      durationMonthsSnapshot: 1,
+      includedCreditAmountSnapshot: 1000,
+      rechargeCreditAmountSnapshot: 0,
+    },
+  });
+
+  await prisma.paymentStatusHistory.createMany({
+    data: [
+      {
+        paymentId: samplePaymentId,
+        fromStatus: null,
+        toStatus: PaymentStatus.PENDING_DEPOSIT,
+        actorUserId: instructorUser.id,
+        actorRole: instructorUser.role,
+        createdAt: paymentCreatedAt,
+      },
+    ],
+  });
+
+  await prisma.paymentReceiptRequest.create({
+    data: {
+      paymentId: samplePaymentId,
+      type: ReceiptType.BUSINESS_RECEIPT,
+      businessRegistrationNumber: '123-45-67890',
+      businessName: '주식회사 도코코',
+      representativeName: '김도코',
+      taxInvoiceEmail: 'billing@dococo.kr',
+      businessType: '소프트웨어 개발 및 공급업',
+      businessCategory: '교육 플랫폼 서비스업',
+      businessAddress: '서울특별시 강남구 테헤란로 123, 8층',
+      requestedAt: paymentDepositedAt,
     },
   });
 

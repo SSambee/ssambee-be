@@ -13,6 +13,10 @@ import { config, isDevelopment, isProduction } from './env.config.js';
 import { SIGNUP_PENDING_USER_TYPE } from '../constants/auth.constant.js';
 import { sendEmailOtp, sendVerificationLinkMail } from '../utils/mail.util.js';
 import { getDomain } from 'tldts';
+import {
+  getConfiguredFrontendOrigins,
+  getDevelopmentTrustedOrigins,
+} from '../utils/origin.util.js';
 
 const getVerifyEmailPath = (): string => {
   return '/api/public/v1/auth/verify-email';
@@ -32,15 +36,10 @@ const buildVerifyEmailLink = (url: string): string => {
   return parsedUrl.toString();
 };
 
-const trustedOrigins = config.FRONT_URL
-  ? Array.from(
-      new Set(
-        config.FRONT_URL.split(',')
-          .map((origin) => origin.trim())
-          .filter(Boolean),
-      ),
-    )
-  : [];
+const configuredTrustedOrigins = getConfiguredFrontendOrigins({
+  frontUrl: config.FRONT_URL,
+  adminFrontUrl: config.ADMIN_FRONT_URL,
+});
 
 const toSharedCookieDomain = (value?: string): string | undefined => {
   if (!value) {
@@ -131,7 +130,18 @@ export const auth = betterAuth({
     },
   },
 
-  trustedOrigins,
+  trustedOrigins: async (request) => {
+    if (!isDevelopment() || !request) {
+      return configuredTrustedOrigins;
+    }
+
+    return Array.from(
+      new Set([
+        ...configuredTrustedOrigins,
+        ...getDevelopmentTrustedOrigins(request),
+      ]),
+    );
+  },
   plugins: [
     admin({
       ac: ac,
