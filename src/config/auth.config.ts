@@ -119,11 +119,6 @@ export const auth = betterAuth({
     cookiePrefix: 'ssambee-auth',
     useSecureCookies: !isDevelopment(),
 
-    defaultCookieAttributes: {
-      sameSite: isProduction() ? 'lax' : 'none',
-      secure: true,
-    },
-
     crossSubDomainCookies: {
       ...(crossDomainCookieDomain
         ? {
