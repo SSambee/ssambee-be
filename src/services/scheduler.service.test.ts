@@ -425,4 +425,42 @@ describe('SchedulerService', () => {
 
     expect(listDueJobStates).toHaveBeenCalledTimes(1);
   });
+
+  it('stop은 실행 중인 job에 abort를 전파하고 종료를 기다려야 한다', async () => {
+    jest.setSystemTime(new Date('2026-04-09T15:05:00.000Z'));
+
+    let aborted = false;
+    const handler = jest.fn(
+      ({ signal }: { signal: AbortSignal }) =>
+        new Promise<void>((resolve, reject) => {
+          signal.addEventListener('abort', () => {
+            aborted = true;
+            reject(signal.reason);
+          });
+        }),
+    );
+    const service = new SchedulerService(repo, {
+      jobs: [createJob({ handler })],
+      workerId: 'worker-1',
+      pollIntervalMs: 15_000,
+      logger,
+    });
+
+    listDueJobStates.mockResolvedValue([
+      {
+        jobName: 'billing-reconcile',
+      },
+    ]);
+    tryAcquireLease.mockResolvedValue({
+      jobName: 'billing-reconcile',
+    });
+
+    await service.start(new Date('2026-04-09T14:00:00.000Z'));
+    await jest.advanceTimersByTimeAsync(0);
+    await service.stop();
+
+    expect(aborted).toBe(true);
+    expect(markJobSucceeded).not.toHaveBeenCalled();
+    expect(markJobFailed).not.toHaveBeenCalled();
+  });
 });

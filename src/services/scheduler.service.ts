@@ -34,7 +34,13 @@ interface SchedulerServiceOptions {
 
 export class SchedulerService {
   private readonly jobsById: Map<string, ScheduledJobDefinition>;
-  private readonly runningJobs = new Map<string, Promise<void>>();
+  private readonly runningJobs = new Map<
+    string,
+    {
+      promise: Promise<void>;
+      controller: AbortController;
+    }
+  >();
   private pollTimer: NodeJS.Timeout | null = null;
   private stopped = false;
 
@@ -60,7 +66,13 @@ export class SchedulerService {
       this.pollTimer = null;
     }
 
-    await Promise.allSettled(this.runningJobs.values());
+    const runningJobs = [...this.runningJobs.values()];
+
+    for (const { controller } of runningJobs) {
+      controller.abort();
+    }
+
+    await Promise.allSettled(runningJobs.map(({ promise }) => promise));
   }
 
   private static readonly MIN_HEARTBEAT_INTERVAL_MS = 250;
@@ -110,7 +122,8 @@ export class SchedulerService {
           continue;
         }
 
-        const promise = this.runJob(job)
+        const controller = new AbortController();
+        const promise = this.runJob(job, controller)
           .catch((error) => {
             this.logger.error('[SchedulerService] job crashed', {
               jobId: job.id,
@@ -122,7 +135,7 @@ export class SchedulerService {
             this.runningJobs.delete(job.id);
           });
 
-        this.runningJobs.set(job.id, promise);
+        this.runningJobs.set(job.id, { promise, controller });
       }
     } catch (error) {
       this.logger.error('[SchedulerService] poll failed', {
@@ -133,7 +146,10 @@ export class SchedulerService {
     }
   }
 
-  private async runJob(job: ScheduledJobDefinition) {
+  private async runJob(
+    job: ScheduledJobDefinition,
+    abortController: AbortController,
+  ) {
     const startedAt = new Date();
     const lockedUntil = addSeconds(startedAt, job.leaseTtlSeconds);
     const acquired = await this.schedulerRepo.tryAcquireLease(
@@ -152,7 +168,6 @@ export class SchedulerService {
       workerId: this.options.workerId,
       triggeredAt: startedAt.toISOString(),
     });
-    const abortController = new AbortController();
     let leaseLost = false;
     const handleLeaseLoss = (error: unknown) => {
       if (leaseLost) {
@@ -313,7 +328,16 @@ export class SchedulerService {
   }
 
   private isAbortError(error: unknown) {
-    return error instanceof Error && error.name === 'AbortError';
+    if (error instanceof Error) {
+      return error.name === 'AbortError';
+    }
+
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'name' in error &&
+      error.name === 'AbortError'
+    );
   }
 
   private serializeError(error: unknown) {
