@@ -137,6 +137,20 @@ const SERIALIZABLE_CONFLICT_ERROR_CODE = 'P2034';
 const PAYMENT_STATUS_TRANSITION_CONFLICT_MESSAGE =
   '결제 상태가 변경되어 요청을 완료할 수 없습니다. 새로고침 후 다시 시도해주세요.';
 
+const createAbortError = () => {
+  const error = new Error('Operation aborted');
+  error.name = 'AbortError';
+  return error;
+};
+
+const throwIfAborted = (signal?: AbortSignal) => {
+  if (!signal?.aborted) {
+    return;
+  }
+
+  throw signal.reason instanceof Error ? signal.reason : createAbortError();
+};
+
 export interface InstructorActiveEntitlementSummary {
   id: string;
   status: string;
@@ -1930,11 +1944,18 @@ export class BillingService {
     });
   }
 
-  async reconcileInstructorState(instructorId: string, now: Date = new Date()) {
+  async reconcileInstructorState(
+    instructorId: string,
+    now: Date = new Date(),
+    signal?: AbortSignal,
+  ) {
+    throwIfAborted(signal);
+
     return this.prisma.$transaction(async (tx) => {
       let guard = 0;
 
       while (guard < 120) {
+        throwIfAborted(signal);
         guard += 1;
 
         const expiringEntitlement = (
@@ -1981,6 +2002,7 @@ export class BillingService {
       );
 
       for (const bucket of expiringBuckets) {
+        throwIfAborted(signal);
         await this.expireCreditBucket(bucket, now, tx);
       }
 
@@ -2001,7 +2023,9 @@ export class BillingService {
     });
   }
 
-  async reconcileAllBilling(now: Date = new Date()) {
+  async reconcileAllBilling(now: Date = new Date(), signal?: AbortSignal) {
+    throwIfAborted(signal);
+
     const [expiredEntitlements, readyQueuedEntitlements, expiringBuckets] =
       await Promise.all([
         this.billingRepo.listEntitlementsToExpire(now),
@@ -2021,7 +2045,10 @@ export class BillingService {
 
     const results = [];
     for (const instructorId of instructorIds) {
-      results.push(await this.reconcileInstructorState(instructorId, now));
+      throwIfAborted(signal);
+      results.push(
+        await this.reconcileInstructorState(instructorId, now, signal),
+      );
     }
 
     return {
