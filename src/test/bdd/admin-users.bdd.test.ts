@@ -6,12 +6,13 @@ import { dbTestUtil } from '../utils/db-test.util.js';
 import { prisma } from '../../config/db.config.js';
 import { AdminProfileStatus, UserType } from '../../constants/auth.constant.js';
 import * as mailUtil from '../../utils/mail.util.js';
-import type { User } from '../../generated/prisma/client.js';
+import type { Instructor, User } from '../../generated/prisma/client.js';
 
 describe('관리자 사용자 관리 BDD 테스트 - @integration', () => {
   const app = createTestApp({ useRouter: true });
 
   let adminUser: User;
+  let activeInstructor: Instructor;
 
   const mockAdminSession = () => {
     jest.spyOn(container.authService, 'getSession').mockResolvedValue({
@@ -103,7 +104,7 @@ describe('관리자 사용자 관리 BDD 테스트 - @integration', () => {
       },
     });
 
-    const activeInstructor = await prisma.instructor.create({
+    activeInstructor = await prisma.instructor.create({
       data: {
         userId: activeUser.id,
         phoneNumber: '010-1111-1111',
