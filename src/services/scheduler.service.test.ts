@@ -107,7 +107,8 @@ describe('SchedulerService', () => {
     expect(markJobSucceeded).toHaveBeenCalledWith(
       'billing-reconcile',
       'worker-1',
-      expect.any(Date),
+      new Date('2026-04-09T15:05:00.000Z'),
+      new Date('2026-04-09T15:05:00.000Z'),
       new Date('2026-04-10T15:05:00.000Z'),
     );
     expect(markJobFailed).not.toHaveBeenCalled();
@@ -184,6 +185,7 @@ describe('SchedulerService', () => {
     expect(extendLease).toHaveBeenCalledWith(
       'billing-reconcile',
       'worker-1',
+      new Date('2026-04-09T15:05:10.000Z'),
       new Date('2026-04-09T15:05:30.000Z'),
     );
 
@@ -225,6 +227,7 @@ describe('SchedulerService', () => {
     expect(extendLease).toHaveBeenCalledWith(
       'billing-reconcile',
       'worker-1',
+      new Date('2026-04-09T15:05:02.500Z'),
       new Date('2026-04-09T15:05:07.500Z'),
     );
 
@@ -375,6 +378,14 @@ describe('SchedulerService', () => {
     await jest.advanceTimersByTimeAsync(0);
     await service.stop();
 
+    expect(markJobFailed).toHaveBeenCalledWith(
+      'billing-reconcile',
+      'worker-1',
+      new Date('2026-04-09T15:05:00.000Z'),
+      new Date('2026-04-09T15:05:00.000Z'),
+      new Date('2026-04-09T15:10:00.000Z'),
+      expect.stringContaining('boom'),
+    );
     expect(logger.warn).toHaveBeenCalledWith(
       '[SchedulerService] job failure state was not persisted',
       expect.objectContaining({

@@ -132,6 +132,7 @@ export class SchedulerRepository {
   async extendLease(
     jobName: string,
     lockedBy: string,
+    now: Date,
     lockedUntil: Date,
     tx?: Prisma.TransactionClient,
   ) {
@@ -139,6 +140,9 @@ export class SchedulerRepository {
       where: {
         jobName,
         lockedBy,
+        lockedUntil: {
+          gt: now,
+        },
       },
       data: {
         lockedUntil,
@@ -151,6 +155,7 @@ export class SchedulerRepository {
   async markJobSucceeded(
     jobName: string,
     lockedBy: string,
+    now: Date,
     finishedAt: Date,
     nextRunAt: Date,
     tx?: Prisma.TransactionClient,
@@ -159,6 +164,9 @@ export class SchedulerRepository {
       where: {
         jobName,
         lockedBy,
+        lockedUntil: {
+          gt: now,
+        },
       },
       data: {
         nextRunAt,
@@ -175,6 +183,7 @@ export class SchedulerRepository {
   async markJobFailed(
     jobName: string,
     lockedBy: string,
+    now: Date,
     finishedAt: Date,
     nextRunAt: Date,
     errorMessage: string,
@@ -184,6 +193,9 @@ export class SchedulerRepository {
       where: {
         jobName,
         lockedBy,
+        lockedUntil: {
+          gt: now,
+        },
       },
       data: {
         nextRunAt,

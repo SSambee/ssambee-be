@@ -180,12 +180,14 @@ describe('SchedulerRepository', () => {
   });
 
   it('extendLease는 동일 worker가 잡은 lease만 연장해야 한다', async () => {
+    const now = new Date('2026-04-09T15:05:00.000Z');
     const lockedUntil = new Date('2026-04-09T15:10:00.000Z');
     scheduledJobStateUpdateMany.mockResolvedValue({ count: 1 });
 
     const result = await repo.extendLease(
       'billing-reconcile',
       'worker-1',
+      now,
       lockedUntil,
     );
 
@@ -193,6 +195,9 @@ describe('SchedulerRepository', () => {
       where: {
         jobName: 'billing-reconcile',
         lockedBy: 'worker-1',
+        lockedUntil: {
+          gt: now,
+        },
       },
       data: {
         lockedUntil,
@@ -201,7 +206,35 @@ describe('SchedulerRepository', () => {
     expect(result).toBe(true);
   });
 
+  it('extendLease는 이미 만료된 lease를 연장하지 않아야 한다', async () => {
+    const now = new Date('2026-04-09T15:05:00.000Z');
+    const lockedUntil = new Date('2026-04-09T15:10:00.000Z');
+    scheduledJobStateUpdateMany.mockResolvedValue({ count: 0 });
+
+    const result = await repo.extendLease(
+      'billing-reconcile',
+      'worker-1',
+      now,
+      lockedUntil,
+    );
+
+    expect(scheduledJobStateUpdateMany).toHaveBeenCalledWith({
+      where: {
+        jobName: 'billing-reconcile',
+        lockedBy: 'worker-1',
+        lockedUntil: {
+          gt: now,
+        },
+      },
+      data: {
+        lockedUntil,
+      },
+    });
+    expect(result).toBe(false);
+  });
+
   it('markJobSucceeded는 다음 실행 시각을 저장하고 lock을 해제해야 한다', async () => {
+    const now = new Date('2026-04-09T15:05:01.000Z');
     const finishedAt = new Date('2026-04-09T15:05:01.000Z');
     const nextRunAt = new Date('2026-04-10T15:05:00.000Z');
     scheduledJobStateUpdateMany.mockResolvedValue({ count: 1 });
@@ -209,6 +242,7 @@ describe('SchedulerRepository', () => {
     const result = await repo.markJobSucceeded(
       'billing-reconcile',
       'worker-1',
+      now,
       finishedAt,
       nextRunAt,
     );
@@ -217,6 +251,9 @@ describe('SchedulerRepository', () => {
       where: {
         jobName: 'billing-reconcile',
         lockedBy: 'worker-1',
+        lockedUntil: {
+          gt: now,
+        },
       },
       data: {
         nextRunAt,
@@ -229,7 +266,41 @@ describe('SchedulerRepository', () => {
     expect(result).toBe(true);
   });
 
+  it('markJobSucceeded는 만료된 lease면 완료 처리하지 않아야 한다', async () => {
+    const now = new Date('2026-04-09T15:05:01.000Z');
+    const finishedAt = new Date('2026-04-09T15:05:01.000Z');
+    const nextRunAt = new Date('2026-04-10T15:05:00.000Z');
+    scheduledJobStateUpdateMany.mockResolvedValue({ count: 0 });
+
+    const result = await repo.markJobSucceeded(
+      'billing-reconcile',
+      'worker-1',
+      now,
+      finishedAt,
+      nextRunAt,
+    );
+
+    expect(scheduledJobStateUpdateMany).toHaveBeenCalledWith({
+      where: {
+        jobName: 'billing-reconcile',
+        lockedBy: 'worker-1',
+        lockedUntil: {
+          gt: now,
+        },
+      },
+      data: {
+        nextRunAt,
+        lastFinishedAt: finishedAt,
+        lastSucceededAt: finishedAt,
+        lockedBy: null,
+        lockedUntil: null,
+      },
+    });
+    expect(result).toBe(false);
+  });
+
   it('markJobFailed는 에러와 재시도 시각을 저장하고 lock을 해제해야 한다', async () => {
+    const now = new Date('2026-04-09T15:05:01.000Z');
     const finishedAt = new Date('2026-04-09T15:05:01.000Z');
     const nextRunAt = new Date('2026-04-09T15:10:01.000Z');
     scheduledJobStateUpdateMany.mockResolvedValue({ count: 1 });
@@ -237,6 +308,7 @@ describe('SchedulerRepository', () => {
     const result = await repo.markJobFailed(
       'billing-reconcile',
       'worker-1',
+      now,
       finishedAt,
       nextRunAt,
       'boom',
@@ -246,6 +318,9 @@ describe('SchedulerRepository', () => {
       where: {
         jobName: 'billing-reconcile',
         lockedBy: 'worker-1',
+        lockedUntil: {
+          gt: now,
+        },
       },
       data: {
         nextRunAt,
@@ -257,5 +332,40 @@ describe('SchedulerRepository', () => {
       },
     });
     expect(result).toBe(true);
+  });
+
+  it('markJobFailed는 만료된 lease면 실패 처리하지 않아야 한다', async () => {
+    const now = new Date('2026-04-09T15:05:01.000Z');
+    const finishedAt = new Date('2026-04-09T15:05:01.000Z');
+    const nextRunAt = new Date('2026-04-09T15:10:01.000Z');
+    scheduledJobStateUpdateMany.mockResolvedValue({ count: 0 });
+
+    const result = await repo.markJobFailed(
+      'billing-reconcile',
+      'worker-1',
+      now,
+      finishedAt,
+      nextRunAt,
+      'boom',
+    );
+
+    expect(scheduledJobStateUpdateMany).toHaveBeenCalledWith({
+      where: {
+        jobName: 'billing-reconcile',
+        lockedBy: 'worker-1',
+        lockedUntil: {
+          gt: now,
+        },
+      },
+      data: {
+        nextRunAt,
+        lastFinishedAt: finishedAt,
+        lastFailedAt: finishedAt,
+        lastError: 'boom',
+        lockedBy: null,
+        lockedUntil: null,
+      },
+    });
+    expect(result).toBe(false);
   });
 });

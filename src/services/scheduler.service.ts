@@ -185,11 +185,13 @@ export class SchedulerService {
     );
 
     const heartbeat = setInterval(() => {
+      const heartbeatAt = new Date();
       void this.schedulerRepo
         .extendLease(
           job.id,
           this.options.workerId,
-          addSeconds(new Date(), job.leaseTtlSeconds),
+          heartbeatAt,
+          addSeconds(heartbeatAt, job.leaseTtlSeconds),
         )
         .then((extended) => {
           if (!extended) {
@@ -231,6 +233,7 @@ export class SchedulerService {
         job.id,
         this.options.workerId,
         finishedAt,
+        finishedAt,
         this.calculateNextRunAt(job, finishedAt),
       );
 
@@ -268,6 +271,7 @@ export class SchedulerService {
       const persisted = await this.schedulerRepo.markJobFailed(
         job.id,
         this.options.workerId,
+        finishedAt,
         finishedAt,
         nextRunAt,
         errorMessage,
