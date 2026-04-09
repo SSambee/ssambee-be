@@ -18,9 +18,11 @@ import { AuthService } from '../services/auth.service.js';
 import { AuthController } from '../controllers/auth.controller.js';
 import {
   createRequireAuth,
+  createRequireAdmin,
   createOptionalAuth,
   createRoleMiddlewares,
 } from '../middlewares/auth.middleware.js';
+import { createRequireActiveInstructorEntitlement } from '../middlewares/billing-access.middleware.js';
 
 import { LecturesRepository } from '../repos/lectures.repo.js';
 import { LecturesService } from '../services/lectures.service.js';
@@ -110,6 +112,15 @@ import { AssignmentResultsController } from '../controllers/assignment-results.c
 import { ProfileRepository } from '../repos/profile.repo.js';
 import { ProfileService } from '../services/profile.service.js';
 import { ProfileController } from '../controllers/profile.controller.js';
+import { AdminRepository } from '../repos/admin.repo.js';
+import { BillingRepository } from '../repos/billing.repo.js';
+import { BillingService } from '../services/billing.service.js';
+import { BillingController } from '../controllers/billing.controller.js';
+import { AdminsService } from '../services/admins.service.js';
+import { AdminsController } from '../controllers/admins.controller.js';
+import { AdminUsersRepository } from '../repos/admin-users.repo.js';
+import { AdminUsersService } from '../services/admin-users.service.js';
+import { AdminUsersController } from '../controllers/admin-users.controller.js';
 
 // 1. Instantiate Repositories
 const instructorRepo = new InstructorRepository(prisma);
@@ -140,11 +151,17 @@ const instructorPostsRepo = new InstructorPostsRepository(prisma);
 const studentPostsRepo = new StudentPostsRepository(prisma);
 const commentsRepo = new CommentsRepository(prisma);
 const profileRepo = new ProfileRepository(prisma);
+const adminRepo = new AdminRepository(prisma);
+const billingRepo = new BillingRepository(prisma);
+const adminUsersRepo = new AdminUsersRepository(prisma);
 
 // 2. Instantiate Services (Inject Repos)
 const fileStorageService = new FileStorageService();
 
-const profileService = new ProfileService(profileRepo, prisma);
+const adminsService = new AdminsService(adminRepo, prisma);
+const billingService = new BillingService(billingRepo, prisma);
+const profileService = new ProfileService(profileRepo, billingService);
+const adminUsersService = new AdminUsersService(adminUsersRepo);
 
 const authService = new AuthService(
   instructorRepo,
@@ -152,8 +169,10 @@ const authService = new AuthService(
   assistantCodeRepo,
   studentRepo,
   parentRepo,
+  adminRepo,
   enrollmentsRepo,
   auth,
+  billingService,
   prisma,
 );
 
@@ -393,10 +412,16 @@ const instructorPostsController = new InstructorPostsController(
 const studentPostsController = new StudentPostsController(studentPostsService);
 const commentsController = new CommentsController(commentsService);
 const dashboardController = new DashboardController(dashboardService);
+const adminsController = new AdminsController(adminsService);
+const billingController = new BillingController(billingService);
+const adminUsersController = new AdminUsersController(adminUsersService);
 
 // 4. Create Middlewares (Inject Services)
 const requireAuth = createRequireAuth(authService);
 const optionalAuth = createOptionalAuth(authService);
+const requireAdmin = createRequireAdmin(authService);
+const requireActiveInstructorEntitlement =
+  createRequireActiveInstructorEntitlement(billingService);
 const {
   requireInstructor,
   requireInstructorOrAssistant,
@@ -434,6 +459,9 @@ export const container = {
   assistantOrderService,
   profileService,
   dashboardService,
+  adminsService,
+  billingService,
+  adminUsersService,
   // Controllers
   authController,
   lecturesController,
@@ -458,10 +486,15 @@ export const container = {
   assignmentsController,
   assignmentResultsController,
   dashboardController,
+  adminsController,
+  billingController,
+  adminUsersController,
   profileController: new ProfileController(profileService),
   // Middlewares
   requireAuth,
   optionalAuth,
+  requireAdmin,
+  requireActiveInstructorEntitlement,
   requireInstructor,
   requireInstructorOrAssistant,
   requireStudent,

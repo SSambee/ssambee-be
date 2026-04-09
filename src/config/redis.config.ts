@@ -7,17 +7,26 @@ export const REDIS_STATUS = {
   RECONNECT_DELAY: 5000,
 };
 
-if (!config.REDIS_URL) {
+const redisUrl =
+  config.REDIS_URL ||
+  (config.ENVIRONMENT === 'test' ? 'redis://localhost:6379' : '');
+
+if (!redisUrl) {
   throw new Error('REDIS_URL이 환경 변수에 정의되지 않았습니다.');
 }
 
-export const redis = new Redis(config.REDIS_URL, {
+export const redis = new Redis(redisUrl, {
   retryStrategy(times) {
     const delay = Math.min(times * 50, 2000);
     return delay;
   },
   // 연결 끊김 시 에러를 던지지 않고 재접속 시도
   maxRetriesPerRequest: null,
+  ...(config.ENVIRONMENT === 'test'
+    ? {
+        lazyConnect: true,
+      }
+    : {}),
 });
 
 redis.on(REDIS_STATUS.CONNECT, () => {

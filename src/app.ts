@@ -14,6 +14,7 @@ import {
 import { initSentry } from './config/sentry.config.js';
 import * as Sentry from '@sentry/node';
 import './config/redis.config.js';
+import { getConfiguredFrontendOrigins } from './utils/origin.util.js';
 
 const app = express();
 
@@ -25,15 +26,10 @@ if (isProduction()) {
 }
 
 // 1. 보안
-const whiteList: string[] = config.FRONT_URL
-  ? Array.from(
-      new Set(
-        config.FRONT_URL.split(',')
-          .map((url) => url.trim())
-          .filter(Boolean),
-      ),
-    )
-  : [];
+const whiteList: string[] = getConfiguredFrontendOrigins({
+  frontUrl: config.FRONT_URL,
+  adminFrontUrl: config.ADMIN_FRONT_URL,
+});
 
 const buildContentSecurityPolicy = (origins: string[]) => {
   const connectSource = ["'self'", ...origins];
