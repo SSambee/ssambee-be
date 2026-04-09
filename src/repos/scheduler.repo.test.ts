@@ -204,8 +204,9 @@ describe('SchedulerRepository', () => {
   it('markJobSucceeded는 다음 실행 시각을 저장하고 lock을 해제해야 한다', async () => {
     const finishedAt = new Date('2026-04-09T15:05:01.000Z');
     const nextRunAt = new Date('2026-04-10T15:05:00.000Z');
+    scheduledJobStateUpdateMany.mockResolvedValue({ count: 1 });
 
-    await repo.markJobSucceeded(
+    const result = await repo.markJobSucceeded(
       'billing-reconcile',
       'worker-1',
       finishedAt,
@@ -225,13 +226,15 @@ describe('SchedulerRepository', () => {
         lockedUntil: null,
       },
     });
+    expect(result).toBe(true);
   });
 
   it('markJobFailed는 에러와 재시도 시각을 저장하고 lock을 해제해야 한다', async () => {
     const finishedAt = new Date('2026-04-09T15:05:01.000Z');
     const nextRunAt = new Date('2026-04-09T15:10:01.000Z');
+    scheduledJobStateUpdateMany.mockResolvedValue({ count: 1 });
 
-    await repo.markJobFailed(
+    const result = await repo.markJobFailed(
       'billing-reconcile',
       'worker-1',
       finishedAt,
@@ -253,5 +256,6 @@ describe('SchedulerRepository', () => {
         lockedUntil: null,
       },
     });
+    expect(result).toBe(true);
   });
 });

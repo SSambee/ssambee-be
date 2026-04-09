@@ -46,8 +46,8 @@ describe('SchedulerService', () => {
     listDueJobStates.mockResolvedValue([]);
     tryAcquireLease.mockResolvedValue(null);
     extendLease.mockResolvedValue(true);
-    markJobSucceeded.mockResolvedValue(undefined);
-    markJobFailed.mockResolvedValue(undefined);
+    markJobSucceeded.mockResolvedValue(true);
+    markJobFailed.mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -192,6 +192,47 @@ describe('SchedulerService', () => {
     await service.stop();
   });
 
+  it('lease ttl이 짧아도 첫 heartbeat는 lease 만료 전에 실행되어야 한다', async () => {
+    jest.setSystemTime(new Date('2026-04-09T15:05:00.000Z'));
+
+    let resolveHandler: (() => void) | null = null;
+    const handler = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveHandler = resolve;
+        }),
+    );
+    const service = new SchedulerService(repo, {
+      jobs: [createJob({ handler, leaseTtlSeconds: 5 })],
+      workerId: 'worker-1',
+      pollIntervalMs: 15_000,
+      logger,
+    });
+
+    listDueJobStates.mockResolvedValue([
+      {
+        jobName: 'billing-reconcile',
+      },
+    ]);
+    tryAcquireLease.mockResolvedValue({
+      jobName: 'billing-reconcile',
+    });
+
+    await service.start(new Date('2026-04-09T14:00:00.000Z'));
+    await jest.advanceTimersByTimeAsync(0);
+    await jest.advanceTimersByTimeAsync(2_500);
+
+    expect(extendLease).toHaveBeenCalledWith(
+      'billing-reconcile',
+      'worker-1',
+      new Date('2026-04-09T15:05:07.500Z'),
+    );
+
+    resolveHandler?.();
+    await Promise.resolve();
+    await service.stop();
+  });
+
   it('runJob 내부 예외는 로깅하고 프로세스 전파를 막아야 한다', async () => {
     jest.setSystemTime(new Date('2026-04-09T15:05:00.000Z'));
 
@@ -268,6 +309,82 @@ describe('SchedulerService', () => {
         jobId: 'billing-reconcile',
         workerId: 'worker-1',
       }),
+    );
+  });
+
+  it('상태 저장이 반영되지 않으면 성공 로그를 남기지 않아야 한다', async () => {
+    jest.setSystemTime(new Date('2026-04-09T15:05:00.000Z'));
+
+    const handler = jest.fn().mockResolvedValue(undefined);
+    const service = new SchedulerService(repo, {
+      jobs: [createJob({ handler })],
+      workerId: 'worker-1',
+      pollIntervalMs: 15_000,
+      logger,
+    });
+
+    listDueJobStates.mockResolvedValue([
+      {
+        jobName: 'billing-reconcile',
+      },
+    ]);
+    tryAcquireLease.mockResolvedValue({
+      jobName: 'billing-reconcile',
+    });
+    markJobSucceeded.mockResolvedValue(false);
+
+    await service.start(new Date('2026-04-09T14:00:00.000Z'));
+    await jest.advanceTimersByTimeAsync(0);
+    await service.stop();
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      '[SchedulerService] job completion state was not persisted',
+      expect.objectContaining({
+        jobId: 'billing-reconcile',
+        workerId: 'worker-1',
+      }),
+    );
+    expect(logger.info).not.toHaveBeenCalledWith(
+      '[SchedulerService] job succeeded',
+      expect.anything(),
+    );
+  });
+
+  it('실패 상태 저장이 반영되지 않으면 실패 로그를 남기지 않아야 한다', async () => {
+    jest.setSystemTime(new Date('2026-04-09T15:05:00.000Z'));
+
+    const handler = jest.fn().mockRejectedValue(new Error('boom'));
+    const service = new SchedulerService(repo, {
+      jobs: [createJob({ handler })],
+      workerId: 'worker-1',
+      pollIntervalMs: 15_000,
+      logger,
+    });
+
+    listDueJobStates.mockResolvedValue([
+      {
+        jobName: 'billing-reconcile',
+      },
+    ]);
+    tryAcquireLease.mockResolvedValue({
+      jobName: 'billing-reconcile',
+    });
+    markJobFailed.mockResolvedValue(false);
+
+    await service.start(new Date('2026-04-09T14:00:00.000Z'));
+    await jest.advanceTimersByTimeAsync(0);
+    await service.stop();
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      '[SchedulerService] job failure state was not persisted',
+      expect.objectContaining({
+        jobId: 'billing-reconcile',
+        workerId: 'worker-1',
+      }),
+    );
+    expect(logger.error).not.toHaveBeenCalledWith(
+      '[SchedulerService] job failed',
+      expect.anything(),
     );
   });
 

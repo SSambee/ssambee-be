@@ -155,7 +155,7 @@ export class SchedulerRepository {
     nextRunAt: Date,
     tx?: Prisma.TransactionClient,
   ) {
-    return this.getClient(tx).scheduledJobState.updateMany({
+    const result = await this.getClient(tx).scheduledJobState.updateMany({
       where: {
         jobName,
         lockedBy,
@@ -168,6 +168,8 @@ export class SchedulerRepository {
         lockedUntil: null,
       },
     });
+
+    return result.count > 0;
   }
 
   async markJobFailed(
@@ -178,7 +180,7 @@ export class SchedulerRepository {
     errorMessage: string,
     tx?: Prisma.TransactionClient,
   ) {
-    return this.getClient(tx).scheduledJobState.updateMany({
+    const result = await this.getClient(tx).scheduledJobState.updateMany({
       where: {
         jobName,
         lockedBy,
@@ -192,5 +194,7 @@ export class SchedulerRepository {
         lockedUntil: null,
       },
     });
+
+    return result.count > 0;
   }
 }

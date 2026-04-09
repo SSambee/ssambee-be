@@ -63,6 +63,8 @@ export class SchedulerService {
     await Promise.allSettled(this.runningJobs.values());
   }
 
+  private static readonly MIN_HEARTBEAT_INTERVAL_MS = 250;
+
   private get logger(): SchedulerLogger {
     return this.options.logger ?? console;
   }
@@ -163,9 +165,8 @@ export class SchedulerService {
       );
     };
 
-    const heartbeatIntervalMs = Math.max(
-      10_000,
-      Math.min(job.leaseTtlSeconds * 500, 30_000),
+    const heartbeatIntervalMs = this.calculateHeartbeatIntervalMs(
+      job.leaseTtlSeconds,
     );
 
     const heartbeat = setInterval(() => {
@@ -211,12 +212,24 @@ export class SchedulerService {
       }
 
       const finishedAt = new Date();
-      await this.schedulerRepo.markJobSucceeded(
+      const persisted = await this.schedulerRepo.markJobSucceeded(
         job.id,
         this.options.workerId,
         finishedAt,
         this.calculateNextRunAt(job, finishedAt),
       );
+
+      if (!persisted) {
+        this.logger.warn(
+          '[SchedulerService] job completion state was not persisted',
+          {
+            jobId: job.id,
+            workerId: this.options.workerId,
+            finishedAt: finishedAt.toISOString(),
+          },
+        );
+        return;
+      }
 
       this.logger.info('[SchedulerService] job succeeded', {
         jobId: job.id,
@@ -237,13 +250,26 @@ export class SchedulerService {
         return;
       }
 
-      await this.schedulerRepo.markJobFailed(
+      const persisted = await this.schedulerRepo.markJobFailed(
         job.id,
         this.options.workerId,
         finishedAt,
         nextRunAt,
         errorMessage,
       );
+
+      if (!persisted) {
+        this.logger.warn(
+          '[SchedulerService] job failure state was not persisted',
+          {
+            jobId: job.id,
+            workerId: this.options.workerId,
+            finishedAt: finishedAt.toISOString(),
+            error: errorMessage,
+          },
+        );
+        return;
+      }
 
       this.logger.error('[SchedulerService] job failed', {
         jobId: job.id,
@@ -275,6 +301,15 @@ export class SchedulerService {
 
   private buildScheduleFingerprint(job: ScheduledJobDefinition) {
     return `${job.cron}|${job.timezone}`;
+  }
+
+  private calculateHeartbeatIntervalMs(leaseTtlSeconds: number) {
+    const leaseTtlMs = leaseTtlSeconds * 1000;
+
+    return Math.max(
+      SchedulerService.MIN_HEARTBEAT_INTERVAL_MS,
+      Math.min(Math.floor(leaseTtlMs / 2), 30_000),
+    );
   }
 
   private isAbortError(error: unknown) {
