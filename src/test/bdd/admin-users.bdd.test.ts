@@ -189,10 +189,18 @@ describe('관리자 사용자 관리 BDD 테스트 - @integration', () => {
       },
     });
 
-    await prisma.appParent.create({
+    const parentProfile = await prisma.appParent.create({
       data: {
         userId: parentUser.id,
         phoneNumber: '010-6666-6666',
+      },
+    });
+
+    await prisma.parentChildLink.create({
+      data: {
+        appParentId: parentProfile.id,
+        name: '자녀 사용자',
+        phoneNumber: '010-7777-7777',
       },
     });
 
@@ -257,6 +265,10 @@ describe('관리자 사용자 관리 BDD 테스트 - @integration', () => {
     expect(usersRes.body.data.users[0].hasActiveSession).toBe(true);
     expect(usersRes.body.data.users[0].activityStatus).toBe('active_30d');
     expect(usersRes.body.data.users[0].userType).toBe(UserType.INSTRUCTOR);
+    expect(usersRes.body.data.users[0].profile).toEqual({
+      academy: '활성 학원',
+      subject: '수학',
+    });
     expect(
       usersRes.body.data.users.every(
         (user: { userType: string }) => user.userType !== UserType.ADMIN,
@@ -298,8 +310,29 @@ describe('관리자 사용자 관리 BDD 테스트 - @integration', () => {
         name: '활성 조교',
         userType: UserType.ASSISTANT,
         phoneNumber: '010-4444-4444',
+        profile: {
+          instructorId: activeInstructor.id,
+          instructorName: '활성 강사',
+          signStatus: 'SIGNED',
+        },
       }),
     );
+
+    const studentUserRow = usersRes.body.data.users.find(
+      (user: { userType: string }) => user.userType === UserType.STUDENT,
+    );
+    expect(studentUserRow?.profile).toEqual({
+      school: '테스트 고등학교',
+      schoolYear: '2',
+      parentPhoneNumber: '010-6666-6666',
+    });
+
+    const parentUserRow = usersRes.body.data.users.find(
+      (user: { userType: string }) => user.userType === UserType.PARENT,
+    );
+    expect(parentUserRow?.profile).toEqual({
+      childCount: 1,
+    });
 
     const statsRes = await request(app).get('/api/admin/v1/users/stats');
 
