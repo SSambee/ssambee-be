@@ -63,7 +63,7 @@ Express와 Prisma 기반의 3계층 아키텍쳐(Controller - Service - Reposito
 src/
 ├── app.ts                  # 🚀 앱 부팅, 미들웨어, 라우팅 및 종료 제어
 ├── config/                 # ⚙️ 환경 변수, DB, Redis, Auth 구성
-├── routes/                 # 🛤️ 엔드포인트 라우팅 (mgmt, svc, public)
+├── routes/                 # 🛤️ 엔드포인트 라우팅 (mgmt, admin, svc, public)
 ├── controllers/            # 🎮 HTTP 요청 및 응답 제어
 ├── services/               # 💼 비즈니스 로직
 ├── repos/                  # 🗄️ Prisma 기반 데이터 접근(Repository)
@@ -78,17 +78,20 @@ prisma/
 
 ### API 분류
 
-백엔드의 라우팅(`Base: /api/{domain}/v1`)은 크게 3가지 도메인으로 나뉩니다. 모든 서비스는 `GET /health` 경로를 통해 상태 체크를 지원합니다.
+백엔드의 라우팅(`Base: /api/{domain}/v1`)은 크게 4가지 도메인으로 나뉩니다. 모든 서비스는 `GET /health` 경로를 통해 상태 체크를 지원합니다.
 
 1. **`mgmt` (강사/조교 운영 API):**
-   - 운영권한 사용자 대상 기능을 묶음
+   - 강사/조교가 사용하는 운영 기능을 묶음
    - 라우트: `/lectures`, `/enrollments`, `/exams`, `/assignment-results`, `/grades`, `/materials`, `/instructor-posts`, `/student-posts`, `/dashboard` 등
-2. **`svc` (학생/학부모 서비스 API):**
+2. **`admin` (운영자 전용 API):**
+   - 운영자가 사용하는 인증, 사용자 조회, 결제 운영 기능을 묶음
+   - 라우트: `/auth`, `/admins`, `/users`, `/billing`
+3. **`svc` (학생/학부모 서비스 API):**
    - 일반 사용자 관점의 서비스(조회, 제출 등)에 집중
    - 라우트: `/enrollments`, `/children`, `/grades`, `/clinics`, `/student-posts`, `/me`, `/uploads` 등
-3. **`public` (공개 인증 API):**
+4. **`public` (공개 API):**
    - 비로그인 사용자의 접근 진입로
-   - 라우트: `/auth` (회원 가입, 이메일 인증, 로그인)
+   - 라우트: `/auth`, `/billing`
 
 ---
 
@@ -236,7 +239,7 @@ sequenceDiagram
 1. 보호 라우트로 접근할 때 미들웨어 체인을 통과합니다.
 2. `requireAuth`: 요청 헤더에서 세션을 조회해 유효하지 않으면 `401` 반환.
 3. 유효한 세션은 `req.user`, `req.profile`, `req.authSession`에 안전하게 주입됩니다.
-4. 권한 인가: 이후 `requireInstructor`, `requireStudent` 등의 권한 미들웨어를 통해 사용자 타입을 검증합니다.
+4. 권한 인가: 이후 `requireAdmin`, `requireInstructor`, `requireStudent` 등의 권한 미들웨어를 통해 사용자 타입을 검증합니다.
 5. 특수 조건: 조교(`ASSISTANT`)의 경우 서명 승인(`signStatus === SIGNED`) 상태까지 확인하여 접근을 제한합니다.
 6. 인프라 최적화: Better Auth를 활용해 크로스 도메인 쿠키(운영 환경), trust origin 설정(FRONT_URL 기반)으로 안전하게 동작합니다.
 
