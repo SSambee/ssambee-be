@@ -79,7 +79,7 @@ export class SchedulerRepository {
           },
           {
             lockedUntil: {
-              lt: now,
+              lte: now,
             },
           },
         ],
@@ -107,7 +107,7 @@ export class SchedulerRepository {
           },
           {
             lockedUntil: {
-              lt: now,
+              lte: now,
             },
           },
         ],

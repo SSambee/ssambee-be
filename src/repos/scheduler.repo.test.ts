@@ -106,7 +106,7 @@ describe('SchedulerRepository', () => {
           },
           {
             lockedUntil: {
-              lt: now,
+              lte: now,
             },
           },
         ],
@@ -161,7 +161,7 @@ describe('SchedulerRepository', () => {
           },
           {
             lockedUntil: {
-              lt: now,
+              lte: now,
             },
           },
         ],
