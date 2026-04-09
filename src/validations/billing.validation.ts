@@ -69,10 +69,6 @@ export const instructorIdParamSchema = z.object({
   instructorId: cuidSchema,
 });
 
-export const paymentItemIdParamSchema = z.object({
-  paymentItemId: cuidSchema,
-});
-
 export const receiptRequestIdParamSchema = z.object({
   id: cuidSchema,
 });
@@ -178,22 +174,17 @@ export const updatePaymentRefundStatusSchema = z.object({
     PaymentRefundStatus.COMPLETED,
   ]),
   refundMemo: z.string().optional(),
+  revokeCount: z
+    .number()
+    .int('회수 건수는 정수여야 합니다.')
+    .positive('회수 건수는 1 이상이어야 합니다.')
+    .optional(),
+  allowActiveRevoke: z.boolean().optional(),
 });
 
 export type UpdatePaymentRefundStatusDto = z.infer<
   typeof updatePaymentRefundStatusSchema
 >;
-
-export const revokeEntitlementsSchema = z.object({
-  revokeCount: z
-    .number()
-    .int('회수 건수는 정수여야 합니다.')
-    .positive('회수 건수는 1 이상이어야 합니다.'),
-  reason: z.string().min(1, '회수 사유는 필수입니다.'),
-  allowActiveRevoke: z.boolean().optional(),
-});
-
-export type RevokeEntitlementsDto = z.infer<typeof revokeEntitlementsSchema>;
 
 export const updateReceiptRequestSchema = z.object({
   status: z.enum([ReceiptStatus.COMPLETED, ReceiptStatus.REJECTED]),

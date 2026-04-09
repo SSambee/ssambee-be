@@ -8,6 +8,8 @@ import {
   BillingMode,
   BillingProductType,
   BillingSystemProductCode,
+  CreditBucketStatus,
+  EntitlementStatus,
   PaymentMethodType,
   PaymentRefundStatus,
   PaymentStatus,
@@ -474,6 +476,50 @@ describe('결제 BDD 테스트 - @integration', () => {
     expect(refundCompletedRes.body.data.hasRevocation).toBe(true);
     expect(refundCompletedRes.body.data.revokedRechargeAmount).toBe(900);
     expect(refundCompletedRes.body.data.estimatedRefundAmount).toBe(0);
+  });
+
+  it('관리자가 이용권 결제도 환불 상태 변경으로만 회수할 수 있어야 한다', async () => {
+    mockAdminSession();
+
+    const seeded = await seedActiveInstructorEntitlement(instructor.id);
+
+    const refundPendingRes = await request(app)
+      .patch(
+        `/api/admin/v1/billing/payments/${seeded.payment.id}/refund-status`,
+      )
+      .send({
+        refundStatus: PaymentRefundStatus.PENDING,
+        refundMemo: '이용권 환불 접수',
+        allowActiveRevoke: true,
+      });
+
+    expect(refundPendingRes.status).toBe(200);
+    expect(refundPendingRes.body.status).toBe('success');
+    expect(refundPendingRes.body.message).toBe('환불 상태 변경 성공');
+    expect(refundPendingRes.body.data.id).toBe(seeded.payment.id);
+    expect(refundPendingRes.body.data.refundStatus).toBe(
+      PaymentRefundStatus.PENDING,
+    );
+    expect(refundPendingRes.body.data.hasRevocation).toBe(true);
+    expect(refundPendingRes.body.data.revokedEntitlementCount).toBe(1);
+
+    const refreshedEntitlement = await prisma.entitlement.findUnique({
+      where: { id: seeded.entitlement.id },
+    });
+    const refreshedBucket = await prisma.creditBucket.findUnique({
+      where: { id: seeded.creditBucket.id },
+    });
+
+    expect(refreshedEntitlement?.status).toBe(EntitlementStatus.CANCELED);
+    expect(refreshedBucket?.status).toBe(CreditBucketStatus.CANCELED);
+    expect(refreshedBucket?.remainingAmount).toBe(0);
+
+    mockInstructorSession();
+
+    const creditsRes = await request(app).get('/api/mgmt/v1/billing/credits');
+
+    expect(creditsRes.status).toBe(200);
+    expect(creditsRes.body.data.totalAvailable).toBe(0);
   });
 
   it('관리자가 특정 강사의 결제, 이용권, 충전권 상태를 조회할 수 있어야 한다', async () => {

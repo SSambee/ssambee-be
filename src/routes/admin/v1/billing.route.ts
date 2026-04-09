@@ -7,11 +7,9 @@ import {
   createBillingProductSchema,
   instructorIdParamSchema,
   paymentListQuerySchema,
-  paymentItemIdParamSchema,
   productIdParamSchema,
   receiptRequestIdParamSchema,
   rejectPaymentSchema,
-  revokeEntitlementsSchema,
   updatePaymentRefundStatusSchema,
   updateBillingProductSchema,
   updateReceiptRequestSchema,
@@ -82,12 +80,6 @@ adminBillingRouter.patch(
   validate(productIdParamSchema, 'params'),
   validate(updatePaymentRefundStatusSchema),
   billingController.updatePaymentRefundStatus,
-);
-adminBillingRouter.post(
-  '/payment-items/:paymentItemId/revoke-entitlements',
-  validate(paymentItemIdParamSchema, 'params'),
-  validate(revokeEntitlementsSchema),
-  billingController.revokeEntitlements,
 );
 
 adminBillingRouter.patch(

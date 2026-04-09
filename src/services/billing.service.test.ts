@@ -1352,7 +1352,7 @@ describe('BillingService', () => {
     );
   });
 
-  it('최신 queued entitlement부터 회수해야 한다', async () => {
+  it('환불 상태 변경 시 최신 queued entitlement부터 회수해야 한다', async () => {
     const queuedOld = {
       id: 'entitlement-old',
       instructorId: 'instructor-1',
@@ -1407,10 +1407,19 @@ describe('BillingService', () => {
       batchId: 'batch-1',
       createdAt: new Date('2026-03-24T00:00:00.000Z'),
     };
-    const paymentDetail = {
+    const refundTargetPayment = {
       id: 'payment-pass',
       instructorId: 'instructor-1',
       status: PaymentStatus.APPROVED,
+      refundStatus: PaymentRefundStatus.NONE,
+      items: [paymentItem],
+      receiptRequest: null,
+      statusHistory: [],
+    };
+    const paymentDetail = {
+      ...refundTargetPayment,
+      refundStatus: PaymentRefundStatus.PENDING,
+      refundMemo: '환불 승인',
       items: [
         {
           ...paymentItem,
@@ -1421,9 +1430,6 @@ describe('BillingService', () => {
       ],
     };
 
-    (mockBillingRepo.findPaymentItemById as jest.Mock)
-      .mockResolvedValueOnce(paymentItem)
-      .mockResolvedValueOnce(paymentItem);
     jest.spyOn(service, 'reconcileInstructorState').mockResolvedValue({
       wallet: {
         totalAvailable: 0,
@@ -1443,14 +1449,16 @@ describe('BillingService', () => {
       [],
     );
     (mockBillingRepo.findPaymentById as jest.Mock)
+      .mockResolvedValueOnce(refundTargetPayment)
       .mockResolvedValueOnce(paymentDetail)
       .mockResolvedValueOnce(paymentDetail);
 
-    const result = await service.revokeEntitlementsByPaymentItem(
-      'item-pass',
+    const result = await service.updatePaymentRefundStatus(
+      'payment-pass',
       {
+        refundStatus: PaymentRefundStatus.PENDING,
+        refundMemo: '환불 승인',
         revokeCount: 1,
-        reason: '환불 승인',
       },
       {
         userId: 'admin-1',
@@ -1469,16 +1477,16 @@ describe('BillingService', () => {
       'payment-pass',
       expect.objectContaining({
         refundStatus: PaymentRefundStatus.PENDING,
+        refundMemo: '환불 승인',
         refundCompletedAt: null,
       }),
       expect.anything(),
     );
-    expect(result.revokedEntitlements).toHaveLength(1);
-    expect(result.payment.hasRevocation).toBe(true);
-    expect(result.payment.revokedEntitlementCount).toBe(1);
+    expect(result.hasRevocation).toBe(true);
+    expect(result.revokedEntitlementCount).toBe(1);
   });
 
-  it('active entitlement 회수는 allowActiveRevoke 없이는 막아야 한다', async () => {
+  it('active entitlement 환불은 allowActiveRevoke 없이는 막아야 한다', async () => {
     const activeEntitlement = {
       id: 'entitlement-active',
       instructorId: 'instructor-1',
@@ -1505,26 +1513,27 @@ describe('BillingService', () => {
       creditBuckets: [],
       revocationHistories: [],
     };
+    const refundTargetPayment = {
+      id: 'payment-pass',
+      instructorId: 'instructor-1',
+      status: PaymentStatus.APPROVED,
+      refundStatus: PaymentRefundStatus.NONE,
+      items: [paymentItem],
+      receiptRequest: null,
+      statusHistory: [],
+    };
 
-    (mockBillingRepo.findPaymentItemById as jest.Mock)
-      .mockResolvedValueOnce(paymentItem)
-      .mockResolvedValueOnce(paymentItem);
-    jest.spyOn(service, 'reconcileInstructorState').mockResolvedValue({
-      wallet: {
-        totalAvailable: IncludedCreditPolicy.MONTHLY_AMOUNT,
-        includedAvailable: IncludedCreditPolicy.MONTHLY_AMOUNT,
-        rechargeAvailable: 0,
-      },
-      entitlements: [activeEntitlement],
-      activeEntitlement,
-    } as never);
+    (mockBillingRepo.findPaymentById as jest.Mock).mockResolvedValue(
+      refundTargetPayment,
+    );
 
     await expect(
-      service.revokeEntitlementsByPaymentItem(
-        'item-pass',
+      service.updatePaymentRefundStatus(
+        'payment-pass',
         {
+          refundStatus: PaymentRefundStatus.PENDING,
+          refundMemo: '환불 승인',
           revokeCount: 1,
-          reason: '환불 승인',
         },
         {
           userId: 'admin-1',
@@ -1536,7 +1545,7 @@ describe('BillingService', () => {
     );
   });
 
-  it('active entitlement 회수 시 포함 크레딧을 함께 소멸시켜야 한다', async () => {
+  it('active entitlement 환불 시 포함 크레딧을 함께 소멸시켜야 한다', async () => {
     const activeEntitlement = {
       id: 'entitlement-active',
       instructorId: 'instructor-1',
@@ -1607,10 +1616,20 @@ describe('BillingService', () => {
       batchId: 'batch-2',
       createdAt: new Date('2026-03-24T00:00:00.000Z'),
     };
-    const paymentDetail = {
+    const refundTargetPayment = {
       id: 'payment-pass',
       instructorId: 'instructor-1',
       status: PaymentStatus.APPROVED,
+      refundStatus: PaymentRefundStatus.NONE,
+      items: [paymentItem],
+      receiptRequest: null,
+      statusHistory: [],
+    };
+    const paymentDetail = {
+      ...refundTargetPayment,
+      refundStatus: PaymentRefundStatus.COMPLETED,
+      refundMemo: '환불 승인',
+      refundCompletedAt: new Date('2026-03-24T00:00:00.000Z'),
       items: [
         {
           ...paymentItem,
@@ -1633,9 +1652,6 @@ describe('BillingService', () => {
       ],
     };
 
-    (mockBillingRepo.findPaymentItemById as jest.Mock)
-      .mockResolvedValueOnce(paymentItem)
-      .mockResolvedValueOnce(paymentItem);
     jest.spyOn(service, 'reconcileInstructorState').mockResolvedValue({
       wallet: {
         totalAvailable: 600,
@@ -1665,14 +1681,16 @@ describe('BillingService', () => {
       [],
     );
     (mockBillingRepo.findPaymentById as jest.Mock)
+      .mockResolvedValueOnce(refundTargetPayment)
       .mockResolvedValueOnce(paymentDetail)
       .mockResolvedValueOnce(paymentDetail);
 
-    const result = await service.revokeEntitlementsByPaymentItem(
-      'item-pass',
+    const result = await service.updatePaymentRefundStatus(
+      'payment-pass',
       {
+        refundStatus: PaymentRefundStatus.COMPLETED,
+        refundMemo: '환불 승인',
         revokeCount: 1,
-        reason: '환불 승인',
         allowActiveRevoke: true,
       },
       {
@@ -1698,7 +1716,16 @@ describe('BillingService', () => {
       }),
       expect.anything(),
     );
-    expect(result.payment.hasRevocation).toBe(true);
+    expect(mockBillingRepo.updatePayment).toHaveBeenCalledWith(
+      'payment-pass',
+      expect.objectContaining({
+        refundStatus: PaymentRefundStatus.COMPLETED,
+        refundMemo: '환불 승인',
+        refundCompletedAt: expect.any(Date),
+      }),
+      expect.anything(),
+    );
+    expect(result.hasRevocation).toBe(true);
   });
 
   it('환불 상태를 대기로 바꾸면 남은 충전 크레딧도 함께 정리해야 한다', async () => {
