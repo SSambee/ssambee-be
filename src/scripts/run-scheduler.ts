@@ -16,12 +16,27 @@ const billingRepo = new BillingRepository(prisma);
 const schedulerRepo = new SchedulerRepository(prisma);
 const billingService = new BillingService(billingRepo, prisma);
 const workerId = `${os.hostname()}:${process.pid}:${randomUUID()}`;
-const requestedJobs = config.SCHEDULER_JOB_FILTER?.split(',')
-  .map((jobId) => jobId.trim())
-  .filter(Boolean);
-const jobs = createScheduledJobs({ billingService }).filter((job) =>
-  requestedJobs?.length ? requestedJobs.includes(job.id) : true,
-);
+const requestedJobs =
+  config.SCHEDULER_JOB_FILTER?.split(',')
+    .map((jobId) => jobId.trim())
+    .filter(Boolean) ?? [];
+const availableJobs = createScheduledJobs({ billingService });
+const availableJobIds = availableJobs.map((job) => job.id);
+const jobs = requestedJobs.length
+  ? availableJobs.filter((job) => requestedJobs.includes(job.id))
+  : availableJobs;
+
+const exitForUnknownJobFilter = (): never => {
+  console.error('[Scheduler] No known jobs matched SCHEDULER_JOB_FILTER', {
+    requestedJobIds: requestedJobs,
+    availableJobIds,
+  });
+  process.exit(1);
+};
+
+if (requestedJobs.length > 0 && jobs.length === 0) {
+  exitForUnknownJobFilter();
+}
 
 const schedulerService = new SchedulerService(schedulerRepo, {
   jobs,
@@ -62,6 +77,9 @@ if (!config.SCHEDULER_ENABLED) {
   console.log('[Scheduler] Disabled by SCHEDULER_ENABLED=false');
   idleInterval = setInterval(() => {}, 60_000);
 } else if (jobs.length === 0) {
+  if (requestedJobs.length > 0) {
+    exitForUnknownJobFilter();
+  }
   console.log('[Scheduler] No jobs selected by SCHEDULER_JOB_FILTER');
   idleInterval = setInterval(() => {}, 60_000);
 } else {
