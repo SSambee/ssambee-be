@@ -4,6 +4,7 @@ import { validate } from '../../../middlewares/validate.middleware.js';
 import {
   adminCreditGrantSchema,
   approvePaymentSchema,
+  createAdminCreditGrantProductSchema,
   createBillingProductSchema,
   instructorIdParamSchema,
   paymentListQuerySchema,
@@ -27,6 +28,11 @@ adminBillingRouter.post(
   '/products',
   validate(createBillingProductSchema),
   billingController.createProduct,
+);
+adminBillingRouter.post(
+  '/system-products/admin-credit-grant',
+  validate(createAdminCreditGrantProductSchema),
+  billingController.createAdminCreditGrantProduct,
 );
 adminBillingRouter.patch(
   '/products/:id',

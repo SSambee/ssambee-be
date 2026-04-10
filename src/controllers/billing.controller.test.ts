@@ -10,6 +10,7 @@ describe('BillingController - @unit', () => {
   let mockBillingService: {
     listActiveProducts: jest.Mock;
     listProducts: jest.Mock;
+    createAdminCreditGrantProduct: jest.Mock;
   };
   let billingController: BillingController;
   let mockReq: Partial<Request>;
@@ -22,6 +23,7 @@ describe('BillingController - @unit', () => {
     mockBillingService = {
       listActiveProducts: jest.fn(),
       listProducts: jest.fn(),
+      createAdminCreditGrantProduct: jest.fn(),
     };
 
     billingController = new BillingController(mockBillingService as never);
@@ -178,6 +180,30 @@ describe('BillingController - @unit', () => {
         ],
       },
       message: '결제 상품 조회 성공',
+    });
+  });
+
+  it('관리자 지급용 상품 생성 시 생성 결과를 반환해야 한다', async () => {
+    mockBillingService.createAdminCreditGrantProduct.mockResolvedValue({
+      id: 'product-admin-credit-grant',
+      code: 'ADMIN_CREDIT_GRANT_ZERO',
+    });
+
+    await billingController.createAdminCreditGrantProduct(
+      mockReq as Request,
+      mockRes as Response,
+      mockNext,
+    );
+
+    expect(mockBillingService.createAdminCreditGrantProduct).toHaveBeenCalled();
+    expect(mockRes.status).toHaveBeenCalledWith(201);
+    expect(mockRes.json).toHaveBeenCalledWith({
+      status: 'success',
+      data: {
+        id: 'product-admin-credit-grant',
+        code: 'ADMIN_CREDIT_GRANT_ZERO',
+      },
+      message: '관리자 지급용 상품 생성 성공',
     });
   });
 });

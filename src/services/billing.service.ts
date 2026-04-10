@@ -140,6 +140,21 @@ const SERIALIZABLE_TRANSACTION_RETRY_LIMIT = 3;
 const SERIALIZABLE_CONFLICT_ERROR_CODE = 'P2034';
 const PAYMENT_STATUS_TRANSITION_CONFLICT_MESSAGE =
   '결제 상태가 변경되어 요청을 완료할 수 없습니다. 새로고침 후 다시 시도해주세요.';
+const ADMIN_CREDIT_GRANT_SYSTEM_PRODUCT = {
+  code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+  name: '관리자 지급 전용 충전권',
+  description: '관리자가 강사에게 직접 지급하는 0원 충전권',
+  highlights: ['관리자 전용', '0원 충전권'],
+  productType: BillingProductType.CREDIT_PACK,
+  billingMode: BillingMode.ONE_TIME,
+  paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+  durationMonths: null,
+  includedCreditAmount: 0,
+  rechargeCreditAmount: 0,
+  price: 0,
+  isActive: false,
+  sortOrder: 9999,
+};
 
 const createAbortError = () => {
   const error = new Error('Operation aborted');
@@ -1432,6 +1447,12 @@ export class BillingService {
   }
 
   async createProduct(data: CreateBillingProductDto) {
+    if (data.code === BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO) {
+      throw new ConflictException(
+        '관리자 지급용 상품은 전용 엔드포인트로만 생성할 수 있습니다.',
+      );
+    }
+
     try {
       return await this.billingRepo.createProduct(
         this.sanitizeProductData(
@@ -1450,11 +1471,52 @@ export class BillingService {
     }
   }
 
+  async createAdminCreditGrantProduct() {
+    const existing = await this.billingRepo.findProductByCode(
+      BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+    );
+
+    if (existing) {
+      throw new ConflictException('관리자 지급용 상품이 이미 존재합니다.');
+    }
+
+    try {
+      return await this.billingRepo.createProduct({
+        ...ADMIN_CREDIT_GRANT_SYSTEM_PRODUCT,
+        highlights: [...ADMIN_CREDIT_GRANT_SYSTEM_PRODUCT.highlights],
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException('관리자 지급용 상품이 이미 존재합니다.');
+      }
+
+      throw error;
+    }
+  }
+
   async updateProduct(id: string, data: UpdateBillingProductDto) {
     const product = await this.billingRepo.findProductById(id);
 
     if (!product) {
       throw new NotFoundException('상품을 찾을 수 없습니다.');
+    }
+
+    if (product.code === BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO) {
+      throw new ConflictException(
+        '관리자 지급용 상품은 일반 상품 수정 API로 수정할 수 없습니다.',
+      );
+    }
+
+    if (
+      product.code !== BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO &&
+      data.code === BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO
+    ) {
+      throw new ConflictException(
+        '관리자 지급용 상품 코드는 일반 상품에 사용할 수 없습니다.',
+      );
     }
 
     try {

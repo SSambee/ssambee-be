@@ -140,6 +140,8 @@ export type CreateBillingProductDto = z.infer<
   typeof createBillingProductSchema
 >;
 
+export const createAdminCreditGrantProductSchema = z.object({}).strict();
+
 export const adminCreditGrantSchema = z.object({
   creditAmount: z
     .number()

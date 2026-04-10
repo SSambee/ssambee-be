@@ -9,6 +9,7 @@ import { BillingRepository } from '../repos/billing.repo.js';
 import { Prisma, PrismaClient } from '../generated/prisma/client.js';
 import {
   BillingErrorCode,
+  BillingMode,
   BillingProductType,
   BillingSystemProductCode,
   CreditBucketStatus,
@@ -55,8 +56,11 @@ describe('BillingService', () => {
 
     mockBillingRepo = {
       listActiveProducts: jest.fn(),
+      listProducts: jest.fn(),
       findProductById: jest.fn(),
       findProductByCode: jest.fn(),
+      createProduct: jest.fn(),
+      updateProduct: jest.fn(),
       findInstructorById: jest.fn(),
       createPayment: jest.fn(),
       createPaymentItem: jest.fn(),
@@ -140,6 +144,160 @@ describe('BillingService', () => {
       expect.objectContaining({ id: 'product-pass-single' }),
       expect.objectContaining({ id: 'product-credit-pack' }),
     ]);
+  });
+
+  it('관리자 지급용 상품 전용 생성 시 고정 스펙으로 저장해야 한다', async () => {
+    const createdProduct = {
+      id: 'product-admin-grant',
+      code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+    };
+
+    (mockBillingRepo.findProductByCode as jest.Mock).mockResolvedValue(null);
+    (mockBillingRepo.createProduct as jest.Mock).mockResolvedValue(
+      createdProduct,
+    );
+
+    const result = await service.createAdminCreditGrantProduct();
+
+    expect(mockBillingRepo.createProduct).toHaveBeenCalledWith({
+      code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+      name: '관리자 지급 전용 충전권',
+      description: '관리자가 강사에게 직접 지급하는 0원 충전권',
+      highlights: ['관리자 전용', '0원 충전권'],
+      productType: BillingProductType.CREDIT_PACK,
+      billingMode: BillingMode.ONE_TIME,
+      paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+      durationMonths: null,
+      includedCreditAmount: 0,
+      rechargeCreditAmount: 0,
+      price: 0,
+      isActive: false,
+      sortOrder: 9999,
+    });
+    expect(result).toBe(createdProduct);
+  });
+
+  it('관리자 지급용 상품이 이미 있으면 전용 생성은 막아야 한다', async () => {
+    (mockBillingRepo.findProductByCode as jest.Mock).mockResolvedValue({
+      id: 'product-admin-grant',
+      code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+    });
+
+    await expect(service.createAdminCreditGrantProduct()).rejects.toThrow(
+      new ConflictException('관리자 지급용 상품이 이미 존재합니다.'),
+    );
+
+    expect(mockBillingRepo.createProduct).not.toHaveBeenCalled();
+  });
+
+  it('일반 상품 생성 API에서는 관리자 지급용 상품 코드를 사용할 수 없어야 한다', async () => {
+    await expect(
+      service.createProduct({
+        code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+        name: '임의 상품명',
+        description: '임의 설명',
+        highlights: ['임의 하이라이트'],
+        productType: BillingProductType.CREDIT_PACK,
+        billingMode: BillingMode.ONE_TIME,
+        paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+        includedCreditAmount: 0,
+        rechargeCreditAmount: 1,
+        price: 0,
+        isActive: false,
+        sortOrder: 9999,
+      }),
+    ).rejects.toThrow(
+      new ConflictException(
+        '관리자 지급용 상품은 전용 엔드포인트로만 생성할 수 있습니다.',
+      ),
+    );
+
+    expect(mockBillingRepo.createProduct).not.toHaveBeenCalled();
+  });
+
+  it('일반 크레딧 충전권 생성 시 충전 크레딧 수량은 1 이상이어야 한다', async () => {
+    await expect(
+      service.createProduct({
+        code: 'CREDIT_PACK_ZERO',
+        name: '0크레딧 충전권',
+        description: '잘못된 충전권',
+        highlights: [],
+        productType: BillingProductType.CREDIT_PACK,
+        billingMode: BillingMode.ONE_TIME,
+        paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+        includedCreditAmount: 0,
+        rechargeCreditAmount: 0,
+        price: 0,
+        isActive: false,
+        sortOrder: 99,
+      }),
+    ).rejects.toThrow(
+      new BadRequestException('크레딧 충전권은 충전 크레딧 수량이 필요합니다.'),
+    );
+
+    expect(mockBillingRepo.createProduct).not.toHaveBeenCalled();
+  });
+
+  it('관리자 지급용 상품은 일반 상품 수정 API로 수정할 수 없어야 한다', async () => {
+    (mockBillingRepo.findProductById as jest.Mock).mockResolvedValue({
+      id: 'product-admin-grant',
+      code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+      name: '관리자 지급 전용 충전권',
+      description: '관리자가 강사에게 직접 지급하는 0원 충전권',
+      highlights: ['관리자 전용', '0원 충전권'],
+      productType: BillingProductType.CREDIT_PACK,
+      billingMode: BillingMode.ONE_TIME,
+      paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+      durationMonths: null,
+      includedCreditAmount: 0,
+      rechargeCreditAmount: 0,
+      price: 0,
+      isActive: false,
+      sortOrder: 9999,
+    });
+
+    await expect(
+      service.updateProduct('product-admin-grant', {
+        name: '바뀐 이름',
+      }),
+    ).rejects.toThrow(
+      new ConflictException(
+        '관리자 지급용 상품은 일반 상품 수정 API로 수정할 수 없습니다.',
+      ),
+    );
+
+    expect(mockBillingRepo.updateProduct).not.toHaveBeenCalled();
+  });
+
+  it('일반 상품을 관리자 지급 시스템 상품 코드로 수정할 수 없어야 한다', async () => {
+    (mockBillingRepo.findProductById as jest.Mock).mockResolvedValue({
+      id: 'product-credit-pack',
+      code: 'CREDIT_PACK_3000',
+      name: '크레딧 충전권 3000',
+      description: '일반 충전권',
+      highlights: ['추가 크레딧 3000'],
+      productType: BillingProductType.CREDIT_PACK,
+      billingMode: BillingMode.ONE_TIME,
+      paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+      durationMonths: null,
+      includedCreditAmount: 0,
+      rechargeCreditAmount: 3000,
+      price: 33000,
+      isActive: true,
+      sortOrder: 1,
+    });
+
+    await expect(
+      service.updateProduct('product-credit-pack', {
+        code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+      }),
+    ).rejects.toThrow(
+      new ConflictException(
+        '관리자 지급용 상품 코드는 일반 상품에 사용할 수 없습니다.',
+      ),
+    );
+
+    expect(mockBillingRepo.updateProduct).not.toHaveBeenCalled();
   });
 
   it('무통장 결제 생성 시 payment/item/history/receipt를 함께 저장해야 한다', async () => {

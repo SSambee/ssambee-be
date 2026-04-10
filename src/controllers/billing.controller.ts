@@ -124,6 +124,24 @@ export class BillingController {
     }
   };
 
+  createAdminCreditGrantProduct = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const product = await this.billingService.createAdminCreditGrantProduct();
+
+      return successResponse(res, {
+        statusCode: 201,
+        data: product,
+        message: '관리자 지급용 상품 생성 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   updateProduct = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const product = await this.billingService.updateProduct(

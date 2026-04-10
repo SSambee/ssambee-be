@@ -134,7 +134,7 @@ describe('결제 BDD 테스트 - @integration', () => {
         paymentMethodType: PaymentMethodType.BANK_TRANSFER,
         durationMonths: null,
         includedCreditAmount: 0,
-        rechargeCreditAmount: 1,
+        rechargeCreditAmount: 0,
         price: 0,
         isActive: false,
         sortOrder: 9999,
@@ -416,6 +416,54 @@ describe('결제 BDD 테스트 - @integration', () => {
 
     expect(creditsRes.status).toBe(200);
     expect(creditsRes.body.data.totalAvailable).toBe(1500);
+  });
+
+  it('관리자가 전용 엔드포인트로 관리자 지급용 상품을 생성할 수 있어야 한다', async () => {
+    mockAdminSession();
+
+    await prisma.billingProduct.delete({
+      where: { code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO },
+    });
+
+    const response = await request(app)
+      .post('/api/admin/v1/billing/system-products/admin-credit-grant')
+      .send({});
+
+    expect(response.status).toBe(201);
+    expect(response.body.status).toBe('success');
+    expect(response.body.message).toBe('관리자 지급용 상품 생성 성공');
+    expect(response.body.data).toMatchObject({
+      code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+      name: '관리자 지급 전용 충전권',
+      productType: BillingProductType.CREDIT_PACK,
+      billingMode: BillingMode.ONE_TIME,
+      paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+      durationMonths: null,
+      includedCreditAmount: 0,
+      rechargeCreditAmount: 0,
+      price: 0,
+      isActive: false,
+      sortOrder: 9999,
+    });
+
+    const savedProduct = await prisma.billingProduct.findUnique({
+      where: { code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO },
+    });
+
+    expect(savedProduct).not.toBeNull();
+    expect(savedProduct?.id).toBe(response.body.data.id);
+  });
+
+  it('관리자 지급용 상품이 이미 있으면 전용 생성 엔드포인트는 409를 반환해야 한다', async () => {
+    mockAdminSession();
+
+    const response = await request(app)
+      .post('/api/admin/v1/billing/system-products/admin-credit-grant')
+      .send({});
+
+    expect(response.status).toBe(409);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toBe('관리자 지급용 상품이 이미 존재합니다.');
   });
 
   it('관리자 지급 충전권도 환불 상태 변경으로만 정리할 수 있어야 한다', async () => {
