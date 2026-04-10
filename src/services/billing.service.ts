@@ -1902,21 +1902,34 @@ export class BillingService {
       const hasRevocation = payment.items.some(
         (item) => (item.revocationHistories?.length ?? 0) > 0,
       );
-      const refundReason = this.resolveRefundReason(data.refundMemo);
-      const revokedPassEntitlements =
-        await this.revokePassEntitlementsForRefund(
-          payment as PaymentWithRelations,
-          data,
-          actor,
-          refundReason,
-          tx,
-        );
-      const revokedRechargeCredits = await this.revokeRechargeCreditsForRefund(
-        payment as PaymentWithRelations,
-        actor,
-        refundReason,
-        tx,
-      );
+      const shouldAttemptPassRevocation =
+        !hasRevocation || data.revokeCount !== undefined;
+      const shouldAttemptRechargeRevocation = !hasRevocation;
+      let revokedPassEntitlements = false;
+      let revokedRechargeCredits = false;
+
+      if (shouldAttemptPassRevocation || shouldAttemptRechargeRevocation) {
+        const refundReason = this.resolveRefundReason(data.refundMemo);
+
+        if (shouldAttemptPassRevocation) {
+          revokedPassEntitlements = await this.revokePassEntitlementsForRefund(
+            payment as PaymentWithRelations,
+            data,
+            actor,
+            refundReason,
+            tx,
+          );
+        }
+
+        if (shouldAttemptRechargeRevocation) {
+          revokedRechargeCredits = await this.revokeRechargeCreditsForRefund(
+            payment as PaymentWithRelations,
+            actor,
+            refundReason,
+            tx,
+          );
+        }
+      }
 
       if (
         !hasRevocation &&

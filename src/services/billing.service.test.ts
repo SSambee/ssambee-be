@@ -2449,6 +2449,146 @@ describe('BillingService', () => {
     expect(result.refundMemo).toBe('계좌이체 환불 완료');
   });
 
+  it('회수 이력이 있는 결제의 후속 환불 상태 변경은 추가 회수를 시도하지 않아야 한다', async () => {
+    const queuedEntitlement = {
+      id: 'entitlement-queued-live',
+      instructorId: 'instructor-1',
+      paymentItemId: 'item-pass',
+      sequenceNo: 2,
+      status: EntitlementStatus.QUEUED,
+      startsAt: new Date('2026-04-23T15:00:00.000Z'),
+      endsAt: new Date('2026-05-23T14:59:59.999Z'),
+      activatedAt: null,
+      expiredAt: null,
+      canceledAt: null,
+      includedCreditAmount: IncludedCreditPolicy.MONTHLY_AMOUNT,
+    };
+    const rechargeBucket = {
+      id: 'bucket-recharge-live',
+      instructorId: 'instructor-1',
+      paymentItemId: 'item-credit',
+      entitlementId: null,
+      sourceType: CreditSourceType.RECHARGE_PACK,
+      status: CreditBucketStatus.ACTIVE,
+      originalAmount: 3000,
+      remainingAmount: 1800,
+      grantedAt: new Date('2026-03-24T00:00:00.000Z'),
+      expiresAt: new Date('2026-06-22T14:59:59.999Z'),
+    };
+    const existingRevocationHistory = {
+      id: 'revoke-history',
+      paymentId: 'payment-refund',
+      paymentItemId: 'item-pass',
+      targetType: RevocationTargetType.ENTITLEMENT,
+      targetId: 'entitlement-queued-revoked',
+      actionType: RevocationActionType.CANCEL,
+      fromStatus: EntitlementStatus.QUEUED,
+      toStatus: EntitlementStatus.CANCELED,
+      deltaAmount: 0,
+      actorUserId: 'admin-1',
+      actorRole: 'admin',
+      reason: '환불 승인',
+      batchId: 'refund-batch-4',
+      createdAt: new Date('2026-03-30T00:00:00.000Z'),
+    };
+    const revokedPayment = {
+      id: 'payment-refund',
+      instructorId: 'instructor-1',
+      status: PaymentStatus.APPROVED,
+      refundStatus: PaymentRefundStatus.PENDING,
+      items: [
+        {
+          id: 'item-pass',
+          paymentId: 'payment-refund',
+          productTypeSnapshot: BillingProductType.PASS_SINGLE,
+          totalPrice: 300000,
+          quantity: 2,
+          rechargeCreditAmountSnapshot: 0,
+          entitlements: [queuedEntitlement],
+          creditBuckets: [],
+          revocationHistories: [existingRevocationHistory],
+        },
+        {
+          id: 'item-credit',
+          paymentId: 'payment-refund',
+          productTypeSnapshot: BillingProductType.CREDIT_PACK,
+          totalPrice: 90000,
+          quantity: 1,
+          rechargeCreditAmountSnapshot: 3000,
+          entitlements: [],
+          creditBuckets: [rechargeBucket],
+          revocationHistories: [],
+        },
+      ],
+      receiptRequest: null,
+      statusHistory: [],
+    };
+    const completedPayment = {
+      ...revokedPayment,
+      refundStatus: PaymentRefundStatus.COMPLETED,
+      refundMemo: '계좌이체 환불 완료',
+      refundCompletedAt: new Date('2026-03-24T00:00:00.000Z'),
+    };
+    const serviceInternals = service as unknown as Record<
+      string,
+      (...args: never[]) => unknown
+    >;
+    const resolveRefundReasonSpy = jest.spyOn(
+      serviceInternals,
+      'resolveRefundReason',
+    );
+    const revokePassSpy = jest.spyOn(
+      serviceInternals,
+      'revokePassEntitlementsForRefund',
+    );
+    const revokeRechargeSpy = jest.spyOn(
+      serviceInternals,
+      'revokeRechargeCreditsForRefund',
+    );
+
+    (mockBillingRepo.findPaymentById as jest.Mock)
+      .mockResolvedValueOnce(revokedPayment)
+      .mockResolvedValueOnce(completedPayment)
+      .mockResolvedValueOnce(completedPayment);
+    (
+      mockBillingRepo.findRechargeCreditBucketByPaymentItemId as jest.Mock
+    ).mockResolvedValue(rechargeBucket);
+    jest.spyOn(service, 'reconcileInstructorState').mockResolvedValue({
+      wallet: {
+        totalAvailable: 0,
+        includedAvailable: 0,
+        rechargeAvailable: 1800,
+      },
+      entitlements: [queuedEntitlement],
+      activeEntitlement: null,
+    } as never);
+
+    const result = await service.updatePaymentRefundStatus('payment-refund', {
+      refundStatus: PaymentRefundStatus.COMPLETED,
+      refundMemo: '계좌이체 환불 완료',
+    });
+
+    expect(resolveRefundReasonSpy).not.toHaveBeenCalled();
+    expect(revokePassSpy).not.toHaveBeenCalled();
+    expect(revokeRechargeSpy).not.toHaveBeenCalled();
+    expect(mockBillingRepo.updateEntitlement).not.toHaveBeenCalled();
+    expect(mockBillingRepo.updateCreditBucket).not.toHaveBeenCalled();
+    expect(
+      mockBillingRepo.createPaymentItemRevocationHistory,
+    ).not.toHaveBeenCalled();
+    expect(mockBillingRepo.createCreditLedger).not.toHaveBeenCalled();
+    expect(mockBillingRepo.updatePayment).toHaveBeenCalledWith(
+      'payment-refund',
+      expect.objectContaining({
+        refundStatus: PaymentRefundStatus.COMPLETED,
+        refundMemo: '계좌이체 환불 완료',
+        refundCompletedAt: expect.any(Date),
+      }),
+      expect.anything(),
+    );
+    expect(result.refundStatus).toBe(PaymentRefundStatus.COMPLETED);
+  });
+
   it('회수 이력도 남은 충전 크레딧도 없으면 환불 상태 변경을 막아야 한다', async () => {
     const exhaustedPayment = {
       id: 'payment-no-refund-target',
