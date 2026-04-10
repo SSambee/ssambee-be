@@ -149,7 +149,7 @@ async function main() {
   const adminUser = await prisma.user.create({
     data: {
       id: uuidv7(),
-      email: 'zxcvzxcv1515@gmail.com',
+      email: 'admin.ssambee@ssambee.com',
       name: '최초 관리자',
       userType: UserType.ADMIN,
       role: 'admin',
