@@ -39,7 +39,7 @@ async function main() {
   console.log('🌱 Starting database seeding...');
 
   const now = new Date();
-  const hashedPassword = await hashPassword('qwer1234');
+  const hashedPassword = await hashPassword('qwer1234@');
   const hashedAdminPassword = await hashPassword('qwer1234@');
   const passSingleProductId = createId();
   const creditPackProductId = createId();
