@@ -35,6 +35,28 @@ const pool = new pg.Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
+async function resetDatabase() {
+  const tables = await prisma.$queryRaw<Array<{ tablename: string }>>`
+    SELECT tablename
+    FROM pg_tables
+    WHERE schemaname = 'public'
+      AND tablename <> '_prisma_migrations'
+  `;
+
+  if (tables.length === 0) {
+    return;
+  }
+
+  const tableNames = tables
+    .map(({ tablename }) => `"${tablename.replaceAll('"', '""')}"`)
+    .join(', ');
+
+  // Keep seeding resilient as the schema evolves by truncating every app table.
+  await prisma.$executeRawUnsafe(
+    `TRUNCATE TABLE ${tableNames} RESTART IDENTITY CASCADE`,
+  );
+}
+
 async function main() {
   console.log('🌱 Starting database seeding...');
 
@@ -45,39 +67,8 @@ async function main() {
   const creditPackProductId = createId();
   const adminCreditGrantProductId = createId();
 
-  // 0. Clean up existing data (Ordered by dependency)
-  await prisma.creditLedger.deleteMany();
-  await prisma.creditBucket.deleteMany();
-  await prisma.creditWallet.deleteMany();
-  await prisma.entitlement.deleteMany();
-  await prisma.paymentReceiptRequest.deleteMany();
-  await prisma.paymentStatusHistory.deleteMany();
-  await prisma.paymentItem.deleteMany();
-  await prisma.payment.deleteMany();
-  await prisma.billingProduct.deleteMany();
-  await prisma.comment.deleteMany();
-  await prisma.studentPost.deleteMany();
-  await prisma.instructorPostTarget.deleteMany();
-  await prisma.instructorPostAttachment.deleteMany();
-  await prisma.instructorPost.deleteMany();
-  await prisma.material.deleteMany();
-  await prisma.attendance.deleteMany();
-  await prisma.grade.deleteMany();
-  await prisma.studentAnswer.deleteMany();
-  await prisma.question.deleteMany();
-  await prisma.exam.deleteMany();
-  await prisma.lectureTime.deleteMany();
-  await prisma.lectureEnrollment.deleteMany();
-  await prisma.lecture.deleteMany();
-  await prisma.enrollment.deleteMany();
-  await prisma.parentChildLink.deleteMany();
-  await prisma.assistant.deleteMany();
-  await prisma.instructor.deleteMany();
-  await prisma.appParent.deleteMany();
-  await prisma.appStudent.deleteMany();
-  await prisma.account.deleteMany(); // better-auth accounts
-  await prisma.session.deleteMany(); // better-auth sessions
-  await prisma.user.deleteMany();
+  // 0. Clean up existing data.
+  await resetDatabase();
 
   console.log('🧹 Database cleaned up.');
 
