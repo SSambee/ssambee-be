@@ -1243,6 +1243,7 @@ export class BillingService {
     paymentId: string,
     instructorId: string,
     tx?: Prisma.TransactionClient,
+    unauthorizedMessage = '본인의 결제만 조회할 수 있습니다.',
   ) {
     const payment = await this.billingRepo.findPaymentById(paymentId, tx);
 
@@ -1251,7 +1252,7 @@ export class BillingService {
     }
 
     if (payment.instructorId !== instructorId) {
-      throw new ForbiddenException('본인의 결제만 조회할 수 있습니다.');
+      throw new ForbiddenException(unauthorizedMessage);
     }
 
     return payment;
@@ -1736,6 +1737,52 @@ export class BillingService {
     );
 
     return this.formatPayment(payment as PaymentWithRelations);
+  }
+
+  async cancelInstructorPayment(
+    paymentId: string,
+    instructorId: string,
+    actor: Actor,
+  ) {
+    await this.prisma.$transaction(async (tx) => {
+      const payment = await this.assertInstructorPaymentOwner(
+        paymentId,
+        instructorId,
+        tx,
+        '본인의 결제만 취소할 수 있습니다.',
+      );
+
+      if (payment.status !== PaymentStatus.PENDING_DEPOSIT) {
+        throw new BadRequestException(
+          '입금 대기 상태에서만 결제 취소가 가능합니다.',
+        );
+      }
+
+      const canceledAt = new Date();
+
+      await this.updatePaymentWithStatusGuard(
+        paymentId,
+        {
+          status: PaymentStatus.CANCELED,
+          canceledAt,
+        },
+        payment.status,
+        tx,
+      );
+
+      await this.billingRepo.createPaymentStatusHistory(
+        {
+          paymentId,
+          fromStatus: payment.status,
+          toStatus: PaymentStatus.CANCELED,
+          actorUserId: actor.userId,
+          actorRole: actor.role,
+        },
+        tx,
+      );
+    });
+
+    return this.getInstructorPayment(paymentId, instructorId);
   }
 
   async getPayment(paymentId: string) {

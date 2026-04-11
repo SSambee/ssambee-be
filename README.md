@@ -186,9 +186,10 @@ flowchart LR
 
 - 무통장 결제 생성은 강사/조교 운영 API의 `POST /api/mgmt/v1/billing/payments/bank-transfer` 에서 처리합니다.
 - 결제 생성 직후 상태는 `PENDING_DEPOSIT` 입니다.
+- 강사는 아직 승인되지 않은 본인 무통장 결제를 `POST /api/mgmt/v1/billing/payments/:paymentId/cancel` 로 취소할 수 있습니다.
 - 관리자 검수는 `POST /api/admin/v1/billing/payments/:id/approve` 또는 `POST /api/admin/v1/billing/payments/:id/reject` 로 바로 처리합니다.
 - 별도의 입금 알림 엔드포인트 `POST /api/mgmt/v1/billing/payments/:paymentId/deposit` 는 더 이상 사용하지 않습니다.
-- 현재 무통장 결제의 주요 상태 전이는 `PENDING_DEPOSIT -> APPROVED` 또는 `PENDING_DEPOSIT -> REJECTED` 입니다.
+- 현재 무통장 결제의 주요 상태 전이는 `PENDING_DEPOSIT -> APPROVED`, `PENDING_DEPOSIT -> REJECTED`, `PENDING_DEPOSIT -> CANCELED` 입니다.
 - 무통장 결제 관련 메일은 결제 생성/승인/반려 처리 뒤 비동기 부수효과로 발송되며, API 응답은 SMTP 완료를 기다리지 않습니다.
 - 입금 요청 메일은 `BANK_TRANSFER_ACCOUNT_BANK`, `BANK_TRANSFER_ACCOUNT_NUMBER`, `BANK_TRANSFER_ACCOUNT_HOLDER` 가 모두 설정된 경우에만 발송됩니다.
 - 위 3개 계좌 환경변수는 앱 부팅 필수값은 아니며, 누락 시 서버는 계속 기동되고 입금 요청 메일만 경고 로그와 함께 스킵됩니다.

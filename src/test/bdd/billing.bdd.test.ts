@@ -341,6 +341,69 @@ describe('결제 BDD 테스트 - @integration', () => {
     );
   });
 
+  it('강사는 입금 대기 중인 본인 무통장 결제를 취소할 수 있어야 한다', async () => {
+    mockInstructorSession();
+
+    const product = await prisma.billingProduct.create({
+      data: {
+        code: 'MGMT_CANCELABLE_CREDIT_PACK',
+        name: '취소 가능한 강사용 크레딧 충전권',
+        description: '입금 대기 중 강사가 취소할 수 있는 충전권',
+        highlights: ['무통장 전용', '취소 가능'],
+        productType: BillingProductType.CREDIT_PACK,
+        billingMode: BillingMode.ONE_TIME,
+        paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+        durationMonths: null,
+        includedCreditAmount: 0,
+        rechargeCreditAmount: 3000,
+        price: 33000,
+        isActive: true,
+        sortOrder: 1,
+      },
+    });
+
+    const createRes = await request(app)
+      .post('/api/mgmt/v1/billing/payments/bank-transfer')
+      .send({
+        productId: product.id,
+        quantity: 1,
+        depositorName: '강사 본인',
+        depositorBankName: '국민은행',
+      });
+
+    expect(createRes.status).toBe(201);
+    expect(createRes.body.status).toBe('success');
+    expect(createRes.body.data.status).toBe(PaymentStatus.PENDING_DEPOSIT);
+
+    const cancelRes = await request(app)
+      .post(`/api/mgmt/v1/billing/payments/${createRes.body.data.id}/cancel`)
+      .send({});
+
+    expect(cancelRes.status).toBe(200);
+    expect(cancelRes.body.status).toBe('success');
+    expect(cancelRes.body.message).toBe('결제 취소 성공');
+    expect(cancelRes.body.data.id).toBe(createRes.body.data.id);
+    expect(cancelRes.body.data.status).toBe(PaymentStatus.CANCELED);
+    expect(cancelRes.body.data.canceledAt).not.toBeNull();
+
+    const savedPayment = await prisma.payment.findUnique({
+      where: { id: createRes.body.data.id },
+      include: {
+        statusHistory: {
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    expect(savedPayment).not.toBeNull();
+    expect(savedPayment?.status).toBe(PaymentStatus.CANCELED);
+    expect(savedPayment?.canceledAt).not.toBeNull();
+    expect(savedPayment?.statusHistory).toHaveLength(2);
+    expect(savedPayment?.statusHistory[1].toStatus).toBe(
+      PaymentStatus.CANCELED,
+    );
+  });
+
   it('관리자가 0원 충전권을 지급하면 실제 API 응답과 강사 조회 결과에 반영되어야 한다', async () => {
     mockAdminSession();
 

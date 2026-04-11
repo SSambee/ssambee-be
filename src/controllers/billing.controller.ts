@@ -249,6 +249,28 @@ export class BillingController {
     }
   };
 
+  cancelInstructorPayment = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const instructorId = getProfileIdOrThrow(req);
+      const payment = await this.billingService.cancelInstructorPayment(
+        req.params.paymentId,
+        instructorId,
+        this.getActor(req),
+      );
+
+      return successResponse(res, {
+        data: payment,
+        message: '결제 취소 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   getAdminPayments = async (
     req: Request,
     res: Response,

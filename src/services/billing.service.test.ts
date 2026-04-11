@@ -601,6 +601,87 @@ describe('BillingService', () => {
     }
   });
 
+  it('강사는 입금 대기 중인 본인 무통장 결제를 취소할 수 있어야 한다', async () => {
+    const payment = {
+      id: 'payment-cancel',
+      instructorId: 'instructor-1',
+      status: PaymentStatus.PENDING_DEPOSIT,
+      items: [],
+    };
+
+    jest.spyOn(service, 'getInstructorPayment').mockResolvedValue({
+      id: 'payment-cancel',
+      status: PaymentStatus.CANCELED,
+    } as never);
+    (mockBillingRepo.findPaymentById as jest.Mock).mockResolvedValue(payment);
+
+    await service.cancelInstructorPayment('payment-cancel', 'instructor-1', {
+      userId: 'user-1',
+      role: 'INSTRUCTOR',
+    });
+
+    expect(mockBillingRepo.updatePayment).toHaveBeenCalledWith(
+      'payment-cancel',
+      expect.objectContaining({
+        status: PaymentStatus.CANCELED,
+        canceledAt: expect.any(Date),
+      }),
+      expect.anything(),
+      PaymentStatus.PENDING_DEPOSIT,
+    );
+    expect(mockBillingRepo.createPaymentStatusHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentId: 'payment-cancel',
+        fromStatus: PaymentStatus.PENDING_DEPOSIT,
+        toStatus: PaymentStatus.CANCELED,
+        actorUserId: 'user-1',
+        actorRole: 'INSTRUCTOR',
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('강사는 입금 대기 상태가 아닌 결제를 취소할 수 없어야 한다', async () => {
+    (mockBillingRepo.findPaymentById as jest.Mock).mockResolvedValue({
+      id: 'payment-approved',
+      instructorId: 'instructor-1',
+      status: PaymentStatus.APPROVED,
+      items: [],
+    });
+
+    await expect(
+      service.cancelInstructorPayment('payment-approved', 'instructor-1', {
+        userId: 'user-1',
+        role: 'INSTRUCTOR',
+      }),
+    ).rejects.toThrow(
+      new BadRequestException('입금 대기 상태에서만 결제 취소가 가능합니다.'),
+    );
+
+    expect(mockBillingRepo.updatePayment).not.toHaveBeenCalled();
+    expect(mockBillingRepo.createPaymentStatusHistory).not.toHaveBeenCalled();
+  });
+
+  it('강사는 본인 결제만 취소할 수 있어야 한다', async () => {
+    (mockBillingRepo.findPaymentById as jest.Mock).mockResolvedValue({
+      id: 'payment-foreign',
+      instructorId: 'instructor-2',
+      status: PaymentStatus.PENDING_DEPOSIT,
+      items: [],
+    });
+
+    await expect(
+      service.cancelInstructorPayment('payment-foreign', 'instructor-1', {
+        userId: 'user-1',
+        role: 'INSTRUCTOR',
+      }),
+    ).rejects.toThrow(
+      new ForbiddenException('본인의 결제만 취소할 수 있습니다.'),
+    );
+
+    expect(mockBillingRepo.updatePayment).not.toHaveBeenCalled();
+  });
+
   it('관리자가 0원 충전권을 지급하면 승인 결제와 사용자 지정 만료일 크레딧을 생성해야 한다', async () => {
     const product = {
       id: 'product-admin-grant',

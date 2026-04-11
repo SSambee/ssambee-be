@@ -46,6 +46,11 @@ mgmtBillingRouter.get(
   validate(paymentIdParamSchema, 'params'),
   billingController.getInstructorPayment,
 );
+mgmtBillingRouter.post(
+  '/payments/:paymentId/cancel',
+  validate(paymentIdParamSchema, 'params'),
+  billingController.cancelInstructorPayment,
+);
 
 mgmtBillingRouter.get('/entitlements', billingController.getEntitlements);
 mgmtBillingRouter.get('/credits', billingController.getCredits);
