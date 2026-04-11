@@ -1147,6 +1147,25 @@ model PaymentItemRevocationHistory {
   @@map("payment_item_revocation_histories")
 }
 
+model ScheduledJobState {
+  jobName         String   @id @map("job_name")
+  scheduleFingerprint String @map("schedule_fingerprint")
+  nextRunAt       DateTime @map("next_run_at")
+  lockedBy        String?  @map("locked_by")
+  lockedUntil     DateTime? @map("locked_until")
+  lastStartedAt   DateTime? @map("last_started_at")
+  lastFinishedAt  DateTime? @map("last_finished_at")
+  lastSucceededAt DateTime? @map("last_succeeded_at")
+  lastFailedAt    DateTime? @map("last_failed_at")
+  lastError       String?  @map("last_error")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime? @updatedAt @map("updated_at")
+
+  @@index([nextRunAt])
+  @@index([lockedUntil])
+  @@map("scheduled_job_states")
+}
+
 // --------------------------------------------------------
 // 9. AUTHENTICATION (Better Auth 통합 인증 시스템)
 // --------------------------------------------------------

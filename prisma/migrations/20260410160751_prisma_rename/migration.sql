@@ -1,0 +1,5 @@
+-- RenameIndex
+ALTER INDEX "payment_item_revocation_histories_payment_item_id_created_at_id" RENAME TO "payment_item_revocation_histories_payment_item_id_created_a_idx";
+
+-- RenameIndex
+ALTER INDEX "payment_item_revocation_histories_target_type_target_id_created" RENAME TO "payment_item_revocation_histories_target_type_target_id_cre_idx";

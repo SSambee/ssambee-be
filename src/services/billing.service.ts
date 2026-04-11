@@ -21,7 +21,6 @@ import type {
   CreateAdminCreditGrantDto,
   CreateBankTransferPaymentDto,
   CreateBillingProductDto,
-  RevokeEntitlementsDto,
   UpdateBillingProductDto,
   UpdatePaymentRefundStatusDto,
 } from '../validations/billing.validation.js';
@@ -91,6 +90,11 @@ interface PaymentItemEstimatedRefund {
   refundBreakdown: Record<string, unknown>;
 }
 
+interface RefundEntitlementTarget {
+  paymentItem: PaymentItemWithRelations;
+  entitlement: Entitlement;
+}
+
 type PaymentMailEvent = 'deposit_request' | 'approved' | 'rejected';
 
 const REDACTED_EMAIL = '[REDACTED_EMAIL]';
@@ -136,6 +140,35 @@ const SERIALIZABLE_TRANSACTION_RETRY_LIMIT = 3;
 const SERIALIZABLE_CONFLICT_ERROR_CODE = 'P2034';
 const PAYMENT_STATUS_TRANSITION_CONFLICT_MESSAGE =
   '결제 상태가 변경되어 요청을 완료할 수 없습니다. 새로고침 후 다시 시도해주세요.';
+const ADMIN_CREDIT_GRANT_SYSTEM_PRODUCT = {
+  code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+  name: '관리자 지급 전용 충전권',
+  description: '관리자가 강사에게 직접 지급하는 0원 충전권',
+  highlights: ['관리자 전용', '0원 충전권'],
+  productType: BillingProductType.CREDIT_PACK,
+  billingMode: BillingMode.ONE_TIME,
+  paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+  durationMonths: null,
+  includedCreditAmount: 0,
+  rechargeCreditAmount: 0,
+  price: 0,
+  isActive: false,
+  sortOrder: 9999,
+};
+
+const createAbortError = () => {
+  const error = new Error('Operation aborted');
+  error.name = 'AbortError';
+  return error;
+};
+
+const throwIfAborted = (signal?: AbortSignal) => {
+  if (!signal?.aborted) {
+    return;
+  }
+
+  throw signal.reason instanceof Error ? signal.reason : createAbortError();
+};
 
 export interface InstructorActiveEntitlementSummary {
   id: string;
@@ -666,20 +699,6 @@ export class BillingService {
     return null;
   }
 
-  private async markPaymentRefundPending(
-    paymentId: string,
-    tx?: Prisma.TransactionClient,
-  ) {
-    return this.billingRepo.updatePayment(
-      paymentId,
-      {
-        refundStatus: PaymentRefundStatus.PENDING,
-        refundCompletedAt: null,
-      },
-      tx,
-    );
-  }
-
   private resolveRefundReason(refundMemo?: string) {
     const trimmedMemo = refundMemo?.trim();
 
@@ -758,6 +777,177 @@ export class BillingService {
     }
 
     return revokedAny;
+  }
+
+  private async revokePassEntitlementsForRefund(
+    payment: PaymentWithRelations,
+    data: UpdatePaymentRefundStatusDto,
+    actor: Actor,
+    reason: string,
+    tx: Prisma.TransactionClient,
+  ) {
+    const queuedTargets = payment.items
+      .filter(
+        (item) => item.productTypeSnapshot === BillingProductType.PASS_SINGLE,
+      )
+      .flatMap((paymentItem) =>
+        (paymentItem.entitlements ?? [])
+          .filter(
+            (entitlement) => entitlement.status === EntitlementStatus.QUEUED,
+          )
+          .map((entitlement) => ({
+            paymentItem,
+            entitlement,
+          })),
+      )
+      .sort((left, right) => {
+        const startsAtGap =
+          right.entitlement.startsAt.getTime() -
+          left.entitlement.startsAt.getTime();
+
+        if (startsAtGap !== 0) {
+          return startsAtGap;
+        }
+
+        return right.entitlement.sequenceNo - left.entitlement.sequenceNo;
+      });
+    const activeTargets = payment.items
+      .filter(
+        (item) => item.productTypeSnapshot === BillingProductType.PASS_SINGLE,
+      )
+      .flatMap((paymentItem) => {
+        const activeEntitlement =
+          (paymentItem.entitlements ?? []).find(
+            (entitlement) => entitlement.status === EntitlementStatus.ACTIVE,
+          ) ?? null;
+
+        if (!activeEntitlement) {
+          return [];
+        }
+
+        return [
+          {
+            paymentItem,
+            entitlement: activeEntitlement,
+          },
+        ];
+      });
+    const maxRevocableCount = queuedTargets.length + activeTargets.length;
+
+    if (maxRevocableCount === 0) {
+      return false;
+    }
+
+    const revokeCount = data.revokeCount ?? maxRevocableCount;
+
+    if (revokeCount > maxRevocableCount) {
+      throw new BadRequestException('회수할 수 있는 이용권 수를 초과했습니다.');
+    }
+
+    const targets: RefundEntitlementTarget[] = queuedTargets.slice(
+      0,
+      revokeCount,
+    );
+
+    if (targets.length < revokeCount) {
+      if (!data.allowActiveRevoke) {
+        throw new ConflictException(
+          BillingErrorCode.ACTIVE_REVOKE_CONFIRM_REQUIRED,
+        );
+      }
+
+      targets.push(...activeTargets.slice(0, revokeCount - targets.length));
+    }
+
+    const batchId = randomUUID();
+
+    for (const { paymentItem, entitlement } of targets) {
+      await this.billingRepo.updateEntitlement(
+        entitlement.id,
+        {
+          status: EntitlementStatus.CANCELED,
+          canceledAt: new Date(),
+        },
+        tx,
+      );
+
+      await this.appendRevocationHistory(
+        {
+          paymentId: payment.id,
+          paymentItemId: paymentItem.id,
+          targetType: RevocationTargetType.ENTITLEMENT,
+          targetId: entitlement.id,
+          actionType: RevocationActionType.CANCEL,
+          fromStatus: entitlement.status,
+          toStatus: EntitlementStatus.CANCELED,
+          actorUserId: actor.userId,
+          actorRole: actor.role,
+          reason,
+          batchId,
+        },
+        tx,
+      );
+
+      if (entitlement.status !== EntitlementStatus.ACTIVE) {
+        continue;
+      }
+
+      const includedBucket =
+        await this.billingRepo.findIncludedCreditBucketByEntitlementId(
+          entitlement.id,
+          tx,
+        );
+
+      if (!includedBucket) {
+        continue;
+      }
+
+      const revokedAmount = includedBucket.remainingAmount;
+      const canceledBucket = await this.billingRepo.updateCreditBucket(
+        includedBucket.id,
+        {
+          status: CreditBucketStatus.CANCELED,
+          remainingAmount: 0,
+        },
+        tx,
+      );
+      const bucketHistory = await this.appendRevocationHistory(
+        {
+          paymentId: payment.id,
+          paymentItemId: paymentItem.id,
+          targetType: RevocationTargetType.CREDIT_BUCKET,
+          targetId: includedBucket.id,
+          actionType: RevocationActionType.CLAWBACK,
+          fromStatus: includedBucket.status,
+          toStatus: CreditBucketStatus.CANCELED,
+          deltaAmount: -revokedAmount,
+          actorUserId: actor.userId,
+          actorRole: actor.role,
+          reason,
+          batchId,
+        },
+        tx,
+      );
+
+      if (revokedAmount <= 0) {
+        continue;
+      }
+
+      await this.appendCreditLedger(
+        {
+          instructorId: payment.instructorId,
+          creditBucketId: canceledBucket.id,
+          type: CreditLedgerType.ADJUST,
+          deltaAmount: -revokedAmount,
+          referenceType: 'PAYMENT_ITEM_REVOCATION',
+          referenceId: bucketHistory.id,
+          reason,
+        },
+        tx,
+      );
+    }
+
+    return targets.length > 0;
   }
 
   private getRechargeCreditExpiryDays(item: PaymentItem) {
@@ -1053,6 +1243,7 @@ export class BillingService {
     paymentId: string,
     instructorId: string,
     tx?: Prisma.TransactionClient,
+    unauthorizedMessage = '본인의 결제만 조회할 수 있습니다.',
   ) {
     const payment = await this.billingRepo.findPaymentById(paymentId, tx);
 
@@ -1061,30 +1252,10 @@ export class BillingService {
     }
 
     if (payment.instructorId !== instructorId) {
-      throw new ForbiddenException('본인의 결제만 조회할 수 있습니다.');
+      throw new ForbiddenException(unauthorizedMessage);
     }
 
     return payment;
-  }
-
-  private async assertRevocablePaymentItem(
-    paymentItemId: string,
-    tx?: Prisma.TransactionClient,
-  ) {
-    const paymentItem = await this.billingRepo.findPaymentItemById(
-      paymentItemId,
-      tx,
-    );
-
-    if (!paymentItem) {
-      throw new NotFoundException('결제 상품 정보를 찾을 수 없습니다.');
-    }
-
-    if (paymentItem.payment.status !== PaymentStatus.APPROVED) {
-      throw new BadRequestException('승인된 결제 상품만 회수할 수 있습니다.');
-    }
-
-    return paymentItem;
   }
 
   private getPaymentNotificationRecipient(
@@ -1277,6 +1448,12 @@ export class BillingService {
   }
 
   async createProduct(data: CreateBillingProductDto) {
+    if (data.code === BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO) {
+      throw new ConflictException(
+        '관리자 지급용 상품은 전용 엔드포인트로만 생성할 수 있습니다.',
+      );
+    }
+
     try {
       return await this.billingRepo.createProduct(
         this.sanitizeProductData(
@@ -1295,11 +1472,52 @@ export class BillingService {
     }
   }
 
+  async createAdminCreditGrantProduct() {
+    const existing = await this.billingRepo.findProductByCode(
+      BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+    );
+
+    if (existing) {
+      throw new ConflictException('관리자 지급용 상품이 이미 존재합니다.');
+    }
+
+    try {
+      return await this.billingRepo.createProduct({
+        ...ADMIN_CREDIT_GRANT_SYSTEM_PRODUCT,
+        highlights: [...ADMIN_CREDIT_GRANT_SYSTEM_PRODUCT.highlights],
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException('관리자 지급용 상품이 이미 존재합니다.');
+      }
+
+      throw error;
+    }
+  }
+
   async updateProduct(id: string, data: UpdateBillingProductDto) {
     const product = await this.billingRepo.findProductById(id);
 
     if (!product) {
       throw new NotFoundException('상품을 찾을 수 없습니다.');
+    }
+
+    if (product.code === BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO) {
+      throw new ConflictException(
+        '관리자 지급용 상품은 일반 상품 수정 API로 수정할 수 없습니다.',
+      );
+    }
+
+    if (
+      product.code !== BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO &&
+      data.code === BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO
+    ) {
+      throw new ConflictException(
+        '관리자 지급용 상품 코드는 일반 상품에 사용할 수 없습니다.',
+      );
     }
 
     try {
@@ -1521,6 +1739,52 @@ export class BillingService {
     return this.formatPayment(payment as PaymentWithRelations);
   }
 
+  async cancelInstructorPayment(
+    paymentId: string,
+    instructorId: string,
+    actor: Actor,
+  ) {
+    await this.prisma.$transaction(async (tx) => {
+      const payment = await this.assertInstructorPaymentOwner(
+        paymentId,
+        instructorId,
+        tx,
+        '본인의 결제만 취소할 수 있습니다.',
+      );
+
+      if (payment.status !== PaymentStatus.PENDING_DEPOSIT) {
+        throw new BadRequestException(
+          '입금 대기 상태에서만 결제 취소가 가능합니다.',
+        );
+      }
+
+      const canceledAt = new Date();
+
+      await this.updatePaymentWithStatusGuard(
+        paymentId,
+        {
+          status: PaymentStatus.CANCELED,
+          canceledAt,
+        },
+        payment.status,
+        tx,
+      );
+
+      await this.billingRepo.createPaymentStatusHistory(
+        {
+          paymentId,
+          fromStatus: payment.status,
+          toStatus: PaymentStatus.CANCELED,
+          actorUserId: actor.userId,
+          actorRole: actor.role,
+        },
+        tx,
+      );
+    });
+
+    return this.getInstructorPayment(paymentId, instructorId);
+  }
+
   async getPayment(paymentId: string) {
     const payment = await this.billingRepo.findPaymentById(paymentId);
 
@@ -1685,14 +1949,40 @@ export class BillingService {
       const hasRevocation = payment.items.some(
         (item) => (item.revocationHistories?.length ?? 0) > 0,
       );
-      const revokedRechargeCredits = await this.revokeRechargeCreditsForRefund(
-        payment as PaymentWithRelations,
-        actor,
-        this.resolveRefundReason(data.refundMemo),
-        tx,
-      );
+      const shouldAttemptPassRevocation =
+        !hasRevocation || data.revokeCount !== undefined;
+      const shouldAttemptRechargeRevocation = !hasRevocation;
+      let revokedPassEntitlements = false;
+      let revokedRechargeCredits = false;
 
-      if (!hasRevocation && !revokedRechargeCredits) {
+      if (shouldAttemptPassRevocation || shouldAttemptRechargeRevocation) {
+        const refundReason = this.resolveRefundReason(data.refundMemo);
+
+        if (shouldAttemptPassRevocation) {
+          revokedPassEntitlements = await this.revokePassEntitlementsForRefund(
+            payment as PaymentWithRelations,
+            data,
+            actor,
+            refundReason,
+            tx,
+          );
+        }
+
+        if (shouldAttemptRechargeRevocation) {
+          revokedRechargeCredits = await this.revokeRechargeCreditsForRefund(
+            payment as PaymentWithRelations,
+            actor,
+            refundReason,
+            tx,
+          );
+        }
+      }
+
+      if (
+        !hasRevocation &&
+        !revokedPassEntitlements &&
+        !revokedRechargeCredits
+      ) {
         throw new BadRequestException(
           '회수 이력이 있는 결제만 환불 상태를 변경할 수 있습니다.',
         );
@@ -1715,204 +2005,6 @@ export class BillingService {
     return this.getPayment(paymentId);
   }
 
-  async revokeEntitlementsByPaymentItem(
-    paymentItemId: string,
-    data: RevokeEntitlementsDto,
-    actor: Actor,
-  ) {
-    const initialItem = await this.assertRevocablePaymentItem(paymentItemId);
-
-    if (initialItem.productTypeSnapshot !== BillingProductType.PASS_SINGLE) {
-      throw new BadRequestException('이용권 상품만 회수할 수 있습니다.');
-    }
-
-    await this.reconcileInstructorState(initialItem.payment.instructorId);
-
-    const result = await this.prisma.$transaction(async (tx) => {
-      const paymentItem = await this.assertRevocablePaymentItem(
-        paymentItemId,
-        tx,
-      );
-
-      if (paymentItem.productTypeSnapshot !== BillingProductType.PASS_SINGLE) {
-        throw new BadRequestException('이용권 상품만 회수할 수 있습니다.');
-      }
-
-      const queuedEntitlements = paymentItem.entitlements
-        .filter(
-          (entitlement) => entitlement.status === EntitlementStatus.QUEUED,
-        )
-        .sort((a, b) => {
-          const startsAtGap = b.startsAt.getTime() - a.startsAt.getTime();
-
-          if (startsAtGap !== 0) {
-            return startsAtGap;
-          }
-
-          return b.sequenceNo - a.sequenceNo;
-        });
-      const activeEntitlement =
-        paymentItem.entitlements.find(
-          (entitlement) => entitlement.status === EntitlementStatus.ACTIVE,
-        ) ?? null;
-      const maxRevocableCount =
-        queuedEntitlements.length + (activeEntitlement ? 1 : 0);
-
-      if (maxRevocableCount === 0) {
-        throw new BadRequestException('회수할 수 있는 이용권이 없습니다.');
-      }
-
-      if (data.revokeCount > maxRevocableCount) {
-        throw new BadRequestException(
-          '회수할 수 있는 이용권 수를 초과했습니다.',
-        );
-      }
-
-      const targets = queuedEntitlements.slice(0, data.revokeCount);
-
-      if (targets.length < data.revokeCount) {
-        if (!activeEntitlement) {
-          throw new BadRequestException('회수할 수 있는 이용권이 없습니다.');
-        }
-
-        if (!data.allowActiveRevoke) {
-          throw new ConflictException(
-            BillingErrorCode.ACTIVE_REVOKE_CONFIRM_REQUIRED,
-          );
-        }
-
-        targets.push(activeEntitlement);
-      }
-
-      const batchId = randomUUID();
-      const revokedEntitlements = [];
-      const revokedCreditBuckets = [];
-
-      for (const entitlement of targets) {
-        const canceledEntitlement = await this.billingRepo.updateEntitlement(
-          entitlement.id,
-          {
-            status: EntitlementStatus.CANCELED,
-            canceledAt: new Date(),
-          },
-          tx,
-        );
-
-        const entitlementHistory = await this.appendRevocationHistory(
-          {
-            paymentId: paymentItem.paymentId,
-            paymentItemId: paymentItem.id,
-            targetType: RevocationTargetType.ENTITLEMENT,
-            targetId: entitlement.id,
-            actionType: RevocationActionType.CANCEL,
-            fromStatus: entitlement.status,
-            toStatus: EntitlementStatus.CANCELED,
-            actorUserId: actor.userId,
-            actorRole: actor.role,
-            reason: data.reason,
-            batchId,
-          },
-          tx,
-        );
-
-        revokedEntitlements.push({
-          ...canceledEntitlement,
-          revocationReason: entitlementHistory.reason,
-          revocationBatchId: entitlementHistory.batchId,
-        });
-
-        if (entitlement.status !== EntitlementStatus.ACTIVE) {
-          continue;
-        }
-
-        const includedBucket =
-          await this.billingRepo.findIncludedCreditBucketByEntitlementId(
-            entitlement.id,
-            tx,
-          );
-
-        if (!includedBucket) {
-          continue;
-        }
-
-        const revokedAmount = includedBucket.remainingAmount;
-        const canceledBucket = await this.billingRepo.updateCreditBucket(
-          includedBucket.id,
-          {
-            status: CreditBucketStatus.CANCELED,
-            remainingAmount: 0,
-          },
-          tx,
-        );
-        const bucketHistory = await this.appendRevocationHistory(
-          {
-            paymentId: paymentItem.paymentId,
-            paymentItemId: paymentItem.id,
-            targetType: RevocationTargetType.CREDIT_BUCKET,
-            targetId: includedBucket.id,
-            actionType: RevocationActionType.CLAWBACK,
-            fromStatus: includedBucket.status,
-            toStatus: CreditBucketStatus.CANCELED,
-            deltaAmount: -revokedAmount,
-            actorUserId: actor.userId,
-            actorRole: actor.role,
-            reason: data.reason,
-            batchId,
-          },
-          tx,
-        );
-
-        if (revokedAmount > 0) {
-          await this.appendCreditLedger(
-            {
-              instructorId: paymentItem.payment.instructorId,
-              creditBucketId: canceledBucket.id,
-              type: CreditLedgerType.ADJUST,
-              deltaAmount: -revokedAmount,
-              referenceType: 'PAYMENT_ITEM_REVOCATION',
-              referenceId: bucketHistory.id,
-              reason: data.reason,
-            },
-            tx,
-          );
-        } else {
-          await this.refreshCreditWallet(paymentItem.payment.instructorId, tx);
-        }
-
-        revokedCreditBuckets.push({
-          ...canceledBucket,
-          revokedAmount,
-          revocationBatchId: bucketHistory.batchId,
-          revocationReason: bucketHistory.reason,
-        });
-      }
-
-      await this.markPaymentRefundPending(paymentItem.paymentId, tx);
-
-      const wallet = await this.refreshCreditWallet(
-        paymentItem.payment.instructorId,
-        tx,
-      );
-
-      return {
-        paymentId: paymentItem.paymentId,
-        paymentItemId: paymentItem.id,
-        batchId,
-        revokedEntitlements,
-        revokedCreditBuckets,
-        wallet,
-      };
-    });
-
-    return {
-      ...result,
-      accessStatus: await this.getMgmtAccessStatus(
-        initialItem.payment.instructorId,
-      ),
-      payment: await this.getPayment(initialItem.paymentId),
-    };
-  }
-
   async updateReceiptRequest(
     id: string,
     data: { status: string; reviewMemo?: string },
@@ -1930,11 +2022,18 @@ export class BillingService {
     });
   }
 
-  async reconcileInstructorState(instructorId: string, now: Date = new Date()) {
+  async reconcileInstructorState(
+    instructorId: string,
+    now: Date = new Date(),
+    signal?: AbortSignal,
+  ) {
+    throwIfAborted(signal);
+
     return this.prisma.$transaction(async (tx) => {
       let guard = 0;
 
       while (guard < 120) {
+        throwIfAborted(signal);
         guard += 1;
 
         const expiringEntitlement = (
@@ -1981,6 +2080,7 @@ export class BillingService {
       );
 
       for (const bucket of expiringBuckets) {
+        throwIfAborted(signal);
         await this.expireCreditBucket(bucket, now, tx);
       }
 
@@ -2001,7 +2101,9 @@ export class BillingService {
     });
   }
 
-  async reconcileAllBilling(now: Date = new Date()) {
+  async reconcileAllBilling(now: Date = new Date(), signal?: AbortSignal) {
+    throwIfAborted(signal);
+
     const [expiredEntitlements, readyQueuedEntitlements, expiringBuckets] =
       await Promise.all([
         this.billingRepo.listEntitlementsToExpire(now),
@@ -2021,7 +2123,10 @@ export class BillingService {
 
     const results = [];
     for (const instructorId of instructorIds) {
-      results.push(await this.reconcileInstructorState(instructorId, now));
+      throwIfAborted(signal);
+      results.push(
+        await this.reconcileInstructorState(instructorId, now, signal),
+      );
     }
 
     return {

@@ -8,6 +8,8 @@ import {
   BillingMode,
   BillingProductType,
   BillingSystemProductCode,
+  CreditBucketStatus,
+  EntitlementStatus,
   PaymentMethodType,
   PaymentRefundStatus,
   PaymentStatus,
@@ -132,7 +134,7 @@ describe('결제 BDD 테스트 - @integration', () => {
         paymentMethodType: PaymentMethodType.BANK_TRANSFER,
         durationMonths: null,
         includedCreditAmount: 0,
-        rechargeCreditAmount: 1,
+        rechargeCreditAmount: 0,
         price: 0,
         isActive: false,
         sortOrder: 9999,
@@ -339,6 +341,69 @@ describe('결제 BDD 테스트 - @integration', () => {
     );
   });
 
+  it('강사는 입금 대기 중인 본인 무통장 결제를 취소할 수 있어야 한다', async () => {
+    mockInstructorSession();
+
+    const product = await prisma.billingProduct.create({
+      data: {
+        code: 'MGMT_CANCELABLE_CREDIT_PACK',
+        name: '취소 가능한 강사용 크레딧 충전권',
+        description: '입금 대기 중 강사가 취소할 수 있는 충전권',
+        highlights: ['무통장 전용', '취소 가능'],
+        productType: BillingProductType.CREDIT_PACK,
+        billingMode: BillingMode.ONE_TIME,
+        paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+        durationMonths: null,
+        includedCreditAmount: 0,
+        rechargeCreditAmount: 3000,
+        price: 33000,
+        isActive: true,
+        sortOrder: 1,
+      },
+    });
+
+    const createRes = await request(app)
+      .post('/api/mgmt/v1/billing/payments/bank-transfer')
+      .send({
+        productId: product.id,
+        quantity: 1,
+        depositorName: '강사 본인',
+        depositorBankName: '국민은행',
+      });
+
+    expect(createRes.status).toBe(201);
+    expect(createRes.body.status).toBe('success');
+    expect(createRes.body.data.status).toBe(PaymentStatus.PENDING_DEPOSIT);
+
+    const cancelRes = await request(app)
+      .post(`/api/mgmt/v1/billing/payments/${createRes.body.data.id}/cancel`)
+      .send({});
+
+    expect(cancelRes.status).toBe(200);
+    expect(cancelRes.body.status).toBe('success');
+    expect(cancelRes.body.message).toBe('결제 취소 성공');
+    expect(cancelRes.body.data.id).toBe(createRes.body.data.id);
+    expect(cancelRes.body.data.status).toBe(PaymentStatus.CANCELED);
+    expect(cancelRes.body.data.canceledAt).not.toBeNull();
+
+    const savedPayment = await prisma.payment.findUnique({
+      where: { id: createRes.body.data.id },
+      include: {
+        statusHistory: {
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    expect(savedPayment).not.toBeNull();
+    expect(savedPayment?.status).toBe(PaymentStatus.CANCELED);
+    expect(savedPayment?.canceledAt).not.toBeNull();
+    expect(savedPayment?.statusHistory).toHaveLength(2);
+    expect(savedPayment?.statusHistory[1].toStatus).toBe(
+      PaymentStatus.CANCELED,
+    );
+  });
+
   it('관리자가 0원 충전권을 지급하면 실제 API 응답과 강사 조회 결과에 반영되어야 한다', async () => {
     mockAdminSession();
 
@@ -416,6 +481,54 @@ describe('결제 BDD 테스트 - @integration', () => {
     expect(creditsRes.body.data.totalAvailable).toBe(1500);
   });
 
+  it('관리자가 전용 엔드포인트로 관리자 지급용 상품을 생성할 수 있어야 한다', async () => {
+    mockAdminSession();
+
+    await prisma.billingProduct.delete({
+      where: { code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO },
+    });
+
+    const response = await request(app)
+      .post('/api/admin/v1/billing/system-products/admin-credit-grant')
+      .send({});
+
+    expect(response.status).toBe(201);
+    expect(response.body.status).toBe('success');
+    expect(response.body.message).toBe('관리자 지급용 상품 생성 성공');
+    expect(response.body.data).toMatchObject({
+      code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+      name: '관리자 지급 전용 충전권',
+      productType: BillingProductType.CREDIT_PACK,
+      billingMode: BillingMode.ONE_TIME,
+      paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+      durationMonths: null,
+      includedCreditAmount: 0,
+      rechargeCreditAmount: 0,
+      price: 0,
+      isActive: false,
+      sortOrder: 9999,
+    });
+
+    const savedProduct = await prisma.billingProduct.findUnique({
+      where: { code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO },
+    });
+
+    expect(savedProduct).not.toBeNull();
+    expect(savedProduct?.id).toBe(response.body.data.id);
+  });
+
+  it('관리자 지급용 상품이 이미 있으면 전용 생성 엔드포인트는 409를 반환해야 한다', async () => {
+    mockAdminSession();
+
+    const response = await request(app)
+      .post('/api/admin/v1/billing/system-products/admin-credit-grant')
+      .send({});
+
+    expect(response.status).toBe(409);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toBe('관리자 지급용 상품이 이미 존재합니다.');
+  });
+
   it('관리자 지급 충전권도 환불 상태 변경으로만 정리할 수 있어야 한다', async () => {
     mockAdminSession();
 
@@ -474,6 +587,50 @@ describe('결제 BDD 테스트 - @integration', () => {
     expect(refundCompletedRes.body.data.hasRevocation).toBe(true);
     expect(refundCompletedRes.body.data.revokedRechargeAmount).toBe(900);
     expect(refundCompletedRes.body.data.estimatedRefundAmount).toBe(0);
+  });
+
+  it('관리자가 이용권 결제도 환불 상태 변경으로만 회수할 수 있어야 한다', async () => {
+    mockAdminSession();
+
+    const seeded = await seedActiveInstructorEntitlement(instructor.id);
+
+    const refundPendingRes = await request(app)
+      .patch(
+        `/api/admin/v1/billing/payments/${seeded.payment.id}/refund-status`,
+      )
+      .send({
+        refundStatus: PaymentRefundStatus.PENDING,
+        refundMemo: '이용권 환불 접수',
+        allowActiveRevoke: true,
+      });
+
+    expect(refundPendingRes.status).toBe(200);
+    expect(refundPendingRes.body.status).toBe('success');
+    expect(refundPendingRes.body.message).toBe('환불 상태 변경 성공');
+    expect(refundPendingRes.body.data.id).toBe(seeded.payment.id);
+    expect(refundPendingRes.body.data.refundStatus).toBe(
+      PaymentRefundStatus.PENDING,
+    );
+    expect(refundPendingRes.body.data.hasRevocation).toBe(true);
+    expect(refundPendingRes.body.data.revokedEntitlementCount).toBe(1);
+
+    const refreshedEntitlement = await prisma.entitlement.findUnique({
+      where: { id: seeded.entitlement.id },
+    });
+    const refreshedBucket = await prisma.creditBucket.findUnique({
+      where: { id: seeded.creditBucket.id },
+    });
+
+    expect(refreshedEntitlement?.status).toBe(EntitlementStatus.CANCELED);
+    expect(refreshedBucket?.status).toBe(CreditBucketStatus.CANCELED);
+    expect(refreshedBucket?.remainingAmount).toBe(0);
+
+    mockInstructorSession();
+
+    const creditsRes = await request(app).get('/api/mgmt/v1/billing/credits');
+
+    expect(creditsRes.status).toBe(200);
+    expect(creditsRes.body.data.totalAvailable).toBe(0);
   });
 
   it('관리자가 특정 강사의 결제, 이용권, 충전권 상태를 조회할 수 있어야 한다', async () => {

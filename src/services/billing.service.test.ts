@@ -9,6 +9,7 @@ import { BillingRepository } from '../repos/billing.repo.js';
 import { Prisma, PrismaClient } from '../generated/prisma/client.js';
 import {
   BillingErrorCode,
+  BillingMode,
   BillingProductType,
   BillingSystemProductCode,
   CreditBucketStatus,
@@ -55,8 +56,11 @@ describe('BillingService', () => {
 
     mockBillingRepo = {
       listActiveProducts: jest.fn(),
+      listProducts: jest.fn(),
       findProductById: jest.fn(),
       findProductByCode: jest.fn(),
+      createProduct: jest.fn(),
+      updateProduct: jest.fn(),
       findInstructorById: jest.fn(),
       createPayment: jest.fn(),
       createPaymentItem: jest.fn(),
@@ -140,6 +144,160 @@ describe('BillingService', () => {
       expect.objectContaining({ id: 'product-pass-single' }),
       expect.objectContaining({ id: 'product-credit-pack' }),
     ]);
+  });
+
+  it('관리자 지급용 상품 전용 생성 시 고정 스펙으로 저장해야 한다', async () => {
+    const createdProduct = {
+      id: 'product-admin-grant',
+      code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+    };
+
+    (mockBillingRepo.findProductByCode as jest.Mock).mockResolvedValue(null);
+    (mockBillingRepo.createProduct as jest.Mock).mockResolvedValue(
+      createdProduct,
+    );
+
+    const result = await service.createAdminCreditGrantProduct();
+
+    expect(mockBillingRepo.createProduct).toHaveBeenCalledWith({
+      code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+      name: '관리자 지급 전용 충전권',
+      description: '관리자가 강사에게 직접 지급하는 0원 충전권',
+      highlights: ['관리자 전용', '0원 충전권'],
+      productType: BillingProductType.CREDIT_PACK,
+      billingMode: BillingMode.ONE_TIME,
+      paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+      durationMonths: null,
+      includedCreditAmount: 0,
+      rechargeCreditAmount: 0,
+      price: 0,
+      isActive: false,
+      sortOrder: 9999,
+    });
+    expect(result).toBe(createdProduct);
+  });
+
+  it('관리자 지급용 상품이 이미 있으면 전용 생성은 막아야 한다', async () => {
+    (mockBillingRepo.findProductByCode as jest.Mock).mockResolvedValue({
+      id: 'product-admin-grant',
+      code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+    });
+
+    await expect(service.createAdminCreditGrantProduct()).rejects.toThrow(
+      new ConflictException('관리자 지급용 상품이 이미 존재합니다.'),
+    );
+
+    expect(mockBillingRepo.createProduct).not.toHaveBeenCalled();
+  });
+
+  it('일반 상품 생성 API에서는 관리자 지급용 상품 코드를 사용할 수 없어야 한다', async () => {
+    await expect(
+      service.createProduct({
+        code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+        name: '임의 상품명',
+        description: '임의 설명',
+        highlights: ['임의 하이라이트'],
+        productType: BillingProductType.CREDIT_PACK,
+        billingMode: BillingMode.ONE_TIME,
+        paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+        includedCreditAmount: 0,
+        rechargeCreditAmount: 1,
+        price: 0,
+        isActive: false,
+        sortOrder: 9999,
+      }),
+    ).rejects.toThrow(
+      new ConflictException(
+        '관리자 지급용 상품은 전용 엔드포인트로만 생성할 수 있습니다.',
+      ),
+    );
+
+    expect(mockBillingRepo.createProduct).not.toHaveBeenCalled();
+  });
+
+  it('일반 크레딧 충전권 생성 시 충전 크레딧 수량은 1 이상이어야 한다', async () => {
+    await expect(
+      service.createProduct({
+        code: 'CREDIT_PACK_ZERO',
+        name: '0크레딧 충전권',
+        description: '잘못된 충전권',
+        highlights: [],
+        productType: BillingProductType.CREDIT_PACK,
+        billingMode: BillingMode.ONE_TIME,
+        paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+        includedCreditAmount: 0,
+        rechargeCreditAmount: 0,
+        price: 0,
+        isActive: false,
+        sortOrder: 99,
+      }),
+    ).rejects.toThrow(
+      new BadRequestException('크레딧 충전권은 충전 크레딧 수량이 필요합니다.'),
+    );
+
+    expect(mockBillingRepo.createProduct).not.toHaveBeenCalled();
+  });
+
+  it('관리자 지급용 상품은 일반 상품 수정 API로 수정할 수 없어야 한다', async () => {
+    (mockBillingRepo.findProductById as jest.Mock).mockResolvedValue({
+      id: 'product-admin-grant',
+      code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+      name: '관리자 지급 전용 충전권',
+      description: '관리자가 강사에게 직접 지급하는 0원 충전권',
+      highlights: ['관리자 전용', '0원 충전권'],
+      productType: BillingProductType.CREDIT_PACK,
+      billingMode: BillingMode.ONE_TIME,
+      paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+      durationMonths: null,
+      includedCreditAmount: 0,
+      rechargeCreditAmount: 0,
+      price: 0,
+      isActive: false,
+      sortOrder: 9999,
+    });
+
+    await expect(
+      service.updateProduct('product-admin-grant', {
+        name: '바뀐 이름',
+      }),
+    ).rejects.toThrow(
+      new ConflictException(
+        '관리자 지급용 상품은 일반 상품 수정 API로 수정할 수 없습니다.',
+      ),
+    );
+
+    expect(mockBillingRepo.updateProduct).not.toHaveBeenCalled();
+  });
+
+  it('일반 상품을 관리자 지급 시스템 상품 코드로 수정할 수 없어야 한다', async () => {
+    (mockBillingRepo.findProductById as jest.Mock).mockResolvedValue({
+      id: 'product-credit-pack',
+      code: 'CREDIT_PACK_3000',
+      name: '크레딧 충전권 3000',
+      description: '일반 충전권',
+      highlights: ['추가 크레딧 3000'],
+      productType: BillingProductType.CREDIT_PACK,
+      billingMode: BillingMode.ONE_TIME,
+      paymentMethodType: PaymentMethodType.BANK_TRANSFER,
+      durationMonths: null,
+      includedCreditAmount: 0,
+      rechargeCreditAmount: 3000,
+      price: 33000,
+      isActive: true,
+      sortOrder: 1,
+    });
+
+    await expect(
+      service.updateProduct('product-credit-pack', {
+        code: BillingSystemProductCode.ADMIN_CREDIT_GRANT_ZERO,
+      }),
+    ).rejects.toThrow(
+      new ConflictException(
+        '관리자 지급용 상품 코드는 일반 상품에 사용할 수 없습니다.',
+      ),
+    );
+
+    expect(mockBillingRepo.updateProduct).not.toHaveBeenCalled();
   });
 
   it('무통장 결제 생성 시 payment/item/history/receipt를 함께 저장해야 한다', async () => {
@@ -441,6 +599,87 @@ describe('BillingService', () => {
       resolveMail();
       await flushMicrotasks(1);
     }
+  });
+
+  it('강사는 입금 대기 중인 본인 무통장 결제를 취소할 수 있어야 한다', async () => {
+    const payment = {
+      id: 'payment-cancel',
+      instructorId: 'instructor-1',
+      status: PaymentStatus.PENDING_DEPOSIT,
+      items: [],
+    };
+
+    jest.spyOn(service, 'getInstructorPayment').mockResolvedValue({
+      id: 'payment-cancel',
+      status: PaymentStatus.CANCELED,
+    } as never);
+    (mockBillingRepo.findPaymentById as jest.Mock).mockResolvedValue(payment);
+
+    await service.cancelInstructorPayment('payment-cancel', 'instructor-1', {
+      userId: 'user-1',
+      role: 'INSTRUCTOR',
+    });
+
+    expect(mockBillingRepo.updatePayment).toHaveBeenCalledWith(
+      'payment-cancel',
+      expect.objectContaining({
+        status: PaymentStatus.CANCELED,
+        canceledAt: expect.any(Date),
+      }),
+      expect.anything(),
+      PaymentStatus.PENDING_DEPOSIT,
+    );
+    expect(mockBillingRepo.createPaymentStatusHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentId: 'payment-cancel',
+        fromStatus: PaymentStatus.PENDING_DEPOSIT,
+        toStatus: PaymentStatus.CANCELED,
+        actorUserId: 'user-1',
+        actorRole: 'INSTRUCTOR',
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('강사는 입금 대기 상태가 아닌 결제를 취소할 수 없어야 한다', async () => {
+    (mockBillingRepo.findPaymentById as jest.Mock).mockResolvedValue({
+      id: 'payment-approved',
+      instructorId: 'instructor-1',
+      status: PaymentStatus.APPROVED,
+      items: [],
+    });
+
+    await expect(
+      service.cancelInstructorPayment('payment-approved', 'instructor-1', {
+        userId: 'user-1',
+        role: 'INSTRUCTOR',
+      }),
+    ).rejects.toThrow(
+      new BadRequestException('입금 대기 상태에서만 결제 취소가 가능합니다.'),
+    );
+
+    expect(mockBillingRepo.updatePayment).not.toHaveBeenCalled();
+    expect(mockBillingRepo.createPaymentStatusHistory).not.toHaveBeenCalled();
+  });
+
+  it('강사는 본인 결제만 취소할 수 있어야 한다', async () => {
+    (mockBillingRepo.findPaymentById as jest.Mock).mockResolvedValue({
+      id: 'payment-foreign',
+      instructorId: 'instructor-2',
+      status: PaymentStatus.PENDING_DEPOSIT,
+      items: [],
+    });
+
+    await expect(
+      service.cancelInstructorPayment('payment-foreign', 'instructor-1', {
+        userId: 'user-1',
+        role: 'INSTRUCTOR',
+      }),
+    ).rejects.toThrow(
+      new ForbiddenException('본인의 결제만 취소할 수 있습니다.'),
+    );
+
+    expect(mockBillingRepo.updatePayment).not.toHaveBeenCalled();
   });
 
   it('관리자가 0원 충전권을 지급하면 승인 결제와 사용자 지정 만료일 크레딧을 생성해야 한다', async () => {
@@ -1352,7 +1591,7 @@ describe('BillingService', () => {
     );
   });
 
-  it('최신 queued entitlement부터 회수해야 한다', async () => {
+  it('환불 상태 변경 시 최신 queued entitlement부터 회수해야 한다', async () => {
     const queuedOld = {
       id: 'entitlement-old',
       instructorId: 'instructor-1',
@@ -1407,10 +1646,19 @@ describe('BillingService', () => {
       batchId: 'batch-1',
       createdAt: new Date('2026-03-24T00:00:00.000Z'),
     };
-    const paymentDetail = {
+    const refundTargetPayment = {
       id: 'payment-pass',
       instructorId: 'instructor-1',
       status: PaymentStatus.APPROVED,
+      refundStatus: PaymentRefundStatus.NONE,
+      items: [paymentItem],
+      receiptRequest: null,
+      statusHistory: [],
+    };
+    const paymentDetail = {
+      ...refundTargetPayment,
+      refundStatus: PaymentRefundStatus.PENDING,
+      refundMemo: '환불 승인',
       items: [
         {
           ...paymentItem,
@@ -1421,9 +1669,6 @@ describe('BillingService', () => {
       ],
     };
 
-    (mockBillingRepo.findPaymentItemById as jest.Mock)
-      .mockResolvedValueOnce(paymentItem)
-      .mockResolvedValueOnce(paymentItem);
     jest.spyOn(service, 'reconcileInstructorState').mockResolvedValue({
       wallet: {
         totalAvailable: 0,
@@ -1443,14 +1688,16 @@ describe('BillingService', () => {
       [],
     );
     (mockBillingRepo.findPaymentById as jest.Mock)
+      .mockResolvedValueOnce(refundTargetPayment)
       .mockResolvedValueOnce(paymentDetail)
       .mockResolvedValueOnce(paymentDetail);
 
-    const result = await service.revokeEntitlementsByPaymentItem(
-      'item-pass',
+    const result = await service.updatePaymentRefundStatus(
+      'payment-pass',
       {
+        refundStatus: PaymentRefundStatus.PENDING,
+        refundMemo: '환불 승인',
         revokeCount: 1,
-        reason: '환불 승인',
       },
       {
         userId: 'admin-1',
@@ -1469,16 +1716,16 @@ describe('BillingService', () => {
       'payment-pass',
       expect.objectContaining({
         refundStatus: PaymentRefundStatus.PENDING,
+        refundMemo: '환불 승인',
         refundCompletedAt: null,
       }),
       expect.anything(),
     );
-    expect(result.revokedEntitlements).toHaveLength(1);
-    expect(result.payment.hasRevocation).toBe(true);
-    expect(result.payment.revokedEntitlementCount).toBe(1);
+    expect(result.hasRevocation).toBe(true);
+    expect(result.revokedEntitlementCount).toBe(1);
   });
 
-  it('active entitlement 회수는 allowActiveRevoke 없이는 막아야 한다', async () => {
+  it('active entitlement 환불은 allowActiveRevoke 없이는 막아야 한다', async () => {
     const activeEntitlement = {
       id: 'entitlement-active',
       instructorId: 'instructor-1',
@@ -1505,26 +1752,27 @@ describe('BillingService', () => {
       creditBuckets: [],
       revocationHistories: [],
     };
+    const refundTargetPayment = {
+      id: 'payment-pass',
+      instructorId: 'instructor-1',
+      status: PaymentStatus.APPROVED,
+      refundStatus: PaymentRefundStatus.NONE,
+      items: [paymentItem],
+      receiptRequest: null,
+      statusHistory: [],
+    };
 
-    (mockBillingRepo.findPaymentItemById as jest.Mock)
-      .mockResolvedValueOnce(paymentItem)
-      .mockResolvedValueOnce(paymentItem);
-    jest.spyOn(service, 'reconcileInstructorState').mockResolvedValue({
-      wallet: {
-        totalAvailable: IncludedCreditPolicy.MONTHLY_AMOUNT,
-        includedAvailable: IncludedCreditPolicy.MONTHLY_AMOUNT,
-        rechargeAvailable: 0,
-      },
-      entitlements: [activeEntitlement],
-      activeEntitlement,
-    } as never);
+    (mockBillingRepo.findPaymentById as jest.Mock).mockResolvedValue(
+      refundTargetPayment,
+    );
 
     await expect(
-      service.revokeEntitlementsByPaymentItem(
-        'item-pass',
+      service.updatePaymentRefundStatus(
+        'payment-pass',
         {
+          refundStatus: PaymentRefundStatus.PENDING,
+          refundMemo: '환불 승인',
           revokeCount: 1,
-          reason: '환불 승인',
         },
         {
           userId: 'admin-1',
@@ -1536,7 +1784,7 @@ describe('BillingService', () => {
     );
   });
 
-  it('active entitlement 회수 시 포함 크레딧을 함께 소멸시켜야 한다', async () => {
+  it('active entitlement 환불 시 포함 크레딧을 함께 소멸시켜야 한다', async () => {
     const activeEntitlement = {
       id: 'entitlement-active',
       instructorId: 'instructor-1',
@@ -1607,10 +1855,20 @@ describe('BillingService', () => {
       batchId: 'batch-2',
       createdAt: new Date('2026-03-24T00:00:00.000Z'),
     };
-    const paymentDetail = {
+    const refundTargetPayment = {
       id: 'payment-pass',
       instructorId: 'instructor-1',
       status: PaymentStatus.APPROVED,
+      refundStatus: PaymentRefundStatus.NONE,
+      items: [paymentItem],
+      receiptRequest: null,
+      statusHistory: [],
+    };
+    const paymentDetail = {
+      ...refundTargetPayment,
+      refundStatus: PaymentRefundStatus.COMPLETED,
+      refundMemo: '환불 승인',
+      refundCompletedAt: new Date('2026-03-24T00:00:00.000Z'),
       items: [
         {
           ...paymentItem,
@@ -1633,9 +1891,6 @@ describe('BillingService', () => {
       ],
     };
 
-    (mockBillingRepo.findPaymentItemById as jest.Mock)
-      .mockResolvedValueOnce(paymentItem)
-      .mockResolvedValueOnce(paymentItem);
     jest.spyOn(service, 'reconcileInstructorState').mockResolvedValue({
       wallet: {
         totalAvailable: 600,
@@ -1665,14 +1920,16 @@ describe('BillingService', () => {
       [],
     );
     (mockBillingRepo.findPaymentById as jest.Mock)
+      .mockResolvedValueOnce(refundTargetPayment)
       .mockResolvedValueOnce(paymentDetail)
       .mockResolvedValueOnce(paymentDetail);
 
-    const result = await service.revokeEntitlementsByPaymentItem(
-      'item-pass',
+    const result = await service.updatePaymentRefundStatus(
+      'payment-pass',
       {
+        refundStatus: PaymentRefundStatus.COMPLETED,
+        refundMemo: '환불 승인',
         revokeCount: 1,
-        reason: '환불 승인',
         allowActiveRevoke: true,
       },
       {
@@ -1698,7 +1955,16 @@ describe('BillingService', () => {
       }),
       expect.anything(),
     );
-    expect(result.payment.hasRevocation).toBe(true);
+    expect(mockBillingRepo.updatePayment).toHaveBeenCalledWith(
+      'payment-pass',
+      expect.objectContaining({
+        refundStatus: PaymentRefundStatus.COMPLETED,
+        refundMemo: '환불 승인',
+        refundCompletedAt: expect.any(Date),
+      }),
+      expect.anything(),
+    );
+    expect(result.hasRevocation).toBe(true);
   });
 
   it('환불 상태를 대기로 바꾸면 남은 충전 크레딧도 함께 정리해야 한다', async () => {
@@ -2262,6 +2528,146 @@ describe('BillingService', () => {
     );
     expect(result.refundStatus).toBe(PaymentRefundStatus.COMPLETED);
     expect(result.refundMemo).toBe('계좌이체 환불 완료');
+  });
+
+  it('회수 이력이 있는 결제의 후속 환불 상태 변경은 추가 회수를 시도하지 않아야 한다', async () => {
+    const queuedEntitlement = {
+      id: 'entitlement-queued-live',
+      instructorId: 'instructor-1',
+      paymentItemId: 'item-pass',
+      sequenceNo: 2,
+      status: EntitlementStatus.QUEUED,
+      startsAt: new Date('2026-04-23T15:00:00.000Z'),
+      endsAt: new Date('2026-05-23T14:59:59.999Z'),
+      activatedAt: null,
+      expiredAt: null,
+      canceledAt: null,
+      includedCreditAmount: IncludedCreditPolicy.MONTHLY_AMOUNT,
+    };
+    const rechargeBucket = {
+      id: 'bucket-recharge-live',
+      instructorId: 'instructor-1',
+      paymentItemId: 'item-credit',
+      entitlementId: null,
+      sourceType: CreditSourceType.RECHARGE_PACK,
+      status: CreditBucketStatus.ACTIVE,
+      originalAmount: 3000,
+      remainingAmount: 1800,
+      grantedAt: new Date('2026-03-24T00:00:00.000Z'),
+      expiresAt: new Date('2026-06-22T14:59:59.999Z'),
+    };
+    const existingRevocationHistory = {
+      id: 'revoke-history',
+      paymentId: 'payment-refund',
+      paymentItemId: 'item-pass',
+      targetType: RevocationTargetType.ENTITLEMENT,
+      targetId: 'entitlement-queued-revoked',
+      actionType: RevocationActionType.CANCEL,
+      fromStatus: EntitlementStatus.QUEUED,
+      toStatus: EntitlementStatus.CANCELED,
+      deltaAmount: 0,
+      actorUserId: 'admin-1',
+      actorRole: 'admin',
+      reason: '환불 승인',
+      batchId: 'refund-batch-4',
+      createdAt: new Date('2026-03-30T00:00:00.000Z'),
+    };
+    const revokedPayment = {
+      id: 'payment-refund',
+      instructorId: 'instructor-1',
+      status: PaymentStatus.APPROVED,
+      refundStatus: PaymentRefundStatus.PENDING,
+      items: [
+        {
+          id: 'item-pass',
+          paymentId: 'payment-refund',
+          productTypeSnapshot: BillingProductType.PASS_SINGLE,
+          totalPrice: 300000,
+          quantity: 2,
+          rechargeCreditAmountSnapshot: 0,
+          entitlements: [queuedEntitlement],
+          creditBuckets: [],
+          revocationHistories: [existingRevocationHistory],
+        },
+        {
+          id: 'item-credit',
+          paymentId: 'payment-refund',
+          productTypeSnapshot: BillingProductType.CREDIT_PACK,
+          totalPrice: 90000,
+          quantity: 1,
+          rechargeCreditAmountSnapshot: 3000,
+          entitlements: [],
+          creditBuckets: [rechargeBucket],
+          revocationHistories: [],
+        },
+      ],
+      receiptRequest: null,
+      statusHistory: [],
+    };
+    const completedPayment = {
+      ...revokedPayment,
+      refundStatus: PaymentRefundStatus.COMPLETED,
+      refundMemo: '계좌이체 환불 완료',
+      refundCompletedAt: new Date('2026-03-24T00:00:00.000Z'),
+    };
+    const serviceInternals = service as unknown as Record<
+      string,
+      (...args: never[]) => unknown
+    >;
+    const resolveRefundReasonSpy = jest.spyOn(
+      serviceInternals,
+      'resolveRefundReason',
+    );
+    const revokePassSpy = jest.spyOn(
+      serviceInternals,
+      'revokePassEntitlementsForRefund',
+    );
+    const revokeRechargeSpy = jest.spyOn(
+      serviceInternals,
+      'revokeRechargeCreditsForRefund',
+    );
+
+    (mockBillingRepo.findPaymentById as jest.Mock)
+      .mockResolvedValueOnce(revokedPayment)
+      .mockResolvedValueOnce(completedPayment)
+      .mockResolvedValueOnce(completedPayment);
+    (
+      mockBillingRepo.findRechargeCreditBucketByPaymentItemId as jest.Mock
+    ).mockResolvedValue(rechargeBucket);
+    jest.spyOn(service, 'reconcileInstructorState').mockResolvedValue({
+      wallet: {
+        totalAvailable: 0,
+        includedAvailable: 0,
+        rechargeAvailable: 1800,
+      },
+      entitlements: [queuedEntitlement],
+      activeEntitlement: null,
+    } as never);
+
+    const result = await service.updatePaymentRefundStatus('payment-refund', {
+      refundStatus: PaymentRefundStatus.COMPLETED,
+      refundMemo: '계좌이체 환불 완료',
+    });
+
+    expect(resolveRefundReasonSpy).not.toHaveBeenCalled();
+    expect(revokePassSpy).not.toHaveBeenCalled();
+    expect(revokeRechargeSpy).not.toHaveBeenCalled();
+    expect(mockBillingRepo.updateEntitlement).not.toHaveBeenCalled();
+    expect(mockBillingRepo.updateCreditBucket).not.toHaveBeenCalled();
+    expect(
+      mockBillingRepo.createPaymentItemRevocationHistory,
+    ).not.toHaveBeenCalled();
+    expect(mockBillingRepo.createCreditLedger).not.toHaveBeenCalled();
+    expect(mockBillingRepo.updatePayment).toHaveBeenCalledWith(
+      'payment-refund',
+      expect.objectContaining({
+        refundStatus: PaymentRefundStatus.COMPLETED,
+        refundMemo: '계좌이체 환불 완료',
+        refundCompletedAt: expect.any(Date),
+      }),
+      expect.anything(),
+    );
+    expect(result.refundStatus).toBe(PaymentRefundStatus.COMPLETED);
   });
 
   it('회수 이력도 남은 충전 크레딧도 없으면 환불 상태 변경을 막아야 한다', async () => {

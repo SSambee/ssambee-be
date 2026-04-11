@@ -10,6 +10,8 @@ describe('BillingController - @unit', () => {
   let mockBillingService: {
     listActiveProducts: jest.Mock;
     listProducts: jest.Mock;
+    createAdminCreditGrantProduct: jest.Mock;
+    cancelInstructorPayment: jest.Mock;
   };
   let billingController: BillingController;
   let mockReq: Partial<Request>;
@@ -22,6 +24,8 @@ describe('BillingController - @unit', () => {
     mockBillingService = {
       listActiveProducts: jest.fn(),
       listProducts: jest.fn(),
+      createAdminCreditGrantProduct: jest.fn(),
+      cancelInstructorPayment: jest.fn(),
     };
 
     billingController = new BillingController(mockBillingService as never);
@@ -178,6 +182,72 @@ describe('BillingController - @unit', () => {
         ],
       },
       message: '결제 상품 조회 성공',
+    });
+  });
+
+  it('관리자 지급용 상품 생성 시 생성 결과를 반환해야 한다', async () => {
+    mockBillingService.createAdminCreditGrantProduct.mockResolvedValue({
+      id: 'product-admin-credit-grant',
+      code: 'ADMIN_CREDIT_GRANT_ZERO',
+    });
+
+    await billingController.createAdminCreditGrantProduct(
+      mockReq as Request,
+      mockRes as Response,
+      mockNext,
+    );
+
+    expect(mockBillingService.createAdminCreditGrantProduct).toHaveBeenCalled();
+    expect(mockRes.status).toHaveBeenCalledWith(201);
+    expect(mockRes.json).toHaveBeenCalledWith({
+      status: 'success',
+      data: {
+        id: 'product-admin-credit-grant',
+        code: 'ADMIN_CREDIT_GRANT_ZERO',
+      },
+      message: '관리자 지급용 상품 생성 성공',
+    });
+  });
+
+  it('강사는 본인 무통장 결제를 취소할 수 있어야 한다', async () => {
+    mockReq = {
+      params: {
+        paymentId: 'payment-1',
+      },
+      profile: {
+        id: 'instructor-1',
+      },
+      user: {
+        id: 'user-1',
+        userType: 'INSTRUCTOR',
+      },
+    };
+    mockBillingService.cancelInstructorPayment.mockResolvedValue({
+      id: 'payment-1',
+      status: 'CANCELED',
+    });
+
+    await billingController.cancelInstructorPayment(
+      mockReq as Request,
+      mockRes as Response,
+      mockNext,
+    );
+
+    expect(mockBillingService.cancelInstructorPayment).toHaveBeenCalledWith(
+      'payment-1',
+      'instructor-1',
+      {
+        userId: 'user-1',
+        role: 'INSTRUCTOR',
+      },
+    );
+    expect(mockRes.json).toHaveBeenCalledWith({
+      status: 'success',
+      data: {
+        id: 'payment-1',
+        status: 'CANCELED',
+      },
+      message: '결제 취소 성공',
     });
   });
 });

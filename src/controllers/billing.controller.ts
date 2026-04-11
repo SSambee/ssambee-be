@@ -124,6 +124,24 @@ export class BillingController {
     }
   };
 
+  createAdminCreditGrantProduct = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const product = await this.billingService.createAdminCreditGrantProduct();
+
+      return successResponse(res, {
+        statusCode: 201,
+        data: product,
+        message: '관리자 지급용 상품 생성 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   updateProduct = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const product = await this.billingService.updateProduct(
@@ -225,6 +243,28 @@ export class BillingController {
       return successResponse(res, {
         data: payment,
         message: '결제 상세 조회 성공',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  cancelInstructorPayment = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const instructorId = getProfileIdOrThrow(req);
+      const payment = await this.billingService.cancelInstructorPayment(
+        req.params.paymentId,
+        instructorId,
+        this.getActor(req),
+      );
+
+      return successResponse(res, {
+        data: payment,
+        message: '결제 취소 성공',
       });
     } catch (error) {
       next(error);
@@ -379,27 +419,6 @@ export class BillingController {
       return successResponse(res, {
         data: payment,
         message: '환불 상태 변경 성공',
-      });
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  revokeEntitlements = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) => {
-    try {
-      const result = await this.billingService.revokeEntitlementsByPaymentItem(
-        req.params.paymentItemId,
-        req.body,
-        this.getActor(req),
-      );
-
-      return successResponse(res, {
-        data: result,
-        message: '이용권 회수 성공',
       });
     } catch (error) {
       next(error);
