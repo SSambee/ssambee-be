@@ -34,6 +34,7 @@ const {
 /** 모든 라우트에 대해 강사/조교 권한 필요 */
 mgmtLecturesRouter.use(requireAuth);
 mgmtLecturesRouter.use(requireInstructorOrAssistant);
+mgmtLecturesRouter.use(container.requireActiveInstructorEntitlement);
 
 /** 강의 리스트 조회 */
 mgmtLecturesRouter.get(

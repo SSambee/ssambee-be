@@ -27,8 +27,6 @@ mgmtBillingRouter.get(
 mgmtBillingRouter.use(requireAuth);
 mgmtBillingRouter.use(requireInstructor);
 
-mgmtBillingRouter.get('/products', billingController.getProducts);
-
 mgmtBillingRouter.post(
   '/payments/bank-transfer',
   validate(createBankTransferPaymentSchema),

@@ -11,6 +11,7 @@ const { requireAuth, requireInstructorOrAssistant, attendancesController } =
 /** 모든 라우트에 대해 강사/조교 권한 필요 */
 mgmtAttendancesRouter.use(requireAuth);
 mgmtAttendancesRouter.use(requireInstructorOrAssistant);
+mgmtAttendancesRouter.use(container.requireActiveInstructorEntitlement);
 
 /** 출결 삭제 */
 mgmtAttendancesRouter.delete(

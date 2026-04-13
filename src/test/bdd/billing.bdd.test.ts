@@ -209,6 +209,7 @@ describe('결제 BDD 테스트 - @integration', () => {
     expect(response.body.data).toEqual({
       passSingleProducts: [
         {
+          id: expect.any(String),
           name: '공개 1개월 이용권',
           description: '비로그인 사용자에게 노출되는 이용권',
           highlights: ['1개월 이용권', '기본 포함 크레딧 1000'],
@@ -218,10 +219,16 @@ describe('결제 BDD 테스트 - @integration', () => {
           includedCreditAmount: 1000,
           rechargeCreditAmount: 0,
           price: 99000,
+          sortOrder: 1,
+          purchase: {
+            requiresAuth: true,
+            methodType: PaymentMethodType.BANK_TRANSFER,
+          },
         },
       ],
       creditPackProducts: [
         {
+          id: expect.any(String),
           name: '공개 크레딧 충전권 3000',
           description: '비로그인 사용자에게 노출되는 충전권',
           highlights: ['추가 충전 크레딧 3000', '구매 후 90일 내 사용'],
@@ -231,19 +238,20 @@ describe('결제 BDD 테스트 - @integration', () => {
           includedCreditAmount: 0,
           rechargeCreditAmount: 3000,
           price: 33000,
+          sortOrder: 2,
+          purchase: {
+            requiresAuth: true,
+            methodType: PaymentMethodType.BANK_TRANSFER,
+          },
         },
       ],
     });
-    expect(response.body.data.passSingleProducts[0]).not.toHaveProperty('id');
     expect(response.body.data.passSingleProducts[0]).not.toHaveProperty('code');
     expect(response.body.data.passSingleProducts[0]).not.toHaveProperty(
       'paymentMethodType',
     );
     expect(response.body.data.passSingleProducts[0]).not.toHaveProperty(
       'isActive',
-    );
-    expect(response.body.data.passSingleProducts[0]).not.toHaveProperty(
-      'sortOrder',
     );
     expect(response.body.data.passSingleProducts[0]).not.toHaveProperty(
       'createdAt',
@@ -253,9 +261,7 @@ describe('결제 BDD 테스트 - @integration', () => {
     );
   });
 
-  it('강사는 결제 상품 목록을 productType 기준으로 그룹핑된 형태로 조회할 수 있어야 한다', async () => {
-    mockInstructorSession();
-
+  it('공개 상품 API는 구매 진입에 필요한 최소 필드를 포함해야 한다', async () => {
     const passSingleProduct = await prisma.billingProduct.create({
       data: {
         code: 'MGMT_PASS_SINGLE_1M',
@@ -310,34 +316,35 @@ describe('결제 BDD 테스트 - @integration', () => {
       },
     });
 
-    const response = await request(app).get('/api/mgmt/v1/billing/products');
+    const response = await request(app).get('/api/public/v1/billing/products');
 
     expect(response.status).toBe(200);
     expect(response.body.status).toBe('success');
-    expect(response.body.message).toBe('결제 상품 조회 성공');
+    expect(response.body.message).toBe('공개 결제 상품 조회 성공');
     expect(response.body.data.passSingleProducts).toHaveLength(1);
     expect(response.body.data.creditPackProducts).toHaveLength(1);
     expect(response.body.data.passSingleProducts[0]).toMatchObject({
       id: passSingleProduct.id,
-      code: 'MGMT_PASS_SINGLE_1M',
+      name: '강사용 1개월 이용권',
       productType: BillingProductType.PASS_SINGLE,
-      paymentMethodType: PaymentMethodType.BANK_TRANSFER,
-      isActive: true,
       sortOrder: 1,
+      purchase: {
+        requiresAuth: true,
+        methodType: PaymentMethodType.BANK_TRANSFER,
+      },
     });
     expect(response.body.data.creditPackProducts[0]).toMatchObject({
       id: creditPackProduct.id,
-      code: 'MGMT_CREDIT_PACK_3000',
+      name: '강사용 크레딧 충전권 3000',
       productType: BillingProductType.CREDIT_PACK,
-      paymentMethodType: PaymentMethodType.BANK_TRANSFER,
-      isActive: true,
       sortOrder: 2,
     });
-    expect(response.body.data.passSingleProducts[0].createdAt).toBe(
-      passSingleProduct.createdAt.toISOString(),
+    expect(response.body.data.passSingleProducts[0]).not.toHaveProperty('code');
+    expect(response.body.data.passSingleProducts[0]).not.toHaveProperty(
+      'paymentMethodType',
     );
-    expect(response.body.data.creditPackProducts[0].createdAt).toBe(
-      creditPackProduct.createdAt.toISOString(),
+    expect(response.body.data.passSingleProducts[0]).not.toHaveProperty(
+      'createdAt',
     );
   });
 
