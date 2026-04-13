@@ -22,6 +22,7 @@ const {
 
 mgmtAssistantOrderRouter.use(requireAuth);
 mgmtAssistantOrderRouter.use(requireInstructorOrAssistant);
+mgmtAssistantOrderRouter.use(container.requireActiveInstructorEntitlement);
 
 /**
  * POST /api/mgmt/v1/assistant-order

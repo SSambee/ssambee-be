@@ -6,6 +6,7 @@ export const mgmtDashboardRouter = Router();
 /** 공통 미들웨어: 인증 필요, 강사/조교만 접근 */
 mgmtDashboardRouter.use(container.requireAuth);
 mgmtDashboardRouter.use(container.requireInstructorOrAssistant);
+mgmtDashboardRouter.use(container.requireActiveInstructorEntitlement);
 
 /**
  * 대시보드 조회

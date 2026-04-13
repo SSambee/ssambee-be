@@ -25,6 +25,7 @@ const {
 
 mgmtInstructorPostsRouter.use(requireAuth);
 mgmtInstructorPostsRouter.use(requireInstructorOrAssistant);
+mgmtInstructorPostsRouter.use(container.requireActiveInstructorEntitlement);
 
 /**
  * Prefix:
