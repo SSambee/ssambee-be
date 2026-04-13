@@ -52,18 +52,38 @@ export class BillingController {
     };
   }
 
-  getProducts = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const products = await this.billingService.listActiveProducts();
-
-      return successResponse(res, {
-        data: this.groupProductsByType(products),
-        message: '결제 상품 조회 성공',
-      });
-    } catch (error) {
-      next(error);
-    }
-  };
+  private toPublicProduct(product: {
+    id: string;
+    name: string;
+    description: string | null;
+    highlights?: string[];
+    productType: string;
+    billingMode: string;
+    paymentMethodType: string;
+    durationMonths: number | null;
+    includedCreditAmount: number;
+    rechargeCreditAmount: number;
+    price: number;
+    sortOrder: number;
+  }) {
+    return {
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      highlights: product.highlights ?? [],
+      productType: product.productType,
+      billingMode: product.billingMode,
+      durationMonths: product.durationMonths,
+      includedCreditAmount: product.includedCreditAmount,
+      rechargeCreditAmount: product.rechargeCreditAmount,
+      price: product.price,
+      sortOrder: product.sortOrder,
+      purchase: {
+        requiresAuth: true,
+        methodType: product.paymentMethodType,
+      },
+    };
+  }
 
   getPublicProducts = async (
     req: Request,
@@ -72,20 +92,11 @@ export class BillingController {
   ) => {
     try {
       const products = await this.billingService.listActiveProducts();
-      const publicProducts = products.map((product) => ({
-        name: product.name,
-        description: product.description,
-        highlights: (product as { highlights?: string[] }).highlights ?? [],
-        productType: product.productType,
-        billingMode: product.billingMode,
-        durationMonths: product.durationMonths,
-        includedCreditAmount: product.includedCreditAmount,
-        rechargeCreditAmount: product.rechargeCreditAmount,
-        price: product.price,
-      }));
 
       return successResponse(res, {
-        data: this.groupProductsByType(publicProducts),
+        data: this.groupProductsByType(
+          products.map((product) => this.toPublicProduct(product)),
+        ),
         message: '공개 결제 상품 조회 성공',
       });
     } catch (error) {
