@@ -181,6 +181,8 @@ export interface InstructorActiveEntitlementSummary {
 export interface PendingDepositEntitlementMarker {
   status: typeof PaymentStatus.PENDING_DEPOSIT;
   paymentId: string;
+  requestedAt: Date;
+  productName: string | null;
 }
 
 export type SessionActiveEntitlementSummary =
@@ -2259,6 +2261,9 @@ export class BillingService {
       ? {
           status: PaymentStatus.PENDING_DEPOSIT,
           paymentId: pendingPassSinglePayment.id,
+          requestedAt: pendingPassSinglePayment.createdAt,
+          productName:
+            pendingPassSinglePayment.items[0]?.productNameSnapshot ?? null,
         }
       : null;
   }

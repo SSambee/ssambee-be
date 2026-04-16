@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '../err/http.exception.js';
 import { successResponse } from '../utils/response.util.js';
+import { transformDateFieldsToKst } from '../utils/date.util.js';
 import { AuthResponse } from '../types/auth.types.js';
 import { config, isProduction } from '../config/env.config.js';
 
@@ -91,6 +92,41 @@ export class AuthController {
         expires: new Date(0), // 1970년으로 설정하여 즉시 삭제 유도
       });
     });
+  };
+
+  private transformSessionPendingEntitlementRequestedAt = <
+    T extends {
+      profile?: Record<string, unknown> | null;
+    },
+  >(
+    session: T,
+  ): T => {
+    const profile = session.profile;
+    if (!profile) {
+      return session;
+    }
+
+    const activeEntitlement = profile.activeEntitlement as
+      | Record<string, unknown>
+      | null
+      | undefined;
+
+    if (
+      !activeEntitlement ||
+      !(activeEntitlement.requestedAt instanceof Date)
+    ) {
+      return session;
+    }
+
+    return {
+      ...session,
+      profile: {
+        ...profile,
+        activeEntitlement: transformDateFieldsToKst(activeEntitlement, [
+          'requestedAt',
+        ]),
+      },
+    };
   };
 
   /** 강사 회원가입 */
@@ -461,7 +497,9 @@ export class AuthController {
         throw new UnauthorizedException('인증이 필요합니다.');
       }
 
-      return successResponse(res, { data: session });
+      return successResponse(res, {
+        data: this.transformSessionPendingEntitlementRequestedAt(session),
+      });
     } catch (error) {
       // 세션 조회에 실패한 모든 경우(세션 없음, DB 오류 등)에
       // 클라이언트의 쿠키를 정리해주는 것이 안전합니다.

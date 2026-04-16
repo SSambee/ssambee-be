@@ -263,7 +263,16 @@ export class BillingRepository {
       orderBy: {
         createdAt: 'desc',
       },
-      select: { id: true },
+      select: {
+        id: true,
+        createdAt: true,
+        items: {
+          select: {
+            productNameSnapshot: true,
+          },
+          take: 1,
+        },
+      },
     });
   }
 

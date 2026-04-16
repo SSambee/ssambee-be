@@ -2848,13 +2848,19 @@ describe('BillingService', () => {
     } as never);
     (
       mockBillingRepo.findLatestPendingPassSinglePayment as jest.Mock
-    ).mockResolvedValue({ id: 'payment-pending-1' });
+    ).mockResolvedValue({
+      id: 'payment-pending-1',
+      createdAt: new Date('2026-04-16T04:00:00.000Z'),
+      items: [{ productNameSnapshot: '1개월 이용권' }],
+    });
 
     const result = await service.getSessionActiveEntitlement('instructor-1');
 
     expect(result).toEqual({
       status: PaymentStatus.PENDING_DEPOSIT,
       paymentId: 'payment-pending-1',
+      requestedAt: new Date('2026-04-16T04:00:00.000Z'),
+      productName: '1개월 이용권',
     });
   });
 

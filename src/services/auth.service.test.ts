@@ -369,6 +369,8 @@ describe('AuthService - @unit #critical', () => {
       mockBillingService.getSessionActiveEntitlement.mockResolvedValue({
         status: 'PENDING_DEPOSIT',
         paymentId: 'payment-pending-1',
+        requestedAt: new Date('2026-04-16T04:00:00.000Z'),
+        productName: '1개월 이용권',
       });
 
       const result = await authService.getSessionWithInstructorBillingSummary({
@@ -380,6 +382,8 @@ describe('AuthService - @unit #critical', () => {
         activeEntitlement: {
           status: 'PENDING_DEPOSIT',
           paymentId: 'payment-pending-1',
+          requestedAt: new Date('2026-04-16T04:00:00.000Z'),
+          productName: '1개월 이용권',
         },
       });
     });

@@ -650,6 +650,8 @@ describe('AuthController - @unit #critical', () => {
               activeEntitlement: {
                 status: 'PENDING_DEPOSIT',
                 paymentId: 'payment-pending-1',
+                requestedAt: new Date('2026-04-16T04:00:00.000Z'),
+                productName: '1개월 이용권',
               },
             },
           },
@@ -670,6 +672,8 @@ describe('AuthController - @unit #critical', () => {
                 activeEntitlement: {
                   status: 'PENDING_DEPOSIT',
                   paymentId: 'payment-pending-1',
+                  requestedAt: '2026-04-16T13:00:00+09:00',
+                  productName: '1개월 이용권',
                 },
               },
             }),
