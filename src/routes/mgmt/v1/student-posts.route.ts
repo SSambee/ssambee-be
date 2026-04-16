@@ -26,6 +26,7 @@ const {
 
 mgmtStudentPostsRouter.use(requireAuth);
 mgmtStudentPostsRouter.use(requireInstructorOrAssistant);
+mgmtStudentPostsRouter.use(container.requireActiveInstructorEntitlement);
 
 /** 질문 목록 조회 (관리자용) */
 mgmtStudentPostsRouter.get(

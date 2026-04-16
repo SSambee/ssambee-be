@@ -39,6 +39,21 @@ services:
     profiles:
       - green # 기본적으로 실행 되지않음
 
+  scheduler:
+    image: ghcr.io/${GITHUB_REPOSITORY}:${IMAGE_TAG:-latest}
+    container_name: eduops-scheduler
+    env_file:
+      - .env
+    volumes:
+      - ./.env:/app/.env
+      - /certs/global-bundle.pem:/certs/global-bundle.pem:ro
+    environment:
+      - NODE_ENV=production
+    command: ['node', 'dist/scripts/run-scheduler.js']
+    networks:
+      - lms-network
+    restart: always
+
   # Nginx Reverse Proxy
   nginx:
     image: nginx:alpine

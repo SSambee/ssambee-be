@@ -7,19 +7,24 @@ import type {
 
 export interface AdminUserListRow {
   profileId: string;
-  instructorId: string | null;
   userId: string;
   userType: UserType;
   name: string;
   email: string;
   phoneNumber: string | null;
-  academy: string | null;
-  subject: string | null;
-  school: string | null;
-  schoolYear: string | null;
   createdAt: Date;
   lastAccessAt: Date | null;
   hasActiveSession: boolean;
+  instructorProfileId: string | null;
+  instructorAcademy: string | null;
+  instructorSubject: string | null;
+  assistantInstructorId: string | null;
+  assistantInstructorName: string | null;
+  assistantSignStatus: string | null;
+  studentSchool: string | null;
+  studentSchoolYear: string | null;
+  studentParentPhoneNumber: string | null;
+  parentChildCount: number;
 }
 
 export interface AdminUserStatsRow {
@@ -57,19 +62,24 @@ export class AdminUsersRepository {
         ${baseCte}
         SELECT
           base."profileId",
-          base."instructorId",
           base."userId",
           base."userType",
           base."name",
           base."email",
           base."phoneNumber",
-          base."academy",
-          base."subject",
-          base."school",
-          base."schoolYear",
           base."createdAt",
           base."lastAccessAt",
-          base."hasActiveSession"
+          base."hasActiveSession",
+          base."instructorProfileId",
+          base."instructorAcademy",
+          base."instructorSubject",
+          base."assistantInstructorId",
+          base."assistantInstructorName",
+          base."assistantSignStatus",
+          base."studentSchool",
+          base."studentSchoolYear",
+          base."studentParentPhoneNumber",
+          base."parentChildCount"
         FROM base
         ${derivedWhere}
         ORDER BY base."lastAccessAt" DESC NULLS LAST, base."createdAt" DESC
@@ -143,8 +153,12 @@ export class AdminUsersRepository {
             ) ILIKE ${`%${keyword}%`}
             OR COALESCE(i.academy, '') ILIKE ${`%${keyword}%`}
             OR COALESCE(i.subject, '') ILIKE ${`%${keyword}%`}
+            OR COALESCE(aiu.name, '') ILIKE ${`%${keyword}%`}
             OR COALESCE(st.school, '') ILIKE ${`%${keyword}%`}
             OR COALESCE(st.school_year, '') ILIKE ${`%${keyword}%`}
+            OR COALESCE(st.parent_phone_number, '') ILIKE ${`%${keyword}%`}
+            OR COALESCE(pcl.name, '') ILIKE ${`%${keyword}%`}
+            OR COALESCE(pcl.phone_number, '') ILIKE ${`%${keyword}%`}
           )
         `
         : Prisma.empty;
@@ -157,10 +171,6 @@ export class AdminUsersRepository {
       WITH base AS (
         SELECT
           COALESCE(i.id, a.id, st.id, p.id) AS "profileId",
-          CASE
-            WHEN u.user_type = ${UserType.INSTRUCTOR} THEN i.id
-            ELSE NULL
-          END AS "instructorId",
           u.id AS "userId",
           u.user_type AS "userType",
           u.name AS "name",
@@ -171,13 +181,19 @@ export class AdminUsersRepository {
             st.phone_number,
             p.phone_number
           ) AS "phoneNumber",
-          i.academy AS "academy",
-          i.subject AS "subject",
-          st.school AS "school",
-          st.school_year AS "schoolYear",
           u.created_at AS "createdAt",
           MAX(s.updated_at) AS "lastAccessAt",
-          COALESCE(BOOL_OR(s.expires_at > ${context.now}), FALSE) AS "hasActiveSession"
+          COALESCE(BOOL_OR(s.expires_at > ${context.now}), FALSE) AS "hasActiveSession",
+          i.id AS "instructorProfileId",
+          i.academy AS "instructorAcademy",
+          i.subject AS "instructorSubject",
+          a.instructor_id AS "assistantInstructorId",
+          aiu.name AS "assistantInstructorName",
+          a.sign_status AS "assistantSignStatus",
+          st.school AS "studentSchool",
+          st.school_year AS "studentSchoolYear",
+          st.parent_phone_number AS "studentParentPhoneNumber",
+          COUNT(DISTINCT pcl.id)::int AS "parentChildCount"
         FROM "user" u
         LEFT JOIN "instructors" i
           ON i.user_id = u.id
@@ -185,10 +201,17 @@ export class AdminUsersRepository {
         LEFT JOIN "assistants" a
           ON a.user_id = u.id
          AND a.deleted_at IS NULL
+        LEFT JOIN "instructors" ai
+          ON ai.id = a.instructor_id
+         AND ai.deleted_at IS NULL
+        LEFT JOIN "user" aiu
+          ON aiu.id = ai.user_id
         LEFT JOIN "app_students" st
           ON st.user_id = u.id
         LEFT JOIN "app_parents" p
           ON p.user_id = u.id
+        LEFT JOIN "parent_child_links" pcl
+          ON pcl.app_parent_id = p.id
         LEFT JOIN "session" s
           ON s.user_id = u.id
         WHERE ${userTypeCondition}
@@ -206,17 +229,23 @@ export class AdminUsersRepository {
           u.email,
           u.created_at,
           i.id,
-          i.phone_number,
           i.academy,
           i.subject,
           a.id,
-          a.phone_number,
+          a.instructor_id,
+          a.sign_status,
+          aiu.name,
           st.id,
-          st.phone_number,
           st.school,
           st.school_year,
+          st.parent_phone_number,
           p.id,
-          p.phone_number
+          COALESCE(
+            i.phone_number,
+            a.phone_number,
+            st.phone_number,
+            p.phone_number
+          )
       )
     `;
   }

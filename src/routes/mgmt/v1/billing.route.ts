@@ -27,8 +27,6 @@ mgmtBillingRouter.get(
 mgmtBillingRouter.use(requireAuth);
 mgmtBillingRouter.use(requireInstructor);
 
-mgmtBillingRouter.get('/products', billingController.getProducts);
-
 mgmtBillingRouter.post(
   '/payments/bank-transfer',
   validate(createBankTransferPaymentSchema),
@@ -45,6 +43,11 @@ mgmtBillingRouter.get(
   '/payments/:paymentId',
   validate(paymentIdParamSchema, 'params'),
   billingController.getInstructorPayment,
+);
+mgmtBillingRouter.post(
+  '/payments/:paymentId/cancel',
+  validate(paymentIdParamSchema, 'params'),
+  billingController.cancelInstructorPayment,
 );
 
 mgmtBillingRouter.get('/entitlements', billingController.getEntitlements);

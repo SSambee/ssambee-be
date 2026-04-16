@@ -14,7 +14,6 @@ env/*
 # production
 build
 dist
-docs
 /src/test/http
 
 # misc
@@ -27,6 +26,8 @@ docs
 .env.test.local
 .env.production.local
 .env*.local
+docs
+AGENTS.md
 
 npm-debug.log*
 yarn-debug.log*

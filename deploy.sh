@@ -114,6 +114,7 @@ fi
 
 # 최신 이미지를 GHCR  로 가져오도록 강제로 명시
 echo -e "${YELLOW}최신 이미지를 GHCR에서 Pull 합니다...${NC}"
+$COMPOSE pull scheduler
 if [ "$TARGET" = "green" ]; then
     $COMPOSE pull backend-green
 else
@@ -302,6 +303,34 @@ if [ "$CURRENT" != "none" ]; then
     echo -e "${GREEN}[$CURRENT] 컨테이너 중지 및 정리 완료${NC}"
 fi
 
+echo -e "${YELLOW}[scheduler] 컨테이너 갱신 중...${NC}"
+$COMPOSE up -d scheduler
+
+RETRY_COUNT=0
+MAX_RETRIES=12
+SCHEDULER_READY=false
+
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    sleep 5
+    SCHEDULER_RUNNING=$(docker ps -q -f name=eduops-scheduler -f status=running)
+
+    if [ -n "$SCHEDULER_RUNNING" ]; then
+        echo -e "${GREEN}[scheduler] 컨테이너 실행 완료!${NC}"
+        SCHEDULER_READY=true
+        break
+    fi
+
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    echo -e "${YELLOW}[scheduler] 컨테이너 실행 대기 중... ($RETRY_COUNT/$MAX_RETRIES)${NC}"
+done
+
+if [ "$SCHEDULER_READY" != true ]; then
+    echo -e "${RED}[scheduler] 컨테이너 실행 실패!${NC}"
+    $COMPOSE logs scheduler
+    exit 1
+fi
+
+
 # 최종 확인
 echo -e "${YELLOW}최종 상태 확인 중...${NC}"
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
@@ -318,4 +347,3 @@ fi
 echo -e "${GREEN}=== 무중단 배포 완료! ===${NC}"
 echo -e "${GREEN}현재 활성 완료: $TARGET${NC}"
 echo -e "${GREEN}Prisma 마이그레이션: 완료${NC}"
-

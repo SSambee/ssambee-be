@@ -18,6 +18,7 @@ mgmtAssistantCodesRouter.get(
 // 공통 미들웨어: 인증 필요, 강사만 접근 가능
 mgmtAssistantCodesRouter.use(container.requireAuth);
 mgmtAssistantCodesRouter.use(container.requireInstructor);
+mgmtAssistantCodesRouter.use(container.requireActiveInstructorEntitlement);
 
 /** 조교 가입 코드 생성 */
 mgmtAssistantCodesRouter.post(

@@ -14,6 +14,7 @@ const { requireAuth, requireInstructor, assistantsController } = container;
 
 mgmtAssistantsRouter.use(requireAuth);
 mgmtAssistantsRouter.use(requireInstructor);
+mgmtAssistantsRouter.use(container.requireActiveInstructorEntitlement);
 
 /**
  * GET /api/mgmt/v1/assistants

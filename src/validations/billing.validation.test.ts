@@ -7,6 +7,7 @@ import {
   createBankTransferPaymentSchema,
   createBillingProductSchema,
   paymentListQuerySchema,
+  updatePaymentRefundStatusSchema,
   updateBillingProductSchema,
 } from './billing.validation.js';
 
@@ -69,6 +70,36 @@ describe('billing.validation', () => {
     it('제거된 PENDING_APPROVAL 상태는 목록 필터에서 허용하지 않아야 한다', () => {
       const result = paymentListQuerySchema.safeParse({
         status: 'PENDING_APPROVAL',
+      });
+
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('updatePaymentRefundStatusSchema', () => {
+    it('이용권 환불 요청 시 회수 옵션을 함께 허용해야 한다', () => {
+      const result = updatePaymentRefundStatusSchema.safeParse({
+        refundStatus: 'PENDING',
+        refundMemo: '이용권 환불 접수',
+        revokeCount: 2,
+        allowActiveRevoke: true,
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toEqual({
+          refundStatus: 'PENDING',
+          refundMemo: '이용권 환불 접수',
+          revokeCount: 2,
+          allowActiveRevoke: true,
+        });
+      }
+    });
+
+    it('회수 건수가 0이면 실패해야 한다', () => {
+      const result = updatePaymentRefundStatusSchema.safeParse({
+        refundStatus: 'PENDING',
+        revokeCount: 0,
       });
 
       expect(result.success).toBe(false);
