@@ -649,6 +649,7 @@ describe('AuthController - @unit #critical', () => {
               ...mockProfiles.instructor,
               activeEntitlement: {
                 status: 'PENDING_DEPOSIT',
+                paymentId: 'payment-pending-1',
               },
             },
           },
@@ -668,6 +669,7 @@ describe('AuthController - @unit #critical', () => {
                 ...mockProfiles.instructor,
                 activeEntitlement: {
                   status: 'PENDING_DEPOSIT',
+                  paymentId: 'payment-pending-1',
                 },
               },
             }),

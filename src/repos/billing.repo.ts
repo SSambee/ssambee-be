@@ -246,11 +246,11 @@ export class BillingRepository {
     return { payments, totalCount };
   }
 
-  async hasPendingPassSinglePayment(
+  async findLatestPendingPassSinglePayment(
     instructorId: string,
     tx?: Prisma.TransactionClient,
   ) {
-    const payment = await this.getClient(tx).payment.findFirst({
+    return this.getClient(tx).payment.findFirst({
       where: {
         instructorId,
         status: PaymentStatus.PENDING_DEPOSIT,
@@ -260,10 +260,11 @@ export class BillingRepository {
           },
         },
       },
+      orderBy: {
+        createdAt: 'desc',
+      },
       select: { id: true },
     });
-
-    return payment !== null;
   }
 
   async listPayments({ status, page, limit }: PaymentListParams) {

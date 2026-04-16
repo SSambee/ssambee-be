@@ -1,5 +1,7 @@
 import { BillingRepository } from './billing.repo.js';
 import {
+  BillingProductType,
+  PaymentStatus,
   CreditBucketStatus,
   CreditSourceType,
   EntitlementStatus,
@@ -12,6 +14,7 @@ describe('BillingRepository', () => {
   const creditBucketUpsert = jest.fn();
   const paymentUpdate = jest.fn();
   const paymentUpdateMany = jest.fn();
+  const paymentFindFirst = jest.fn();
   const paymentFindUnique = jest.fn();
   const prisma = {
     entitlement: {
@@ -19,6 +22,7 @@ describe('BillingRepository', () => {
       findMany: entitlementFindMany,
     },
     payment: {
+      findFirst: paymentFindFirst,
       update: paymentUpdate,
       updateMany: paymentUpdateMany,
       findUnique: paymentFindUnique,
@@ -249,5 +253,25 @@ describe('BillingRepository', () => {
       where: { id: 'payment-1' },
     });
     expect(paymentUpdate).not.toHaveBeenCalled();
+  });
+
+  it('findLatestPendingPassSinglePayment는 가장 최근 pending PASS_SINGLE 결제를 조회해야 한다', async () => {
+    await repo.findLatestPendingPassSinglePayment('instructor-1');
+
+    expect(paymentFindFirst).toHaveBeenCalledWith({
+      where: {
+        instructorId: 'instructor-1',
+        status: PaymentStatus.PENDING_DEPOSIT,
+        items: {
+          some: {
+            productTypeSnapshot: BillingProductType.PASS_SINGLE,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      select: { id: true },
+    });
   });
 });

@@ -368,6 +368,7 @@ describe('AuthService - @unit #critical', () => {
       mockAdminRepo.findByUserId.mockResolvedValue(null);
       mockBillingService.getSessionActiveEntitlement.mockResolvedValue({
         status: 'PENDING_DEPOSIT',
+        paymentId: 'payment-pending-1',
       });
 
       const result = await authService.getSessionWithInstructorBillingSummary({
@@ -378,6 +379,7 @@ describe('AuthService - @unit #critical', () => {
         ...mockProfiles.instructor,
         activeEntitlement: {
           status: 'PENDING_DEPOSIT',
+          paymentId: 'payment-pending-1',
         },
       });
     });

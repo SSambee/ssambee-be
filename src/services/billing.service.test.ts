@@ -77,7 +77,7 @@ describe('BillingService', () => {
       createCreditLedger: jest.fn(),
       listEntitlementsByInstructor: jest.fn(),
       findActiveEntitlement: jest.fn(),
-      hasPendingPassSinglePayment: jest.fn().mockResolvedValue(false),
+      findLatestPendingPassSinglePayment: jest.fn().mockResolvedValue(null),
       listEntitlementsToExpire: jest.fn().mockResolvedValue([]),
       findReadyQueuedEntitlement: jest.fn(),
       updateEntitlement: jest.fn(),
@@ -2831,7 +2831,9 @@ describe('BillingService', () => {
       endsAt: new Date('2026-04-23T14:59:59.999Z'),
       includedCreditAmount: IncludedCreditPolicy.MONTHLY_AMOUNT,
     });
-    expect(mockBillingRepo.hasPendingPassSinglePayment).not.toHaveBeenCalled();
+    expect(
+      mockBillingRepo.findLatestPendingPassSinglePayment,
+    ).not.toHaveBeenCalled();
   });
 
   it('세션 전용 activeEntitlement는 활성 이용권이 없고 pending PASS_SINGLE이 있으면 marker를 반환해야 한다', async () => {
@@ -2845,13 +2847,14 @@ describe('BillingService', () => {
       activeEntitlement: null,
     } as never);
     (
-      mockBillingRepo.hasPendingPassSinglePayment as jest.Mock
-    ).mockResolvedValue(true);
+      mockBillingRepo.findLatestPendingPassSinglePayment as jest.Mock
+    ).mockResolvedValue({ id: 'payment-pending-1' });
 
     const result = await service.getSessionActiveEntitlement('instructor-1');
 
     expect(result).toEqual({
       status: PaymentStatus.PENDING_DEPOSIT,
+      paymentId: 'payment-pending-1',
     });
   });
 
@@ -2866,8 +2869,8 @@ describe('BillingService', () => {
       activeEntitlement: null,
     } as never);
     (
-      mockBillingRepo.hasPendingPassSinglePayment as jest.Mock
-    ).mockResolvedValue(false);
+      mockBillingRepo.findLatestPendingPassSinglePayment as jest.Mock
+    ).mockResolvedValue(null);
 
     const result = await service.getSessionActiveEntitlement('instructor-1');
 
