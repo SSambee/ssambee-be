@@ -180,6 +180,9 @@ export interface InstructorActiveEntitlementSummary {
 
 export interface PendingDepositEntitlementMarker {
   status: typeof PaymentStatus.PENDING_DEPOSIT;
+  paymentId: string;
+  requestedAt: Date;
+  productName: string | null;
 }
 
 export type SessionActiveEntitlementSummary =
@@ -2251,12 +2254,16 @@ export class BillingService {
       return this.toActiveEntitlementSummary(context.activeEntitlement);
     }
 
-    const hasPendingPassSinglePayment =
-      await this.billingRepo.hasPendingPassSinglePayment(instructorId);
+    const pendingPassSinglePayment =
+      await this.billingRepo.findLatestPendingPassSinglePayment(instructorId);
 
-    return hasPendingPassSinglePayment
+    return pendingPassSinglePayment
       ? {
           status: PaymentStatus.PENDING_DEPOSIT,
+          paymentId: pendingPassSinglePayment.id,
+          requestedAt: pendingPassSinglePayment.createdAt,
+          productName:
+            pendingPassSinglePayment.items[0]?.productNameSnapshot ?? null,
         }
       : null;
   }
