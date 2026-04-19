@@ -805,7 +805,7 @@ describe('GradesService - @unit #critical', () => {
     const profileId = 'profile-1';
     const mockFile = {
       originalname: 'test.pdf',
-      buffer: Buffer.from('test'),
+      path: '/tmp/mock-grade-report.pdf',
     } as Express.Multer.File;
     const reportUrl = 'https://s3.amazonaws.com/report/test.pdf';
 

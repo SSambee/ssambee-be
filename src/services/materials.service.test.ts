@@ -139,7 +139,7 @@ describe('MaterialsService', () => {
       const s3Url = 'https://s3.aws.com/test.pdf';
       const mockFile = {
         originalname: 'test.pdf',
-        buffer: Buffer.from('test-buffer'),
+        path: '/tmp/mock-upload-file',
         mimetype: 'application/pdf',
       } as unknown as Express.Multer.File;
 
@@ -180,7 +180,7 @@ describe('MaterialsService', () => {
       };
       const mockFile = {
         originalname: 'lib.pdf',
-        buffer: Buffer.from('lib-buffer'),
+        path: '/tmp/mock-lib-file',
         mimetype: 'application/pdf',
       } as unknown as Express.Multer.File;
 
