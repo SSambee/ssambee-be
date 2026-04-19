@@ -9,7 +9,12 @@ import {
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import type { PrismaClient } from '../generated/prisma/client.js';
 import { prisma } from './db.config.js';
-import { config, isDevelopment, isProduction } from './env.config.js';
+import {
+  config,
+  isDevelopment,
+  isProduction,
+  isStaging,
+} from './env.config.js';
 import { SIGNUP_PENDING_USER_TYPE } from '../constants/auth.constant.js';
 import { sendEmailOtp, sendVerificationLinkMail } from '../utils/mail.util.js';
 import { getDomain } from 'tldts';
@@ -117,6 +122,13 @@ export const auth = betterAuth({
   advanced: {
     cookiePrefix: 'ssambee-auth',
     useSecureCookies: !isDevelopment(),
+    ...(isStaging()
+      ? {
+          defaultCookieAttributes: {
+            sameSite: 'none' as const,
+          },
+        }
+      : {}),
     crossSubDomainCookies: {
       ...(crossDomainCookieDomain
         ? {
