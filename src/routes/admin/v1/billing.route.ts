@@ -4,14 +4,13 @@ import { validate } from '../../../middlewares/validate.middleware.js';
 import {
   adminCreditGrantSchema,
   approvePaymentSchema,
+  createAdminCreditGrantProductSchema,
   createBillingProductSchema,
   instructorIdParamSchema,
   paymentListQuerySchema,
-  paymentItemIdParamSchema,
   productIdParamSchema,
   receiptRequestIdParamSchema,
   rejectPaymentSchema,
-  revokeEntitlementsSchema,
   updatePaymentRefundStatusSchema,
   updateBillingProductSchema,
   updateReceiptRequestSchema,
@@ -29,6 +28,11 @@ adminBillingRouter.post(
   '/products',
   validate(createBillingProductSchema),
   billingController.createProduct,
+);
+adminBillingRouter.post(
+  '/system-products/admin-credit-grant',
+  validate(createAdminCreditGrantProductSchema),
+  billingController.createAdminCreditGrantProduct,
 );
 adminBillingRouter.patch(
   '/products/:id',
@@ -82,12 +86,6 @@ adminBillingRouter.patch(
   validate(productIdParamSchema, 'params'),
   validate(updatePaymentRefundStatusSchema),
   billingController.updatePaymentRefundStatus,
-);
-adminBillingRouter.post(
-  '/payment-items/:paymentItemId/revoke-entitlements',
-  validate(paymentItemIdParamSchema, 'params'),
-  validate(revokeEntitlementsSchema),
-  billingController.revokeEntitlements,
 );
 
 adminBillingRouter.patch(

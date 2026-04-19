@@ -9,5 +9,6 @@ const kakaoController = new KakaoController();
 
 mgmtKakaoRouter.use(requireAuth);
 mgmtKakaoRouter.use(requireInstructorOrAssistant);
+mgmtKakaoRouter.use(container.requireActiveInstructorEntitlement);
 
 mgmtKakaoRouter.post('/memo', kakaoController.sendMemo);

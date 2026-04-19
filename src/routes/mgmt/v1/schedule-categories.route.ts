@@ -12,6 +12,7 @@ export const mgmtScheduleCategoriesRouter = Router();
 // 공통 미들웨어: 인증 필요, 강사 또는 조교만 접근 가능
 mgmtScheduleCategoriesRouter.use(container.requireAuth);
 mgmtScheduleCategoriesRouter.use(container.requireInstructorOrAssistant);
+mgmtScheduleCategoriesRouter.use(container.requireActiveInstructorEntitlement);
 
 /** 카테고리 목록 조회 */
 mgmtScheduleCategoriesRouter.get(

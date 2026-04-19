@@ -14,6 +14,7 @@ export const mgmtAssignmentsRouter = Router({ mergeParams: true });
 // 공통 미들웨어: 인증 필요, 강사 또는 조교만 접근 가능
 mgmtAssignmentsRouter.use(container.requireAuth);
 mgmtAssignmentsRouter.use(container.requireInstructorOrAssistant);
+mgmtAssignmentsRouter.use(container.requireActiveInstructorEntitlement);
 
 /**
  * 과제 생성

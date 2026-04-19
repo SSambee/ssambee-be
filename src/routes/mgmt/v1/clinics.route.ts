@@ -14,6 +14,7 @@ const { requireAuth, requireInstructorOrAssistant, clinicsController } =
 /** 모든 라우트에 대해 강사/조교 권한 필요 */
 mgmtClinicsRouter.use(requireAuth);
 mgmtClinicsRouter.use(requireInstructorOrAssistant);
+mgmtClinicsRouter.use(container.requireActiveInstructorEntitlement);
 
 /**
  * 클리닉 목록 조회
