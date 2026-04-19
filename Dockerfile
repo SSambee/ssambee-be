@@ -21,6 +21,9 @@ RUN cp -rn src/* dist/ 2>/dev/null || true
 FROM node:24-alpine
 WORKDIR /app
 
+# V8 heap limit: 384MB on 700MB container
+ENV NODE_OPTIONS="--max-old-space-size=384"
+
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # 빌드 결과물과 필요한 파일만 복사
@@ -43,6 +46,9 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/src/generated ./src/generated
 
 EXPOSE 4000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -q --spider http://localhost:4000/health || exit 1
 
 # 환경 변수는 docker-compose.yml 또는 runtime에 주입을 해준다.
 CMD [ "pnpm", "start" ]
