@@ -9,6 +9,7 @@ import { s3Client } from '../middlewares/multer.middleware.js';
 import { config } from '../config/env.config.js';
 import path from 'path';
 import { randomUUID } from 'crypto';
+import fs from 'node:fs';
 
 /** S3 버킷 타입 정의 */
 export const BucketType = {
@@ -65,11 +66,15 @@ export class FileStorageService {
     const command = new PutObjectCommand({
       Bucket: bucketName,
       Key: key,
-      Body: file.buffer,
+      Body: fs.createReadStream(file.path!),
       ContentType: file.mimetype,
     });
 
-    await s3Client.send(command);
+    try {
+      await s3Client.send(command);
+    } finally {
+      fs.unlinkSync(file.path!);
+    }
 
     // CloudFront URL이 설정된 경우 CloudFront URL 반환
     const cloudFrontUrl = getCloudFrontUrl(bucketType);

@@ -19,6 +19,15 @@ jest.mock('@aws-sdk/cloudfront-signer', () => ({
   getSignedUrl: jest.fn(),
 }));
 
+jest.mock('node:fs', () => ({
+  ...jest.requireActual('node:fs'),
+  createReadStream: jest.fn(() => {
+    const { Readable } = require('stream');
+    return Readable.from(['test content']);
+  }),
+  unlinkSync: jest.fn(),
+}));
+
 describe('파일 스토리지 서비스', () => {
   let service: FileStorageService;
   let mockS3ClientSend: jest.Mock;
@@ -50,11 +59,10 @@ describe('파일 스토리지 서비스', () => {
         originalname: 'test.pdf',
         encoding: '7bit',
         mimetype: 'application/pdf',
-        buffer: Buffer.from('test content'),
         size: 12,
-        destination: '',
-        filename: '',
-        path: '',
+        destination: '/tmp',
+        filename: 'mock-upload-file',
+        path: '/tmp/mock-upload-file',
         // @ts-expect-error - stream is not needed for tests
         stream: null,
         ...overrides,
@@ -83,7 +91,7 @@ describe('파일 스토리지 서비스', () => {
         originalname: 'report.xlsx',
         mimetype:
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        buffer: Buffer.from('excel content'),
+        path: '/tmp/mock-report.xlsx',
       });
       const key = 'reports/2024/quarterly.xlsx';
       const cloudFrontUrl = config.AWS_CLOUDFRONT_URL_REPORTS;
