@@ -1,7 +1,7 @@
-/** Legacy hardware monitoring removed. Datadog agent handles infrastructure metrics.
- *  Sentry handles error alerting. Business metrics go to ssambee-guard.
- */
+import {
+  startMetricsCollection,
+  stopMetricsCollection,
+} from './metrics.util.js';
 
-export const startSystemMonitoring = () => {};
-
-export const stopSystemMonitoring = () => {};
+export const startSystemMonitoring = startMetricsCollection;
+export const stopSystemMonitoring = stopMetricsCollection;
