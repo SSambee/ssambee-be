@@ -6,7 +6,6 @@ import { router } from './routes/index.js';
 import { config, isDevelopment, isProduction } from './config/env.config.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { disconnectDB } from './config/db.config.js';
-import { MorganLambdaStream } from './utils/logger.util.js';
 import {
   startSystemMonitoring,
   stopSystemMonitoring,
@@ -86,11 +85,6 @@ app.use(securityHeaders);
 // 2. 로깅
 if (isDevelopment()) {
   app.use(morgan('dev'));
-}
-
-// 비동기 Lambda 로깅 (Production 및 환경변수 설정 시 활성화)
-if (config.MONITOR_LAMBDA_URL) {
-  app.use(morgan('combined', { stream: new MorganLambdaStream() }));
 }
 
 app.get('/health', (req, res) => {
