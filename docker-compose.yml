@@ -82,27 +82,6 @@ services:
       - lms-network
     restart: always
 
-  # Datadog Agent (Free Tier - infrastructure monitoring)
-  datadog:
-    image: datadog/agent:latest
-    container_name: eduops-datadog
-    environment:
-      - DD_API_KEY=${DATADOG_API_KEY}
-      - DD_SITE=${DD_SITE}
-      - DD_APM_ENABLED=false
-      - DD_LOGS_ENABLED=false
-      - DD_PROCESS_AGENT_ENABLED=true
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /proc/:/host/proc/:ro
-      - /sys/fs/cgroup:/host/sys/fs/cgroup:ro
-      - /etc/os-release:/host/etc/os-release:ro
-    networks:
-      - lms-network
-    restart: always
-    profiles:
-      - monitoring
-
 networks:
   lms-network:
     driver: bridge
