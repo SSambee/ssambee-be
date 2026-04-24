@@ -1,5 +1,5 @@
 import os from 'node:os';
-import { compress } from 'snappyjs';
+import { compressSync } from 'snappy';
 
 interface MetricsConfig {
   url: string;
@@ -10,14 +10,14 @@ interface MetricsConfig {
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
 // 최소 Protobuf 인코더 — Prometheus Remote Write용
-function encodeVarint(value: number): Uint8Array {
+function encodeVarint(value: number | bigint): Uint8Array {
   const bytes: number[] = [];
-  let v = value;
-  while (v > 0x7f) {
-    bytes.push((v & 0x7f) | 0x80);
-    v >>>= 7;
+  let v = BigInt(value);
+  while (v > 0x7fn) {
+    bytes.push(Number(v & 0x7fn) | 0x80);
+    v >>= 7n;
   }
-  bytes.push(v & 0x7f);
+  bytes.push(Number(v) & 0x7f);
   return new Uint8Array(bytes);
 }
 
@@ -52,16 +52,7 @@ function encodeDouble(tag: number, value: number): Uint8Array {
 }
 
 function encodeInt64(tag: number, value: number): Uint8Array {
-  const buf = new Uint8Array(8);
-  new DataView(buf.buffer).setBigUint64(0, BigInt(value), true);
-  const parts = [encodeField(tag, 0), buf];
-  const result = new Uint8Array(10);
-  let offset = 0;
-  for (const p of parts) {
-    result.set(p, offset);
-    offset += p.length;
-  }
-  return result;
+  return concat(encodeField(tag, 0), encodeVarint(value));
 }
 
 function concat(...parts: Uint8Array[]): Uint8Array {
@@ -152,7 +143,7 @@ function buildRemoteWritePayload(): Uint8Array {
 
 async function pushMetrics(config: MetricsConfig): Promise<void> {
   const payload = buildRemoteWritePayload();
-  const compressed = compress(payload);
+  const compressed = compressSync(payload);
 
   const response = await fetch(config.url, {
     method: 'POST',
