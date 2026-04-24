@@ -1,6 +1,9 @@
 import { PrismaClient, Enrollment } from '../generated/prisma/client.js';
 import type { Prisma } from '../generated/prisma/client.js';
-import { EnrollmentStatus } from '../constants/enrollments.constant.js';
+import {
+  EnrollmentLectureFilter,
+  EnrollmentStatus,
+} from '../constants/enrollments.constant.js';
 import { getPagingParams } from '../utils/pagination.util.js';
 import { GetSvcEnrollmentsQueryDto } from '../validations/enrollments.validation.js';
 
@@ -215,12 +218,22 @@ export class EnrollmentsRepository {
       year?: string;
       status?: EnrollmentStatus;
       lectureId?: string;
+      lectureFilter?: EnrollmentLectureFilter;
       examId?: string;
     },
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
-    const { page, limit, keyword, year, status, lectureId, examId } = params;
+    const {
+      page,
+      limit,
+      keyword,
+      year,
+      status,
+      lectureId,
+      lectureFilter,
+      examId,
+    } = params;
 
     // 검색 조건 구성
     const where: Prisma.EnrollmentWhereInput = {
@@ -250,6 +263,14 @@ export class EnrollmentsRepository {
       where.lectureEnrollments = {
         some: {
           lectureId,
+        },
+      };
+    } else if (lectureFilter === EnrollmentLectureFilter.UNASSIGNED) {
+      where.lectureEnrollments = {
+        none: {
+          lecture: {
+            deletedAt: null,
+          },
         },
       };
     }

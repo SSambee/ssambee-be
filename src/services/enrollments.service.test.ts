@@ -31,7 +31,10 @@ import {
 } from '../test/fixtures/lectures.fixture.js';
 import { LectureStatus } from '../constants/lectures.constant.js';
 import { UserType } from '../constants/auth.constant.js';
-import { EnrollmentStatus } from '../constants/enrollments.constant.js';
+import {
+  EnrollmentLectureFilter,
+  EnrollmentStatus,
+} from '../constants/enrollments.constant.js';
 import { PrismaClient } from '../generated/prisma/client.js';
 
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
@@ -1124,6 +1127,40 @@ describe('EnrollmentsService - @unit #critical', () => {
 
         expect(result.enrollments[0].lecture).toEqual(mockLectureActive);
         expect(result.enrollments[1].lecture).toEqual(mockLectureExpired);
+      });
+
+      it('lecture=unassigned이면 강의 ID 조회 없이 미배정 필터로 수강생 목록을 조회한다', async () => {
+        mockPermissionService.getEffectiveInstructorId.mockResolvedValue(
+          instructorId,
+        );
+        mockEnrollmentsRepo.findMany.mockResolvedValue({
+          enrollments: [],
+          totalCount: 0,
+        });
+
+        await enrollmentsService.getEnrollments(
+          UserType.INSTRUCTOR,
+          instructorId,
+          {
+            lecture: EnrollmentLectureFilter.UNASSIGNED,
+            ...mockEnrollmentQueries.withPagination,
+          },
+        );
+
+        expect(mockLecturesRepo.findById).not.toHaveBeenCalled();
+        expect(
+          mockPermissionService.getEffectiveInstructorId,
+        ).toHaveBeenCalledWith(UserType.INSTRUCTOR, instructorId);
+        expect(mockEnrollmentsRepo.findMany).toHaveBeenCalledWith(
+          instructorId,
+          {
+            lecture: EnrollmentLectureFilter.UNASSIGNED,
+            lectureId: undefined,
+            lectureFilter: EnrollmentLectureFilter.UNASSIGNED,
+            ...mockEnrollmentQueries.withPagination,
+            examId: undefined,
+          },
+        );
       });
     });
   });
