@@ -1129,6 +1129,41 @@ describe('EnrollmentsService - @unit #critical', () => {
         expect(result.enrollments[1].lecture).toEqual(mockLectureExpired);
       });
 
+      it('삭제된 강의만 연결된 수강생은 목록 대표 강의를 null로 반환한다', async () => {
+        const deletedLecture = {
+          ...mockLectures.basic,
+          id: 'deleted-lecture',
+          deletedAt: new Date(),
+          status: LectureStatus.IN_PROGRESS,
+          endAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+        };
+        const enrollmentWithDeletedLecture = {
+          ...mockEnrollmentsList[0],
+          lectureEnrollments: [
+            {
+              id: 'le-deleted',
+              lecture: deletedLecture,
+              registeredAt: new Date(),
+            },
+          ],
+        };
+
+        mockEnrollmentsRepo.findMany.mockResolvedValue({
+          enrollments: [enrollmentWithDeletedLecture] as unknown as Awaited<
+            ReturnType<EnrollmentsRepository['findMany']>
+          >['enrollments'],
+          totalCount: 1,
+        });
+
+        const result = await enrollmentsService.getEnrollments(
+          UserType.INSTRUCTOR,
+          instructorId,
+          mockEnrollmentQueries.withPagination,
+        );
+
+        expect(result.enrollments[0].lecture).toBeNull();
+      });
+
       it('lecture=unassigned이면 강의 ID 조회 없이 미배정 필터로 수강생 목록을 조회한다', async () => {
         mockPermissionService.getEffectiveInstructorId.mockResolvedValue(
           instructorId,
@@ -1203,6 +1238,50 @@ describe('EnrollmentsService - @unit #critical', () => {
         });
         expect(mockEnrollmentsRepo.findByIdWithLectures).toHaveBeenCalledWith(
           enrollmentId,
+        );
+      });
+
+      it('수강 상세 조회에서 삭제된 강의는 lectures 응답에서 제외한다', async () => {
+        const lectureEnrollment =
+          mockEnrollmentWithRelations.lectureEnrollments[0]!;
+        const visibleLecture = {
+          ...lectureEnrollment.lecture,
+          id: 'visible-lecture',
+          deletedAt: null,
+        };
+        const deletedLecture = {
+          ...lectureEnrollment.lecture,
+          id: 'deleted-lecture',
+          deletedAt: new Date(),
+        };
+        mockEnrollmentsRepo.findByIdWithLectures.mockResolvedValue({
+          ...mockEnrollmentWithRelations,
+          lectureEnrollments: [
+            {
+              ...lectureEnrollment,
+              id: 'le-deleted',
+              lecture: deletedLecture,
+            },
+            {
+              ...lectureEnrollment,
+              id: 'le-visible',
+              lecture: visibleLecture,
+            },
+          ],
+        });
+
+        const result = await enrollmentsService.getEnrollmentDetail(
+          enrollmentId,
+          UserType.INSTRUCTOR,
+          instructorId,
+        );
+
+        expect(result.lectures).toHaveLength(1);
+        expect(result.lectures[0]).toEqual(
+          expect.objectContaining({
+            id: 'visible-lecture',
+            lectureEnrollmentId: 'le-visible',
+          }),
         );
       });
     });

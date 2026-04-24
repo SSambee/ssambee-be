@@ -165,6 +165,11 @@ export class EnrollmentsRepository {
       },
       include: {
         lectureEnrollments: {
+          where: {
+            lecture: {
+              deletedAt: null,
+            },
+          },
           include: {
             lecture: {
               include: {
@@ -287,6 +292,11 @@ export class EnrollmentsRepository {
             take: 1,
           },
           lectureEnrollments: {
+            where: {
+              lecture: {
+                deletedAt: null,
+              },
+            },
             include: {
               grades: examId
                 ? {
