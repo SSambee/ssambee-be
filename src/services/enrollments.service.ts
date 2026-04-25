@@ -1,6 +1,9 @@
 import { PrismaClient, Lecture } from '../generated/prisma/client.js';
 import { UserType } from '../constants/auth.constant.js';
-import { EnrollmentStatus } from '../constants/enrollments.constant.js';
+import {
+  EnrollmentLectureFilter,
+  EnrollmentStatus,
+} from '../constants/enrollments.constant.js';
 import { LectureStatus } from '../constants/lectures.constant.js';
 import {
   NotFoundException,
@@ -279,10 +282,12 @@ export class EnrollmentsService {
   ): Promise<EnrollmentListResponse> {
     // 1. 권한 체크 및 대상 강사 ID 확인
     let targetInstructorId = '';
+    const isUnassignedLectureFilter =
+      query.lecture === EnrollmentLectureFilter.UNASSIGNED;
 
     // 2. 통합된 Repository 호출
     // 강의 지정 시: 해당 강의의 담당 강사를 targetInstructorId로 설정 및 권한 검증
-    if (query.lecture) {
+    if (query.lecture && !isUnassignedLectureFilter) {
       const lecture = await this.lecturesRepository.findById(query.lecture);
       if (!lecture) {
         throw new NotFoundException('강의를 찾을 수 없습니다.');
@@ -308,7 +313,10 @@ export class EnrollmentsService {
       targetInstructorId,
       {
         ...query,
-        lectureId: query.lecture,
+        lectureId: isUnassignedLectureFilter ? undefined : query.lecture,
+        lectureFilter: isUnassignedLectureFilter
+          ? EnrollmentLectureFilter.UNASSIGNED
+          : undefined,
       },
       // 여기 세 번째 인자(tx)는 선택적이므로 생략 가능, 또는 기존 코드 문맥상 필요없음
     );
@@ -355,11 +363,13 @@ export class EnrollmentsService {
     );
 
     // 응답 평탄화: lectureEnrollments -> lectures
-    const lectures = enrollment.lectureEnrollments.map((le) => ({
-      ...le.lecture,
-      lectureEnrollmentId: le.id, // 매핑 정보도 알면 좋음
-      registeredAt: le.registeredAt,
-    }));
+    const lectures = enrollment.lectureEnrollments
+      .filter((le) => !le.lecture.deletedAt)
+      .map((le) => ({
+        ...le.lecture,
+        lectureEnrollmentId: le.id, // 매핑 정보도 알면 좋음
+        registeredAt: le.registeredAt,
+      }));
 
     return {
       ...enrollment,
@@ -621,10 +631,12 @@ export class EnrollmentsService {
     enrollment: EnrollmentWithAttendances,
   ): EnrollmentWithAttendance {
     const { attendances, lectureEnrollments, ...rest } = enrollment;
+    const visibleLectureEnrollments =
+      lectureEnrollments?.filter((le) => !le.lecture?.deletedAt) ?? [];
 
     // 1. 진행중인 강의 우선 찾기 (Active & Not Ended)
     const now = new Date();
-    let activeLecture = lectureEnrollments?.find(
+    let activeLecture = visibleLectureEnrollments.find(
       (le) =>
         le.lecture?.status === LectureStatus.IN_PROGRESS &&
         le.lecture?.endAt &&
@@ -632,8 +644,8 @@ export class EnrollmentsService {
     )?.lecture;
 
     // 2. 없으면 가장 최근 강의 (Repo에서 registeredAt: desc 정렬됨)
-    if (!activeLecture && lectureEnrollments && lectureEnrollments.length > 0) {
-      activeLecture = lectureEnrollments[0].lecture;
+    if (!activeLecture && visibleLectureEnrollments.length > 0) {
+      activeLecture = visibleLectureEnrollments[0].lecture;
     }
 
     return {

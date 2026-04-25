@@ -1,7 +1,7 @@
 import { PrismaClient } from '../generated/prisma/client.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaPg } from '@prisma/adapter-pg'; // Assuming this is the correct import path
-import { config, isDevelopment } from './env.config.js';
+import { config, isDevelopment, isProduction } from './env.config.js';
 import fs from 'fs';
 
 const getPrismaLogLevel = () => {
@@ -12,12 +12,28 @@ const getPrismaLogLevel = () => {
   return ['query', 'info', 'warn', 'error'] as Prisma.LogLevel[];
 };
 
+const getSslConfig = () => {
+  if (!isProduction()) {
+    return undefined;
+  }
+
+  const caPath = '/certs/global-bundle.pem';
+  if (!fs.existsSync(caPath)) {
+    console.warn(
+      `[DB] CA bundle not found at ${caPath}. Falling back to the system CA store.`,
+    );
+    return { rejectUnauthorized: true };
+  }
+
+  return {
+    rejectUnauthorized: true,
+    ca: fs.readFileSync(caPath, 'utf8'),
+  };
+};
+
 const adapter = new PrismaPg({
   connectionString: config.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: true,
-    ca: fs.readFileSync('/certs/global-bundle.pem').toString(),
-  },
+  ssl: getSslConfig(),
 });
 
 export const prisma = new PrismaClient({
