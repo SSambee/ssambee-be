@@ -7,6 +7,7 @@ import { config, isDevelopment, isProduction } from './config/env.config.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { disconnectDB } from './config/db.config.js';
 import { MorganLambdaStream } from './utils/logger.util.js';
+import { lokiReady } from './utils/loki.util.js';
 import {
   startSystemMonitoring,
   stopSystemMonitoring,
@@ -18,6 +19,7 @@ import './config/redis.config.js';
 const app = express();
 
 initSentry();
+await lokiReady;
 
 // Nginx 프록시 신뢰 설정
 if (isProduction()) {
