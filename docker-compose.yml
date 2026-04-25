@@ -13,6 +13,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=4000
+      - NODE_OPTIONS=--max-old-space-size=500
     deploy:
       resources:
         limits:
@@ -37,6 +38,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=4000
+      - NODE_OPTIONS=--max-old-space-size=500
     deploy:
       resources:
         limits:
@@ -57,6 +59,7 @@ services:
       - /certs/global-bundle.pem:/certs/global-bundle.pem:ro
     environment:
       - NODE_ENV=production
+      - NODE_OPTIONS=--max-old-space-size=250
     command: ['node', 'dist/scripts/run-scheduler.js']
     deploy:
       resources:

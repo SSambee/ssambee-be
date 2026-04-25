@@ -21,8 +21,8 @@ RUN cp -rn src/* dist/ 2>/dev/null || true
 FROM node:24-alpine
 WORKDIR /app
 
-# V8 heap limit: 384MB on 700MB container
-ENV NODE_OPTIONS="--max-old-space-size=384"
+# V8 heap limit: 384MB on 700MB container (참고 docker-compose.yml 에서 주입하므로 여기서는 생략)
+# ENV NODE_OPTIONS="--max-old-space-size=384"
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
