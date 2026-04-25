@@ -125,6 +125,9 @@ jobs:
           SMTP_PASS=$SMTP_PASS
           SMTP_FROM=$SMTP_FROM
           AWS_CLOUDFRONT_PRIVATE_KEY="$AWS_CLOUDFRONT_PRIVATE_KEY"
+          LOKI_HOST=$LOKI_HOST
+          LOKI_USER=$LOKI_USER
+          LOKI_PASSWORD=$LOKI_PASSWORD
           EOF
 
           # 리포지토리 이름을 소문자로 변환
