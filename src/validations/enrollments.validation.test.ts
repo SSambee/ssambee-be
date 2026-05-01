@@ -1,7 +1,9 @@
 import {
   createEnrollmentSchema,
+  getEnrollmentsQuerySchema,
   updateEnrollmentSchema,
 } from './enrollments.validation.js';
+import { EnrollmentLectureFilter } from '../constants/enrollments.constant.js';
 
 describe('enrollments.validation', () => {
   describe('createEnrollmentSchema', () => {
@@ -37,6 +39,21 @@ describe('enrollments.validation', () => {
         expect(result.data.registeredAt?.toISOString()).toBe(
           '2024-04-01T00:00:00.000Z',
         );
+      }
+    });
+  });
+
+  describe('getEnrollmentsQuerySchema', () => {
+    it('lecture=unassigned를 수강생 목록 조회 필터로 허용한다', () => {
+      const result = getEnrollmentsQuerySchema.safeParse({
+        page: '1',
+        limit: '10',
+        lecture: EnrollmentLectureFilter.UNASSIGNED,
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.lecture).toBe(EnrollmentLectureFilter.UNASSIGNED);
       }
     });
   });
