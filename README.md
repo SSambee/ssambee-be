@@ -63,7 +63,7 @@ Express와 Prisma 기반의 3계층 아키텍쳐(Controller - Service - Reposito
 src/
 ├── app.ts                  # 🚀 앱 부팅, 미들웨어, 라우팅 및 종료 제어
 ├── config/                 # ⚙️ 환경 변수, DB, Redis, Auth 구성
-├── routes/                 # 🛤️ 엔드포인트 라우팅 (mgmt, svc, public)
+├── routes/                 # 🛤️ 엔드포인트 라우팅 (mgmt, admin, svc, public)
 ├── controllers/            # 🎮 HTTP 요청 및 응답 제어
 ├── services/               # 💼 비즈니스 로직
 ├── repos/                  # 🗄️ Prisma 기반 데이터 접근(Repository)
@@ -78,17 +78,20 @@ prisma/
 
 ### API 분류
 
-백엔드의 라우팅(`Base: /api/{domain}/v1`)은 크게 3가지 도메인으로 나뉩니다. 모든 서비스는 `GET /health` 경로를 통해 상태 체크를 지원합니다.
+백엔드의 라우팅(`Base: /api/{domain}/v1`)은 크게 4가지 도메인으로 나뉩니다. 모든 서비스는 `GET /health` 경로를 통해 상태 체크를 지원합니다.
 
 1. **`mgmt` (강사/조교 운영 API):**
-   - 운영권한 사용자 대상 기능을 묶음
+   - 강사/조교가 사용하는 운영 기능을 묶음
    - 라우트: `/lectures`, `/enrollments`, `/exams`, `/assignment-results`, `/grades`, `/materials`, `/instructor-posts`, `/student-posts`, `/dashboard` 등
-2. **`svc` (학생/학부모 서비스 API):**
+2. **`admin` (운영자 전용 API):**
+   - 운영자가 사용하는 인증, 사용자 조회, 결제 운영 기능을 묶음
+   - 라우트: `/auth`, `/admins`, `/users`, `/billing`
+3. **`svc` (학생/학부모 서비스 API):**
    - 일반 사용자 관점의 서비스(조회, 제출 등)에 집중
    - 라우트: `/enrollments`, `/children`, `/grades`, `/clinics`, `/student-posts`, `/me`, `/uploads` 등
-3. **`public` (공개 인증 API):**
+4. **`public` (공개 API):**
    - 비로그인 사용자의 접근 진입로
-   - 라우트: `/auth` (회원 가입, 이메일 인증, 로그인)
+   - 라우트: `/auth`, `/billing`
 
 ---
 
@@ -179,6 +182,21 @@ flowchart LR
 
 ---
 
+## 💳 결제 플로우
+
+- 무통장 결제 생성은 강사/조교 운영 API의 `POST /api/mgmt/v1/billing/payments/bank-transfer` 에서 처리합니다.
+- 결제 생성 직후 상태는 `PENDING_DEPOSIT` 입니다.
+- 강사는 아직 승인되지 않은 본인 무통장 결제를 `POST /api/mgmt/v1/billing/payments/:paymentId/cancel` 로 취소할 수 있습니다.
+- 관리자 검수는 `POST /api/admin/v1/billing/payments/:id/approve` 또는 `POST /api/admin/v1/billing/payments/:id/reject` 로 바로 처리합니다.
+- 별도의 입금 알림 엔드포인트 `POST /api/mgmt/v1/billing/payments/:paymentId/deposit` 는 더 이상 사용하지 않습니다.
+- 현재 무통장 결제의 주요 상태 전이는 `PENDING_DEPOSIT -> APPROVED`, `PENDING_DEPOSIT -> REJECTED`, `PENDING_DEPOSIT -> CANCELED` 입니다.
+- 무통장 결제 관련 메일은 결제 생성/승인/반려 처리 뒤 비동기 부수효과로 발송되며, API 응답은 SMTP 완료를 기다리지 않습니다.
+- 입금 요청 메일은 `BANK_TRANSFER_ACCOUNT_BANK`, `BANK_TRANSFER_ACCOUNT_NUMBER`, `BANK_TRANSFER_ACCOUNT_HOLDER` 가 모두 설정된 경우에만 발송됩니다.
+- 위 3개 계좌 환경변수는 앱 부팅 필수값은 아니며, 누락 시 서버는 계속 기동되고 입금 요청 메일만 경고 로그와 함께 스킵됩니다.
+- 승인/반려 메일은 계좌 정보와 무관하게 SMTP 설정이 유효하면 계속 발송됩니다.
+
+---
+
 ## 🔐 인증 및 인가 처리 플로우
 
 <details>
@@ -222,7 +240,7 @@ sequenceDiagram
 1. 보호 라우트로 접근할 때 미들웨어 체인을 통과합니다.
 2. `requireAuth`: 요청 헤더에서 세션을 조회해 유효하지 않으면 `401` 반환.
 3. 유효한 세션은 `req.user`, `req.profile`, `req.authSession`에 안전하게 주입됩니다.
-4. 권한 인가: 이후 `requireInstructor`, `requireStudent` 등의 권한 미들웨어를 통해 사용자 타입을 검증합니다.
+4. 권한 인가: 이후 `requireAdmin`, `requireInstructor`, `requireStudent` 등의 권한 미들웨어를 통해 사용자 타입을 검증합니다.
 5. 특수 조건: 조교(`ASSISTANT`)의 경우 서명 승인(`signStatus === SIGNED`) 상태까지 확인하여 접근을 제한합니다.
 6. 인프라 최적화: Better Auth를 활용해 크로스 도메인 쿠키(운영 환경), trust origin 설정(FRONT_URL 기반)으로 안전하게 동작합니다.
 
@@ -261,6 +279,7 @@ $ pnpm test
 - **배포 아키텍쳐:** `docker-compose.yml` 기준으로 Nginx와 Blue/Green 무중단 배포를 지원합니다.
   - 컨테이너 종료(`SIGTERM`/`SIGINT`) 수신 시 라우팅을 중단하고 수신된 기존 요청 처리를 마친 뒤 DB 연결을 종료합니다.
 - **인프라 선택적 연동:** `.env` 값을 기준으로 Sentry(에러 추적), Redis, AWS 연동은 제공된 환경변수가 있을 시에만 동작하도록 설계되었습니다.
+- **무통장 메일 설정:** `BANK_TRANSFER_ACCOUNT_*` 값은 입금 요청 메일 전용 설정입니다. 운영에서 입금 요청 메일을 사용하려면 배포 환경에 3개 값을 모두 등록해야 합니다.
 
 ---
 

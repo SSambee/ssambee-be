@@ -16,6 +16,9 @@ export interface AuthUser {
   email: string;
   name: string;
   userType: string;
+  role?: string | string[] | null;
+  image?: string | null;
+  emailVerified?: boolean;
   [key: string]: unknown;
 }
 

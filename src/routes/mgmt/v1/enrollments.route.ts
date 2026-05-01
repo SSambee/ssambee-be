@@ -15,6 +15,7 @@ const { requireAuth, requireInstructorOrAssistant, enrollmentsController } =
 /** 모든 라우트에 대해 강사/조교 권한 필요 */
 mgmtEnrollmentsRouter.use(requireAuth);
 mgmtEnrollmentsRouter.use(requireInstructorOrAssistant);
+mgmtEnrollmentsRouter.use(container.requireActiveInstructorEntitlement);
 
 /** 강사: 본인의 강의를 수강하는 모든 학생 목록 조회 */
 mgmtEnrollmentsRouter.get(

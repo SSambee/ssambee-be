@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { mgmtAuthRouter } from './auth.routes.js';
+import { mgmtBillingRouter } from './billing.route.js';
 import { mgmtLecturesRouter } from './lectures.route.js';
 import { mgmtEnrollmentsRouter } from './enrollments.route.js';
 
@@ -7,6 +8,13 @@ export const mgmtV1Router = Router();
 
 /** 인증 라우트 */
 mgmtV1Router.use('/auth', mgmtAuthRouter);
+
+/** 결제/이용권 라우트 */
+mgmtV1Router.use('/billing', mgmtBillingRouter);
+
+/** 프로필 라우트 */
+import { mgmtProfileRouter } from './profile.route.js';
+mgmtV1Router.use('/me', mgmtProfileRouter);
 
 /** 강의 라우트 */
 mgmtV1Router.use('/lectures', mgmtLecturesRouter);
@@ -90,10 +98,6 @@ mgmtV1Router.use('/assignment-results', mgmtAssignmentResultsRouter);
 /** 성적 라우트 */
 import { mgmtGradesRouter } from './grades.route.js';
 mgmtV1Router.use('/grades', mgmtGradesRouter);
-
-/** 프로필 라우트 */
-import { mgmtProfileRouter } from './profile.route.js';
-mgmtV1Router.use('/me', mgmtProfileRouter);
 
 import { mgmtKakaoRouter } from './kakao.route.js';
 mgmtV1Router.use('/kakao', mgmtKakaoRouter);

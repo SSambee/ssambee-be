@@ -20,6 +20,7 @@ const {
 
 mgmtMaterialsRouter.use(requireAuth);
 mgmtMaterialsRouter.use(requireInstructorOrAssistant);
+mgmtMaterialsRouter.use(container.requireActiveInstructorEntitlement);
 
 /** 자료 업로드 */
 mgmtMaterialsRouter.post(

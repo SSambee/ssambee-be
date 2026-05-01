@@ -5,18 +5,19 @@ import {
   BadRequestException,
   NotFoundException,
 } from '../err/http.exception.js';
-import { Prisma, PrismaClient } from '../generated/prisma/client.js';
-import { createMockPrisma } from '../test/mocks/prisma.mock.js';
+import { Prisma } from '../generated/prisma/client.js';
 
 import { ProfileRepository } from '../repos/profile.repo.js';
+import type { BillingService } from './billing.service.js';
 
 describe('ProfileService - @unit', () => {
   let profileService: ProfileService;
   let mockProfileRepo: jest.Mocked<ProfileRepository>;
-  let mockPrisma: PrismaClient;
+  let mockBillingService: jest.Mocked<
+    Pick<BillingService, 'getInstructorBillingSummary'>
+  >;
 
   beforeEach(() => {
-    mockPrisma = createMockPrisma() as unknown as PrismaClient;
     mockProfileRepo = {
       getInstructorProfileWithLectures: jest.fn(),
       updateInstructorProfile: jest.fn(),
@@ -27,7 +28,19 @@ describe('ProfileService - @unit', () => {
       getParentProfileWithChildren: jest.fn(),
       updateParentProfile: jest.fn(),
     } as unknown as jest.Mocked<ProfileRepository>;
-    profileService = new ProfileService(mockProfileRepo, mockPrisma);
+    mockBillingService = {
+      getInstructorBillingSummary: jest.fn(),
+    };
+    mockBillingService.getInstructorBillingSummary.mockResolvedValue({
+      activeEntitlement: null,
+      creditSummary: {
+        totalAvailable: 0,
+      },
+    });
+    profileService = new ProfileService(
+      mockProfileRepo,
+      mockBillingService as unknown as BillingService,
+    );
   });
 
   describe('getMyProfile', () => {
@@ -60,6 +73,18 @@ describe('ProfileService - @unit', () => {
             ReturnType<ProfileRepository['getInstructorProfileWithLectures']>
           >,
         );
+        mockBillingService.getInstructorBillingSummary.mockResolvedValue({
+          activeEntitlement: {
+            id: 'entitlement-1',
+            status: 'ACTIVE',
+            startsAt: new Date('2026-03-24T00:00:00.000Z'),
+            endsAt: new Date('2026-04-23T14:59:59.999Z'),
+            includedCreditAmount: 1000,
+          },
+          creditSummary: {
+            totalAvailable: 1000,
+          },
+        });
 
         const result = await profileService.getMyProfile(
           'inst-1',
@@ -75,6 +100,16 @@ describe('ProfileService - @unit', () => {
           academy: 'ABC',
           userType: UserType.INSTRUCTOR,
           createdAt: mockProfile.createdAt,
+          activeEntitlement: {
+            id: 'entitlement-1',
+            status: 'ACTIVE',
+            startsAt: new Date('2026-03-24T00:00:00.000Z'),
+            endsAt: new Date('2026-04-23T14:59:59.999Z'),
+            includedCreditAmount: 1000,
+          },
+          creditSummary: {
+            totalAvailable: 1000,
+          },
           lectures: [
             {
               id: 'lec-1',
@@ -85,6 +120,9 @@ describe('ProfileService - @unit', () => {
             },
           ],
         });
+        expect(
+          mockBillingService.getInstructorBillingSummary,
+        ).toHaveBeenCalledWith('inst-1');
       });
 
       it('에러를 던져야 한다:  NotFoundException if instructor profile not found', async () => {
@@ -95,6 +133,9 @@ describe('ProfileService - @unit', () => {
         await expect(
           profileService.getMyProfile('inst-1', UserType.INSTRUCTOR),
         ).rejects.toThrow(NotFoundException);
+        expect(
+          mockBillingService.getInstructorBillingSummary,
+        ).not.toHaveBeenCalled();
       });
     });
 

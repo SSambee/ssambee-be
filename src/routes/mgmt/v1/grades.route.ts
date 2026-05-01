@@ -14,6 +14,7 @@ const { requireAuth, requireInstructorOrAssistant, gradesController } =
 
 mgmtGradesRouter.use(requireAuth);
 mgmtGradesRouter.use(requireInstructorOrAssistant);
+mgmtGradesRouter.use(container.requireActiveInstructorEntitlement);
 
 /**
  * 성적 상세 조회 (답안 포함)

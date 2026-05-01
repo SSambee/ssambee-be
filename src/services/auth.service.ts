@@ -1,4 +1,5 @@
 import type { IncomingHttpHeaders } from 'http';
+import { createHash } from 'node:crypto';
 import { fromNodeHeaders } from 'better-auth/node';
 import { PrismaClient } from '../generated/prisma/client.js';
 import type { Prisma } from '../generated/prisma/client.js';
@@ -9,6 +10,7 @@ import {
   UnauthorizedException,
 } from '../err/http.exception.js';
 import {
+  AdminProfileStatus,
   SIGNUP_PENDING_USER_TYPE,
   UserType,
 } from '../constants/auth.constant.js';
@@ -21,6 +23,20 @@ import { ParentRepository } from '../repos/parent.repo.js';
 import { SignUpData, AuthResponse, AuthUser } from '../types/auth.types.js';
 import { EnrollmentsRepository } from '../repos/enrollments.repo.js';
 import { config } from '../config/env.config.js';
+import { BillingService } from './billing.service.js';
+import { AdminRepository } from '../repos/admin.repo.js';
+
+const hasAdminRole = (role?: string | string[] | null) => {
+  if (!role) {
+    return false;
+  }
+
+  if (Array.isArray(role)) {
+    return role.includes('admin');
+  }
+
+  return role === 'admin';
+};
 
 export class AuthService {
   constructor(
@@ -29,8 +45,10 @@ export class AuthService {
     private readonly assistantCodeRepo: AssistantCodeRepository,
     private readonly studentRepo: StudentRepository,
     private readonly parentRepo: ParentRepository,
+    private readonly adminRepo: AdminRepository,
     private readonly enrollmentsRepo: EnrollmentsRepository,
     private readonly authClient: typeof auth,
+    private readonly billingService: BillingService,
     private readonly prisma: PrismaClient,
   ) {}
 
@@ -41,6 +59,55 @@ export class AuthService {
 
   private isSupportedUserType(value: string): value is UserType {
     return (Object.values(UserType) as string[]).includes(value);
+  }
+
+  private normalizeEmail(email: string) {
+    return email.trim().toLowerCase();
+  }
+
+  private getEmailLogToken(normalizedEmail: string) {
+    return createHash('sha256')
+      .update(normalizedEmail)
+      .digest('hex')
+      .slice(0, 12);
+  }
+
+  private getSetCookieHeaders(headers: Headers) {
+    const headersWithGetSetCookie = headers as Headers & {
+      getSetCookie?: () => string[];
+    };
+
+    if (typeof headersWithGetSetCookie.getSetCookie === 'function') {
+      const cookies = headersWithGetSetCookie.getSetCookie().filter(Boolean);
+      if (cookies.length === 0) {
+        return null;
+      }
+
+      return cookies.length === 1 ? cookies[0] : cookies;
+    }
+
+    const setCookie = headers.get('set-cookie');
+    return setCookie || null;
+  }
+
+  private async getAdminOrThrow(userId: string) {
+    const admin = await this.adminRepo.findByUserId(userId);
+
+    if (!admin) {
+      throw new ForbiddenException('관리자 계정 구성이 올바르지 않습니다.');
+    }
+
+    return admin;
+  }
+
+  private async ensureActiveAdminOrThrow(userId: string) {
+    const admin = await this.getAdminOrThrow(userId);
+
+    if (admin.status !== AdminProfileStatus.ACTIVE) {
+      throw new ForbiddenException('관리자 최초 활성화가 필요합니다.');
+    }
+
+    return admin;
   }
 
   private async getAuthErrorMessage(response: Response, fallback: string) {
@@ -135,7 +202,7 @@ export class AuthService {
     }
 
     const data = (await response.json()) as T;
-    const setCookie = response.headers.get('set-cookie');
+    const setCookie = this.getSetCookieHeaders(response.headers);
 
     return { data, setCookie };
   }
@@ -289,7 +356,7 @@ export class AuthService {
     }
 
     const result = await response.json();
-    const setCookie = response.headers.get('set-cookie');
+    const setCookie = this.getSetCookieHeaders(response.headers);
     const { user, session, token } = result as AuthResponse;
     const finalSession = session || (token ? { token } : null);
 
@@ -312,7 +379,7 @@ export class AuthService {
 
     const response = await this.authClient.handler(request);
 
-    const setCookie = response.headers.get('set-cookie');
+    const setCookie = this.getSetCookieHeaders(response.headers);
     const redirectTo = response.headers.get('location');
 
     if (response.status >= 300 && response.status < 400) {
@@ -341,6 +408,131 @@ export class AuthService {
       ...result,
       setCookie,
       redirectTo,
+    };
+  }
+
+  async requestAdminActivationOtp(email: string) {
+    const normalizedEmail = this.normalizeEmail(email);
+
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true, userType: true },
+    });
+
+    if (!user || user.userType !== UserType.ADMIN) {
+      return { status: true };
+    }
+
+    const admin = await this.adminRepo.findByUserId(user.id);
+
+    if (admin?.status === AdminProfileStatus.PENDING_ACTIVATION) {
+      try {
+        await this.requestEmailVerification(normalizedEmail);
+      } catch (error) {
+        console.error('[AuthService] admin activation OTP dispatch failed', {
+          emailToken: this.getEmailLogToken(normalizedEmail),
+          userId: user.id,
+          error,
+        });
+      }
+    }
+
+    return { status: true };
+  }
+
+  async verifyAdminActivationOtp(email: string, otp: string) {
+    const normalizedEmail = this.normalizeEmail(email);
+
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true, userType: true },
+    });
+
+    if (!user || user.userType !== UserType.ADMIN) {
+      throw new BadRequestException(
+        '인증코드가 올바르지 않거나 만료되었습니다.',
+      );
+    }
+
+    const admin = await this.adminRepo.findByUserId(user.id);
+
+    if (!admin || admin.status !== AdminProfileStatus.PENDING_ACTIVATION) {
+      throw new BadRequestException(
+        '인증코드가 올바르지 않거나 만료되었습니다.',
+      );
+    }
+
+    const result = await this.verifyEmailVerification(normalizedEmail, otp);
+
+    if (result.user.userType !== UserType.ADMIN || result.user.id !== user.id) {
+      throw new BadRequestException(
+        '인증코드가 올바르지 않거나 만료되었습니다.',
+      );
+    }
+
+    return result;
+  }
+
+  async completeAdminActivation(
+    headers: IncomingHttpHeaders,
+    password: string,
+  ) {
+    const authSession = await this.authClient.api.getSession({
+      headers: fromNodeHeaders(headers),
+      query: {
+        disableCookieCache: true,
+      },
+    });
+
+    if (!authSession) {
+      throw new UnauthorizedException('인증이 필요합니다.');
+    }
+
+    if (authSession.user.userType !== UserType.ADMIN) {
+      throw new ForbiddenException('관리자 계정만 활성화할 수 있습니다.');
+    }
+
+    const admin = await this.getAdminOrThrow(authSession.user.id);
+
+    if (admin.status !== AdminProfileStatus.PENDING_ACTIVATION) {
+      throw new ForbiddenException('이미 활성화된 관리자 계정입니다.');
+    }
+
+    await this.ensureCredentialPassword(authSession.user.id, headers, password);
+
+    const now = new Date();
+    const updatedUser = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: authSession.user.id },
+        data: {
+          emailVerified: true,
+          role: 'admin',
+        },
+      });
+
+      await tx.admin.update({
+        where: { userId: authSession.user.id },
+        data: {
+          status: AdminProfileStatus.ACTIVE,
+          activatedAt: now,
+        },
+      });
+
+      return user;
+    });
+
+    return {
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        userType: updatedUser.userType,
+        emailVerified: updatedUser.emailVerified,
+        image: updatedUser.image,
+        role: updatedUser.role,
+      },
+      session: authSession.session,
+      profile: null,
     };
   }
 
@@ -562,6 +754,14 @@ export class AuthService {
       throw new ForbiddenException('유저 역할이 잘못되었습니다.');
     }
 
+    if (existingUser?.userType === UserType.ADMIN) {
+      const admin = await this.getAdminOrThrow(existingUser.id);
+
+      if (admin.status !== AdminProfileStatus.ACTIVE) {
+        throw new ForbiddenException('관리자 최초 활성화가 필요합니다.');
+      }
+    }
+
     // 2. auth.handler를 사용하여 로그인 및 쿠키 캡처
     const signInReq = new Request(`${this.baseURL}/api/auth/sign-in/email`, {
       method: 'POST',
@@ -584,7 +784,7 @@ export class AuthService {
     }
 
     const result = await response.json();
-    const setCookie = response.headers.get('set-cookie');
+    const setCookie = this.getSetCookieHeaders(response.headers);
 
     const { user, session, token } = result as AuthResponse;
     const finalSession = session || (token ? { token } : null);
@@ -595,8 +795,16 @@ export class AuthService {
       );
     }
 
+    if (requiredUserType === UserType.ADMIN && !hasAdminRole(user.role)) {
+      throw new ForbiddenException('관리자 권한이 없습니다.');
+    }
+
+    if (requiredUserType === UserType.ADMIN) {
+      await this.ensureActiveAdminOrThrow(user.id);
+    }
+
     const profile = await this.findProfileByUserId(user.userType, user.id);
-    if (!profile) {
+    if (requiredUserType !== UserType.ADMIN && !profile) {
       throw new UnauthorizedException(
         '회원가입이 완료되지 않았습니다. 이메일 인증 후 가입 절차를 완료해주세요.',
       );
@@ -608,6 +816,14 @@ export class AuthService {
       profile,
       setCookie, // 쿠키 헤더 반환
     };
+  }
+
+  async signInAdmin(
+    email: string,
+    password: string,
+    rememberMe: boolean = false,
+  ) {
+    return this.signIn(email, password, UserType.ADMIN, rememberMe);
   }
 
   /** 로그아웃 (핸들러에서 처리하거나 API 호출) */
@@ -668,6 +884,74 @@ export class AuthService {
       ...session,
       profile,
     };
+  }
+
+  async getSessionWithInstructorBillingSummary(headers: IncomingHttpHeaders) {
+    const session = await this.getSession(headers);
+
+    if (!session) {
+      return session;
+    }
+
+    const profile = session.profile as {
+      id: string;
+      instructorId?: string;
+      [key: string]: unknown;
+    } | null;
+
+    if (!profile) {
+      return session;
+    }
+
+    const billingTargetInstructorId =
+      session.user.userType === UserType.INSTRUCTOR
+        ? profile.id
+        : session.user.userType === UserType.ASSISTANT
+          ? profile.instructorId
+          : null;
+
+    if (!billingTargetInstructorId) {
+      return session;
+    }
+
+    const activeEntitlement =
+      await this.billingService.getSessionActiveEntitlement(
+        billingTargetInstructorId,
+      );
+
+    return {
+      ...session,
+      profile: {
+        ...profile,
+        activeEntitlement,
+      },
+    };
+  }
+
+  async getAdminSession(headers: IncomingHttpHeaders) {
+    const session = await this.getSession(headers);
+
+    if (!session) {
+      return null;
+    }
+
+    if (
+      session.user.userType !== UserType.ADMIN ||
+      !hasAdminRole(session.user.role as string | string[] | null | undefined)
+    ) {
+      throw new ForbiddenException('관리자 권한이 필요합니다.');
+    }
+
+    const admin = await this.ensureActiveAdminOrThrow(session.user.id);
+
+    return {
+      ...session,
+      canInviteAdmins: admin.isPrimaryAdmin,
+    };
+  }
+
+  async ensureAdminAccess(userId: string) {
+    return this.ensureActiveAdminOrThrow(userId);
   }
 
   /** 강사 프로필 생성 */
@@ -783,6 +1067,8 @@ export class AuthService {
   /** ID로 프로필 조회 */
   private async findProfileByUserId(userType: UserType, userId: string) {
     switch (userType) {
+      case UserType.ADMIN:
+        return null;
       case UserType.INSTRUCTOR:
         return this.instructorRepo.findByUserId(userId);
       case UserType.ASSISTANT:
@@ -800,6 +1086,8 @@ export class AuthService {
     phoneNumber: string,
   ) {
     switch (userType) {
+      case UserType.ADMIN:
+        return null;
       case UserType.INSTRUCTOR:
         return this.instructorRepo.findByPhoneNumber(phoneNumber);
       case UserType.ASSISTANT:
