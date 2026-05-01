@@ -12,16 +12,28 @@ const getPrismaLogLevel = () => {
   return ['query', 'info', 'warn', 'error'] as Prisma.LogLevel[];
 };
 
-const sslConfig = isProduction()
-  ? {
-      rejectUnauthorized: true,
-      ca: fs.readFileSync('/certs/global-bundle.pem').toString(),
-    }
-  : undefined;
+const getSslConfig = () => {
+  if (!isProduction()) {
+    return undefined;
+  }
+
+  const caPath = '/certs/global-bundle.pem';
+  if (!fs.existsSync(caPath)) {
+    console.warn(
+      `[DB] CA bundle not found at ${caPath}. Falling back to the system CA store.`,
+    );
+    return { rejectUnauthorized: true };
+  }
+
+  return {
+    rejectUnauthorized: true,
+    ca: fs.readFileSync(caPath, 'utf8'),
+  };
+};
 
 const adapter = new PrismaPg({
   connectionString: config.DATABASE_URL,
-  ssl: sslConfig,
+  ssl: getSslConfig(),
 });
 
 export const prisma = new PrismaClient({

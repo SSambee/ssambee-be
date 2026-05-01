@@ -67,57 +67,78 @@ export type LectureEnrollmentDto = z.infer<typeof lectureEnrollmentSchema>;
 /**
  * 강의 생성 요청 검증 스키마
  */
-export const createLectureSchema = z.object({
-  /** 강의 제목 */
-  title: z
-    .string()
-    .min(1, { message: '강의 제목은 필수입니다.' })
-    .max(LectureLimits.TITLE_MAX_LENGTH, {
-      message: `강의 제목은 ${LectureLimits.TITLE_MAX_LENGTH}자를 초과할 수 없습니다.`,
-    })
-    .trim(),
+export const createLectureSchema = z
+  .object({
+    /** 강의 제목 */
+    title: z
+      .string()
+      .min(1, { message: '강의 제목은 필수입니다.' })
+      .max(LectureLimits.TITLE_MAX_LENGTH, {
+        message: `강의 제목은 ${LectureLimits.TITLE_MAX_LENGTH}자를 초과할 수 없습니다.`,
+      })
+      .trim(),
 
-  /** 대상 학년 */
-  schoolYear: z
-    .enum(SCHOOL_YEARS, { message: '유효한 학년이 아닙니다.' })
-    .optional(),
+    /** 대상 학년 */
+    schoolYear: z
+      .enum(SCHOOL_YEARS, { message: '유효한 학년이 아닙니다.' })
+      .optional(),
 
-  /** 과목 */
-  subject: z
-    .string()
-    .max(LectureLimits.SUBJECT_MAX_LENGTH, {
-      message: `과목명은 ${LectureLimits.SUBJECT_MAX_LENGTH}자를 초과할 수 없습니다.`,
-    })
-    .trim()
-    .optional(),
+    /** 과목 */
+    subject: z
+      .string()
+      .max(LectureLimits.SUBJECT_MAX_LENGTH, {
+        message: `과목명은 ${LectureLimits.SUBJECT_MAX_LENGTH}자를 초과할 수 없습니다.`,
+      })
+      .trim()
+      .optional(),
 
-  /** 강의 설명 */
-  description: z
-    .string()
-    .max(LectureLimits.DESCRIPTION_MAX_LENGTH, {
-      message: `설명은 ${LectureLimits.DESCRIPTION_MAX_LENGTH}자를 초과할 수 없습니다.`,
-    })
-    .trim()
-    .optional(),
+    /** 강의 설명 */
+    description: z
+      .string()
+      .max(LectureLimits.DESCRIPTION_MAX_LENGTH, {
+        message: `설명은 ${LectureLimits.DESCRIPTION_MAX_LENGTH}자를 초과할 수 없습니다.`,
+      })
+      .trim()
+      .optional(),
 
-  /** 강의 시작일 */
-  startAt: dateTimeSchema.optional().nullable(),
+    /** 강의 시작일 */
+    startAt: dateTimeSchema.optional().nullable(),
 
-  /** 강의 종료일 */
-  endAt: dateTimeSchema.optional().nullable(),
+    /** 강의 종료일 */
+    endAt: dateTimeSchema.optional().nullable(),
 
-  /** 강의 상태 (예정, 진행중, 종료) */
-  status: z
-    .nativeEnum(LectureStatus)
-    .optional()
-    .default(LectureStatus.SCHEDULED),
+    /** 강의 상태 (예정, 진행중, 종료) */
+    status: z
+      .nativeEnum(LectureStatus)
+      .optional()
+      .default(LectureStatus.SCHEDULED),
 
-  /** 수업 시간 목록 */
-  lectureTimes: z.array(lectureTimeItemSchema).optional(),
+    /** 수업 시간 목록 */
+    lectureTimes: z.array(lectureTimeItemSchema).optional(),
 
-  /** 수강 등록 목록 (강의 생성 시 동시 등록용) */
-  enrollments: z.array(lectureEnrollmentSchema).optional(),
-});
+    /** 수강 등록 목록 (강의 생성 시 동시 등록용) */
+    enrollments: z.array(lectureEnrollmentSchema).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.enrollments) return;
+
+    const seenStudentPhoneIndexes = new Map<string, number>();
+
+    data.enrollments.forEach((enrollment, index) => {
+      const firstIndex = seenStudentPhoneIndexes.get(enrollment.studentPhone);
+
+      if (firstIndex !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: '중복된 학생 전화번호는 허용되지 않습니다.',
+          path: ['enrollments', index, 'studentPhone'],
+        });
+        return;
+      }
+
+      seenStudentPhoneIndexes.set(enrollment.studentPhone, index);
+    });
+  });
 
 /** 강의 생성 DTO 타입 */
 export type CreateLectureDto = z.infer<typeof createLectureSchema>;
