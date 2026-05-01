@@ -14,10 +14,10 @@ services:
       - NODE_ENV=production
       - PORT=4000
       - NODE_OPTIONS=--max-old-space-size=500
-    deploy:
-      resources:
-        limits:
-          memory: 700m
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 700m
     networks:
       - lms-network
     restart: always #Prisma 마이그레이션 실행 후 서버 시작
@@ -39,10 +39,10 @@ services:
       - NODE_ENV=production
       - PORT=4000
       - NODE_OPTIONS=--max-old-space-size=500
-    deploy:
-      resources:
-        limits:
-          memory: 700m
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 700m
     networks:
       - lms-network
     restart: always #Prisma 마이그레이션 실행 후 서버 시작
@@ -61,10 +61,10 @@ services:
       - NODE_ENV=production
       - NODE_OPTIONS=--max-old-space-size=250
     command: ['node', 'dist/scripts/run-scheduler.js']
-    deploy:
-      resources:
-        limits:
-          memory: 400m
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 400m
     networks:
       - lms-network
     restart: always
