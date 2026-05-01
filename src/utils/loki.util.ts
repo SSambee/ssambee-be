@@ -39,7 +39,10 @@ async function initLokiTransport() {
           env: process.env.NODE_ENV || 'unknown',
         },
         json: true,
-        format: winston.format.json(),
+        format: winston.format.combine(
+          winston.format.errors({ stack: true }),
+          winston.format.json(),
+        ),
         replaceTimestamp: true,
         batching: false,
         onConnectionError: (err: Error) =>
