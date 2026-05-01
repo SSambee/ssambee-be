@@ -1,5 +1,6 @@
 import { LecturesService } from './lectures.service.js';
 import {
+  BadRequestException,
   NotFoundException,
   ForbiddenException,
 } from '../err/http.exception.js';
@@ -371,6 +372,87 @@ describe('LecturesService - @unit #critical', () => {
         ).rejects.toThrow('강사를 찾을 수 없습니다.');
 
         expect(mockLecturesRepo.create).not.toHaveBeenCalled();
+      });
+
+      it('기존 수강생 전화번호와 요청 학생 이름이 일치하지 않으면 BadRequestException을 던진다', async () => {
+        const enrollmentRequest =
+          createLectureRequests.withEnrollments.enrollments![0];
+        const existingEnrollment = {
+          ...mockEnrollments.active,
+          studentPhone: enrollmentRequest.studentPhone,
+          studentName: '다른학생',
+          parentPhone: enrollmentRequest.parentPhone,
+        };
+
+        mockInstructorRepo.findById.mockResolvedValue({
+          ...mockInstructor,
+          ...mockInstructorWithUser,
+        });
+        mockEnrollmentsRepo.findManyByInstructorAndPhones.mockResolvedValue([
+          existingEnrollment,
+        ]);
+
+        (mockPrisma.$transaction as jest.Mock).mockImplementation(
+          async (fn) => await fn(mockPrisma),
+        );
+
+        await expect(
+          lecturesService.createLecture(mockInstructor.id, {
+            ...createLectureRequests.withEnrollments,
+            enrollments: [enrollmentRequest],
+            startAt: new Date(createLectureRequests.withEnrollments.startAt),
+            endAt: new Date(createLectureRequests.withEnrollments.endAt),
+          }),
+        ).rejects.toThrow(BadRequestException);
+
+        await expect(
+          lecturesService.createLecture(mockInstructor.id, {
+            ...createLectureRequests.withEnrollments,
+            enrollments: [enrollmentRequest],
+            startAt: new Date(createLectureRequests.withEnrollments.startAt),
+            endAt: new Date(createLectureRequests.withEnrollments.endAt),
+          }),
+        ).rejects.toThrow(
+          '이미 등록된 학생 전화번호와 학생 정보가 일치하지 않습니다.',
+        );
+
+        expect(mockLecturesRepo.create).not.toHaveBeenCalled();
+        expect(mockLectureEnrollmentsRepo.createMany).not.toHaveBeenCalled();
+      });
+
+      it('기존 수강생 전화번호와 요청 학부모 전화번호가 일치하지 않으면 BadRequestException을 던진다', async () => {
+        const enrollmentRequest =
+          createLectureRequests.withEnrollments.enrollments![0];
+        const existingEnrollment = {
+          ...mockEnrollments.active,
+          studentPhone: enrollmentRequest.studentPhone,
+          studentName: enrollmentRequest.studentName,
+          parentPhone: '010-0000-0000',
+        };
+
+        mockInstructorRepo.findById.mockResolvedValue({
+          ...mockInstructor,
+          ...mockInstructorWithUser,
+        });
+        mockEnrollmentsRepo.findManyByInstructorAndPhones.mockResolvedValue([
+          existingEnrollment,
+        ]);
+
+        (mockPrisma.$transaction as jest.Mock).mockImplementation(
+          async (fn) => await fn(mockPrisma),
+        );
+
+        await expect(
+          lecturesService.createLecture(mockInstructor.id, {
+            ...createLectureRequests.withEnrollments,
+            enrollments: [enrollmentRequest],
+            startAt: new Date(createLectureRequests.withEnrollments.startAt),
+            endAt: new Date(createLectureRequests.withEnrollments.endAt),
+          }),
+        ).rejects.toThrow(BadRequestException);
+
+        expect(mockLecturesRepo.create).not.toHaveBeenCalled();
+        expect(mockLectureEnrollmentsRepo.createMany).not.toHaveBeenCalled();
       });
     });
   });

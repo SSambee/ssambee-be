@@ -4,9 +4,15 @@ import {
   isBetterAuthError,
   mapBetterAuthErrorToHttpException,
 } from '../err/better-auth.exception.js';
+import logger from '../utils/loki.util.js';
 
 export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
-  console.error('error message', error);
+  logger.error('Unhandled error', {
+    method: req.method,
+    path: req.path,
+    status: error.statusCode ?? 500,
+    message: error.message,
+  });
 
   // Better Auth 에러 처리
   if (isBetterAuthError(error)) {

@@ -113,8 +113,8 @@ export const getEnrollmentsQuerySchema = paginationQuerySchema.extend({
   year: z.enum([...SCHOOL_YEARS] as [string, ...string[]]).optional(),
   /** 수강 상태 필터 */
   status: z.nativeEnum(EnrollmentStatus).optional(),
-  /** 특정 강의 필터 */
-  lecture: z.string().optional(),
+  /** 특정 강의 필터: 강의 ID 또는 EnrollmentLectureFilter.UNASSIGNED */
+  lecture: z.string().trim().optional(),
   /** 특정 시험 ID 필터 (해당 시험 성적 포함) */
   examId: z.string().optional(),
 });

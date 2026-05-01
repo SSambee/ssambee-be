@@ -1,6 +1,9 @@
 import { PrismaClient } from '../generated/prisma/client.js';
 import { EnrollmentStatus } from '../constants/enrollments.constant.js';
-import { NotFoundException } from '../err/http.exception.js';
+import {
+  BadRequestException,
+  NotFoundException,
+} from '../err/http.exception.js';
 import {
   LecturesRepository,
   LectureWithTimes,
@@ -115,15 +118,54 @@ export class LecturesService {
     if (!instructor) throw new NotFoundException('강사를 찾을 수 없습니다.');
 
     return await this.prisma.$transaction(async (tx) => {
-      // 1. 강의 생성
+      const enrollmentRequests = data.enrollments ?? [];
+      const existingPhoneMap = new Map<
+        string,
+        Awaited<
+          ReturnType<EnrollmentsRepository['findManyByInstructorAndPhones']>
+        >[number]
+      >();
+
+      if (enrollmentRequests.length > 0) {
+        // 1. 요청된 학생들의 전화번호 목록 추출
+        const studentPhones = enrollmentRequests.map((e) => e.studentPhone);
+
+        // 2. 기존 Enrollment 조회 (해당 강사의 학생 명단에서)
+        const existingEnrollments =
+          await this.enrollmentsRepository.findManyByInstructorAndPhones(
+            instructorId,
+            studentPhones,
+            tx,
+          );
+
+        for (const existing of existingEnrollments) {
+          existingPhoneMap.set(existing.studentPhone, existing);
+        }
+
+        for (const enrollmentReq of enrollmentRequests) {
+          const existing = existingPhoneMap.get(enrollmentReq.studentPhone);
+          if (!existing) continue;
+
+          if (
+            existing.studentName !== enrollmentReq.studentName ||
+            existing.parentPhone !== enrollmentReq.parentPhone
+          ) {
+            throw new BadRequestException(
+              '이미 등록된 학생 전화번호와 학생 정보가 일치하지 않습니다.',
+            );
+          }
+        }
+      }
+
+      // 3. 강의 생성
       const lecture = await this.lecturesRepository.create(
         { ...data, instructorId },
         tx,
       );
 
-      // 2. 수강생 처리 (있는 경우)
+      // 4. 수강생 처리 (있는 경우)
       let lectureEnrollments: LectureEnrollment[] = [];
-      if (data.enrollments && data.enrollments.length > 0) {
+      if (enrollmentRequests.length > 0) {
         const resolveStudentId = async (
           enrollmentReq: LectureEnrollmentRequest,
         ) => {
@@ -148,28 +190,13 @@ export class LecturesService {
           return link?.id;
         };
 
-        // 2-1. 요청된 학생들의 전화번호 목록 추출
-        const studentPhones = data.enrollments.map((e) => e.studentPhone);
-
-        // 2-2. 기존 Enrollment 조회 (해당 강사의 학생 명단에서)
-        const existingEnrollments =
-          await this.enrollmentsRepository.findManyByInstructorAndPhones(
-            instructorId,
-            studentPhones,
-            tx,
-          );
-
-        const existingPhoneMap = new Map(
-          existingEnrollments.map((e) => [e.studentPhone, e]),
-        );
-
-        // 2-3. 새롭게 생성해야 할 Enrollment와 재사용할 Enrollment 분류
+        // 4-1. 새롭게 생성해야 할 Enrollment와 재사용할 Enrollment 분류
         const newEnrollmentsData: Prisma.EnrollmentUncheckedCreateInput[] = [];
         const pendingLectureEnrollments: Prisma.LectureEnrollmentUncheckedCreateInput[] =
           [];
         const pendingNewLectureEnrollments: LectureEnrollmentRequest[] = [];
 
-        for (const enrollmentReq of data.enrollments) {
+        for (const enrollmentReq of enrollmentRequests) {
           const existing = existingPhoneMap.get(enrollmentReq.studentPhone);
           if (existing) {
             const connectionData: Prisma.EnrollmentUpdateInput = {};
@@ -230,7 +257,7 @@ export class LecturesService {
           }
         }
 
-        // 2-4. 새 Enrollment 일괄 생성
+        // 4-2. 새 Enrollment 일괄 생성
         if (newEnrollmentsData.length > 0) {
           const createdEnrollments =
             await this.enrollmentsRepository.createMany(newEnrollmentsData, tx);
@@ -256,7 +283,7 @@ export class LecturesService {
           );
         }
 
-        // 2-5. LectureEnrollment 생성 (강의와 학생 연결)
+        // 4-3. LectureEnrollment 생성 (강의와 학생 연결)
         lectureEnrollments = await this.lectureEnrollmentsRepository.createMany(
           pendingLectureEnrollments,
           tx,

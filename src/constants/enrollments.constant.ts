@@ -8,3 +8,9 @@ export const EnrollmentStatus = {
 } as const;
 export type EnrollmentStatus =
   (typeof EnrollmentStatus)[keyof typeof EnrollmentStatus];
+
+export const EnrollmentLectureFilter = {
+  UNASSIGNED: 'unassigned',
+} as const;
+export type EnrollmentLectureFilter =
+  (typeof EnrollmentLectureFilter)[keyof typeof EnrollmentLectureFilter];
