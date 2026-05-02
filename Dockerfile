@@ -44,6 +44,7 @@ RUN pnpm add prisma -D
 
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/src/generated ./src/generated
+COPY --from=builder /app/src/scripts ./src/scripts
 
 EXPOSE 4000
 
