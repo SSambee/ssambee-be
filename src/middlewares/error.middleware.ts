@@ -11,7 +11,9 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
     method: req.method,
     path: req.path,
     status: error.statusCode ?? 500,
+    name: error instanceof Error ? error.name : undefined,
     message: error.message,
+    stack: error instanceof Error ? error.stack : undefined,
   });
 
   // Better Auth 에러 처리

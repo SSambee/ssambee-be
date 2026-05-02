@@ -257,13 +257,15 @@ export class SchedulerService {
     } catch (error) {
       const finishedAt = new Date();
       const nextRunAt = addSeconds(finishedAt, job.retryDelaySeconds);
-      const errorMessage = this.serializeError(error);
+      const errorMeta = this.serializeError(error);
+      const errorMessage =
+        error instanceof Error ? (error.stack ?? error.message) : String(error);
 
       if (leaseLost || this.isAbortError(error)) {
         this.logger.warn('[SchedulerService] job aborted after lease loss', {
           jobId: job.id,
           workerId: this.options.workerId,
-          error: errorMessage,
+          error: errorMeta,
         });
         return;
       }
@@ -284,7 +286,7 @@ export class SchedulerService {
             jobId: job.id,
             workerId: this.options.workerId,
             finishedAt: finishedAt.toISOString(),
-            error: errorMessage,
+            error: errorMeta,
           },
         );
         return;
@@ -294,7 +296,7 @@ export class SchedulerService {
         jobId: job.id,
         workerId: this.options.workerId,
         finishedAt: finishedAt.toISOString(),
-        error: errorMessage,
+        error: errorMeta,
       });
     } finally {
       clearInterval(heartbeat);
@@ -344,11 +346,15 @@ export class SchedulerService {
     );
   }
 
-  private serializeError(error: unknown) {
+  private serializeError(error: unknown): Record<string, unknown> {
     if (error instanceof Error) {
-      return error.stack ?? error.message;
+      return {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      };
     }
 
-    return String(error);
+    return { message: String(error) };
   }
 }

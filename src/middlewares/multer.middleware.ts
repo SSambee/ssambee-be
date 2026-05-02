@@ -1,4 +1,6 @@
 import path from 'path';
+import { tmpdir } from 'node:os';
+import { randomUUID } from 'node:crypto';
 import { Request } from 'express';
 import multer, { FileFilterCallback } from 'multer';
 import { S3Client } from '@aws-sdk/client-s3';
@@ -10,8 +12,15 @@ export const s3Client = new S3Client({
   region: config.AWS_REGION,
 });
 
-// storage setting: memoryStorage
-const storage = multer.memoryStorage();
+// storage setting: diskStorage (OOM prevention)
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, tmpdir());
+  },
+  filename: (_req, _file, cb) => {
+    cb(null, `${Date.now()}-${randomUUID()}`);
+  },
+});
 
 /** 파일 필터링 */
 const fileFilter = (
@@ -73,5 +82,5 @@ const fileFilter = (
 export const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
-  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
+  limits: { fileSize: 30 * 1024 * 1024 }, // 30MB
 });

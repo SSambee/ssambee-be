@@ -9,6 +9,7 @@ import { s3Client } from '../middlewares/multer.middleware.js';
 import { config } from '../config/env.config.js';
 import path from 'path';
 import { randomUUID } from 'crypto';
+import fs from 'node:fs';
 
 /** S3 버킷 타입 정의 */
 export const BucketType = {
@@ -65,11 +66,15 @@ export class FileStorageService {
     const command = new PutObjectCommand({
       Bucket: bucketName,
       Key: key,
-      Body: file.buffer,
+      Body: fs.createReadStream(file.path!),
       ContentType: file.mimetype,
     });
 
-    await s3Client.send(command);
+    try {
+      await s3Client.send(command);
+    } finally {
+      fs.unlinkSync(file.path!);
+    }
 
     // CloudFront URL이 설정된 경우 CloudFront URL 반환
     const cloudFrontUrl = getCloudFrontUrl(bucketType);
@@ -141,10 +146,13 @@ export class FileStorageService {
     const keyPairId = config.AWS_CLOUDFRONT_KEY_PAIR_ID;
     const privateKey = await this.loadPrivateKey();
 
+    const asciiFallback =
+      fileName.replace(/[^\x20-\x7E]/g, '_').replace(/_+/g, '_') || 'download';
+
     if (cloudFrontUrl && keyPairId && privateKey) {
       try {
         return getCloudFrontSignedUrl({
-          url: `https://${cloudFrontUrl}/${key}?response-content-disposition=${encodeURIComponent(`attachment; filename="${encodedFileName}"`)}`,
+          url: `https://${cloudFrontUrl}/${key}?response-content-disposition=${encodeURIComponent(`attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodedFileName}`)}`,
           keyPairId,
           privateKey,
           dateLessThan: new Date(Date.now() + expiresIn * 1000),
@@ -157,7 +165,7 @@ export class FileStorageService {
     const command = new GetObjectCommand({
       Bucket: bucketName,
       Key: key,
-      ResponseContentDisposition: `attachment; filename="${fileName}"; filename*=UTF-8''${encodedFileName}`,
+      ResponseContentDisposition: `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodedFileName}`,
     });
 
     return getS3SignedUrl(s3Client, command, { expiresIn });

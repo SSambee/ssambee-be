@@ -6,7 +6,6 @@ import { router } from './routes/index.js';
 import { config, isDevelopment, isProduction } from './config/env.config.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { disconnectDB } from './config/db.config.js';
-import { MorganLambdaStream } from './utils/logger.util.js';
 import { lokiReady } from './utils/loki.util.js';
 import {
   startSystemMonitoring,
@@ -90,11 +89,6 @@ if (isDevelopment()) {
   app.use(morgan('dev'));
 }
 
-// 비동기 Lambda 로깅 (Production 및 환경변수 설정 시 활성화)
-if (config.MONITOR_LAMBDA_URL) {
-  app.use(morgan('combined', { stream: new MorganLambdaStream() }));
-}
-
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
@@ -104,7 +98,7 @@ app.use('/api/auth/*splat', (req, res) => {
 });
 
 // 4. 데이터 파서
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 

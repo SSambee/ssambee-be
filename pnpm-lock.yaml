@@ -86,6 +86,9 @@ importers:
       pg:
         specifier: ^8.16.3
         version: 8.16.3
+      snappy:
+        specifier: ^7.3.3
+        version: 7.3.3(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)
       tldts:
         specifier: ^7.0.23
         version: 7.0.23
@@ -9724,7 +9727,6 @@ snapshots:
     transitivePeerDependencies:
       - '@emnapi/core'
       - '@emnapi/runtime'
-    optional: true
 
   source-map-support@0.5.13:
     dependencies:
